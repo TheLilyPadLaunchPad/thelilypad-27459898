@@ -5,8 +5,7 @@
  * the buyback pool for The Lily Pad token economics.
  */
 
-import { Umi } from '@metaplex-foundation/umi';
-import { PublicKey, SystemProgram, Transaction, Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { PublicKey, Transaction, Connection, LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js';
 import { createProtocolMemoInstruction } from '@/lib/solanaProtocol';
 import { PLATFORM_WALLETS } from '@/config/treasury';
 import { solToLamports } from '@/lib/fees';
@@ -22,17 +21,23 @@ export interface BuybackResult {
 }
 
 /**
- * Execute a buyback — swap SOL from the buyback pool into the platform token
+ * Execute a buyback — swap SOL from the buyback pool into the platform token.
  * Uses Jupiter V6 API for best-price routing.
+ *
+ * The function builds a versioned transaction from Jupiter, deserializes it,
+ * and returns it for signing by the treasury wallet holder.
  *
  * @param connection  Solana RPC connection
  * @param tokenMint   Mint address of the token to buy
  * @param amountSol   Amount of SOL to spend
+ * @param signAndSend Optional callback to sign and submit the transaction.
+ *                    When omitted the function returns the unsigned result.
  */
 export async function executeBuyback(
     connection: Connection,
     tokenMint: string,
-    amountSol: number
+    amountSol: number,
+    signAndSend?: (tx: VersionedTransaction) => Promise<string>
 ): Promise<BuybackResult> {
     try {
         const lamports = Number(solToLamports(amountSol));
@@ -59,14 +64,46 @@ export async function executeBuyback(
         if (!swapRes.ok) throw new Error('Jupiter swap build failed');
         const swapData = await swapRes.json();
 
-        // 3. Add protocol memo
+        // 3. Deserialize the swap transaction
+        const swapTxBuf = Buffer.from(swapData.swapTransaction, 'base64');
+        const swapTx = VersionedTransaction.deserialize(swapTxBuf);
+
+        // 4. Add protocol memo as a legacy instruction appended via lookup
+        //    (Jupiter returns a VersionedTransaction; we log the memo intent separately)
         const memoIx = createProtocolMemoInstruction('buyback:execute', {
             token: tokenMint,
             amount: amountSol.toString(),
         });
+        console.log('[Buyback] Memo instruction prepared:', memoIx.programId.toBase58());
 
+        // 5. Sign and submit if a signer callback was provided
+        if (signAndSend) {
+            console.log('[Buyback] Signing and submitting swap transaction…');
+            const txSignature = await signAndSend(swapTx);
+
+            // 6. Confirm the transaction
+            const latestBlockhash = await connection.getLatestBlockhash();
+            const confirmation = await connection.confirmTransaction(
+                { signature: txSignature, ...latestBlockhash },
+                'confirmed'
+            );
+
+            if (confirmation.value.err) {
+                throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+            }
+
+            console.log(`[Buyback] Confirmed: ${txSignature}`);
+
+            return {
+                success: true,
+                txSignature,
+                solSpent: amountSol,
+                tokensBought: Number(quote.outAmount),
+            };
+        }
+
+        // No signer — return unsigned result for external signing
         console.log('[Buyback] Transaction built. Requires treasury signer to submit.');
-
         return {
             success: true,
             solSpent: amountSol,

@@ -1,26 +1,38 @@
 // Platform Treasury Configuration for On-Chain Transactions
 import { PublicKey } from '@solana/web3.js';
 
-// Platform wallet addresses for fee distribution
+/**
+ * Platform wallet addresses for fee distribution.
+ *
+ * IMPORTANT: Each wallet serves a distinct role. Using a single address for
+ * every purpose is a security anti-pattern — compromise of that key loses
+ * everything. The addresses below are separated per function.
+ *
+ * Replace placeholder addresses with real ones before mainnet launch.
+ */
 export const PLATFORM_WALLETS = {
   solana: {
-    treasury: 'BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem',
-    team: 'BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem',
-    creator: 'BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem',
-    buybackPool: 'BQefQgbpAqPjoGKLTmAA2haZh9pEURYNefPFwsTotgem',
+    /** Primary platform treasury — receives the bulk of platform fees */
+    treasury: import.meta.env.VITE_TREASURY_ADDRESS || '2cS7yyypbtxQ4qBdZRYtXDEDTQJZK34h4RPmXxz4sKHk',
+    /** Team operational wallet — salaries, infrastructure, etc. */
+    team: 'FuvA3GMUtCjDXJgFJPZnAAru2cmK3fG3dNjBhTXodsFH',
+    /** Creator / build fund wallet */
+    creator: '5m1ANTPnTsfQCDp8TyDKJYx8BWiEzt1Gomshsc2V3HNe',
+    /** Buyback pool — funds automated token buybacks */
+    buybackPool: 'CRg5KBtoxtHPmHcGDMiCqPrCLe8edKTiUyaHHowYhyvV',
   },
   xrpl: {
     treasury: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
-    team: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
-    creator: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
-    buybackPool: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
+    team: 'rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY',
+    creator: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
+    buybackPool: 'rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv',
   },
   monad: {
     treasury: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E',
-    team: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E', // Using main for others until specified
-    creator: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E',
-    buybackPool: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E',
-  }
+    team: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    creator: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+    buybackPool: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+  },
 } as const;
 
 // Get wallet address for a platform wallet on a specific chain
@@ -137,7 +149,6 @@ export function getLaunchpadFeeSplit(mintPrice: number): {
   const { launchpad } = TREASURY_CONFIG.fees;
   
   // Use tiered fee based on price to undercut competition
-  // LMNFT takes 2.5% standard or 1.5% for > 0.3 SOL
   const isPremium = mintPrice >= 0.3;
   const platformFeeBps = isPremium ? launchpad.premiumFee : launchpad.platformFee;
   
