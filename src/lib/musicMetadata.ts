@@ -36,11 +36,15 @@ export function buildMusicNftMetadata(
     attributes.push({ trait_type: 'Track Number', value: String(metadata.trackNumber) });
   }
 
-  return {
+    // Append ?ext=mp3 for reliable wallet/player detection
+    const ext = track.audioFile.name.split('.').pop()?.toLowerCase() || 'mp3';
+    const audioUriWithExt = audioUri.includes('?') ? audioUri : `${audioUri}?ext=${ext}`;
+
+    return {
     name: metadata.name || 'Untitled Track',
     description: metadata.description || '',
     image: imageUri,
-    animation_url: audioUri,
+    animation_url: audioUriWithExt,
     attributes,
     properties: {
       category: 'audio',

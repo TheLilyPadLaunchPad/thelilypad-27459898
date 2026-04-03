@@ -44,7 +44,7 @@ export { deployMonadCollection, mintMonadNFT, getMonadCollectionInfo } from './m
 export { uploadFile, uploadFiles, uploadMetadata, uploadJsonBatch, resolveMetadataUri, resolveImageUri } from './solana/metadata';
 
 // Re-export Monad metadata
-export { uploadMonadImage, uploadMonadMetadata, uploadMonadMetadataBatch, buildERC721Metadata } from './monad/metadata';
+export { uploadMonadImage, uploadMonadMetadata, uploadMonadMetadataBatch, uploadMonadAudio, buildERC721Metadata } from './monad/metadata';
 export type { ERC721Metadata, ERC721Attribute } from './monad/metadata';
 
 // Re-export Solana shop / buyback / creator
