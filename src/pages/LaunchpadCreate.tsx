@@ -181,6 +181,8 @@ export default function LaunchpadCreate() {
     useEffect(() => {
         if (flowType === '1of1') {
             setMode('1of1');
+        } else if (flowType === 'music') {
+            setMode('music');
         } else if (typeParam === 'advanced' || typeParam === 'generative') {
             setMode('advanced');
         } else {
