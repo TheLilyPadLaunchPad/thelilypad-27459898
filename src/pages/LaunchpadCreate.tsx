@@ -289,17 +289,29 @@ export default function LaunchpadCreate() {
                 for (let i = 0; i < tracks.length; i++) {
                     const track = tracks[i];
                     toast.loading(`Uploading audio ${i + 1}/${tracks.length}...`, { id: 'deploy' });
+                    const audioTags = [
+                        { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
+                        { name: "App-Name", value: "TheLilyPad" },
+                        { name: "Collection-Name", value: name },
+                        { name: "Track-Name", value: track.metadata.name || `Track ${i + 1}` },
+                        ...(track.metadata.artist ? [{ name: "Artist", value: track.metadata.artist }] : []),
+                        ...(track.metadata.genre ? [{ name: "Genre", value: track.metadata.genre }] : []),
+                        ...(track.metadata.bpm ? [{ name: "BPM", value: String(track.metadata.bpm) }] : []),
+                        ...(track.metadata.durationSeconds ? [{ name: "Duration", value: String(track.metadata.durationSeconds) }] : []),
+                        { name: "x-lilypad-music", value: "true" },
+                        // UDL licensing tags
+                        { name: "License", value: "yRj4a5KMctX_uOmKWCFJIjmY8DeJcusVk6-HzLiM_t8" },
+                        { name: "License-Fee", value: "One-Time-0.1" },
+                        { name: "Commercial-Use", value: "Allowed" },
+                        { name: "Derivation", value: "Allowed-With-Credit" },
+                    ];
                     const audioUri = await uploadToArweave(
                         track.audioFile,
                         { address, chainType: walletChain, network },
                         false, // isMutable
                         undefined, // rootTx
                         undefined, // feeMultiplier
-                        [
-                            { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
-                            { name: "Collection-Name", value: name },
-                            { name: "Track-Name", value: track.metadata.name || `Track ${i + 1}` },
-                        ]
+                        audioTags,
                     );
                     audioUriMap[i] = audioUri;
                 }
