@@ -465,7 +465,11 @@ export async function uploadToArweave(
     if (balance.lt(price)) {
         const toFund = price.minus(balance);
         console.log(`[Irys] Funding node with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
-        await irys.fund(toFund, feeMultiplier);
+        await withTimeout(
+            () => irys.fund(toFund, feeMultiplier),
+            FUNDING_TIMEOUT_MS,
+            "Arweave funding"
+        );
     }
 
     const tags = [
