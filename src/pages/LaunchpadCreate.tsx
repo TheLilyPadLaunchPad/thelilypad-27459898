@@ -177,6 +177,13 @@ export default function LaunchpadCreate() {
     // Dynamic NFT (Evolving): uses Irys mutable references so metadata can be updated post-mint
     const [isDynamic, setIsDynamic] = useState(false);
 
+    // Upload cancel/resume state
+    const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<{ completed: number; total: number; status: string } | null>(null);
+    const [hasResumableUpload, setHasResumableUpload] = useState(false);
+    const [resumeKey, setResumeKey] = useState<string>("");
+    const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
+
     useEffect(() => {
         setXrplTransferFee(Math.round(royaltyPercent * 1000));
     }, [royaltyPercent]);
