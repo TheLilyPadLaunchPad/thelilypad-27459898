@@ -25,7 +25,9 @@ import {
     ArrowLeft,
     ExternalLink,
     Download,
-    Loader2
+    Loader2,
+    XCircle,
+    RotateCcw
 } from "lucide-react";
 import { toast } from "sonner";
 import { FolderUploader } from "@/components/launchpad/FolderUploader";
