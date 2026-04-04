@@ -928,9 +928,24 @@ export async function uploadBatchToArweave(
     customTags: { name: string; value: string }[] = [],
     isMutable = false,
     rootTx?: string,
-    feeMultiplier?: number
+    feeMultiplier?: number,
+    signal?: AbortSignal,
+    resumeKey?: string,
 ): Promise<BatchUploadResponse> {
     if (items.length === 0) return { items: [] };
+
+    // ── Resume: load previous progress ───────────────────────────────────
+    let previousResults: BatchUploadResult[] = [];
+    const completedIndices = new Set<number>();
+    if (resumeKey) {
+        const saved = loadUploadProgress(resumeKey);
+        if (saved && saved.completedItems.length > 0) {
+            previousResults = saved.completedItems;
+            saved.completedItems.forEach(r => completedIndices.add(r.tokenId));
+            onProgress?.(previousResults.length, items.length, `Resuming — ${previousResults.length}/${items.length} already uploaded`);
+            console.log(`[Irys] Resuming upload: ${previousResults.length}/${items.length} items already complete`);
+        }
+    }
 
     const irys = await getWebIrys(wallet);
 
