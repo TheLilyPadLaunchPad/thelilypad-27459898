@@ -234,6 +234,42 @@ export default function LaunchpadCreate() {
         });
     }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, coverImage, xrplTaxon, xrplTransferFee, folderAssets, artworks, saveDraft]);
 
+    // Resume detection: check for saved upload progress
+    useEffect(() => {
+        if (name && symbol) {
+            const key = `${name}_${symbol}`.replace(/\s+/g, '_');
+            setResumeKey(key);
+            const saved = loadUploadProgress(key);
+            if (saved && saved.completedItems.length > 0 && saved.completedItems.length < saved.totalItems) {
+                setHasResumableUpload(true);
+                toast.info(`Previous upload was interrupted. ${saved.completedItems.length} of ${saved.totalItems} items completed.`, {
+                    duration: 8000,
+                    action: { label: "Dismiss", onClick: () => {} },
+                });
+            } else {
+                setHasResumableUpload(false);
+            }
+        }
+    }, [name, symbol]);
+
+    const handleCancelUpload = useCallback(() => {
+        if (uploadAbortController) {
+            uploadAbortController.abort();
+            setUploadAbortController(null);
+            toast.warning("Upload cancelled — progress saved. You can resume later.");
+        }
+    }, [uploadAbortController]);
+
+    // Calculate ETA
+    const uploadEta = useMemo(() => {
+        if (!uploadProgress || !uploadStartTime || uploadProgress.completed === 0) return null;
+        const elapsed = Date.now() - uploadStartTime;
+        const perItem = elapsed / uploadProgress.completed;
+        const remaining = (uploadProgress.total - uploadProgress.completed) * perItem;
+        const minutes = Math.ceil(remaining / 60_000);
+        return minutes <= 1 ? "< 1 min" : `~${minutes} min`;
+    }, [uploadProgress, uploadStartTime]);
+
     const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
