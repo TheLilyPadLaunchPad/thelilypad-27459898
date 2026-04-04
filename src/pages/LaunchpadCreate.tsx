@@ -635,6 +635,9 @@ export default function LaunchpadCreate() {
             }
         } finally {
             setIsDeploying(false);
+            setUploadAbortController(null);
+            setUploadProgress(null);
+            setUploadStartTime(null);
         }
     };
 
