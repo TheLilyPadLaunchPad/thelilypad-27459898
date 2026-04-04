@@ -877,10 +877,59 @@ export default function LaunchpadCreate() {
                                         <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto"><Rocket className="w-10 h-10" /></div>
                                         <h2 className="text-2xl font-bold">Ready to Launch!</h2>
                                         <LaunchpadTools config={launchpadConfig} theme={theme} />
+
+                                        {/* Resume banner */}
+                                        {hasResumableUpload && !isDeploying && (
+                                            <div className="p-4 rounded-xl border border-accent/30 bg-accent/5 space-y-3 text-left">
+                                                <div className="flex items-center gap-2">
+                                                    <RotateCcw className="w-4 h-4 text-accent" />
+                                                    <span className="text-sm font-semibold">Resume Previous Upload</span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    A previous upload was interrupted. Your progress has been saved — click Launch to resume where you left off.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Upload progress bar */}
+                                        {isDeploying && uploadProgress && (
+                                            <div className="space-y-3 text-left">
+                                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                    <span>{uploadProgress.status}</span>
+                                                    <span>
+                                                        {uploadProgress.completed}/{uploadProgress.total}
+                                                        {uploadEta && ` • ETA: ${uploadEta}`}
+                                                    </span>
+                                                </div>
+                                                <Progress value={uploadProgress.total > 0 ? (uploadProgress.completed / uploadProgress.total) * 100 : 0} className="h-2" />
+                                            </div>
+                                        )}
+
                                         <div className="space-y-4">
-                                            <Button onClick={handleDeploy} disabled={isDeploying} className="w-full h-16 text-xl font-bold">
-                                                {isDeploying ? "Deploying..." : "Launch Collection"}
-                                            </Button>
+                                            {isDeploying ? (
+                                                <div className="flex gap-3">
+                                                    <Button disabled className="flex-1 h-16 text-xl font-bold">
+                                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                        Deploying...
+                                                    </Button>
+                                                    <Button
+                                                        variant="destructive"
+                                                        onClick={handleCancelUpload}
+                                                        className="h-16 px-6"
+                                                    >
+                                                        <XCircle className="w-5 h-5 mr-1" />
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <Button onClick={handleDeploy} className="w-full h-16 text-xl font-bold">
+                                                    {hasResumableUpload ? (
+                                                        <><RotateCcw className="w-5 h-5 mr-2" /> Resume Upload</>
+                                                    ) : (
+                                                        "Launch Collection"
+                                                    )}
+                                                </Button>
+                                            )}
                                             <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
                                                 <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[9px]">LOWEST FEES</Badge>
                                                 <span>2.0% Flat Fee • Zero Launch Fees • Permanent Arweave Storage</span>
