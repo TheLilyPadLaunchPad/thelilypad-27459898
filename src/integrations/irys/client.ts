@@ -342,6 +342,32 @@ export function clearIrysCache() {
     _cachedIrys = null;
 }
 
+// ── Timeout helper ───────────────────────────────────────────────────────
+
+const UPLOAD_TIMEOUT_MS = 60_000;   // 60s per file upload
+const METADATA_TIMEOUT_MS = 30_000; // 30s per metadata upload
+const FUNDING_TIMEOUT_MS = 120_000; // 120s for funding
+
+class UploadTimeoutError extends Error {
+    constructor(label: string, timeoutMs: number) {
+        super(`Upload timed out after ${timeoutMs / 1000}s: ${label}`);
+        this.name = "UploadTimeoutError";
+    }
+}
+
+async function withTimeout<T>(
+    fn: () => Promise<T>,
+    timeoutMs: number,
+    label: string,
+): Promise<T> {
+    return Promise.race([
+        fn(),
+        new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new UploadTimeoutError(label, timeoutMs)), timeoutMs)
+        ),
+    ]);
+}
+
 // ── Retry helper ─────────────────────────────────────────────────────────
 
 const MAX_RETRIES = 3;
@@ -351,10 +377,12 @@ async function withRetry<T>(
     fn: () => Promise<T>,
     label: string,
     retries = MAX_RETRIES,
+    timeoutMs?: number,
 ): Promise<T> {
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            return await fn();
+            const exec = timeoutMs ? () => withTimeout(fn, timeoutMs, label) : fn;
+            return await exec();
         } catch (err: any) {
             if (attempt === retries) throw err;
 
@@ -367,6 +395,51 @@ async function withRetry<T>(
         }
     }
     throw new Error("Unreachable"); // for TS
+}
+
+// ── Upload progress persistence ──────────────────────────────────────────
+
+const PROGRESS_KEY_PREFIX = "lilypad_upload_progress_";
+
+export interface SavedUploadProgress {
+    completedItems: BatchUploadResult[];
+    totalItems: number;
+    timestamp: number;
+}
+
+export function saveUploadProgress(collectionKey: string, results: BatchUploadResult[], totalItems: number) {
+    try {
+        const data: SavedUploadProgress = {
+            completedItems: results.filter(Boolean),
+            totalItems,
+            timestamp: Date.now(),
+        };
+        localStorage.setItem(PROGRESS_KEY_PREFIX + collectionKey, JSON.stringify(data));
+    } catch (e) {
+        console.warn("[Irys] Failed to save upload progress:", e);
+    }
+}
+
+export function loadUploadProgress(collectionKey: string): SavedUploadProgress | null {
+    try {
+        const raw = localStorage.getItem(PROGRESS_KEY_PREFIX + collectionKey);
+        if (!raw) return null;
+        const data: SavedUploadProgress = JSON.parse(raw);
+        // Expire after 24 hours
+        if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+            clearUploadProgress(collectionKey);
+            return null;
+        }
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+export function clearUploadProgress(collectionKey: string) {
+    try {
+        localStorage.removeItem(PROGRESS_KEY_PREFIX + collectionKey);
+    } catch {}
 }
 
 // ── Single-file upload ───────────────────────────────────────────────────
@@ -392,7 +465,11 @@ export async function uploadToArweave(
     if (balance.lt(price)) {
         const toFund = price.minus(balance);
         console.log(`[Irys] Funding node with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
-        await irys.fund(toFund, feeMultiplier);
+        await withTimeout(
+            () => irys.fund(toFund, feeMultiplier),
+            FUNDING_TIMEOUT_MS,
+            "Arweave funding"
+        );
     }
 
     const tags = [
@@ -851,9 +928,24 @@ export async function uploadBatchToArweave(
     customTags: { name: string; value: string }[] = [],
     isMutable = false,
     rootTx?: string,
-    feeMultiplier?: number
+    feeMultiplier?: number,
+    signal?: AbortSignal,
+    resumeKey?: string,
 ): Promise<BatchUploadResponse> {
     if (items.length === 0) return { items: [] };
+
+    // ── Resume: load previous progress ───────────────────────────────────
+    let previousResults: BatchUploadResult[] = [];
+    const completedIndices = new Set<number>();
+    if (resumeKey) {
+        const saved = loadUploadProgress(resumeKey);
+        if (saved && saved.completedItems.length > 0) {
+            previousResults = saved.completedItems;
+            saved.completedItems.forEach(r => completedIndices.add(r.tokenId));
+            onProgress?.(previousResults.length, items.length, `Resuming — ${previousResults.length}/${items.length} already uploaded`);
+            console.log(`[Irys] Resuming upload: ${previousResults.length}/${items.length} items already complete`);
+        }
+    }
 
     const irys = await getWebIrys(wallet);
 
@@ -886,65 +978,88 @@ export async function uploadBatchToArweave(
         }
     }
 
-    // ── Phase 2: Pre-fund estimate ───────────────────────────────────────
-    onProgress?.(0, items.length, "Estimating storage cost…");
+    // ── Phase 2: Pre-fund estimate (only for remaining items) ─────────────
+    const remainingItems = items.filter((_, idx) => !completedIndices.has(idx));
+    onProgress?.(previousResults.length, items.length, "Estimating storage cost…");
 
     // Estimate total bytes: original + thumb + preview + ~4KB metadata each
-    const totalBytes = items.reduce((sum, item, idx) => {
-        const origSize = item.file.size || 10_000_000; // 10 MB conservative default for 4000x4000
-        const thumbSize = processedImages?.[idx]?.thumb?.size || 150_000; // ~150 KB WebP
-        const previewSize = processedImages?.[idx]?.preview?.size || 1_500_000; // ~1.5 MB WebP
+    const totalBytes = remainingItems.reduce((sum, item, idx) => {
+        const origSize = item.file.size || 10_000_000;
+        const thumbSize = processedImages?.[idx]?.thumb?.size || 150_000;
+        const previewSize = processedImages?.[idx]?.preview?.size || 1_500_000;
         return sum + origSize + thumbSize + previewSize + 4_096;
     }, 0);
 
-    const price = await irys.getPrice(totalBytes);
-    const balance = await irys.getLoadedBalance();
+    if (totalBytes > 0) {
+        const price = await irys.getPrice(totalBytes);
+        const balance = await irys.getLoadedBalance();
 
-    if (balance.lt(price)) {
-        // Fund with dynamic buffer (1.5x for large collections, 1.25x for small)
-        const toFund = price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25);
-        onProgress?.(0, items.length, "Funding Arweave node…");
-        console.log(
-            `[Irys] Pre-funding node with ${toFund.toString()} for ~${items.length} items (+ thumbnails) (multiplier: ${feeMultiplier || 1})…`
-        );
-        await withRetry(() => irys.fund(toFund, feeMultiplier), "pre-fund");
+        if (balance.lt(price)) {
+            const toFund = price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25);
+            onProgress?.(previousResults.length, items.length, "Funding Arweave node…");
+            console.log(
+                `[Irys] Pre-funding node with ${toFund.toString()} for ~${remainingItems.length} items (multiplier: ${feeMultiplier || 1})…`
+            );
+            await withRetry(
+                () => withTimeout(() => irys.fund(toFund, feeMultiplier), FUNDING_TIMEOUT_MS, "batch pre-fund"),
+                "pre-fund"
+            );
+        }
     }
 
     // ── Phase 3: Upload loop ─────────────────────────────────────────────
     const results: BatchUploadResult[] = new Array(items.length);
+    // Pre-populate with resumed results
+    for (const r of previousResults) {
+        results[r.tokenId] = r;
+    }
+
     const makeTags = (type: string, isFolder: boolean = false) => {
         const baseTags = [
             { name: "Content-Type", value: type || "application/octet-stream" },
             { name: "application-id", value: "The Lily Pad" },
             { name: "generator", value: "Lily Pad Launchpad" },
         ];
-
-        // Don't add custom collection tags to manifest itself since it's an Irys internal type, 
-        // but it's safe to add if needed. We'll add custom tags everywhere.
         return [...baseTags, ...customTags];
     };
 
+    let uploadedCount = previousResults.length;
+
     for (let i = 0; i < items.length; i += concurrency) {
+        // ── Abort check ──────────────────────────────────────────────────
+        if (signal?.aborted) {
+            console.log(`[Irys] Upload cancelled at item ${i}/${items.length}`);
+            onProgress?.(uploadedCount, items.length, `Upload cancelled — ${uploadedCount}/${items.length} saved`);
+            if (resumeKey) {
+                saveUploadProgress(resumeKey, results.filter(Boolean), items.length);
+            }
+            break;
+        }
+
         const window = items.slice(i, i + concurrency);
 
         const windowResults = await Promise.all(
             window.map(async (item, idx) => {
                 const globalIdx = i + idx;
+
+                // Skip already completed items (from resume)
+                if (completedIndices.has(globalIdx)) return null;
+
                 try {
-                    onProgress?.(globalIdx, items.length, `Uploading item ${globalIdx + 1}/${items.length}…`);
+                    onProgress?.(uploadedCount, items.length, `Uploading item ${globalIdx + 1}/${items.length}…`);
                     const processed = processedImages?.[globalIdx];
 
-                    // 1. Upload full-res image
+                    // 1. Upload full-res image (with timeout)
                     const imgData = await item.file.arrayBuffer();
                     const imgUri = await withRetry(async () => {
                         const res = await irys.upload(new Uint8Array(imgData) as any, {
                             tags: makeTags(item.file.type),
                         });
                         return `https://arweave.net/${res.id}`;
-                    }, `image #${globalIdx + 1}`);
+                    }, `image #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
 
                     // 2. Upload thumbnail (if generated)
-                    let thumbUri = imgUri; // fallback to full if no thumb
+                    let thumbUri = imgUri;
                     if (processed?.thumb && processed.thumb !== processed.original) {
                         const thumbData = await processed.thumb.arrayBuffer();
                         thumbUri = await withRetry(async () => {
@@ -952,11 +1067,11 @@ export async function uploadBatchToArweave(
                                 tags: makeTags("image/webp"),
                             });
                             return `https://arweave.net/${res.id}`;
-                        }, `thumb #${globalIdx + 1}`);
+                        }, `thumb #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
                     }
 
                     // 3. Upload preview (if generated)
-                    let previewUri = imgUri; // fallback to full if no preview
+                    let previewUri = imgUri;
                     if (processed?.preview && processed.preview !== processed.original) {
                         const prevData = await processed.preview.arrayBuffer();
                         previewUri = await withRetry(async () => {
@@ -964,10 +1079,10 @@ export async function uploadBatchToArweave(
                                 tags: makeTags("image/webp"),
                             });
                             return `https://arweave.net/${res.id}`;
-                        }, `preview #${globalIdx + 1}`);
+                        }, `preview #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
                     }
 
-                    // 4. Build & upload metadata (with all image URIs)
+                    // 4. Build & upload metadata (with timeout)
                     const metadata = item.buildMetadata(imgUri, thumbUri, previewUri);
                     const metaJson = JSON.stringify(metadata, null, 2);
                     const metaData = new TextEncoder().encode(metaJson);
@@ -976,7 +1091,7 @@ export async function uploadBatchToArweave(
                             tags: makeTags("application/json"),
                         });
                         return `https://arweave.net/${res.id}`;
-                    }, `metadata #${globalIdx + 1}`);
+                    }, `metadata #${globalIdx + 1}`, MAX_RETRIES, METADATA_TIMEOUT_MS);
 
                     return {
                         tokenId: globalIdx,
@@ -987,22 +1102,30 @@ export async function uploadBatchToArweave(
                     } satisfies BatchUploadResult;
                 } catch (err) {
                     console.error(`[Irys] Item ${globalIdx + 1} failed:`, err);
-                    onProgress?.(globalIdx, items.length, `Item ${globalIdx + 1} failed — skipping`);
+                    onProgress?.(uploadedCount, items.length, `Item ${globalIdx + 1} failed — skipping`);
                     return null;
                 }
             })
         );
 
         for (const r of windowResults) {
-            if (r) results[r.tokenId] = r;
+            if (r) {
+                results[r.tokenId] = r;
+                uploadedCount++;
+            }
         }
 
-        const completed = Math.min(i + concurrency, items.length);
+        const completed = uploadedCount;
         onProgress?.(
             completed,
             items.length,
             `Uploaded ${completed} / ${items.length} to Arweave…`
         );
+
+        // Persist progress incrementally
+        if (resumeKey) {
+            saveUploadProgress(resumeKey, results.filter(Boolean), items.length);
+        }
 
         // Yield to event loop every window
         await new Promise((r) => setTimeout(r, 0));

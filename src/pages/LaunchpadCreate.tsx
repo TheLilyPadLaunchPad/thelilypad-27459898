@@ -25,7 +25,9 @@ import {
     ArrowLeft,
     ExternalLink,
     Download,
-    Loader2
+    Loader2,
+    XCircle,
+    RotateCcw
 } from "lucide-react";
 import { toast } from "sonner";
 import { FolderUploader } from "@/components/launchpad/FolderUploader";
@@ -61,7 +63,8 @@ import { cn, dataUrlToBlob } from "@/lib/utils";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getDbChainValue } from "@/config/chains";
 import { getLaunchpadConfig, CollectionMode } from "@/config/launchpad";
-import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata } from "@/integrations/irys/client";
+import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata, loadUploadProgress, clearUploadProgress } from "@/integrations/irys/client";
+import { Progress } from "@/components/ui/progress";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
 import { XRPLConfigurator } from "@/components/launchpad/chains/XRPLConfigurator";
 import { Switch } from "@/components/ui/switch";
@@ -174,6 +177,13 @@ export default function LaunchpadCreate() {
     // Dynamic NFT (Evolving): uses Irys mutable references so metadata can be updated post-mint
     const [isDynamic, setIsDynamic] = useState(false);
 
+    // Upload cancel/resume state
+    const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<{ completed: number; total: number; status: string } | null>(null);
+    const [hasResumableUpload, setHasResumableUpload] = useState(false);
+    const [resumeKey, setResumeKey] = useState<string>("");
+    const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
+
     useEffect(() => {
         setXrplTransferFee(Math.round(royaltyPercent * 1000));
     }, [royaltyPercent]);
@@ -224,6 +234,42 @@ export default function LaunchpadCreate() {
         });
     }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, coverImage, xrplTaxon, xrplTransferFee, folderAssets, artworks, saveDraft]);
 
+    // Resume detection: check for saved upload progress
+    useEffect(() => {
+        if (name && symbol) {
+            const key = `${name}_${symbol}`.replace(/\s+/g, '_');
+            setResumeKey(key);
+            const saved = loadUploadProgress(key);
+            if (saved && saved.completedItems.length > 0 && saved.completedItems.length < saved.totalItems) {
+                setHasResumableUpload(true);
+                toast.info(`Previous upload was interrupted. ${saved.completedItems.length} of ${saved.totalItems} items completed.`, {
+                    duration: 8000,
+                    action: { label: "Dismiss", onClick: () => {} },
+                });
+            } else {
+                setHasResumableUpload(false);
+            }
+        }
+    }, [name, symbol]);
+
+    const handleCancelUpload = useCallback(() => {
+        if (uploadAbortController) {
+            uploadAbortController.abort();
+            setUploadAbortController(null);
+            toast.warning("Upload cancelled — progress saved. You can resume later.");
+        }
+    }, [uploadAbortController]);
+
+    // Calculate ETA
+    const uploadEta = useMemo(() => {
+        if (!uploadProgress || !uploadStartTime || uploadProgress.completed === 0) return null;
+        const elapsed = Date.now() - uploadStartTime;
+        const perItem = elapsed / uploadProgress.completed;
+        const remaining = (uploadProgress.total - uploadProgress.completed) * perItem;
+        const minutes = Math.ceil(remaining / 60_000);
+        return minutes <= 1 ? "< 1 min" : `~${minutes} min`;
+    }, [uploadProgress, uploadStartTime]);
+
     const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -266,6 +312,10 @@ export default function LaunchpadCreate() {
         }
 
         setIsDeploying(true);
+        const abortCtrl = new AbortController();
+        setUploadAbortController(abortCtrl);
+        setUploadStartTime(Date.now());
+        setUploadProgress(null);
         let collectionId = "";
 
         try {
@@ -392,15 +442,32 @@ export default function LaunchpadCreate() {
 
             const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
-                { address, chainType: walletChain, network }, // use wallet's actual chain, not URL param
+                { address, chainType: walletChain, network },
                 (completed, total, status) => {
+                    setUploadProgress({ completed, total, status });
                     toast.loading(status, { id: 'deploy' });
                 },
                 25, // concurrency
                 true, // enable thumbnails
-                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }], // custom tags
-                isDynamic, // isMutable — uses Irys mutable references for Dynamic NFTs
+                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }],
+                isDynamic, // isMutable
+                undefined, // rootTx
+                undefined, // feeMultiplier
+                abortCtrl.signal, // AbortSignal for cancel
+                resumeKey || undefined, // resumeKey for progress persistence
             );
+
+            // If aborted, stop here
+            if (abortCtrl.signal.aborted) {
+                setIsDeploying(false);
+                setUploadAbortController(null);
+                setHasResumableUpload(true);
+                return;
+            }
+
+            // Clear saved progress on success
+            if (resumeKey) clearUploadProgress(resumeKey);
+            setHasResumableUpload(false);
 
             const itemLinks = uploadResults.map((r) => ({
                 tokenID: r.tokenId.toString(),
@@ -568,6 +635,9 @@ export default function LaunchpadCreate() {
             }
         } finally {
             setIsDeploying(false);
+            setUploadAbortController(null);
+            setUploadProgress(null);
+            setUploadStartTime(null);
         }
     };
 
@@ -807,10 +877,59 @@ export default function LaunchpadCreate() {
                                         <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto"><Rocket className="w-10 h-10" /></div>
                                         <h2 className="text-2xl font-bold">Ready to Launch!</h2>
                                         <LaunchpadTools config={launchpadConfig} theme={theme} />
+
+                                        {/* Resume banner */}
+                                        {hasResumableUpload && !isDeploying && (
+                                            <div className="p-4 rounded-xl border border-accent/30 bg-accent/5 space-y-3 text-left">
+                                                <div className="flex items-center gap-2">
+                                                    <RotateCcw className="w-4 h-4 text-accent" />
+                                                    <span className="text-sm font-semibold">Resume Previous Upload</span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    A previous upload was interrupted. Your progress has been saved — click Launch to resume where you left off.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Upload progress bar */}
+                                        {isDeploying && uploadProgress && (
+                                            <div className="space-y-3 text-left">
+                                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                    <span>{uploadProgress.status}</span>
+                                                    <span>
+                                                        {uploadProgress.completed}/{uploadProgress.total}
+                                                        {uploadEta && ` • ETA: ${uploadEta}`}
+                                                    </span>
+                                                </div>
+                                                <Progress value={uploadProgress.total > 0 ? (uploadProgress.completed / uploadProgress.total) * 100 : 0} className="h-2" />
+                                            </div>
+                                        )}
+
                                         <div className="space-y-4">
-                                            <Button onClick={handleDeploy} disabled={isDeploying} className="w-full h-16 text-xl font-bold">
-                                                {isDeploying ? "Deploying..." : "Launch Collection"}
-                                            </Button>
+                                            {isDeploying ? (
+                                                <div className="flex gap-3">
+                                                    <Button disabled className="flex-1 h-16 text-xl font-bold">
+                                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                        Deploying...
+                                                    </Button>
+                                                    <Button
+                                                        variant="destructive"
+                                                        onClick={handleCancelUpload}
+                                                        className="h-16 px-6"
+                                                    >
+                                                        <XCircle className="w-5 h-5 mr-1" />
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <Button onClick={handleDeploy} className="w-full h-16 text-xl font-bold">
+                                                    {hasResumableUpload ? (
+                                                        <><RotateCcw className="w-5 h-5 mr-2" /> Resume Upload</>
+                                                    ) : (
+                                                        "Launch Collection"
+                                                    )}
+                                                </Button>
+                                            )}
                                             <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
                                                 <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[9px]">LOWEST FEES</Badge>
                                                 <span>2.0% Flat Fee • Zero Launch Fees • Permanent Arweave Storage</span>
