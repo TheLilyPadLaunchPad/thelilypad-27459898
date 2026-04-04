@@ -312,6 +312,10 @@ export default function LaunchpadCreate() {
         }
 
         setIsDeploying(true);
+        const abortCtrl = new AbortController();
+        setUploadAbortController(abortCtrl);
+        setUploadStartTime(Date.now());
+        setUploadProgress(null);
         let collectionId = "";
 
         try {
