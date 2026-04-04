@@ -442,15 +442,32 @@ export default function LaunchpadCreate() {
 
             const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
-                { address, chainType: walletChain, network }, // use wallet's actual chain, not URL param
+                { address, chainType: walletChain, network },
                 (completed, total, status) => {
+                    setUploadProgress({ completed, total, status });
                     toast.loading(status, { id: 'deploy' });
                 },
                 25, // concurrency
                 true, // enable thumbnails
-                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }], // custom tags
-                isDynamic, // isMutable — uses Irys mutable references for Dynamic NFTs
+                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }],
+                isDynamic, // isMutable
+                undefined, // rootTx
+                undefined, // feeMultiplier
+                abortCtrl.signal, // AbortSignal for cancel
+                resumeKey || undefined, // resumeKey for progress persistence
             );
+
+            // If aborted, stop here
+            if (abortCtrl.signal.aborted) {
+                setIsDeploying(false);
+                setUploadAbortController(null);
+                setHasResumableUpload(true);
+                return;
+            }
+
+            // Clear saved progress on success
+            if (resumeKey) clearUploadProgress(resumeKey);
+            setHasResumableUpload(false);
 
             const itemLinks = uploadResults.map((r) => ({
                 tokenID: r.tokenId.toString(),
