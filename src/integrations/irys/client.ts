@@ -978,28 +978,33 @@ export async function uploadBatchToArweave(
         }
     }
 
-    // ── Phase 2: Pre-fund estimate ───────────────────────────────────────
-    onProgress?.(0, items.length, "Estimating storage cost…");
+    // ── Phase 2: Pre-fund estimate (only for remaining items) ─────────────
+    const remainingItems = items.filter((_, idx) => !completedIndices.has(idx));
+    onProgress?.(previousResults.length, items.length, "Estimating storage cost…");
 
     // Estimate total bytes: original + thumb + preview + ~4KB metadata each
-    const totalBytes = items.reduce((sum, item, idx) => {
-        const origSize = item.file.size || 10_000_000; // 10 MB conservative default for 4000x4000
-        const thumbSize = processedImages?.[idx]?.thumb?.size || 150_000; // ~150 KB WebP
-        const previewSize = processedImages?.[idx]?.preview?.size || 1_500_000; // ~1.5 MB WebP
+    const totalBytes = remainingItems.reduce((sum, item, idx) => {
+        const origSize = item.file.size || 10_000_000;
+        const thumbSize = processedImages?.[idx]?.thumb?.size || 150_000;
+        const previewSize = processedImages?.[idx]?.preview?.size || 1_500_000;
         return sum + origSize + thumbSize + previewSize + 4_096;
     }, 0);
 
-    const price = await irys.getPrice(totalBytes);
-    const balance = await irys.getLoadedBalance();
+    if (totalBytes > 0) {
+        const price = await irys.getPrice(totalBytes);
+        const balance = await irys.getLoadedBalance();
 
-    if (balance.lt(price)) {
-        // Fund with dynamic buffer (1.5x for large collections, 1.25x for small)
-        const toFund = price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25);
-        onProgress?.(0, items.length, "Funding Arweave node…");
-        console.log(
-            `[Irys] Pre-funding node with ${toFund.toString()} for ~${items.length} items (+ thumbnails) (multiplier: ${feeMultiplier || 1})…`
-        );
-        await withRetry(() => irys.fund(toFund, feeMultiplier), "pre-fund");
+        if (balance.lt(price)) {
+            const toFund = price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25);
+            onProgress?.(previousResults.length, items.length, "Funding Arweave node…");
+            console.log(
+                `[Irys] Pre-funding node with ${toFund.toString()} for ~${remainingItems.length} items (multiplier: ${feeMultiplier || 1})…`
+            );
+            await withRetry(
+                () => withTimeout(() => irys.fund(toFund, feeMultiplier), FUNDING_TIMEOUT_MS, "batch pre-fund"),
+                "pre-fund"
+            );
+        }
     }
 
     // ── Phase 3: Upload loop ─────────────────────────────────────────────
