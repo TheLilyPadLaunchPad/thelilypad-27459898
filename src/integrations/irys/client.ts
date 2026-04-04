@@ -342,6 +342,32 @@ export function clearIrysCache() {
     _cachedIrys = null;
 }
 
+// ── Timeout helper ───────────────────────────────────────────────────────
+
+const UPLOAD_TIMEOUT_MS = 60_000;   // 60s per file upload
+const METADATA_TIMEOUT_MS = 30_000; // 30s per metadata upload
+const FUNDING_TIMEOUT_MS = 120_000; // 120s for funding
+
+class UploadTimeoutError extends Error {
+    constructor(label: string, timeoutMs: number) {
+        super(`Upload timed out after ${timeoutMs / 1000}s: ${label}`);
+        this.name = "UploadTimeoutError";
+    }
+}
+
+async function withTimeout<T>(
+    fn: () => Promise<T>,
+    timeoutMs: number,
+    label: string,
+): Promise<T> {
+    return Promise.race([
+        fn(),
+        new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new UploadTimeoutError(label, timeoutMs)), timeoutMs)
+        ),
+    ]);
+}
+
 // ── Retry helper ─────────────────────────────────────────────────────────
 
 const MAX_RETRIES = 3;
@@ -351,10 +377,12 @@ async function withRetry<T>(
     fn: () => Promise<T>,
     label: string,
     retries = MAX_RETRIES,
+    timeoutMs?: number,
 ): Promise<T> {
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            return await fn();
+            const exec = timeoutMs ? () => withTimeout(fn, timeoutMs, label) : fn;
+            return await exec();
         } catch (err: any) {
             if (attempt === retries) throw err;
 
@@ -367,6 +395,51 @@ async function withRetry<T>(
         }
     }
     throw new Error("Unreachable"); // for TS
+}
+
+// ── Upload progress persistence ──────────────────────────────────────────
+
+const PROGRESS_KEY_PREFIX = "lilypad_upload_progress_";
+
+export interface SavedUploadProgress {
+    completedItems: BatchUploadResult[];
+    totalItems: number;
+    timestamp: number;
+}
+
+export function saveUploadProgress(collectionKey: string, results: BatchUploadResult[], totalItems: number) {
+    try {
+        const data: SavedUploadProgress = {
+            completedItems: results.filter(Boolean),
+            totalItems,
+            timestamp: Date.now(),
+        };
+        localStorage.setItem(PROGRESS_KEY_PREFIX + collectionKey, JSON.stringify(data));
+    } catch (e) {
+        console.warn("[Irys] Failed to save upload progress:", e);
+    }
+}
+
+export function loadUploadProgress(collectionKey: string): SavedUploadProgress | null {
+    try {
+        const raw = localStorage.getItem(PROGRESS_KEY_PREFIX + collectionKey);
+        if (!raw) return null;
+        const data: SavedUploadProgress = JSON.parse(raw);
+        // Expire after 24 hours
+        if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+            clearUploadProgress(collectionKey);
+            return null;
+        }
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+export function clearUploadProgress(collectionKey: string) {
+    try {
+        localStorage.removeItem(PROGRESS_KEY_PREFIX + collectionKey);
+    } catch {}
 }
 
 // ── Single-file upload ───────────────────────────────────────────────────
