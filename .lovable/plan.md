@@ -1,84 +1,82 @@
 
 
-# Audit Fix: Solana Music NFTs with Metaplex Core
+# Fix: Upload Stuck for 16 Hours — Resilient Batch Upload Pipeline
 
-## Issues Found
+## Problem
 
-1. **Audio files never uploaded to Arweave** — The deploy handler (line 282-287) only passes `track.coverFile` as the asset file. The actual audio (`track.audioFile`) is completely ignored, meaning minted Music NFTs have no playable audio on-chain.
+The current `uploadBatchToArweave` function has no timeout, no cancel mechanism, and no progress persistence. A single stuck Irys upload blocks the entire pipeline indefinitely. For large collections, this means creators can wait hours with no way to recover.
 
-2. **Missing `animation_url` in metadata** — Metaplex Core Music NFTs require `animation_url` pointing to the audio file. The current `buildMetadata` callback only produces `image` from the cover art — no audio URI is included.
+## Root Causes
 
-3. **Music attributes not formatted as NFT attributes** — Fields like `artist`, `genre`, `bpm`, `duration` are passed as flat metadata keys. The Metaplex standard expects them as `attributes: [{ trait_type: "Artist", value: "..." }]`.
-
-4. **Music mode uses wrong step config** — Line 133: `mode === "music"` falls through to `launchpadConfig.modes.basic` instead of `launchpadConfig.modes.music`. The dedicated 5-step music flow is never used.
-
-5. **No `collection_audio_metadata` insert after deploy** — The DB table `collection_audio_metadata` exists (with `audio_url`, `cover_art_url`, `artist`, `bpm`, `duration_seconds`) but the deploy flow never populates it, so the Music Store and Playlist features can't find any tracks.
-
-6. **No `animation_url` support in `uploadBatchToArweave`** — The batch upload function handles image + thumbnail but has no mechanism for a secondary file (audio) per item.
-
----
+1. **No per-upload timeout** — Individual `irys.upload()` calls can hang forever with no abort signal
+2. **No cancel/abort button** — Once upload starts, the user has no way to stop it
+3. **No progress persistence** — If the page refreshes or the tab closes, all completed uploads are lost and must restart from zero
+4. **Silent failures** — Failed items return `null` but the loop continues without surfacing actionable feedback
+5. **Funding can hang** — The `irys.fund()` call also has no timeout
 
 ## Plan
 
-### 1. Fix music step config in LaunchpadCreate.tsx
+### 1. Add per-upload timeout with AbortController
 
-Change line 133-135 so `mode === "music"` reads from `launchpadConfig.modes.music` (the dedicated 5-step flow) instead of falling through to `basic`.
+Wrap each `irys.upload()` call in a timeout (default 60s per file, 30s for metadata). If it exceeds the limit, abort and retry. After max retries, mark the item as failed and continue.
 
-### 2. Upload audio files to Arweave alongside cover art
+**File:** `src/integrations/irys/client.ts`
+- Add a `withTimeout` wrapper around `withRetry` that races the upload against a `setTimeout` rejection
+- Apply to all four upload steps per item (image, thumb, preview, metadata)
 
-Modify the music branch of `handleDeploy` (lines 282-287) to:
-- Upload each `track.audioFile` to Arweave first (using `uploadToArweave` individually or a new batch path)
-- Pass the resulting audio URI into `buildMetadata` as `animation_url`
-- Continue uploading cover images via the existing batch pipeline
+### 2. Add cancel support to batch uploads
 
-Specifically, before the batch upload call, loop through tracks and upload audio files:
-```
-for each track:
-  audioUri = await uploadToArweave(track.audioFile, wallet, tags)
-  store audioUri in a map keyed by track index
-```
+Make `uploadBatchToArweave` accept an `AbortSignal` parameter. Check the signal before each window iteration. If aborted, stop processing new items and return partial results.
 
-Then in `buildMetadata`, inject `animation_url: audioUriMap[idx]`.
+**File:** `src/integrations/irys/client.ts`
+- Add `signal?: AbortSignal` to the function signature
+- Check `signal.aborted` at the start of each concurrency window
+- Return whatever results have been collected so far
 
-### 3. Format music metadata as Metaplex-standard attributes
+### 3. Persist upload progress to localStorage
 
-Transform the flat `MusicMetadata` fields into the `attributes` array format:
-```json
-{
-  "name": "Track Name",
-  "description": "...",
-  "image": "<cover arweave uri>",
-  "animation_url": "<audio arweave uri>",
-  "attributes": [
-    { "trait_type": "Artist", "value": "Artist Name" },
-    { "trait_type": "Genre", "value": "Electronic" },
-    { "trait_type": "BPM", "value": "128" },
-    { "trait_type": "Duration", "value": "234" },
-    { "trait_type": "Album", "value": "Album Name" },
-    { "trait_type": "Track Number", "value": "1" }
-  ],
-  "properties": {
-    "category": "audio",
-    "files": [
-      { "uri": "<audio uri>", "type": "audio/mpeg" },
-      { "uri": "<cover uri>", "type": "image/png" }
-    ]
-  }
+Save completed upload results incrementally so that if the page refreshes, the upload can resume from where it left off.
+
+**File:** `src/integrations/irys/client.ts` (new helpers)
+- `saveUploadProgress(collectionId, results[])` — writes to `localStorage` keyed by collection ID
+- `loadUploadProgress(collectionId)` — reads back saved results
+- `clearUploadProgress(collectionId)` — cleans up after successful completion
+- Modify `uploadBatchToArweave` to accept a `resumeKey` and skip items that already have results
+
+### 4. Add Cancel button and resume UI in LaunchpadCreate
+
+**File:** `src/pages/LaunchpadCreate.tsx`
+- Create an `AbortController` in state, pass its signal to `uploadBatchToArweave`
+- Show a "Cancel Upload" button while uploading
+- On cancel, save partial progress and show "Resume" option
+- On resume, reload progress from localStorage and call `uploadBatchToArweave` with only remaining items
+- Show a progress bar with item count and estimated time remaining
+
+### 5. Add funding timeout guard
+
+**File:** `src/integrations/irys/client.ts`
+- Wrap the `irys.fund()` call in a 120s timeout
+- If funding times out, throw a clear error: "Arweave funding timed out. Please check your wallet and try again."
+
+---
+
+## Technical Details
+
+**Timeout wrapper:**
+```text
+withTimeout(fn, timeoutMs) {
+  return Promise.race([
+    fn(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Upload timed out')), timeoutMs))
+  ])
 }
 ```
 
-Create a helper `buildMusicNftMetadata(track, imageUri, audioUri)` in a new file `src/lib/musicMetadata.ts`.
+**localStorage key format:** `lilypad_upload_progress_{collectionId}`
 
-### 4. Insert `collection_audio_metadata` rows after successful deploy
+**Resume detection:** On mount, check if there's saved progress for the current collection. If found, show: "Previous upload was interrupted. X of Y items completed. Resume?"
 
-After the Solana deploy succeeds and `itemLinks` are available, insert rows into `collection_audio_metadata` for each track with:
-- `collection_id`, `artwork_id` (token index), `audio_url` (Arweave audio URI), `cover_art_url` (Arweave image URI), `artist`, `bpm`, `duration_seconds`, `genre`
-
-This enables the Music Store, Playlist, and MiniPlayer to find and play the tracks.
-
-### 5. Add progress feedback for audio uploads
-
-Since audio files are larger than images, add a separate toast stage: `"Uploading audio tracks to Arweave..."` before the cover art batch upload begins.
+**AbortSignal integration:** Standard DOM AbortSignal, created via `new AbortController()` in the React component. Passed down to the batch function; checked between windows.
 
 ---
 
@@ -86,6 +84,6 @@ Since audio files are larger than images, add a separate toast stage: `"Uploadin
 
 | File | Change |
 |------|--------|
-| `src/pages/LaunchpadCreate.tsx` | Fix music step config; upload audio files; build proper metadata; insert `collection_audio_metadata` rows |
-| `src/lib/musicMetadata.ts` | New — `buildMusicNftMetadata()` helper |
+| `src/integrations/irys/client.ts` | Add `withTimeout`, `AbortSignal` support, progress persistence helpers, funding timeout |
+| `src/pages/LaunchpadCreate.tsx` | Cancel button, resume UI, progress bar with ETA, AbortController state |
 
