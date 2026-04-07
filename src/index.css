@@ -221,12 +221,32 @@
 
 /* Mobile safe area for bottom navigation */
 .safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Stack 64px nav + device home indicator */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px));
+  min-height: calc(64px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Add bottom padding to main content when mobile nav is visible */
+/* Accounts for 64px nav height AND device safe area (iPhone home bar etc.) */
 @media (max-width: 767px) {
   main {
-    padding-bottom: 5rem;
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
+}
+
+/* Mobile nav active pill animation */
+@keyframes nav-pill-appear {
+  from {
+    opacity: 0;
+    transform: scaleX(0.6) scaleY(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1);
+  }
+}
+
+/* Suppress iOS tap highlight on nav links */
+.mobile-nav-link {
+  -webkit-tap-highlight-color: transparent;
 }

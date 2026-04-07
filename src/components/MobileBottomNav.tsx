@@ -1,59 +1,120 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Store, Rocket, Radio, User } from "lucide-react";
+import { Home, Store, Rocket, Radio, Wallet, LayoutDashboard } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/providers/WalletProvider";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { icon: Home, label: "Home", href: "/" },
-  { icon: Store, label: "Market", href: "/marketplace" },
-  { icon: Rocket, label: "Launch", href: "/launchpad" },
-  { icon: Radio, label: "Streams", href: "/streams" },
-  { icon: User, label: "Profile", href: "/edit-profile" },
+interface NavItem {
+  icon: React.ElementType;
+  label: string;
+  href: string;
+  matchPrefix?: string; // for startsWith active matching
+}
+
+const baseNavItems: NavItem[] = [
+  { icon: Home,    label: "Home",    href: "/",           matchPrefix: "__exact__" },
+  { icon: Store,   label: "Market",  href: "/marketplace", matchPrefix: "/marketplace" },
+  { icon: Rocket,  label: "Launch",  href: "/launchpad",  matchPrefix: "/launchpad" },
+  { icon: Radio,   label: "Streams", href: "/streams",    matchPrefix: "/streams" },
+  { icon: Wallet,  label: "Wallet",  href: "/wallet",     matchPrefix: "/wallet" },
+];
+
+const streamerNavItems: NavItem[] = [
+  { icon: Home,            label: "Home",      href: "/",            matchPrefix: "__exact__" },
+  { icon: Store,           label: "Market",    href: "/marketplace", matchPrefix: "/marketplace" },
+  { icon: Rocket,          label: "Launch",    href: "/launchpad",   matchPrefix: "/launchpad" },
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard",   matchPrefix: "/dashboard" },
+  { icon: Wallet,          label: "Wallet",    href: "/wallet",      matchPrefix: "/wallet" },
 ];
 
 export const MobileBottomNav: React.FC = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { isConnected } = useWallet();
+  const { profile } = useUserProfile();
 
   // Only show on mobile
   if (!isMobile) return null;
 
-  // Don't show on auth page
-  if (location.pathname === "/auth") return null;
+  // Hide on auth, profile setup, and suspended pages
+  const hiddenPaths = ["/auth", "/profile-setup", "/profile-suspended"];
+  if (hiddenPaths.includes(location.pathname)) return null;
+
+  // Use streamer nav for creators, base nav for everyone else
+  const navItems = profile?.is_streamer ? streamerNavItems : baseNavItems;
+
+  const isActive = (item: NavItem) => {
+    if (item.matchPrefix === "__exact__") return location.pathname === item.href;
+    if (item.matchPrefix) return location.pathname.startsWith(item.matchPrefix);
+    return location.pathname === item.href;
+  };
+
+  // Redirect unauthenticated taps (except Home) to /auth
+  const resolveHref = (item: NavItem) => {
+    if (!isConnected && item.href !== "/") return "/auth";
+    return item.href;
+  };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-t border-border safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom"
+      role="navigation"
+      aria-label="Mobile navigation"
+    >
+      <div className="flex items-center justify-around px-1" style={{ height: "64px" }}>
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.href;
-          
-          // For profile, redirect to auth if not connected
-          const href = item.href === "/edit-profile" && !isConnected 
-            ? "/auth" 
-            : item.href;
+          const active = isActive(item);
+          const href = resolveHref(item);
 
           return (
             <Link
               key={item.href}
               to={href}
               className={cn(
-                "relative flex flex-col items-center justify-center flex-1 py-2 px-1 transition-colors",
-                isActive 
-                  ? "text-primary" 
-                  : "text-muted-foreground hover:text-foreground"
+                "relative flex flex-col items-center justify-center flex-1 py-1.5 px-0.5",
+                "transition-all duration-150 active:scale-90 select-none",
+                "-webkit-tap-highlight-color: transparent"
               )}
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
             >
-              <Icon className={cn(
-                "w-5 h-5 mb-1 transition-transform",
-                isActive && "scale-110"
-              )} />
-              <span className="text-xs font-medium truncate">{item.label}</span>
-              {isActive && (
-                <span className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
+              {/* Active pill background */}
+              {active && (
+                <span
+                  className="absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/12 pointer-events-none"
+                  style={{
+                    animation: "nav-pill-appear 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  }}
+                />
+              )}
+
+              {/* Icon */}
+              <Icon
+                className={cn(
+                  "relative z-10 mb-0.5 transition-all duration-200",
+                  active
+                    ? "w-5 h-5 text-primary scale-110"
+                    : "w-5 h-5 text-muted-foreground"
+                )}
+                strokeWidth={active ? 2.5 : 1.75}
+              />
+
+              {/* Label */}
+              <span
+                className={cn(
+                  "relative z-10 text-[10px] font-semibold tracking-tight leading-none transition-colors duration-200",
+                  active ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                {item.label}
+              </span>
+
+              {/* Active dot */}
+              {active && (
+                <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-primary opacity-60" />
               )}
             </Link>
           );

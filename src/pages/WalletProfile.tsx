@@ -235,7 +235,7 @@ export default function WalletProfile() {
 
   useEffect(() => {
     if (!isConnected) {
-      navigate("/");
+      navigate("/auth");
     }
   }, [isConnected, navigate]);
 

@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WalletProvider, useWallet } from "@/providers/WalletProvider";
-import { AuthProvider } from "@/providers/AuthProvider";
+import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { ChainProvider } from "@/providers/ChainProvider";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
@@ -144,6 +144,8 @@ setupGlobalErrorHandlers();
 
 const AppContent = () => {
   const { isAdmin } = useIsAdmin();
+  const { state } = useAuth();
+  const isFullyAuthenticated = state === "AUTHENTICATED";
 
   return (
     <BrowserRouter>
@@ -203,7 +205,8 @@ const AppContent = () => {
       <MobileBottomNav />
       <MiniPlayer />
       <PWAUpdateNotification />
-      {isAdmin && <AdminToolbar />}
+      {/* Only render AdminToolbar once fully authenticated to prevent flash */}
+      {isAdmin && isFullyAuthenticated && <AdminToolbar />}
     </BrowserRouter>
   );
 };

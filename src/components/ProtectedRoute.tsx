@@ -10,8 +10,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { state, isAdmin } = useAuth();
   const location = useLocation();
 
-  // Show loader while wallet connecting or profile loading
-  if (state === "CONNECTING_WALLET" || state === "LOADING_PROFILE") {
+  // Show loader while wallet connecting, handshaking, or profile loading
+  if (state === "CONNECTING_WALLET" || state === "WALLET_CONNECTED" || state === "LOADING_PROFILE") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <FrogLoader size="lg" />

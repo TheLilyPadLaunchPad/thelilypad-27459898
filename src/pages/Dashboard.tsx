@@ -106,23 +106,12 @@ export default function Dashboard() {
     description: "Track your stream performance, manage NFT collections, view earnings and analytics. Your complete creator dashboard on The Lily Pad."
   });
 
+  // User is already guaranteed by ProtectedRoute — just fetch the current session
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
-    });
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
     });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     if (user) {

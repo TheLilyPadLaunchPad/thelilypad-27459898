@@ -70,8 +70,15 @@ export default function Auth() {
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
   const [showImport, setShowImport] = useState(false);
   const [importSeed, setImportSeed] = useState("");
+  const [hasExistingXRPLWallet, setHasExistingXRPLWallet] = useState(false);
   // Fetch dynamic auth branding from site_assets, fallback to local
   const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
+
+  // Check if user already has a saved XRPL wallet in localStorage
+  useEffect(() => {
+    const xrplKey = localStorage.getItem("xrpl_wallet_address");
+    setHasExistingXRPLWallet(!!xrplKey);
+  }, []);
 
   useSEO({
     title: "Connect Wallet | The Lily Pad",
