@@ -29,3 +29,4 @@ dev-dist
 # Agent memory files — explicitly tracked (do NOT add these to gitignore)
 # PROJECT_MEMORY.md
 # .agents/
+.env
