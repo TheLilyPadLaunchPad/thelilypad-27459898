@@ -5,7 +5,6 @@ import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import BuybackStats from "@/components/BuybackStats";
 import { Sparkles } from "lucide-react";
-import { XRPIcon } from "@/components/icons/XRPIcon";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { BackToTop } from "@/components/BackToTop";

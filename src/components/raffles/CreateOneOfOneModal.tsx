@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 import type { SupportedChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
-import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 

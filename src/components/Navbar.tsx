@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Ticket, Package, LogOut, LogIn, Vote, Music } from "lucide-react";
-import { XRPIcon } from "@/components/icons/XRPIcon";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { RpcSettings } from "@/components/wallet/RpcSettings";

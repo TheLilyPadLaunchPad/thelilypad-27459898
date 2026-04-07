@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { loadXRPLWallet, type StoredXRPLWallet } from "@/lib/xrpl-wallet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

@@ -3,7 +3,6 @@ import { useChain } from '@/providers/ChainProvider';
 import { useChainTheme } from '@/hooks/useChainTheme';
 import { SolanaBattleTemplate } from '@/components/battle/templates/SolanaBattleTemplate';
 import { MonadBattleTemplate } from '@/components/battle/templates/MonadBattleTemplate';
-import { XRPLBattleTemplate } from '@/components/battle/templates/XRPLBattleTemplate';
 import { Navbar } from '@/components/Navbar';
 
 // Container component that selects the correct template based on chain

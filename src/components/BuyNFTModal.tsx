@@ -12,7 +12,6 @@ import { ShoppingCart, Loader2, Info } from "lucide-react";
 import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaCoreTransfer } from "@/hooks/useSolanaCoreTransfer";
 import { useMonadTransfer } from "@/hooks/useMonadTransfer";
-import { useXRPLMarketplace } from "@/hooks/useXRPLMarketplace";
 import { toast } from "sonner";
 
 interface Listing {

@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
 import { useSolanaMint } from "@/hooks/useSolanaMint";
-import { useXRPLMint } from "@/hooks/useXRPLMint";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { initializeUmi } from "@/config/solana";
 import { publicKey } from "@metaplex-foundation/umi";

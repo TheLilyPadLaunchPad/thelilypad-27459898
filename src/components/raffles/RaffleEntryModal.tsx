@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Ticket, Trophy, Minus, Plus, Loader2, CheckCircle, ExternalLink } from "lucide-react";
 import { getErrorMessage } from "@/lib/errorUtils";
 import { useSolanaPayment } from "@/hooks/useSolanaPayment";
-import { useXRPLPayment } from "@/hooks/useXRPLPayment";
 import { useMonadPayment } from "@/hooks/useMonadPayment";
 import { SupportedChain } from "@/config/chains";
 import { getPlatformWallet } from "@/config/treasury";
