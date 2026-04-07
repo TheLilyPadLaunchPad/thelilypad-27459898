@@ -4,14 +4,12 @@
 
 import type { SupportedChain } from '@/config/chains';
 import * as solana from './solana/client';
-import * as xrpl from './xrpl/client';
 import * as monad from './monad/client';
 
 export type { SolanaNetwork } from './solana/client';
-export type { XRPLNetwork } from './xrpl/client';
 
 // Re-export chain-specific modules
-export { solana, xrpl, monad };
+export { solana, monad };
 
 // Re-export solana client functions
 export { createUmi } from './solana/client';
@@ -21,7 +19,6 @@ export { createMonadProvider, connectMonadWallet } from './monad/client';
 
 // Re-export types
 export type { SolanaCollectionParams, SolanaCollectionResult, CandyMachineItem } from './solana/types';
-export type { XRPLCollectionParams, XRPLDeployResult, XRPLMintItem } from './xrpl/types';
 export type { MonadCollectionParams, MonadDeployResult } from './monad/types';
 
 // Re-export program wrappers
@@ -31,13 +28,6 @@ export type { HybridEscrowConfig, CaptureParams, ReleaseParams } from './solana/
 export { createSplToken, mintSplTokens } from './solana/splToken';
 export type { SplTokenConfig, SplTokenResult } from './solana/splToken';
 export type { LaunchpadPhase } from './solana/programs';
-export { deployXRPLCollection, mintXRPLItems, resolveAccountDomain, toHexUri, fromHexUri } from './xrpl/domain';
-export { mintNFToken, batchMintNFTokens, batchMintNFTokensParallel, safeExtractNFTokenId, createSellOffer, createBuyOffer, acceptOffer, brokerSale, cancelOffers, burnNFToken, setAuthorizedMinter, setAccountDomain, getAccountNFTs, getNFTSellOffers, getNFTBuyOffers } from './xrpl/nft';
-export { listNFTForSale, buyNFTNow, makeOffer, acceptBuyOffer, brokerNFTSale, cancelListing, getListings, getOffers } from './xrpl/marketplace';
-export { createXRPLClient, disconnectXRPLClient } from './xrpl/client';
-export { NFTokenFlag } from './xrpl/types';
-export type { XRPLMintParams, XRPLMintResult, XRPLCreateSellOfferParams, XRPLCreateBuyOfferParams, XRPLOfferResult, XRPLAcceptOfferParams, XRPLBrokerSaleParams, XRPLAcceptResult, XRPLBurnParams, XRPLAuthorizedMinterParams, XRPLSetDomainParams } from './xrpl/types';
-export type { XRPLListingParams, XRPLListingResult, XRPLBuyNowParams, XRPLMakeOfferParams, XRPLBrokerParams } from './xrpl/marketplace';
 export { deployMonadCollection, mintMonadNFT, getMonadCollectionInfo } from './monad/contracts';
 
 // Re-export metadata utilities
@@ -61,7 +51,6 @@ export type { MonadShopResult, MonadShopItemType } from './monad/shop';
 
 // Re-export chain validation utilities
 export { validateSolanaRoyalty, validateSolanaAddress } from './solana/validate';
-export { validateXRPLRoyalty, validateXRPLAddress } from './xrpl/validate';
 export { validateMonadRoyalty, validateEvmAddress } from './monad/validate';
 
 /**
@@ -71,8 +60,6 @@ export function getChainClient(chain: SupportedChain) {
     switch (chain) {
         case 'solana':
             return solana;
-        case 'xrpl':
-            return xrpl;
         case 'monad':
             return monad;
         default:

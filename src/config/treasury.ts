@@ -1,31 +1,12 @@
 // Platform Treasury Configuration for On-Chain Transactions
 import { PublicKey } from '@solana/web3.js';
 
-/**
- * Platform wallet addresses for fee distribution.
- *
- * IMPORTANT: Each wallet serves a distinct role. Using a single address for
- * every purpose is a security anti-pattern — compromise of that key loses
- * everything. The addresses below are separated per function.
- *
- * Replace placeholder addresses with real ones before mainnet launch.
- */
 export const PLATFORM_WALLETS = {
   solana: {
-    /** Primary platform treasury — receives the bulk of platform fees */
     treasury: import.meta.env.VITE_TREASURY_ADDRESS || '2cS7yyypbtxQ4qBdZRYtXDEDTQJZK34h4RPmXxz4sKHk',
-    /** Team operational wallet — salaries, infrastructure, etc. */
     team: 'FuvA3GMUtCjDXJgFJPZnAAru2cmK3fG3dNjBhTXodsFH',
-    /** Creator / build fund wallet */
     creator: '5m1ANTPnTsfQCDp8TyDKJYx8BWiEzt1Gomshsc2V3HNe',
-    /** Buyback pool — funds automated token buybacks */
     buybackPool: 'CRg5KBtoxtHPmHcGDMiCqPrCLe8edKTiUyaHHowYhyvV',
-  },
-  xrpl: {
-    treasury: 'rXYdhW4ZHdzt27VuHJgNwbD1aJjcKZJ9M',
-    team: 'rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY',
-    creator: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh',
-    buybackPool: 'rDsbeomae4FXwgQTJp9Rs64Qg9vDiTCdBv',
   },
   monad: {
     treasury: '0x54Ac7Bcaba9A41b701066B7D8b204Ec14b72C96E',
@@ -35,15 +16,13 @@ export const PLATFORM_WALLETS = {
   },
 } as const;
 
-// Get wallet address for a platform wallet on a specific chain
 export function getPlatformWallet(
   wallet: keyof typeof PLATFORM_WALLETS.solana,
-  chain: 'solana' | 'xrpl' | 'monad' = 'solana'
+  chain: 'solana' | 'monad' = 'solana'
 ): string {
   return (PLATFORM_WALLETS as any)[chain]?.[wallet] || PLATFORM_WALLETS.solana[wallet];
 }
 
-// Get PublicKey for a platform wallet (Solana only)
 export function getPlatformWalletPubkey(wallet: keyof typeof PLATFORM_WALLETS.solana): PublicKey {
   return new PublicKey(PLATFORM_WALLETS.solana[wallet]);
 }
