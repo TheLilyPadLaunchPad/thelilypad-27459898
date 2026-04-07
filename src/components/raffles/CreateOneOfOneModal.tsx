@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 import type { SupportedChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
-import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 
@@ -36,7 +35,6 @@ interface CreateOneOfOneModalProps {
 
 export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'solana' }: CreateOneOfOneModalProps) {
     const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore } = useSolanaLaunch();
-    const { deployXRPLCollection, mintXRPLItems } = useXRPLLaunch();
     const { createCollection: deployMonadCollection, mintNFT: mintMonadNFT } = useMonadLaunch();
     const { getSolanaProvider, address, isConnected, chainType, network } = useWallet();
     const [mode, setMode] = useState<"one-of-one" | "edition">("one-of-one");

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/providers/WalletProvider";
 import { Wallet, LogOut, ExternalLink, User, ChevronDown, ChevronUp, Coins } from "lucide-react";
-import { XRPIcon } from "@/components/icons/XRPIcon";
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
 import { useSolanaMint } from "@/hooks/useSolanaMint";
-import { useXRPLMint } from "@/hooks/useXRPLMint";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { initializeUmi } from "@/config/solana";
 import { publicKey } from "@metaplex-foundation/umi";
@@ -22,7 +21,6 @@ export function useCollectionDetail() {
     const { network, isConnected, connect, balance, address } = useWallet();
     const { setChain } = useChain();
     const solanaMint = useSolanaMint();
-    const xrplMint = useXRPLMint();
     const monadLaunch = useMonadLaunch();
 
     // ── State ──────────────────────────────────────────────────────────────────

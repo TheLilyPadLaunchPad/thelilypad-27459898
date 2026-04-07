@@ -13,8 +13,6 @@ import { ListNFTModal } from "@/components/ListNFTModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
 import { ipfsToHttp } from "@/lib/ipfs";
-import { useXRPLSync } from "@/hooks/useXRPLSync";
-
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";

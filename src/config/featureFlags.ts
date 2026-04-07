@@ -5,5 +5,4 @@
  * Set to true when ready to release.
  */
 
-/** XRPL chain features (Easy XRP Generator, XRPL NFT Generator, XRPL marketplace filter) */
-export const XRPL_ENABLED = false;
+// No active feature flags at this time

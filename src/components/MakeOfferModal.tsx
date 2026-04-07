@@ -54,7 +54,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
   const [message, setMessage] = useState("");
   
   const chainId = nft.chain || 'solana';
-  const currencySymbol = currency || (chainId === 'xrpl' ? 'XRP' : chainId === 'monad' ? 'MON' : 'SOL');
+  const currencySymbol = currency || (chainId === 'monad' ? 'MON' : 'SOL');
   
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(addDays(new Date(), 7));
   const [offerState, setOfferState] = useState<OfferState>("idle");

@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { SupportedChain } from "../chains";
 import { SOLANA_LAUNCHPAD_CONFIG } from "./solana";
-import { XRPL_LAUNCHPAD_CONFIG } from "./xrpl";
 import { ChainLaunchpadConfig, LaunchpadStep } from "./types";
 
 export * from "./types";

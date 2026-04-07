@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Ticket, Trophy, Minus, Plus, Loader2, CheckCircle, ExternalLink } from "lucide-react";
 import { getErrorMessage } from "@/lib/errorUtils";
 import { useSolanaPayment } from "@/hooks/useSolanaPayment";
-import { useXRPLPayment } from "@/hooks/useXRPLPayment";
 import { useMonadPayment } from "@/hooks/useMonadPayment";
 import { SupportedChain } from "@/config/chains";
 import { getPlatformWallet } from "@/config/treasury";
@@ -55,7 +54,6 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
   const { toast } = useToast();
 
   const { sendAndVerifyPayment: sendSolanaPayment } = useSolanaPayment();
-  const { sendPayment: sendXRPPayment } = useXRPLPayment();
   const { sendPayment: sendMonadPayment } = useMonadPayment();
 
   const maxTickets = raffle.max_tickets_per_user || 100;

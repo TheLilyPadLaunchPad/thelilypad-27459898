@@ -37,9 +37,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/providers/WalletProvider";
-import { XRPIcon } from "@/components/icons/XRPIcon";
-import { useXRPLMarketplace } from "@/hooks/useXRPLMarketplace";
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 // ... existing types ...
 
@@ -95,8 +92,6 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
 
   // Authoritative chain source: wallet chainType (not URL param or collection.chain)
   const { chainType } = useWallet();
-  const xrplMarketplace = useXRPLMarketplace();
-
   // Derive the chain: wallet chainType could be wrong if exploring other chain's NFTs.
   // Use collection chain, then owner address signature, then fallback.
   const isXRPLOwner = nft?.owner_address?.startsWith('r') || false;

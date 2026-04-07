@@ -6,10 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Loader2, Import, PlusCircle, ArrowRight } from "lucide-react";
-import { XRPIcon } from "@/components/icons/XRPIcon";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
-import { hasStoredXRPLWallet } from "@/lib/xrpl-wallet";
 import { motion, AnimatePresence } from "framer-motion";
 
 const fallbackAuthBranding = "/auth-branding.webp";
@@ -72,9 +70,6 @@ export default function Auth() {
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
   const [showImport, setShowImport] = useState(false);
   const [importSeed, setImportSeed] = useState("");
-
-  const hasExistingXRPLWallet = hasStoredXRPLWallet();
-
   // Fetch dynamic auth branding from site_assets, fallback to local
   const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
 

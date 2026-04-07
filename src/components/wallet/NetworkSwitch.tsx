@@ -19,7 +19,7 @@ export const NetworkSwitch: React.FC = () => {
   const { network, switchNetwork, isConnected, chainType } = useWallet();
 
   const getNetworkLabel = (net: string) => {
-    const chainName = chainType === 'xrpl' ? 'XRPL' : chainType === 'monad' ? 'Monad' : 'Solana';
+    const chainName = chainType === 'monad' ? 'Monad' : 'Solana';
     switch (net) {
       case "mainnet": return `${chainName} Mainnet`;
       case "testnet": return `${chainName} Testnet`;
