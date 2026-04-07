@@ -503,7 +503,8 @@ export default function LaunchpadCreate() {
                         uri: item.arweaveUri
                     }));
 
-                    await solanaLaunch.createLaunchpadCandyMachine(
+                    toast.loading("Creating Candy Machine...", { id: 'deploy' });
+                    const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
                         deployedAddress,
                         assetsToUpload.length,
                         phases,
@@ -512,6 +513,13 @@ export default function LaunchpadCreate() {
                         primaryArweaveUri
                     );
 
+                    // Insert config lines into the Candy Machine so minting works
+                    toast.loading(`Loading ${candyMachineItems.length} items into Candy Machine...`, { id: 'deploy' });
+                    await solanaLaunch.insertItemsToCandyMachine(
+                        cmResult.address,
+                        candyMachineItems,
+                        10
+                    );
                 }
             } else if (selectedChain === 'xrpl') {
                 const result = await xrplLaunch.deployXRPLCollection({
