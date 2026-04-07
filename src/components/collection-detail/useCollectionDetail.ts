@@ -21,7 +21,6 @@ export function useCollectionDetail() {
     const { network, isConnected, connect, balance, address } = useWallet();
     const { setChain } = useChain();
     const solanaMint = useSolanaMint();
-    const xrplMint = useXRPLMint();
     const monadLaunch = useMonadLaunch();
 
     // ── State ──────────────────────────────────────────────────────────────────

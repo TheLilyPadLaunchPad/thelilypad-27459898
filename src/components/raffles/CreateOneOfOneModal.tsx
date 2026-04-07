@@ -35,7 +35,6 @@ interface CreateOneOfOneModalProps {
 
 export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'solana' }: CreateOneOfOneModalProps) {
     const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore } = useSolanaLaunch();
-    const { deployXRPLCollection, mintXRPLItems } = useXRPLLaunch();
     const { createCollection: deployMonadCollection, mintNFT: mintMonadNFT } = useMonadLaunch();
     const { getSolanaProvider, address, isConnected, chainType, network } = useWallet();
     const [mode, setMode] = useState<"one-of-one" | "edition">("one-of-one");

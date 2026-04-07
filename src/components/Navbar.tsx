@@ -268,7 +268,7 @@ export const Navbar: React.FC = () => {
                   ? <XRPIcon className="w-3.5 h-3.5" />
                   : <span>{chainType === 'monad' ? '◈' : '◎'}</span>
                 }
-                <span className="hidden md:inline">{chainType === 'xrpl' ? 'XRPL' : chainType === 'monad' ? 'Monad' : 'Solana'}</span>
+                <span className="hidden md:inline">{chainType === 'monad' ? 'Monad' : 'Solana'}</span>
               </div>
             )}
 

@@ -48,16 +48,15 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
   const { address } = useWallet();
   const solanaTransfer = useSolanaCoreTransfer();
   const monadTransfer = useMonadTransfer();
-  const xrplTransfer = useXRPLMarketplace();
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Determine chain and currency
   const chainId = listing?.chain || 'solana';
-  const currencySymbol = listing?.currency || (chainId === 'monad' ? 'MON' : chainId === 'xrpl' ? 'XRP' : 'SOL');
-  const chainName = chainId === 'monad' ? 'Monad' : chainId === 'xrpl' ? 'XRP Ledger' : 'Solana';
+  const currencySymbol = listing?.currency || (chainId === 'monad' ? 'MON' : 'SOL');
+  const chainName = chainId === 'monad' ? 'Monad' : 'Solana';
 
-  const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading || xrplTransfer.isLoading;
-  const error = solanaTransfer.error || monadTransfer.error || xrplTransfer.error;
+  const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading;
+  const error = solanaTransfer.error || monadTransfer.error;
 
   const handleBuy = async () => {
     if (!listing || !address) return;
@@ -138,7 +137,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
               <p className="font-medium">{listing.nft.name || `Token #${listing.nft.token_id}`}</p>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
-                  {chainId === 'xrpl' ? 'XLS-20' : chainId === 'solana' ? 'Core Asset' : 'ERC-721'}
+                  {chainId === 'solana' ? 'Core Asset' : 'ERC-721'}
                 </Badge>
                 <p className="text-sm font-semibold">{listing.price} {currencySymbol}</p>
               </div>

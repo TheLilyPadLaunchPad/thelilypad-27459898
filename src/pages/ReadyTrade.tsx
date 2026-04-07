@@ -15,10 +15,6 @@ const ReadyTrade = () => {
     switch (chain.id) {
       case 'monad':
         return <MonadBattleTemplate />;
-
-      case 'xrpl':
-        return <XRPLBattleTemplate />;
-
       case 'solana':
       default:
         return <SolanaBattleTemplate />;

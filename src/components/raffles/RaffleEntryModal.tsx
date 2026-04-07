@@ -54,7 +54,6 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
   const { toast } = useToast();
 
   const { sendAndVerifyPayment: sendSolanaPayment } = useSolanaPayment();
-  const { sendPayment: sendXRPPayment } = useXRPLPayment();
   const { sendPayment: sendMonadPayment } = useMonadPayment();
 
   const maxTickets = raffle.max_tickets_per_user || 100;
