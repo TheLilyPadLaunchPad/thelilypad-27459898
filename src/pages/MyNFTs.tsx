@@ -91,10 +91,8 @@ export default function MyNFTs() {
   const navigate = useNavigate();
   const { address, isConnected, chainType } = useWallet();
   // Derive currency symbol from connected chain (not hardcoded SOL)
-  const chainSymbol = chainType === 'xrpl' ? 'XRP' : chainType === 'monad' ? 'MON' : 'SOL';
-  
-  const { syncMissingNFTs, isSyncing } = useXRPLSync();
-  
+  const chainSymbol = chainType === 'monad' ? 'MON' : 'SOL';
+
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
@@ -334,13 +332,11 @@ export default function MyNFTs() {
 
   // Chain-aware explorer URLs
   const explorerUrl = (hash: string) => {
-    if (chainType === 'xrpl') return `https://testnet.xrpl.org/transactions/${hash}`;
     return `https://explorer.solana.com/tx/${hash}?cluster=devnet`;
   };
 
   const tokenExplorerUrl = (contractAddress: string | null, tokenId: number) => {
     if (!contractAddress) return null;
-    if (chainType === 'xrpl') return `https://testnet.xrpl.org/accounts/${contractAddress}`;
     return `https://explorer.solana.com/address/${contractAddress}?cluster=devnet`;
   };
 
@@ -469,19 +465,6 @@ export default function MyNFTs() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {chainType === 'xrpl' && address && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => syncMissingNFTs(address)}
-                disabled={isSyncing}
-                className="gap-2 border-primary/20 hover:bg-primary/10 transition-colors"
-                title="Recover NFTs missing from your wallet"
-              >
-                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                Recover Mints
-              </Button>
-            )}
             <div className="flex items-center border rounded-lg p-1">
               <Button
                 variant={viewMode === "grid" ? "secondary" : "ghost"}

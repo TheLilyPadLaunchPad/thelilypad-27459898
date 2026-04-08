@@ -58,7 +58,7 @@ export default function Marketplace() {
     loadMoreRef,
   } = useMarketplaceData(selectedChain);
 
-  const chainLabel = selectedChain === 'all' ? 'All Chains' : selectedChain === 'xrpl' ? 'XRP Ledger' : selectedChain === 'monad' ? 'Monad' : 'Solana';
+  const chainLabel = selectedChain === 'all' ? 'All Chains' : selectedChain === 'monad' ? 'Monad' : 'Solana';
 
   useSEO({
     title: "Lily Marketplace | The Lily Pad",
@@ -134,7 +134,6 @@ export default function Marketplace() {
           {([
             { id: 'all' as ChainFilter, label: 'All Chains', icon: <span>🌐</span> },
             { id: 'solana' as ChainFilter, label: 'Solana', icon: <span>◎</span> },
-            { id: 'xrpl' as ChainFilter, label: 'XRPL', icon: <XRPIcon className="w-3.5 h-3.5" /> },
             { id: 'monad' as ChainFilter, label: 'Monad', icon: <span>◈</span> },
           ] as { id: ChainFilter; label: string; icon: React.ReactNode }[]).map((tab) => (
             <button
@@ -142,9 +141,8 @@ export default function Marketplace() {
               onClick={() => setSelectedChain(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedChain === tab.id
                 ? tab.id === 'solana' ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-                  : tab.id === 'xrpl' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                    : tab.id === 'monad' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-                      : 'bg-primary/15 text-primary border border-primary/30'
+                  : tab.id === 'monad' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                  : 'bg-primary/15 text-primary border border-primary/30'
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
                 }`}
             >
