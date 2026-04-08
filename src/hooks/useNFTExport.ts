@@ -5,7 +5,6 @@ import {
     compositeNFTImageToBlob,
     createReusableCanvas,
     estimateExportMemoryMB,
-    nftToXrplMetadata,
     nftToStandardMetadata,
     createZipStream,
     type GeneratedNFT,
@@ -19,7 +18,6 @@ export interface ExportState {
     isExporting: boolean;
     exportProgress: number;
     exportStatus: string;
-    isXrplZipExporting: boolean;
     isDownloadingAssets: boolean;
     downloadProgress: number;
     downloadStatus: string;
@@ -29,7 +27,6 @@ interface ExportOptions {
     collectionName: string;
     collectionDescription: string;
     outputResolution: number;
-    xrplMode: boolean;
     layers: Layer[];
 }
 
@@ -44,13 +41,12 @@ export function useNFTExport(
     opts: ExportOptions,
     generateNFTBatch: GenerateNFTBatch,
 ) {
-    const { collectionName, collectionDescription, outputResolution, xrplMode, layers } = opts;
+    const { collectionName, collectionDescription, outputResolution, layers } = opts;
 
     // ── State ──────────────────────────────────────────────────────────────────
     const [isExporting, setIsExporting] = useState(false);
     const [exportProgress, setExportProgress] = useState(0);
     const [exportStatus, setExportStatus] = useState("");
-    const [isXrplZipExporting, setIsXrplZipExporting] = useState(false);
     const [isDownloadingAssets, setIsDownloadingAssets] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [downloadStatus, setDownloadStatus] = useState("");
@@ -346,88 +342,6 @@ export function useNFTExport(
         }
     }, [collectionName, collectionDescription, outputResolution, layers, generateNFTBatch]);
 
-    // ── Export: XRPL-optimised ZIP — MEMORY-SAFE ──────────────────────────────
-
-    const exportXRPLZip = useCallback(async (exportCount: string) => {
-        const count = parseInt(exportCount) || 589;
-        const resolution = outputResolution;
-        if (!hasImages()) {
-            toast.error("No images found. Add images to your traits first.");
-            return;
-        }
-        if (!memoryCheck(count, resolution)) return;
-
-        setIsXrplZipExporting(true);
-        setExportProgress(0);
-        setExportStatus(`Preparing XRPL collection (${count} NFTs @ ${resolution}×${resolution})…`);
-
-        try {
-            let zipStream;
-            try {
-                zipStream = await createZipStream(`${safeName()}-xrpl-${resolution}px.zip`);
-            } catch (err: any) {
-                return; // user aborted
-            }
-
-            const { nfts } = generateNFTBatch(count);
-
-            // Reuse a single canvas for all compositing — key OOM fix
-            const { canvas, ctx } = createReusableCanvas(resolution);
-            const encoder = new TextEncoder();
-
-            for (let i = 0; i < nfts.length; i++) {
-                setExportStatus(`Compositing ${i + 1} / ${count} at ${resolution}×${resolution}px…`);
-                setExportProgress(Math.round(((i + 1) / count) * 80));
-
-                const blob = await compositeNFTImageToBlob(nfts[i], canvas, ctx);
-                if (blob) {
-                    const u8 = new Uint8Array(await blob.arrayBuffer());
-                    zipStream.addFile(`images/${nfts[i].id}.png`, u8);
-                }
-
-                const xrplMetadata = nftToXrplMetadata(nfts[i], collectionName, collectionDescription);
-                zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(xrplMetadata, null, 2)));
-
-                // Yield every iteration so React can flush progress updates to the UI
-                await new Promise((r) => setTimeout(r, 0));
-            }
-
-            zipStream.addFile("_collection.json", encoder.encode(JSON.stringify({
-                name: collectionName,
-                description: collectionDescription,
-                total_supply: count,
-                resolution: `${resolution}x${resolution}`,
-                chain: "XRPL",
-                standard: "XLS-20",
-                generated_at: new Date().toISOString(),
-            }, null, 2)));
-
-            setExportStatus("Compressing ZIP…");
-            setExportProgress(90);
-
-            const zipBlob = await zipStream.finish();
-            if (zipBlob) {
-                downloadBlob(zipBlob, `${safeName()}-xrpl-${resolution}px.zip`);
-            }
-
-            setExportProgress(100);
-            setExportStatus("Done!");
-            toast.success(`XRPL collection exported! ${count} NFTs at ${resolution}×${resolution}px`);
-        } catch (err: any) {
-            console.error("XRPL ZIP export failed:", err);
-            const isOOM = err?.message?.includes("memory") || err?.message?.includes("alloc") || err?.name === "RangeError";
-            toast.error(isOOM
-                ? `Export ran out of memory processing ${count} NFTs at ${resolution}px. Try reducing the count or lowering resolution.`
-                : "XRPL ZIP export failed. Please try again.");
-        } finally {
-            setTimeout(() => {
-                setIsXrplZipExporting(false);
-                setExportProgress(0);
-                setExportStatus("");
-            }, 1800);
-        }
-    }, [collectionName, collectionDescription, outputResolution, layers, generateNFTBatch]);
-
     // ── Download: Generated assets ZIP (local only) — MEMORY-SAFE ─────────────
 
     const downloadGeneratedAssets = useCallback(async (exportCount: string) => {
@@ -466,9 +380,7 @@ export function useNFTExport(
                     zipStream.addFile(`images/${nfts[i].id}.png`, u8);
                 }
 
-                const metadata = xrplMode
-                    ? nftToXrplMetadata(nfts[i], collectionName, collectionDescription)
-                    : nftToStandardMetadata(nfts[i], collectionName, collectionDescription);
+                const metadata = nftToStandardMetadata(nfts[i], collectionName, collectionDescription);
 
                 zipStream.addFile(`metadata/${nfts[i].id}.json`, encoder.encode(JSON.stringify(metadata, null, 2)));
 
@@ -517,7 +429,7 @@ export function useNFTExport(
                 setDownloadStatus("");
             }, 1800);
         }
-    }, [collectionName, collectionDescription, outputResolution, xrplMode, layers, generateNFTBatch]);
+    }, [collectionName, collectionDescription, outputResolution, layers, generateNFTBatch]);
 
     // ── Clipboard ──────────────────────────────────────────────────────────────
 
@@ -531,7 +443,6 @@ export function useNFTExport(
         isExporting,
         exportProgress,
         exportStatus,
-        isXrplZipExporting,
         isDownloadingAssets,
         downloadProgress,
         downloadStatus,
@@ -542,7 +453,6 @@ export function useNFTExport(
         exportAllMetadata,
         exportIndividualFiles,
         exportAsZip,
-        exportXRPLZip,
         downloadGeneratedAssets,
         copyToClipboard,
     };

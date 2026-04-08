@@ -200,64 +200,6 @@ export const nftToStandardMetadata = (
 };
 
 /**
- * Generate metadata for XRPL (XLS-20 style) - Production Grade
- */
-export const nftToXrplMetadata = (
-    nft: GeneratedNFT,
-    collectionName: string,
-    collectionDescription: string,
-    imageCid: string = "YOUR_IMAGE_CID",
-    externalUrl: string = ""
-) => {
-    if (nft.isOneOfOne && nft.metadataOverride) {
-        return {
-            schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-            nftType: "art.v0",
-            name: nft.metadataOverride.name,
-            description: nft.metadataOverride.description,
-            image: `ipfs://${imageCid}/${nft.id}.png`,
-            animation_url: `ipfs://${imageCid}/${nft.id}.png`,
-            external_url: externalUrl || "https://thelilypad.io",
-            image_mimetype: "image/png",
-            attributes: nft.metadataOverride.attributes,
-            properties: {
-                files: [
-                    {
-                        uri: `ipfs://${imageCid}/${nft.id}.png`,
-                        type: "image/png"
-                    }
-                ],
-                category: "image"
-            }
-        };
-    }
-
-    return {
-        schema: "ipfs://bafkreibhvppn37ufanewwksp47mkbxss3lzp2azvkxo6v7ks2ip5f3kgpm",
-        nftType: "art.v0",
-        name: nft.name || `${collectionName} #${nft.id}`,
-        description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-        image: `ipfs://${imageCid}/${nft.id}.png`,
-        animation_url: `ipfs://${imageCid}/${nft.id}.png`,
-        external_url: externalUrl || "https://thelilypad.io",
-        image_mimetype: "image/png",
-        attributes: nft.traits.map((t) => ({
-            trait_type: t.layerName,
-            value: t.traitName,
-        })),
-        properties: {
-            files: [
-                {
-                    uri: `ipfs://${imageCid}/${nft.id}.png`,
-                    type: "image/png"
-                }
-            ],
-            category: "image"
-        }
-    };
-};
-
-/**
  * Zips a collection of files into a Blob asynchronously without allocating
  * huge contiguous ArrayBuffers, and writes directly to disk if supported.
  */
@@ -388,9 +330,7 @@ export const bundleAssetsAsZip = async (
         const u8 = new Uint8Array(await blob.arrayBuffer());
         zipStream.addFile(`images/${nft.id}.png`, u8);
 
-        const metadata = chain.toLowerCase() === "xrpl"
-            ? nftToXrplMetadata(nft, collectionName, collectionDescription, imageCid)
-            : nftToStandardMetadata(nft, collectionName, collectionDescription);
+        const metadata = nftToStandardMetadata(nft, collectionName, collectionDescription);
 
         const metaBlob = encoder.encode(JSON.stringify(metadata, null, 2));
         zipStream.addFile(`metadata/${nfts[i].id}.json`, metaBlob);

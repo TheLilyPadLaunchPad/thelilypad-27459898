@@ -15,9 +15,8 @@ import { ChainLaunchpadConfig, LaunchpadStep } from "./types";
 
 export * from "./types";
 export * from "./solana";
-export * from "./xrpl";
 
-// Generic Music Flow (EVM/Solana/XRPL compatible)
+// Generic Music Flow (EVM/Solana compatible)
 const musicSteps: LaunchpadStep[] = [
     {
         id: 0,
@@ -111,13 +110,6 @@ export const CHAIN_LAUNCHPAD_CONFIGS: Record<string, ChainLaunchpadConfig> = {
         ...SOLANA_LAUNCHPAD_CONFIG,
         modes: {
             ...SOLANA_LAUNCHPAD_CONFIG.modes,
-            music: musicSteps
-        }
-    },
-    xrpl: {
-        ...XRPL_LAUNCHPAD_CONFIG,
-        modes: {
-            ...XRPL_LAUNCHPAD_CONFIG.modes,
             music: musicSteps
         }
     },
