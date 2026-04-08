@@ -14,8 +14,8 @@ import { waitForPhantomExtension } from "@/config/phantom";
 import { useChain } from "@/providers/ChainProvider";
 import { cn } from "@/lib/utils";
 
-export type WalletType = "phantom" | "solana" | "xrpl";
-export type ChainType = "solana" | "xrpl" | "monad";
+export type WalletType = "phantom" | "solana";
+export type ChainType = "solana" | "monad";
 
 export type OAuthProvider = "google" | "apple";
 
@@ -66,24 +66,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           description: chain.id === 'monad' ? "Connect Monad via Phantom EVM" : "Solana, EVM & more",
         };
 
-        const xrplOption: WalletOption = {
-          id: "xrpl",
-          name: "XRPL Browser Wallet",
-          icon: <XRPIcon className="w-7 h-7" />,
-          isInstalled: true,
-          installUrl: "",
-          description: "Non-custodial browser wallet",
-        };
-
-        if (false) {
-          if (chain.id === 'xrpl') {
-            options.push(xrplOption, phantomOption);
-          } else {
-            options.push(phantomOption, xrplOption);
-          }
-        } else {
-          options.push(phantomOption);
-        }
+        options.push(phantomOption);
 
         setWalletOptions(options);
       } catch (e) {
@@ -96,13 +79,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             isInstalled: false,
             installUrl: "https://phantom.app/",
           },
-          ...(false ? [{
-            id: "xrpl" as WalletType,
-            name: "XRPL Browser Wallet",
-            icon: <XRPIcon className="w-7 h-7" />,
-            isInstalled: true,
-            installUrl: "",
-          }] : [])
         ]);
       }
 
@@ -125,7 +101,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   const getChainIcon = () => {
     switch (chain.id) {
       case 'solana': return <span className="mr-1 text-emerald-400">◎</span>;
-      case 'xrpl': return <XRPIcon className="w-3.5 h-3.5 mr-1 text-blue-400" />;
       case 'monad': return <Hexagon className="w-3 h-3 mr-1 text-purple-400" />;
       default: return null;
     }
@@ -134,7 +109,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
   const getChainBadgeStyles = () => {
     switch (chain.id) {
       case 'solana': return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-      case 'xrpl': return "bg-blue-500/10 text-blue-400 border-blue-500/30";
       case 'monad': return "bg-purple-500/10 text-purple-400 border-purple-500/30";
       default: return "";
     }

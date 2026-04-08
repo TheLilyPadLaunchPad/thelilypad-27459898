@@ -5,14 +5,14 @@ import { useAuth } from "@/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Import, PlusCircle, ArrowRight } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
 import { motion, AnimatePresence } from "framer-motion";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
-type SelectedChain = "solana" | "xrpl" | "monad";
+type SelectedChain = "solana" | "monad";
 
 // Phantom icon
 const PhantomIcon = () => (
@@ -34,12 +34,6 @@ const PhantomIcon = () => (
   </svg>
 );
 
-// XRP Ledger icon — official symbol (curly brackets + X) on dark background tile
-const XRPLIcon = () => (
-  <span className="flex items-center justify-center w-5 h-5 rounded bg-[#23292F]">
-    <XRPIcon className="w-3.5 h-3.5 text-white" />
-  </span>
-);
 
 // Monad icon — purple diamond
 const MonadIcon = () => (
@@ -58,7 +52,6 @@ const MonadIcon = () => (
 
 const CHAINS: { id: SelectedChain; label: string; Icon: React.FC }[] = [
   { id: "solana", label: "Phantom", Icon: PhantomIcon },
-  { id: "xrpl", label: "XRPL", Icon: XRPLIcon },
   { id: "monad", label: "Monad", Icon: MonadIcon },
 ];
 
@@ -68,21 +61,13 @@ export default function Auth() {
   const { state } = useAuth();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
-  const [showImport, setShowImport] = useState(false);
-  const [importSeed, setImportSeed] = useState("");
-  const [hasExistingXRPLWallet, setHasExistingXRPLWallet] = useState(false);
   // Fetch dynamic auth branding from site_assets, fallback to local
   const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
 
-  // Check if user already has a saved XRPL wallet in localStorage
-  useEffect(() => {
-    const xrplKey = localStorage.getItem("xrpl_wallet_address");
-    setHasExistingXRPLWallet(!!xrplKey);
-  }, []);
 
   useSEO({
     title: "Connect Wallet | The Lily Pad",
-    description: "Connect your wallet to access The Lily Pad. Choose Phantom for Solana or Monad, or XRPL browser wallet."
+    description: "Connect your wallet to access The Lily Pad. Choose Phantom for Solana or Monad."
   });
 
   // Redirect when authenticated or needs profile setup
@@ -105,16 +90,6 @@ export default function Auth() {
     }
   };
 
-  const handleXRPLConnect = async () => {
-    setIsConnectingWallet(true);
-    try {
-      await connect("xrpl", "xrpl");
-    } catch (error) {
-      console.error("XRPL connect error:", error);
-    } finally {
-      setIsConnectingWallet(false);
-    }
-  };
 
   const handleMonadConnect = async () => {
     setIsConnectingWallet(true);
@@ -127,31 +102,13 @@ export default function Auth() {
     }
   };
 
-  const handleXRPLImport = async () => {
-    if (!importSeed.trim()) return;
-    setIsConnectingWallet(true);
-    try {
-      // Import uses the main connect which generates/loads wallet
-      // For import, we need to call importXRPLWallet + saveXRPLWallet first
-      const { importXRPLWallet, saveXRPLWallet } = await import("@/lib/xrpl-wallet");
-      const wallet = importXRPLWallet(importSeed.trim());
-      await saveXRPLWallet(wallet);
-      await connect("xrpl", "xrpl");
-      setImportSeed("");
-      setShowImport(false);
-    } catch (error) {
-      console.error("XRPL import error:", error);
-    } finally {
-      setIsConnectingWallet(false);
-    }
-  };
 
   const isLoading = isConnecting || isConnectingWallet;
 
-  // Tab indicator position: divide into thirds
+  // Tab indicator position: divide in half
   const tabIndex = CHAINS.findIndex(c => c.id === selectedChain);
-  const indicatorLeft = `calc(${tabIndex} * (100% / 3) + 4px)`;
-  const indicatorWidth = "calc(100% / 3 - 8px)";
+  const indicatorLeft = `calc(${tabIndex} * (100% / 2) + 4px)`;
+  const indicatorWidth = "calc(100% / 2 - 8px)";
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -252,90 +209,6 @@ export default function Auth() {
                 </motion.div>
               )}
 
-              {selectedChain === "xrpl" && (
-                <motion.div
-                  key="xrpl"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-4"
-                >
-                  {/* XRPL badge */}
-                  <div className="flex items-center justify-center">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#00AAE4]/10 text-[#00AAE4] text-xs font-medium border border-[#00AAE4]/20">
-                      <XRPIcon className="w-3.5 h-3.5" /> XRP Ledger (Testnet)
-                    </span>
-                  </div>
-
-                  {/* Create or reconnect wallet */}
-                  <Button
-                    onClick={handleXRPLConnect}
-                    disabled={isLoading}
-                    className="w-full h-14 text-base font-medium bg-gradient-to-r from-[#23292F] to-[#2563EB] hover:from-[#1a1f24] hover:to-[#1d4ed8] text-white"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin mr-3" />
-                    ) : hasExistingXRPLWallet ? (
-                      <ArrowRight className="w-5 h-5 mr-3" />
-                    ) : (
-                      <PlusCircle className="w-5 h-5 mr-3" />
-                    )}
-                    {hasExistingXRPLWallet ? "Reconnect XRPL Wallet" : "Create XRPL Wallet"}
-                  </Button>
-
-                  {/* Import existing wallet */}
-                  {!showImport ? (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setShowImport(true)}
-                      disabled={isLoading}
-                    >
-                      <Import className="w-4 h-4 mr-2" />
-                      Import Existing Wallet
-                    </Button>
-                  ) : (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="space-y-2"
-                    >
-                      <Input
-                        type="password"
-                        placeholder="Enter your XRPL seed / secret..."
-                        value={importSeed}
-                        onChange={(e) => setImportSeed(e.target.value)}
-                        className="font-mono text-sm"
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={handleXRPLImport}
-                          disabled={isLoading || !importSeed.trim()}
-                          className="flex-1"
-                        >
-                          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Import & Connect"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => { setShowImport(false); setImportSeed(""); }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground text-center">
-                      Non-custodial browser wallet. Your keys never leave your device.
-                    </p>
-                    <p className="text-xs text-muted-foreground/60 text-center">
-                      New wallets need XRP from a faucet to activate on testnet.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
 
               {selectedChain === "monad" && (
                 <motion.div
@@ -382,19 +255,7 @@ export default function Auth() {
 
         {/* Install / docs links */}
         <div className="mt-6 text-sm text-muted-foreground text-center">
-          {selectedChain === "xrpl" ? (
-            <p>
-              Learn about XRPL{" "}
-              <a
-                href="https://xrpl.org/docs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline font-medium"
-              >
-                Documentation
-              </a>
-            </p>
-          ) : selectedChain === "monad" ? (
+          {selectedChain === "monad" ? (
             <p>
               Learn about Monad{" "}
               <a

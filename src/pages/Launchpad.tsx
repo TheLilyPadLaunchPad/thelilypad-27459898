@@ -55,10 +55,9 @@ interface ChainEntry {
 
 const ALL_CHAIN_ENTRIES: ChainEntry[] = [
   { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
-  { id: "xrpl", label: "XRPL", description: "XLS-20 NFT Standard", badge: "Live", badgeVariant: "default" },
   { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
 ];
-const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES.filter(c => false || c.id !== "xrpl");
+const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES;
 
 // ── Collection type tiles ─────────────────────────────────────────────────────
 interface CollectionTypeTile {
@@ -73,21 +72,12 @@ interface CollectionTypeTile {
 
 const ALL_COLLECTION_TYPES: CollectionTypeTile[] = [
   {
-    id: "easy-xrp",
-    title: "Easy XRP Generator",
-    description: "The fastest way to launch on XRP. Drop your images, set your brand, and mint in 3 simple steps.",
-    icon: Zap,
-    highlight: true,
-    chains: ["xrpl"],
-    tag: "Simple Mode",
-  },
-  {
     id: "generative",
     title: "Generative Art",
     description: "Layer-based procedural generation. Upload trait layers and generate thousands of unique combinations with custom rarity weights.",
     icon: Layers,
     highlight: true,
-    chains: ["solana", "xrpl", "monad"],
+    chains: ["solana", "monad"],
     tag: "Most Popular",
   },
   {
@@ -96,7 +86,7 @@ const ALL_COLLECTION_TYPES: CollectionTypeTile[] = [
     description: "The no-code art companion. Locally generate high-res assets with metadata and download as a ZIP for offline prep.",
     icon: Palette,
     highlight: true,
-    chains: ["xrpl"],
+    chains: ["solana", "monad"],
     tag: "No-Code",
   },
   {
@@ -118,10 +108,7 @@ const ALL_COLLECTION_TYPES: CollectionTypeTile[] = [
   },
 ];
 
-// Filter out XRPL-only tiles and remove "xrpl" from multi-chain tiles when disabled
-const COLLECTION_TYPES: CollectionTypeTile[] = ALL_COLLECTION_TYPES
-  .filter(t => false || !t.chains.every(c => c === "xrpl"))
-  .map(t => false ? t : { ...t, chains: t.chains.filter(c => c !== "xrpl") as SupportedChain[] });
+const COLLECTION_TYPES: CollectionTypeTile[] = ALL_COLLECTION_TYPES;
 
 
 // ── Filter tabs ───────────────────────────────────────────────────────────────
@@ -135,7 +122,7 @@ const FILTER_TABS = [
 
 // ── Draft finder (reads from the new lilypad_draft_* keys) ────────────────────
 const DRAFT_PREFIX = 'lilypad_draft_';
-const DRAFT_TYPES = ['generative', 'xrpl-589', 'music', 'advanced', 'basic'];
+const DRAFT_TYPES = ['generative', 'music', 'advanced', 'basic'];
 
 /** Find the most recent draft for a given chain across all type keys */
 function findLatestDraft(chain: string): { key: string; type: string; data: any } | null {

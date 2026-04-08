@@ -51,9 +51,6 @@ const ChainIcon: React.FC<{ chain: SupportedChain; className?: string }> = ({ ch
                     </defs>
                 </svg>
             );
-        case 'xrpl':
-            // Official XRP Ledger symbol — curly brackets + X mark
-            return <XRPIcon className={cn("w-4 h-4", className)} />;
         case 'monad':
             return (
                 <Hexagon className={cn("w-4 h-4", className)} style={{ color: '#836EF9' }} />

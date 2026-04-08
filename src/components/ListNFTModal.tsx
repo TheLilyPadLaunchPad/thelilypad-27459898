@@ -1,20 +1,5 @@
 /**
  * ListNFTModal — Chain-aware NFT listing modal
- *
- * Bug report: XRPL 1/1 listings showed "NFT Contract not found" and price label
- * said "SOL" instead of "XRP".
- *
- * Root causes:
- *  1. `nftAddress` guard was checking `collection.contract_address` — XRPL NFTs
- *     store their NFTokenID in `nft_token_id`, not `contract_address` (which is
- *     the issuer/minter address, not required for listing).
- *  2. `currency` was hardcoded to 'SOL' in the Supabase insert.
- *  3. Price label, input suffix, and button text were all hardcoded to "SOL".
- *  4. `priceLamports` calculation (price × 1e9) is Solana-specific — XRP uses drops
- *     (price × 1_000_000) but for DB listing we just store the float amount.
- *  5. `approval` / `window.ethereum` calls are Solana / EVM patterns that should
- *     be skipped entirely for XRPL.
- *  6. `explorerUrl` in MyNFTs always pointed to solana.com even for XRPL NFTs.
  */
 
 import { useState } from "react";
@@ -43,7 +28,6 @@ import { useWallet } from "@/providers/WalletProvider";
 interface MintedNFT {
   id: string;
   token_id: number;
-  /** XRPL-specific: the 64-char hex NFTokenID stored here after the audit fix */
   nft_token_id?: string | null;
   name: string | null;
   image_url: string | null;
@@ -51,7 +35,7 @@ interface MintedNFT {
   owner_address: string;
   owner_id: string;
   collection?: {
-    /** Solana: CandyMachine / Core Asset address. XRPL: issuer account address. */
+    /** Solana: CandyMachine / Core Asset address. Monad: ERC-721 contract address. */
     contract_address: string | null;
     /** The chain the collection was deployed on */
     chain?: string | null;
@@ -71,8 +55,6 @@ type ChainCurrency = { symbol: string; decimals: number; step: string };
 
 function getCurrencyForChain(chain: string | null | undefined): ChainCurrency {
   switch (chain) {
-    case 'xrpl':
-      return { symbol: 'XRP', decimals: 6, step: '0.0001' };
     case 'monad':
       return { symbol: 'MON', decimals: 18, step: '0.001' };
     case 'solana':
@@ -93,27 +75,15 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
   // Authoritative chain source: wallet chainType (not URL param or collection.chain)
   const { chainType } = useWallet();
   // Derive the chain: wallet chainType could be wrong if exploring other chain's NFTs.
-  // Use collection chain, then owner address signature, then fallback.
-  const isXRPLOwner = nft?.owner_address?.startsWith('r') || false;
-  const derivedChain = nft?.collection?.chain || (isXRPLOwner ? 'xrpl' : null);
+  // Use collection chain, then fallback.
+  const derivedChain = nft?.collection?.chain;
   const resolvedChain = derivedChain || chainType || 'solana';
   const currency = getCurrencyForChain(resolvedChain);
-  const isXRPL = resolvedChain === 'xrpl';
 
   // ── Validation ──────────────────────────────────────────────────────────────
 
-  const getNFTIdentifier = (): { type: 'xrpl' | 'solana' | 'unknown'; value: string | null } => {
+  const getNFTIdentifier = (): { type: 'solana' | 'unknown'; value: string | null } => {
     if (!nft) return { type: 'unknown', value: null };
-
-    if (isXRPL) {
-      // For XRPL: use nft_token_id (64-char hex NFTokenID) if available,
-      // fallback to attributes.xrpl_nft_id, then contract_address.
-      const nftAny = nft as any;
-      const parsedAttrs = typeof nftAny.attributes === 'string' ? JSON.parse(nftAny.attributes) : (nftAny.attributes as any);
-      const attrTokenId = parsedAttrs?.xrpl_nft_id;
-      const xrplId = nftAny.nft_token_id || attrTokenId || nft.collection?.contract_address || nft.id;
-      return { type: 'xrpl', value: xrplId };
-    }
 
     // For Solana/Monad: need contract_address for on-chain operations
     const addr = nft.collection?.contract_address;
@@ -133,16 +103,9 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
     const { type: idType, value: nftIdentifier } = getNFTIdentifier();
 
     // For Solana/Monad we strictly need a contract_address for approval + escrow.
-    // For XRPL we use DB-only listing (no contract approval needed — XLS-20
-    // transfers happen at settlement time via NFTokenCreateOffer).
     if (idType === 'unknown' || (idType === 'solana' && !nftIdentifier)) {
-      if (isXRPL) {
-        // XRPL doesn't need a contract_address to create a DB listing
-        // We just need the XRPL NFT's token ID, which falls back to nft.id
-      } else {
-        setError("NFT contract address not found. This NFT may not be deployed on-chain yet.");
-        return;
-      }
+      setError("NFT contract address not found. This NFT may not be deployed on-chain yet.");
+      return;
     }
 
     setIsListing(true);
@@ -156,8 +119,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
       }
 
       // For Solana/Monad: would trigger wallet approval + escrow
-      // For XRPL: skip entirely — NFTokenCreateOffer is done at purchase time
-      if (!isXRPL && nftIdentifier) {
+      if (nftIdentifier) {
         setListingStatus('approving');
         // Approval is a no-op for Solana Core (no pre-approval needed)
         // For future EVM/Monad: would call setApprovalForAll here
@@ -166,23 +128,6 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
       }
 
       let onChainResult = null;
-      if (isXRPL) {
-        const nfTokenId = (nft as any).nft_token_id || nft.collection?.contract_address || (nft as any).attributes?.xrpl_nft_id;
-        if (!nfTokenId) {
-          throw new Error("Could not find NFTokenID for this XRPL NFT");
-        }
-        
-        onChainResult = await xrplMarketplace.listNFT(
-          nft.id,
-          nfTokenId,
-          parseFloat(price),
-          expiresAt
-        );
-        
-        if (!onChainResult.success) {
-          throw new Error(onChainResult.error || "Failed to create on-chain offer");
-        }
-      }
 
       // Insert listing record — currency derived from chain, not hardcoded
       const { error: insertError } = await supabase
@@ -195,7 +140,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           currency: currency.symbol,
           expires_at: expiresAt?.toISOString() || null,
           tx_hash: onChainResult?.hash || null,
-          marketplace_id: onChainResult?.offerIndex || null, // Store the NFTokenOfferIndex
+          marketplace_id: onChainResult?.offerIndex || null,
           status: 'active',
         }]);
 
@@ -234,7 +179,6 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
   // ── UI ──────────────────────────────────────────────────────────────────────
 
   const CurrencyIcon = () => {
-    if (isXRPL) return <XRPIcon className="w-3.5 h-3.5 text-muted-foreground" />;
     return null;
   };
 
@@ -261,21 +205,13 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
               variant="outline"
               className={cn(
                 "text-xs gap-1",
-                isXRPL
-                  ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
-                  : resolvedChain === 'monad'
+                resolvedChain === 'monad'
                     ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
                     : "bg-green-500/10 text-green-400 border-green-500/30"
               )}
             >
-              {isXRPL && <XRPIcon className="w-3 h-3" />}
-              {resolvedChain === 'xrpl' ? 'XRP Ledger' : resolvedChain === 'monad' ? 'Monad' : 'Solana'} listing
+              {resolvedChain === 'monad' ? 'Monad' : 'Solana'} listing
             </Badge>
-            {isXRPL && (
-              <span className="text-[10px] text-muted-foreground">
-                DB listing · settled on purchase via NFTokenCreateOffer
-              </span>
-            )}
           </div>
 
           {/* NFT Preview */}
@@ -296,11 +232,6 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
               <Badge variant="outline" className="mt-1">
                 #{nft.token_id}
               </Badge>
-              {isXRPL && ((nft as any).nft_token_id || ((nft as any).attributes?.xrpl_nft_id)) && (
-                <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate max-w-[180px]">
-                  {((nft as any).nft_token_id || ((nft as any).attributes?.xrpl_nft_id)).slice(0, 16)}…
-                </p>
-              )}
             </div>
           </div>
 
@@ -362,7 +293,6 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
               A 2.5% marketplace fee will be deducted from your sale.
-              {isXRPL && " XRPL listings are off-chain records. On-chain transfer happens via NFTokenCreateOffer at purchase."}
             </p>
           </div>
 
@@ -410,7 +340,6 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
               ) : (
                 <>
                   <Tag className="mr-2 h-4 w-4" />
-                  {/* FIX: was hardcoded "SOL" */}
                   List for {price || '0'} {currency.symbol}
                 </>
               )}

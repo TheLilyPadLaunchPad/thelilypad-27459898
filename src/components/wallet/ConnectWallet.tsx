@@ -104,13 +104,12 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
     return null;
   };
 
-  // Derive chain display info from CHAINS config — covers SOL, XRP, MON and any future chain
+  // Derive chain display info from CHAINS config — covers SOL, MON and any future chain
   const chainCfg = CHAINS[chainType as SupportedChain] ?? CHAINS.solana;
   const chainDisplayName = network === 'mainnet' ? chainCfg.name : `${chainCfg.name} Testnet`;
   const balanceSymbol = chainCfg.symbol;
-  // Render the chain icon — XRP uses official SVG, others use unicode glyphs
+  // Render the chain icon — uses unicode glyphs
   const renderChainIcon = (sizeClass = "w-4 h-4") => {
-    if (chainType === 'xrpl') return <XRPIcon className={sizeClass} />;
     if (chainType === 'monad') return <span className="text-sm">◈</span>;
     return <span className="text-sm">◎</span>;
   };

@@ -183,7 +183,7 @@ const Raffles: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-8">
-          {(['solana', 'xrpl', 'monad'] as SupportedChain[]).map(chain => {
+          {(['solana', 'monad'] as SupportedChain[]).map(chain => {
             const config = CHAINS[chain];
             return (
               <button
