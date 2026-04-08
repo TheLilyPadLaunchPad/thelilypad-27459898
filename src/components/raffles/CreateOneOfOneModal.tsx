@@ -109,7 +109,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             toast.dismiss("upload");
 
             let txHash = `mock_tx_${Date.now()}`;
-            const chainName = chain === 'xrpl' ? 'XRPL' : chain === 'monad' ? 'Monad' : 'Solana';
+            const chainName = chain === 'monad' ? 'Monad' : 'Solana';
 
             const mintItems = [];
             if (mode === "edition" && useTiers && tiers.length > 0) {
@@ -131,52 +131,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 }
             }
 
-            if (chain === 'xrpl') {
-                if (chainType !== 'xrpl') {
-                    toast.error(`Please connect your XRPL wallet.`);
-                    setIsLoading(false);
-                    return;
-                }
-
-                toast.loading(`Deploying XRPL Collection...`, { id: "deploy" });
-                const taxon = Math.floor(Date.now() % 1_000_000);
-                const primaryArweaveUri = manifestUri || uploadResults[0]?.arweaveUri || "";
-                
-                const xrplResult = await deployXRPLCollection({
-                    name,
-                    symbol,
-                    description,
-                    totalSupply: mintItems.length,
-                    baseUri: primaryArweaveUri,
-                    transferFee: 0,
-                    flags: 8, // tfTransferable
-                    taxon,
-                });
-
-                if (xrplResult?.address) {
-                    txHash = xrplResult.address;
-                    toast.loading(`Minting ${mintItems.length} NFTs on XRPL...`, { id: "deploy" });
-                    
-                    const xrplItems = mintItems.map(item => ({
-                        name: item.name,
-                        uri: metadataUrl || imageUrl
-                    }));
-
-                    const mintResults = await mintXRPLItems(
-                        xrplResult.address,
-                        xrplResult.taxon,
-                        xrplItems,
-                        0,
-                        8
-                    );
-                    
-                    if (mintResults && mintResults.length > 0) {
-                        // Use the first mint tx hash as the primary reference if needed
-                        // Though for XRPL we often use the account address as the "contract"
-                    }
-                }
-                toast.dismiss("deploy");
-            } else if (chain === 'monad') {
+            if (chain === 'monad') {
                 if (chainType !== 'monad') {
                     toast.error(`Please connect your Monad wallet.`);
                     setIsLoading(false);
@@ -340,7 +295,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 <DialogHeader>
                     <DialogTitle>Launch {mode === "one-of-one" ? "1-of-1" : "Edition"}</DialogTitle>
                     <DialogDescription>
-                        Create a standalone NFT or a limited edition series on {chain === 'xrpl' ? 'XRPL' : chain === 'monad' ? 'Monad' : 'Solana'}.
+                        Create a standalone NFT or a limited edition series on {chain === 'monad' ? 'Monad' : 'Solana'}.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -477,7 +432,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                                                         />
                                                     </div>
                                                     <div className="col-span-6 sm:col-span-3 space-y-1.5">
-                                                        <Label className="text-[10px]">Price ({chain === 'solana' ? 'SOL' : chain === 'xrpl' ? 'XRP' : 'MON'})</Label>
+                                                        <Label className="text-[10px]">Price ({chain === 'solana' ? 'SOL' : 'MON'})</Label>
                                                         <Input 
                                                             type="number" 
                                                             className="h-8 text-sm" 

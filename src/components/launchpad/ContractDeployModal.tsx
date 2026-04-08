@@ -22,8 +22,9 @@ import { useWallet } from "@/providers/WalletProvider";
 import { toast } from "sonner";
 import { isValidIPFSCID } from "@/config/nftFactory";
 import { supabase } from "@/integrations/supabase/client";
-import { useMplCore } from "@/hooks/useMplCore";
+import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
+import { uploadMetadataToArweave } from "@/integrations/irys/client";
 
 interface ContractDeployModalProps {
   open: boolean;
@@ -55,7 +56,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
   const [isSavingCID, setIsSavingCID] = React.useState(false);
   const [isDeploying, setIsDeploying] = React.useState(false);
 
-  const { createCoreCollection } = useMplCore();
+  const solanaLaunch = useSolanaLaunch();
   const monadLaunch = useMonadLaunch();
 
   const chainId = (collection.chain?.split('-')[0] as SupportedChain) || 'solana';
@@ -119,13 +120,37 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       let contractAddress = "";
 
       if (chainId === 'solana') {
-        toast.loading("Deploying Metaplex Core Collection...", { id: 'deploying' });
-        const { collectionAddress } = await createCoreCollection({
+        toast.loading("Preparing collection metadata...", { id: 'deploying' });
+
+        // Upload minimal metadata to Arweave first
+        const metadata = {
           name: collection.name,
           symbol: collection.symbol,
-          uri: "", // Will be updated later or use placeholder
+          description: `Collection by ${collection.creator_address}`,
+          image: "", // Placeholder, can be updated later
+          properties: {
+            category: "image",
+            creators: [{
+              address: address,
+              share: 100
+            }]
+          }
+        };
+
+        const arweaveUri = await uploadMetadataToArweave(
+          metadata,
+          { address, chainType: 'solana', network }
+        );
+
+        toast.loading("Deploying Metaplex Core Collection...", { id: 'deploying' });
+        const result = await solanaLaunch.deploySolanaCollection({
+          name: collection.name,
+          symbol: collection.symbol,
+          uri: arweaveUri,
+          sellerFeeBasisPoints: Math.round(collection.royalty_percent * 100),
+          creators: [{ address: address || '', share: 100 }]
         });
-        contractAddress = collectionAddress.toString();
+        contractAddress = result.address;
       } else if (chainId === 'monad') {
         toast.loading("Deploying Monad ERC-721 Collection...", { id: 'deploying' });
         const result = await monadLaunch.createCollection({
