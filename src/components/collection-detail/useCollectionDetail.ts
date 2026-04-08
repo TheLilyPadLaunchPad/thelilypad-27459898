@@ -45,24 +45,16 @@ export function useCollectionDetail() {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     // ── Derived State ──────────────────────────────────────────────────────────
-    // FIX: More robust chain detection to prevent XRPL collections from defaulting to Solana
     const dbChainRaw = collection?.chain || collection?.blockchain || '';
-    let collectionChain = getBaseChain(dbChainRaw);
-
-    // Safety check: if contract address exists and looks like XRPL, force it
-    if (collectionChain === 'solana' && collection?.contract_address?.startsWith('r')) {
-        collectionChain = 'xrpl';
-    }
+    const collectionChain = getBaseChain(dbChainRaw);
 
     const chainConfig = CHAINS[collectionChain] || CHAINS.solana;
     const isSolana = collectionChain === 'solana';
-    const isXRPL = collectionChain === 'xrpl';
     const isMonad = collectionChain === 'monad';
 
-    // FIX: Correct currency for XRPL
-    const currency = isXRPL ? 'XRP' : (chainConfig?.symbol || 'SOL');
-    const collectionNetwork = chainConfig?.name || (isXRPL ? 'XRP Ledger' : 'Solana');
-    const isCollectionTestnet = isChainTestnet(dbChainRaw) || (isXRPL && !!collection?.contract_address); // Assume testnet for dev if not sure
+    const currency = chainConfig?.symbol || 'SOL';
+    const collectionNetwork = chainConfig?.name || 'Solana';
+    const isCollectionTestnet = isChainTestnet(dbChainRaw);
     const collectionExplorerUrl = chainConfig?.networks[isCollectionTestnet ? 'testnet' : 'mainnet']?.explorer || '';
     const isCreator = currentUserId && collection?.creator_id === currentUserId;
     const totalSupply = collection?.total_supply || 0;
@@ -204,9 +196,7 @@ export function useCollectionDetail() {
             return;
         }
 
-        // XRPL collections created via the generator/easy-gen flow don't use phases.
-        // Only require activePhase for Solana (Candy Machine) mints.
-        if (!isXRPL && !activePhase) {
+        if (!activePhase) {
             toast.error("No active mint phase configured for this collection");
             return;
         }
@@ -234,52 +224,6 @@ export function useCollectionDetail() {
                     setShowRevealModal(true);
                     fetchCollection();
                     toast.success("Mint successful!");
-                }
-            } else if (isXRPL) {
-                toast.loading(`Minting your NFT on XRPL...`, { id: 'xrpl-mint' });
-
-                let lastResult = null;
-                const currentMinted = collection.minted || 0;
-
-                for (let i = 0; i < amount; i++) {
-                    // itemIndex is 0-based to match how the generator stores metadata
-                    const itemIndex = currentMinted + i;
-
-                    // Prefer IPFS CID (admin pinned), then Arweave URI from minted_nfts
-                    let metadataUri: string;
-                    if (collection.ipfs_base_cid) {
-                        metadataUri = `ipfs://${collection.ipfs_base_cid}/${itemIndex}.json`;
-                    } else {
-                        // Arweave URIs are stored per-NFT; for new mints, the URI comes from the mint flow
-                        // Fallback: empty string will be replaced by the mint function's own URI
-                        metadataUri = '';
-                        console.warn(`[CollectionDetail] No IPFS CID for collection ${collection.id}, metadata URI will be resolved at mint time`);
-                    }
-
-                    console.log(`[CollectionDetail] XRPL mint #${itemIndex}: uri=${metadataUri}`);
-
-                    const result = await xrplMint.mintNFT(metadataUri, {
-                        collectionId: collection.id,
-                        taxon: (collection as any).taxon || (collection as any).phases?.taxon || 0,
-                        price: Number(activePhase?.price) || 0,
-                        // royalty_percent is stored as a plain number (e.g. 5 = 5%)
-                        // XLS-20 TransferFee uses 0-50000 (5000 = 5%)
-                        transferFee: Math.round((collection.royalty_percent || 0) * 1000),
-                    });
-                    lastResult = result;
-
-                    if (amount > 1) {
-                        toast.info(`Minted ${i + 1}/${amount} on XRPL...`);
-                    }
-                }
-
-                if (lastResult) {
-                    setMintTxHash(lastResult.hash);
-                    setRevealTxHash(lastResult.hash);
-                    setRevealedNfts(generateRandomAttributes(amount, collection.minted));
-                    setShowRevealModal(true);
-                    fetchCollection();
-                    toast.success("Minted!", { id: 'xrpl-mint' });
                 }
             } else if (isMonad) {
                 toast.loading(`Minting your NFT on Monad...`, { id: 'monad-mint' });
@@ -401,7 +345,6 @@ export function useCollectionDetail() {
         isCreator,
         address,
         isSolana,
-        isXRPL,
         isMonad,
         totalSupply,
         liveSupply,

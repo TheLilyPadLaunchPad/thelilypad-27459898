@@ -73,11 +73,6 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       return;
     }
 
-    if (chainId === 'xrpl' && !manualAddress.startsWith('r')) {
-      toast.error("Please enter a valid XRPL address (starts with 'r')");
-      return;
-    }
-
     if (chainId === 'monad' && !manualAddress.startsWith('0x')) {
       toast.error("Please enter a valid Monad/EVM address (starts with '0x')");
       return;
@@ -146,10 +141,6 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
         } else {
           throw new Error("Deployment failed to return an address");
         }
-      } else if (chainId === 'xrpl') {
-        toast.error("XRPL deployment logic is currently being optimized. Please use manual linking if you have an existing account domain set.");
-        setIsDeploying(false);
-        return;
       }
 
       if (contractAddress) {
@@ -250,9 +241,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   <p className="text-muted-foreground mt-1 text-xs">
                     {chainId === 'solana'
                       ? "Collections on Solana are deployed using the Metaplex Core standard for high performance and low fees."
-                      : chainId === 'xrpl'
-                        ? "XRPL NFTs use native on-ledger features. No smart contracts required, just establish provenance."
-                        : `Collections on ${currentChain.name} are deployed using standard ERC-721 smart contracts.`
+                      : `Collections on ${currentChain.name} are deployed using standard ERC-721 smart contracts.`
                     }
                   </p>
                 </div>
