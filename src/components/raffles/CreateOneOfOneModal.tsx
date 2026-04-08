@@ -14,9 +14,10 @@ import { getErrorMessage } from "@/lib/errorUtils";
 import { cn } from "@/lib/utils";
 import type { SupportedChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadBatchToArweave, BatchUploadItem } from "@/integrations/irys/client";
+import { uploadBatchToArweave, BatchUploadItem, uploadToArweave } from "@/integrations/irys/client";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
+import { buildMusicNftMetadata } from "@/lib/musicMetadata";
 
 interface Tier {
     name: string;
@@ -47,8 +48,11 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
     const [supply, setSupply] = useState("1"); // Legacy single supply
     const [tiers, setTiers] = useState<Tier[]>([]);
     const [useTiers, setUseTiers] = useState(false);
+    const [royaltyPercent, setRoyaltyPercent] = useState("5"); // Default 5% royalty
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
+    const [audioFile, setAudioFile] = useState<File | null>(null); // For music 1-of-1
+    const [audioPreview, setAudioPreview] = useState<string | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selected = e.target.files?.[0];
@@ -57,6 +61,15 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             const reader = new FileReader();
             reader.onloadend = () => setPreview(reader.result as string);
             reader.readAsDataURL(selected);
+        }
+    };
+
+    const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selected = e.target.files?.[0];
+        if (selected) {
+            setAudioFile(selected);
+            const url = URL.createObjectURL(selected);
+            setAudioPreview(url);
         }
     };
 
@@ -81,16 +94,45 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             // Shared Logic: Upload Image to Arweave (Irys)
             toast.loading("Uploading artwork to Arweave...", { id: "upload" });
 
+            // Upload audio file first if present (for music NFTs)
+            let audioUrl = "";
+            if (audioFile) {
+                toast.loading("Uploading audio file...", { id: "upload" });
+                audioUrl = await uploadToArweave(
+                    audioFile,
+                    { address, chainType: chain, network: "devnet" }
+                );
+            }
+
             const batchItems: BatchUploadItem[] = [
                 {
                     file,
-                    buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => ({
-                        name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
-                        description,
-                        image: arweaveImageUri,
-                        ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                        ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {})
-                    })
+                    buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
+                        // Music NFT: use Metaplex audio metadata standard
+                        if (audioFile && audioUrl) {
+                            return buildMusicNftMetadata(
+                                {
+                                    audioFile,
+                                    coverFile: file,
+                                    metadata: {
+                                        name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
+                                        description: description || '',
+                                    }
+                                },
+                                arweaveImageUri,
+                                audioUrl,
+                                name
+                            );
+                        }
+                        // Standard image NFT
+                        return {
+                            name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
+                            description,
+                            image: arweaveImageUri,
+                            ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                            ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {})
+                        };
+                    }
                 }
             ];
 
@@ -174,11 +216,13 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 const creatorAddress = (provider as any)?.publicKey?.toString?.() || address;
 
                 toast.loading("Deploying Solana collection...", { id: "deploy" });
+                const royaltyBasisPoints = Math.round(parseFloat(royaltyPercent || "0") * 100);
+                
                 const result = await deploySolanaCollection({
                     name,
                     symbol,
-                    uri: imageUrl,
-                    sellerFeeBasisPoints: 0,
+                    uri: metadataUrl, // Fixed: use metadata JSON URI, not image URL
+                    sellerFeeBasisPoints: royaltyBasisPoints,
                     creators: [{ address: creatorAddress, share: 100 }],
                 });
 
@@ -196,7 +240,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                             result.address,
                             item.name,
                             metadataUrl,
-                            0,
+                            royaltyBasisPoints, // Fixed: use configured royalty
                             creatorAddress
                         );
                     }
@@ -349,6 +393,46 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     <div className="space-y-2">
                         <Label>Description</Label>
                         <Textarea placeholder="Tell the story..." value={description} onChange={e => setDescription(e.target.value)} />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Royalty Percentage (%)</Label>
+                        <Input
+                            type="number"
+                            value={royaltyPercent}
+                            onChange={e => setRoyaltyPercent(e.target.value)}
+                            min="0"
+                            max="50"
+                            step="0.5"
+                        />
+                        <p className="text-xs text-muted-foreground">Creator royalty on secondary sales (0-50%)</p>
+                    </div>
+
+                    {/* Audio Upload for Music NFTs */}
+                    <div className="space-y-2">
+                        <Label>Audio File (Optional - for Music NFTs)</Label>
+                        <div className="flex items-center gap-3">
+                            <label className="flex-1">
+                                <div className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                                    <Upload className="w-4 h-4 text-muted-foreground" />
+                                    <span className="text-sm text-muted-foreground truncate">
+                                        {audioFile ? audioFile.name : "Upload audio file..."}
+                                    </span>
+                                </div>
+                                <input 
+                                    type="file" 
+                                    accept="audio/*" 
+                                    className="hidden" 
+                                    onChange={handleAudioFileChange} 
+                                />
+                            </label>
+                            {audioPreview && (
+                                <audio controls className="h-8 w-32">
+                                    <source src={audioPreview} />
+                                </audio>
+                            )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">MP3, WAV, FLAC, or other audio formats</p>
                     </div>
 
                     {mode === "edition" && (
