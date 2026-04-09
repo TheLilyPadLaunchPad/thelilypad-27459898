@@ -1,10 +1,10 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { FolderOpen, Layers, Sparkles, Zap, Leaf, Music } from "lucide-react";
+import { FolderOpen, Layers, Sparkles, Zap, Leaf } from "lucide-react";
 
 interface ModeSelectorProps {
-    mode: "basic" | "advanced" | "music";
-    onModeChange: (mode: "basic" | "advanced" | "music") => void;
+    mode: "basic" | "advanced";
+    onModeChange: (mode: "basic" | "advanced") => void;
 }
 
 export function ModeSelector({ mode, onModeChange }: ModeSelectorProps) {
@@ -92,43 +92,6 @@ export function ModeSelector({ mode, onModeChange }: ModeSelectorProps) {
                         <li className="flex items-center gap-1.5">
                             <Sparkles className="w-3 h-3 text-accent" />
                             <span>Import trait layers</span>
-                        </li>
-                    </ul>
-                </motion.button>
-
-                {/* Music Mode Card */}
-                <motion.button
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    onClick={() => onModeChange("music")}
-                    className={`relative p-4 rounded-xl text-left transition-all ${mode === "music"
-                        ? "bg-gradient-to-br from-blue-500/15 to-purple-500/5 border-2 border-blue-500 shadow-sm"
-                        : "glass-card border border-border hover:border-blue-500/40"
-                        }`}
-                >
-                    {mode === "music" && (
-                        <motion.div
-                            layoutId="mode-indicator"
-                            className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-medium"
-                        >
-                            ✓
-                        </motion.div>
-                    )}
-
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className={`p-2 rounded-lg ${mode === "music" ? "bg-blue-500/20" : "bg-muted"}`}>
-                            <Music className={`w-4 h-4 ${mode === "music" ? "text-blue-500" : "text-foreground"}`} />
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-bold text-foreground">Music</h3>
-                            <p className="text-[10px] text-muted-foreground">Artists & Labels</p>
-                        </div>
-                    </div>
-
-                    <ul className="space-y-1.5 text-xs text-muted-foreground">
-                        <li className="flex items-center gap-1.5">
-                            <Zap className="w-3 h-3 text-blue-500" />
-                            <span>Audio + Stem upload</span>
                         </li>
                     </ul>
                 </motion.button>

@@ -87,7 +87,7 @@ export function EditionTierManager({
     artworks,
     configs,
     onConfigsChange,
-    chainSymbol = "XRP",
+    chainSymbol = "SOL",
 }: EditionTierManagerProps) {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(
         new Set(artworks.slice(0, 1).map((a) => a.id))

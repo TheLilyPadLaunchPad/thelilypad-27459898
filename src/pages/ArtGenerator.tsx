@@ -18,7 +18,6 @@ import {
     Palette,
     DownloadCloud,
     Rocket,
-    Zap,
     ImageIcon,
     Wand2,
     Settings,
@@ -76,7 +75,7 @@ export default function ArtGenerator() {
 
     useSEO({
         title: "No-Code Art Generator | The Lily Pad",
-        description: "Generate professional generative NFT collections with layers and rarity. Download as ZIP for XRPL."
+        description: "Generate professional generative NFT collections with layers and rarity. Download as ZIP for Solana & Monad."
     });
 
     const handleGenerate = async () => {
@@ -107,7 +106,7 @@ export default function ArtGenerator() {
         }
     };
 
-    const handleDownload = async (format: "XRPL" | "Solana" | "Standard" = "XRPL") => {
+    const handleDownload = async (format: "Solana" | "Standard" = "Solana") => {
         if (generatedAssets.length === 0) return;
 
         setIsDownloading(true);
@@ -207,7 +206,7 @@ export default function ArtGenerator() {
                         </h1>
                         <p className="text-muted-foreground max-w-xl mx-auto">
                             Turn your creative layers into a complete generative collection.
-                            No coding, just art. Optimized for XRPL XLS-20.
+                            No coding, just art. Optimized for Solana & Monad.
                         </p>
                     </div>
 
@@ -467,23 +466,11 @@ export default function ArtGenerator() {
                                     </div>
                                     <div className="flex justify-between text-[11px]">
                                         <span className="text-muted-foreground font-medium">Format</span>
-                                        <span className="text-primary font-bold">XLS-20 + IPFS ready</span>
+                                        <span className="text-primary font-bold">Metaplex Core + Arweave ready</span>
                                     </div>
                                 </div>
                             </Card>
 
-                            <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10 space-y-3">
-                                <div className="flex items-center gap-2">
-                                    <Zap className="w-4 h-4 text-primary fill-primary" />
-                                    <span className="text-xs font-bold uppercase tracking-tight">Pro Tip</span>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                    Use the **Easy XRP Generator** after downloading your ZIP to launch your collection without needing a backend or contract.
-                                </p>
-                                <Button variant="link" className="p-0 h-auto text-[10px] text-primary" onClick={() => navigate("/launchpad/easy-xrp")}>
-                                    How it works →
-                                </Button>
-                            </div>
                         </div>
                     </div>
                 </main>

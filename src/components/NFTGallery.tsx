@@ -226,9 +226,6 @@ export function NFTGallery({
     if (propExplorerUrl) return `${propExplorerUrl}/tx/${hash}`;
 
     // Fallback if not provided
-    if (chain === 'xrpl') {
-      return `https://${isTestnet ? 'testnet.' : ''}xrpl.org/transactions/${hash}`;
-    }
     if (chain === 'monad') {
       return `https://monad-explorer.io/tx/${hash}`;
     }
@@ -239,9 +236,6 @@ export function NFTGallery({
     if (!contractAddress) return null;
     if (propExplorerUrl) return `${propExplorerUrl}/address/${contractAddress}`;
 
-    if (chain === 'xrpl') {
-      return `https://${isTestnet ? 'testnet.' : ''}xrpl.org/accounts/${contractAddress}`;
-    }
     if (chain === 'monad') {
       return `https://monad-explorer.io/address/${contractAddress}`;
     }

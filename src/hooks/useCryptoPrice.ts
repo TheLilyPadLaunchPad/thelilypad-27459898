@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type SupportedSymbol = "XRP" | "SOL" | "ETH" | "MON";
+type SupportedSymbol = "SOL" | "ETH" | "MON";
 
 interface PriceData {
     /** USD price */
@@ -35,7 +35,6 @@ const CACHE_TTL = 60_000;
 // ── CoinGecko ID mapping ────────────────────────────────────────────────────
 
 const COINGECKO_IDS: Record<SupportedSymbol, string> = {
-    XRP: "ripple",
     SOL: "solana",
     ETH: "ethereum",
     MON: "monad",       // Placeholder — update when CoinGecko lists Monad
@@ -103,7 +102,7 @@ async function fetchPrice(symbol: SupportedSymbol): Promise<number> {
  * don't trigger redundant requests.
  *
  * @example
- *   const { price, toUSD } = useCryptoPrice("XRP");
+ *   const { price, toUSD } = useCryptoPrice("SOL");
  *   <span>{toUSD(balance)}</span>  // "$12.34"
  */
 export function useCryptoPrice(symbol: SupportedSymbol): UseCryptoPriceReturn {

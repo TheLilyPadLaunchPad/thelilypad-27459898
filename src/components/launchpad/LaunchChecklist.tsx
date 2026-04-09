@@ -204,7 +204,7 @@ export function LaunchChecklist({
       },
       optional: true
     },
-    ...(collection.chain === 'xrpl' ? [] : [{
+    ...([{
       id: "deploy",
       title: "Deploy Contract",
       description: "Deploy your NFT smart contract to the blockchain",

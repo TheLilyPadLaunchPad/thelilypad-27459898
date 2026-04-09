@@ -121,7 +121,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Derive chain symbol from collection's chain
-  const chainSymbol = collection.chain === 'xrpl' ? 'XRP' : collection.chain === 'monad' ? 'MON' : 'SOL';
+  const chainSymbol = collection.chain === 'monad' ? 'MON' : 'SOL';
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -1065,7 +1065,7 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                     Advanced Storage
                   </h4>
                   <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
-                    XRPL / IPFS Native
+                    Arweave / IPFS Native
                   </Badge>
                 </div>
                 <div className="space-y-2">

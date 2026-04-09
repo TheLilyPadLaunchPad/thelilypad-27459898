@@ -40,10 +40,6 @@ export const CHAIN_PAYLOAD_CONFIG = {
         strategy: 'arweave',
         requiresIndividualUpload: true,
     },
-    xrpl: {
-        strategy: 'arweave',
-        requiresIndividualUpload: true,
-    },
     monad: {
         strategy: 'arweave',
         requiresIndividualUpload: true,

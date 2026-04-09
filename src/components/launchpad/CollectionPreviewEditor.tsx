@@ -47,7 +47,7 @@ interface CollectionPreviewEditorProps {
     layers: Layer[];
     collectionName: string;
     onAssetsChange: (assets: GeneratedAsset[]) => void;
-    onDownload: (format: "XRPL" | "Solana" | "Standard") => void;
+    onDownload: (format: "Solana" | "Standard") => void;
     onMint?: () => void;
     onRegenerate?: () => void;
     isDownloading?: boolean;
@@ -131,7 +131,7 @@ export function CollectionPreviewEditor({
         assets[0]?.id ?? null
     );
     const [searchQuery, setSearchQuery] = useState("");
-    const [exportFormat, setExportFormat] = useState<"XRPL" | "Solana" | "Standard">("XRPL");
+    const [exportFormat, setExportFormat] = useState<"Solana" | "Standard">("Solana");
     const [editingTraitLayer, setEditingTraitLayer] = useState<string | null>(null);
     const [filterCollapsed, setFilterCollapsed] = useState<Record<string, boolean>>({});
 
@@ -532,7 +532,6 @@ export function CollectionPreviewEditor({
                                     <SelectValue placeholder="Format" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="XRPL">XRPL</SelectItem>
                                     <SelectItem value="Solana">Solana</SelectItem>
                                     <SelectItem value="Standard">Standard</SelectItem>
                                 </SelectContent>

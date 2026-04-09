@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TokenLaunchMechanicsProps {
-    chain?: 'solana' | 'xrpl' | 'monad';
+    chain?: 'solana' | 'monad';
 }
 
 export const TokenLaunchMechanics = ({ chain = 'solana' }: TokenLaunchMechanicsProps) => {
@@ -41,7 +41,6 @@ export const TokenLaunchMechanics = ({ chain = 'solana' }: TokenLaunchMechanicsP
 
     const getCurrencyName = () => {
         switch (chain) {
-            case 'xrpl': return 'XRP';
             case 'monad': return 'MON';
             default: return 'SOL';
         }

@@ -128,8 +128,9 @@ export default function LaunchpadCreate() {
 
     const flowType = resolveFlowType(typeParam);
     const is1of1 = false; // 1/1s are now handled by Raffles & Studio
+    const isMusic = flowType === 'music';
 
-    const STEPS = mode === "music"
+    const STEPS = isMusic
         ? (launchpadConfig.modes.music || launchpadConfig.modes.basic || [])
         : (mode === "basic" ? launchpadConfig.modes.basic : launchpadConfig.modes.advanced) || [];
     const maxStep = STEPS.length - 1;
@@ -725,8 +726,8 @@ export default function LaunchpadCreate() {
                                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 className="space-y-8"
                             >
-                                {currentStep === 0 && !is1of1 && <ModeSelector mode={mode as "basic" | "advanced" | "music"} onModeChange={setMode} />}
-                                {((is1of1 && currentStep === 0) || (!is1of1 && currentStep === 1)) && (
+                                {currentStep === 0 && !is1of1 && !isMusic && <ModeSelector mode={mode as "basic" | "advanced"} onModeChange={setMode} />}
+                                {((is1of1 && currentStep === 0) || (isMusic && currentStep === 0) || (!is1of1 && !isMusic && currentStep === 1)) && (
                                     <div className="space-y-6">
                                         <div className="space-y-4">
                                             <Label>Cover Image</Label>
@@ -781,7 +782,7 @@ export default function LaunchpadCreate() {
                                         chainSymbol={chainSymbol}
                                     />
                                 )}
-                                {!is1of1 && currentStep === 2 && (mode === "basic" ? <FolderUploader onAssetsLoaded={handleAssetsLoaded} /> : <LayerManager layers={layers} onLayersChange={setLayers} />)}
+                                {!is1of1 && !isMusic && currentStep === 2 && (mode === "basic" ? <FolderUploader onAssetsLoaded={handleAssetsLoaded} /> : <LayerManager layers={layers} onLayersChange={setLayers} />)}
                                 {!is1of1 && mode === "advanced" && currentStep === 3 && (
                                     <div className="space-y-8">
                                         <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
@@ -817,8 +818,8 @@ export default function LaunchpadCreate() {
                                         </Button>
                                     </div>
                                 )}
-                                {mode === "music" && currentStep === 1 && <MusicArtworkUploader tracks={tracks} onTracksChange={setTracks} />}
-                                {mode === "music" && currentStep === 2 && (
+                                {isMusic && currentStep === 1 && <MusicArtworkUploader tracks={tracks} onTracksChange={setTracks} />}
+                                {isMusic && currentStep === 2 && (
                                     <div className="space-y-4">
                                         <div className="p-4 rounded-xl bg-muted/30 border border-border">
                                             <h3 className="font-bold mb-1">Track Customization</h3>
@@ -840,7 +841,7 @@ export default function LaunchpadCreate() {
                                         </div>
                                     </div>
                                 )}
-                                {((is1of1 && currentStep === 3) || (mode === "music" && currentStep === 3) || (!is1of1 && mode !== "music" && (mode === "basic" ? currentStep === 3 : currentStep === 5))) && (
+                                {((is1of1 && currentStep === 3) || (isMusic && currentStep === 3) || (!is1of1 && !isMusic && (mode === "basic" ? currentStep === 3 : currentStep === 5))) && (
                                     <div className="space-y-6">
                                         <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
                                         <Separator />
@@ -850,7 +851,7 @@ export default function LaunchpadCreate() {
                                         </div>
                                     </div>
                                 )}
-                                {((is1of1 && currentStep === 4) || (mode === "music" && currentStep === 4) || (!is1of1 && mode !== "music" && (mode === "basic" ? currentStep === 4 : currentStep === 6))) && (
+                                {((is1of1 && currentStep === 4) || (isMusic && currentStep === 4) || (!is1of1 && !isMusic && (mode === "basic" ? currentStep === 4 : currentStep === 6))) && (
                                     <div className="space-y-6 text-center py-10">
                                         <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto"><Rocket className="w-10 h-10" /></div>
                                         <h2 className="text-2xl font-bold">Ready to Launch!</h2>

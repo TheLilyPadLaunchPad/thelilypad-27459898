@@ -78,7 +78,7 @@ export const HeroSection: React.FC = () => {
           className="text-base sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-8 sm:mb-10 opacity-0 animate-fade-in flex flex-wrap items-center justify-center gap-2 px-2"
           style={{ animationDelay: "0.6s" }}
         >
-          <span>The premier multi-chain NFT ecosystem for Solana, XRPL, and Monad.</span>
+          <span>The premier multi-chain NFT ecosystem for Solana and Monad.</span>
         </p>
 
         {/* CTA Buttons */}
