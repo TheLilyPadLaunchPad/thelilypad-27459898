@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: "The Lily Pad",
         short_name: "LilyPad",
-        description: "Multi-chain NFT Launchpad & Marketplace — Solana, XRPL, Monad",
+        description: "Multi-chain NFT Launchpad & Marketplace — Solana & Monad",
         theme_color: "#0a0f1a",
         background_color: "#0a0f1a",
         display: "standalone",
@@ -180,9 +180,6 @@ export default defineConfig(({ mode }) => ({
             "@metaplex-foundation/umi",
             "@metaplex-foundation/mpl-core",
             "@metaplex-foundation/mpl-hybrid",
-          ],
-          "vendor-xrpl": [
-            "xrpl",
           ],
           "vendor-ui": [
             "@radix-ui/react-dialog",

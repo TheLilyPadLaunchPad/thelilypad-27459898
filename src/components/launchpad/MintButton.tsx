@@ -34,14 +34,10 @@ export function MintButton({
     // Check if chain supports minting via this button
     // XRP is handled via handleMint on the detail page directly for now, 
     // but the button should still show the correct info if rendered here.
-    const isMintingSupported = chain === 'solana' || chain === 'monad' || chain === 'xrpl';
+    const isMintingSupported = chain === 'solana' || chain === 'monad';
     const isLoading = isSolanaLoading || isMonadLoading;
 
     const handleMint = async () => {
-        if (chain === 'xrpl') {
-            toast.info('XRP minting is handled directly on the collection detail page.');
-            return;
-        }
         if (!isMintingSupported) {
             toast.info(`${chainConfig.name} minting coming soon!`);
             return;

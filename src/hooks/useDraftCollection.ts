@@ -15,9 +15,6 @@ export interface DraftCollectionData {
     phases: any[];
     /** Cover image URL from storage (not data URL) */
     coverImageUrl?: string;
-    /** XRPL-specific fields */
-    xrplTaxon?: number;
-    xrplTransferFee?: number;
     /** Edition counts for 1/1 mode */
     editionCounts?: Record<string, number>;
     /** Folder asset names (for display, files must be re-uploaded) */

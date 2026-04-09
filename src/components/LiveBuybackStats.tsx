@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import confetti from "canvas-confetti";
 
 interface LiveBuybackStatsProps {
-  chain?: 'solana' | 'xrpl' | 'monad';
+  chain?: 'solana' | 'monad';
 }
 
 const LiveBuybackStats = ({ chain = 'solana' }: LiveBuybackStatsProps) => {
@@ -19,7 +19,6 @@ const LiveBuybackStats = ({ chain = 'solana' }: LiveBuybackStatsProps) => {
 
   const getCurrencySymbol = (c: string) => {
     switch (c) {
-      case 'xrpl': return 'XRP';
       case 'monad': return 'MON';
       default: return 'SOL';
     }
