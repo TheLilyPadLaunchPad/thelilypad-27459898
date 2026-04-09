@@ -6,6 +6,8 @@ interface StickerContent {
   file_url: string;
   name: string;
   display_order: number;
+  arweave_uri?: string | null;
+  metadata_uri?: string | null;
 }
 
 interface ShopItem {
@@ -111,11 +113,15 @@ export const usePurchasedStickers = (userId: string | null): UsePurchasedSticker
             name,
             category,
             image_url,
+            collection_address,
+            tree_address,
             shop_item_contents (
               id,
               file_url,
               name,
-              display_order
+              display_order,
+              arweave_uri,
+              metadata_uri
             )
           )
         `)

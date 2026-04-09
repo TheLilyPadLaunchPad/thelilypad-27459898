@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Upload, Sticker, Plus, Trash2, X, GripVertical } from "lucide-react";
+import { Loader2, Upload, Sticker, Plus, Trash2, X, GripVertical, Globe, HardDrive } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useShopMint } from "@/hooks/useShopMint";
 
 interface ShopItem {
   id: string;
@@ -35,6 +37,8 @@ interface StickerContent {
   item_id: string;
   name: string;
   file_url: string;
+  arweave_uri?: string | null;
+  metadata_uri?: string | null;
   display_order: number;
   created_at: string;
 }
@@ -58,6 +62,8 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
   const [newStickerName, setNewStickerName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [uploadToChain, setUploadToChain] = useState(true);
+  const { uploadStickerToArweave } = useShopMint();
 
   useEffect(() => {
     if (open && pack) {
@@ -115,7 +121,7 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
 
     setIsUploading(true);
     try {
-      // Upload to storage
+      // Upload to Supabase Storage (fallback / preview URL)
       const fileExt = selectedFile.name.split(".").pop();
       const fileName = `${pack.creator_id}/${pack.id}/${Date.now()}-sticker.${fileExt}`;
       
@@ -129,17 +135,42 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
         .from("shop-items")
         .getPublicUrl(fileName);
 
+      // Optionally upload to Arweave for on-chain cNFT backing
+      let arweaveUri: string | null = null;
+      let metadataUri: string | null = null;
+
+      if (uploadToChain) {
+        try {
+          toast.loading("Uploading to Arweave (permanent)…", { id: "arweave-sticker" });
+          const result = await uploadStickerToArweave(
+            selectedFile,
+            newStickerName.trim(),
+            pack.name,
+            pack.category,
+          );
+          arweaveUri = result.arweaveUri;
+          metadataUri = result.metadataUri;
+          toast.dismiss("arweave-sticker");
+        } catch (arweaveErr) {
+          console.warn("Arweave upload failed, continuing with Supabase URL:", arweaveErr);
+          toast.dismiss("arweave-sticker");
+          toast.warning("Arweave upload failed — saved with Supabase URL only");
+        }
+      }
+
       // Add to database
       const { error } = await supabase.from("shop_item_contents").insert({
         item_id: pack.id,
         name: newStickerName.trim(),
-        file_url: publicUrl,
+        file_url: arweaveUri || publicUrl,
         display_order: stickers.length,
+        arweave_uri: arweaveUri,
+        metadata_uri: metadataUri,
       });
 
       if (error) throw error;
 
-      toast.success("Sticker added!");
+      toast.success(arweaveUri ? "Sticker added (on-chain ready)!" : "Sticker added!");
       setNewStickerName("");
       setSelectedFile(null);
       setFilePreview(null);
@@ -251,6 +282,28 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
                       maxLength={50}
                     />
                   </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Button
+                      type="button"
+                      variant={uploadToChain ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1 gap-1 text-xs h-7"
+                      onClick={() => setUploadToChain(true)}
+                    >
+                      <Globe className="w-3 h-3" />
+                      On-Chain (Arweave)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={!uploadToChain ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1 gap-1 text-xs h-7"
+                      onClick={() => setUploadToChain(false)}
+                    >
+                      <HardDrive className="w-3 h-3" />
+                      Off-Chain Only
+                    </Button>
+                  </div>
                   <Button
                     onClick={handleUploadSticker}
                     disabled={isUploading || !selectedFile}
@@ -300,6 +353,12 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
                         <p className="text-xs font-medium truncate text-center">
                           {sticker.name}
                         </p>
+                        {sticker.arweave_uri && (
+                          <Badge variant="outline" className="w-full justify-center text-[9px] mt-1 gap-1 text-green-500 border-green-500/30">
+                            <Globe className="w-2.5 h-2.5" />
+                            On-Chain
+                          </Badge>
+                        )}
                       </div>
                       <button
                         onClick={() => handleDeleteSticker(sticker)}

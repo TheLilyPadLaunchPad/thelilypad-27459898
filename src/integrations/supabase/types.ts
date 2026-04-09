@@ -2279,27 +2279,33 @@ export type Database = {
       }
       shop_item_contents: {
         Row: {
+          arweave_uri: string | null
           created_at: string
           display_order: number
           file_url: string
           id: string
           item_id: string
+          metadata_uri: string | null
           name: string
         }
         Insert: {
+          arweave_uri?: string | null
           created_at?: string
           display_order?: number
           file_url: string
           id?: string
           item_id: string
+          metadata_uri?: string | null
           name: string
         }
         Update: {
+          arweave_uri?: string | null
           created_at?: string
           display_order?: number
           file_url?: string
           id?: string
           item_id?: string
+          metadata_uri?: string | null
           name?: string
         }
         Relationships: [
@@ -2315,6 +2321,7 @@ export type Database = {
       shop_items: {
         Row: {
           category: string
+          collection_address: string | null
           created_at: string
           creator_id: string
           creator_type: string
@@ -2329,10 +2336,12 @@ export type Database = {
           required_collection_id: string | null
           tier: string
           total_sales: number
+          tree_address: string | null
           updated_at: string
         }
         Insert: {
           category?: string
+          collection_address?: string | null
           created_at?: string
           creator_id: string
           creator_type?: string
@@ -2347,10 +2356,12 @@ export type Database = {
           required_collection_id?: string | null
           tier?: string
           total_sales?: number
+          tree_address?: string | null
           updated_at?: string
         }
         Update: {
           category?: string
+          collection_address?: string | null
           created_at?: string
           creator_id?: string
           creator_type?: string
@@ -2365,6 +2376,7 @@ export type Database = {
           required_collection_id?: string | null
           tier?: string
           total_sales?: number
+          tree_address?: string | null
           updated_at?: string
         }
         Relationships: [

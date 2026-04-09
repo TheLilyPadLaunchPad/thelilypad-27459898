@@ -21,10 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload, Sticker, Plus, Trash2, Smile, Sparkles, Leaf, Settings } from "lucide-react";
+import { Loader2, Upload, Sticker, Plus, Trash2, Smile, Sparkles, Leaf, Settings, Globe, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useShopMint } from "@/hooks/useShopMint";
 import { format } from "date-fns";
 import { ManageStickerPackModal } from "@/components/stickers/ManageStickerPackModal";
 
@@ -44,6 +45,8 @@ interface OfficialPack {
   is_active: boolean;
   created_at: string;
   total_sales: number;
+  collection_address?: string | null;
+  tree_address?: string | null;
 }
 
 const packTypeLabels: Record<PackType, { label: string; icon: React.ReactNode }> = {
@@ -60,6 +63,7 @@ const brandLabels: Record<PackBrand, { label: string; color: string }> = {
 
 export const AdminStickerPackManager: React.FC = () => {
   const queryClient = useQueryClient();
+  const { deployPackOnChain, isDeploying } = useShopMint();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const [selectedPack, setSelectedPack] = useState<OfficialPack | null>(null);
@@ -314,15 +318,46 @@ export const AdminStickerPackManager: React.FC = () => {
                     </TableCell>
                     <TableCell>{pack.total_sales}</TableCell>
                     <TableCell>
-                      <Badge variant={pack.is_active ? "default" : "secondary"}>
-                        {pack.is_active ? "Active" : "Inactive"}
-                      </Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant={pack.is_active ? "default" : "secondary"}>
+                          {pack.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        {pack.collection_address && (
+                          <Badge variant="outline" className="gap-1 text-green-500 border-green-500/30 text-[10px]">
+                            <Link2 className="w-3 h-3" />
+                            On-Chain
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {format(new Date(pack.created_at), 'MMM d, yyyy')}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        {!pack.collection_address && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const result = await deployPackOnChain(pack);
+                                if (result) {
+                                  queryClient.invalidateQueries({ queryKey: ['admin-official-packs'] });
+                                }
+                              } catch {}
+                            }}
+                            disabled={isDeploying}
+                            className="gap-1 text-green-600 hover:text-green-700"
+                          >
+                            {isDeploying ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Globe className="w-4 h-4" />
+                            )}
+                            Deploy On-Chain
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"

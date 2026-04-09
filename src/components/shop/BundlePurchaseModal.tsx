@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useShopMint, type PackContentItem, type OnChainPack } from "@/hooks/useShopMint";
 import { toast } from "sonner";
 import {
   Package,
@@ -26,6 +28,7 @@ import {
   AlertCircle,
   ExternalLink,
   Info,
+  Globe,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { isUserRejection, getErrorMessage } from "@/lib/errorUtils";
@@ -53,6 +56,9 @@ interface BundleItem {
     image_url: string | null;
     category: string;
     price_mon: number;
+    price_sol?: number | null;
+    collection_address?: string | null;
+    tree_address?: string | null;
   };
 }
 
@@ -93,6 +99,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     setTransactionPending,
   } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
+  const { purchasePackOnChain, isMinting, mintProgress } = useShopMint();
   const userId = profile?.id ?? null;
 
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -100,11 +107,16 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
   const [ownedItems, setOwnedItems] = useState<string[]>([]);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [purchaseStep, setPurchaseStep] = useState<
-    "idle" | "confirming" | "processing" | "complete"
+    "idle" | "confirming" | "processing" | "minting" | "complete"
   >("idle");
 
-  // Price in USDC (use bundle_price_sol if available, otherwise estimate)
-  const priceInUsdc = bundle.bundle_price_sol || bundle.bundle_price * 0.01; // Rough estimate
+  // Price in SOL (use bundle_price_sol if available, otherwise convert from price_mon)
+  const priceInSol = bundle.bundle_price_sol || bundle.bundle_price * 0.01;
+
+  // Check if any items in this bundle are on-chain (have collection + tree deployed)
+  const hasOnChainItems = bundleItems.some(
+    (bi) => bi.shop_items.collection_address && bi.shop_items.tree_address
+  );
 
   useEffect(() => {
     const checkExistingPurchases = async () => {
@@ -154,8 +166,8 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     }
 
     const userBalance = parseFloat(balance || "0");
-    if (userBalance < priceInUsdc) {
-      toast.error(`Insufficient balance. You need ${priceInUsdc.toFixed(4)} USDC`);
+    if (userBalance < priceInSol) {
+      toast.error(`Insufficient balance. You need ${priceInSol.toFixed(4)} SOL`);
       return;
     }
 
@@ -178,7 +190,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         SystemProgram.transfer({
           fromPubkey: provider.publicKey,
           toPubkey: new PublicKey(PLATFORM_TREASURY_ADDRESS),
-          lamports: Math.floor(priceInUsdc * LAMPORTS_PER_SOL),
+          lamports: Math.floor(priceInSol * LAMPORTS_PER_SOL),
         })
       );
 
@@ -187,13 +199,16 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         bundle: bundle.id.slice(0, 8),
       }));
 
-      const { blockhash } = await connection.getLatestBlockhash();
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = provider.publicKey;
 
       const signed = await provider.signTransaction(transaction);
       const signature = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(signature, 'confirmed');
+      await connection.confirmTransaction(
+        { signature, blockhash, lastValidBlockHeight },
+        'confirmed'
+      );
 
       setTxHash(signature);
 
@@ -209,9 +224,9 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         .insert({
           bundle_id: bundle.id,
           user_id: purchaseUserId,
-          price_paid: priceInUsdc,
+          price_paid: priceInSol,
           tx_hash: signature,
-          currency: "USDC",
+          currency: "SOL",
         });
 
       if (purchaseError) throw purchaseError;
@@ -222,15 +237,60 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         user_id: purchaseUserId,
         price_paid: 0, // Part of bundle
         tx_hash: signature,
-        currency: "USDC",
+        currency: "SOL",
       }));
 
       await supabase.from("shop_purchases").insert(itemPurchases);
 
+      // ── On-chain cNFT minting for items with deployed collections ─────
+      if (hasOnChainItems) {
+        setPurchaseStep("minting");
+
+        for (const bi of bundleItems) {
+          const item = bi.shop_items;
+          if (!item.collection_address || !item.tree_address) continue;
+
+          // Fetch sticker contents for this pack that have Arweave metadata
+          const { data: contents } = await supabase
+            .from("shop_item_contents")
+            .select("id, name, file_url, arweave_uri, metadata_uri, display_order")
+            .eq("item_id", item.id)
+            .order("display_order");
+
+          if (contents && contents.length > 0) {
+            const packForMint: OnChainPack = {
+              id: item.id,
+              name: item.name,
+              description: null,
+              image_url: item.image_url,
+              category: item.category,
+              price_sol: 0, // Already paid via bundle
+              price_mon: 0,
+              collection_address: item.collection_address,
+              tree_address: item.tree_address,
+            };
+
+            await purchasePackOnChain(
+              packForMint,
+              contents as PackContentItem[],
+              purchaseUserId,
+              {
+                skipPayment: true,
+                skipPurchaseRecord: true,
+              },
+            );
+          }
+        }
+      }
+
       setPurchaseStep("complete");
       setHasPurchased(true);
 
-      toast.success("Bundle purchased successfully!");
+      toast.success(
+        hasOnChainItems
+          ? "Bundle purchased! On-chain assets minted to your wallet."
+          : "Bundle purchased successfully!"
+      );
       onPurchaseComplete?.();
 
     } catch (error: any) {
@@ -249,7 +309,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     }
   };
 
-  const explorerUrl = network === 'mainnet'
+  const explorerUrl = (network === 'mainnet' || network === 'mainnet-beta')
     ? `https://explorer.solana.com/tx/${txHash}`
     : `https://explorer.solana.com/tx/${txHash}?cluster=devnet`;
 
@@ -287,7 +347,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
                   ${bundle.original_price.toFixed(2)}
                 </div>
                 <div className="text-2xl font-bold text-primary">
-                  {priceInUsdc.toFixed(4)} USDC
+                  {priceInSol.toFixed(4)} SOL
                 </div>
               </div>
               <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
@@ -349,6 +409,22 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
             </div>
           )}
 
+          {/* On-chain minting progress */}
+          {purchaseStep === "minting" && (
+            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg space-y-2">
+              <div className="flex items-center gap-2 text-blue-500">
+                <Globe className="w-4 h-4 animate-pulse" />
+                <span className="text-sm font-medium">
+                  Minting on-chain assets ({mintProgress.done}/{mintProgress.total})
+                </span>
+              </div>
+              <Progress
+                value={mintProgress.total > 0 ? (mintProgress.done / mintProgress.total) * 100 : 0}
+                className="h-2"
+              />
+            </div>
+          )}
+
           {/* Action Button */}
           {!isConnected ? (
             <Button className="w-full" onClick={() => connect()}>
@@ -364,7 +440,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
             <Button
               className="w-full"
               onClick={handlePurchase}
-              disabled={isPurchasing}
+              disabled={isPurchasing || isMinting}
             >
               {purchaseStep === "confirming" && (
                 <>
@@ -375,13 +451,20 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
               {purchaseStep === "processing" && (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
+                  Processing payment...
+                </>
+              )}
+              {purchaseStep === "minting" && (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Minting assets...
                 </>
               )}
               {purchaseStep === "idle" && (
                 <>
                   <ShoppingCart className="w-4 h-4 mr-2" />
-                  Purchase for {priceInUsdc.toFixed(4)} USDC
+                  Purchase for {priceInSol.toFixed(4)} SOL
+                  {hasOnChainItems && " + Mint"}
                 </>
               )}
             </Button>
@@ -391,7 +474,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
           {isConnected && !hasPurchased && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>Your balance:</span>
-              <span>{parseFloat(balance || "0").toFixed(4)} USDC</span>
+              <span>{parseFloat(balance || "0").toFixed(4)} SOL</span>
             </div>
           )}
         </div>
