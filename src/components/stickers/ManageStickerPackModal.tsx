@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -65,13 +65,7 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
   const [uploadToChain, setUploadToChain] = useState(true);
   const { uploadStickerToArweave } = useShopMint();
 
-  useEffect(() => {
-    if (open && pack) {
-      fetchStickers();
-    }
-  }, [open, pack]);
-
-  const fetchStickers = async () => {
+  const fetchStickers = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -88,7 +82,13 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pack.id]);
+
+  useEffect(() => {
+    if (open) {
+      fetchStickers();
+    }
+  }, [open, fetchStickers]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

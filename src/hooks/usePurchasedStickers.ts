@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface StickerContent {
@@ -92,7 +92,7 @@ export const usePurchasedStickers = (userId: string | null): UsePurchasedSticker
     });
   };
 
-  const fetchPurchasedPacks = async () => {
+  const fetchPurchasedPacks = useCallback(async () => {
     if (!userId) {
       setStickerPacks([]);
       setEmojiPacks([]);
@@ -161,11 +161,11 @@ export const usePurchasedStickers = (userId: string | null): UsePurchasedSticker
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchPurchasedPacks();
-  }, [userId]);
+  }, [fetchPurchasedPacks]);
 
   return {
     stickerPacks,
