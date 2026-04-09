@@ -293,7 +293,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
       );
       onPurchaseComplete?.();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Purchase failed:", error);
 
       if (isUserRejection(error)) {

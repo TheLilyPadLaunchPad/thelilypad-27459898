@@ -345,7 +345,9 @@ export const AdminStickerPackManager: React.FC = () => {
                                 if (result) {
                                   queryClient.invalidateQueries({ queryKey: ['admin-official-packs'] });
                                 }
-                              } catch {}
+                              } catch (err) {
+                                console.error('Failed to deploy pack on-chain:', err);
+                              }
                             }}
                             disabled={isDeploying}
                             className="gap-1 text-green-600 hover:text-green-700"

@@ -182,7 +182,7 @@ export function useShopMint() {
 
         toast.success('Pack deployed on-chain!', { id: 'deploy-pack' });
         return { collectionAddress, treeAddress };
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Deploy pack on-chain failed:', err);
         toast.error(getErrorMessage(err), { id: 'deploy-pack' });
         throw err;
@@ -335,7 +335,7 @@ export function useShopMint() {
                 ? Buffer.from(mintResult.signature).toString('base64')
                 : undefined,
             });
-          } catch (err: any) {
+          } catch (err: unknown) {
             console.error(`Failed to mint ${content.name}:`, err);
             results.push({
               success: false,
@@ -405,7 +405,7 @@ export function useShopMint() {
         }
 
         return results;
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Pack purchase failed:', err);
         if (isUserRejection(err)) {
           toast.error('Transaction cancelled', { id: 'pack-purchase' });
