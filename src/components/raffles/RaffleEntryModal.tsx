@@ -122,11 +122,6 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
           if (!result.success) throw new Error(result.error || "Solana payment failed");
           hash = result.signature || "";
         } 
-        else if (chain === 'xrpl') {
-          const result = await sendXRPPayment(totalCost.toString(), treasury);
-          if (!result.success) throw new Error(result.error || "XRPL payment failed");
-          hash = result.hash || "";
-        }
         else if (chain === 'monad') {
           const result = await sendMonadPayment(totalCost.toString(), treasury);
           if (!result.success) throw new Error(result.error || "Monad payment failed");
@@ -183,7 +178,6 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
                 <span className="text-muted-foreground font-mono truncate mr-2">TX: {txHash}</span>
                 <Button variant="ghost" size="sm" className="h-6 px-2 text-primary" onClick={() => {
                   window.open(chain === 'solana' ? `https://solscan.io/tx/${txHash}?cluster=devnet` : 
-                              chain === 'xrpl' ? `https://testnet.xrpl.org/transactions/${txHash}` :
                               `https://testnet.explorer.monad.xyz/tx/${txHash}`, '_blank');
                 }}>
                   <ExternalLink className="w-3 h-3 mr-1" /> View

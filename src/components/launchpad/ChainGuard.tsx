@@ -21,7 +21,6 @@ interface ChainGuardProps {
 
 /** Map wallet ChainType → SupportedChain */
 function walletToSupportedChain(chainType: string | undefined): SupportedChain {
-    if (chainType === "xrpl") return "xrpl";
     if (chainType === "monad" || chainType === "ethereum") return "monad";
     return "solana";
 }

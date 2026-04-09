@@ -56,7 +56,6 @@ export const isPhaseCurrentlyLive = (
 export const getBaseChain = (chainStr: string): SupportedChain => {
     if (!chainStr) return 'solana';
     if (chainStr.startsWith('solana')) return 'solana';
-    if (chainStr.startsWith('xrpl')) return 'xrpl';
     if (chainStr.startsWith('monad')) return 'monad';
     return 'solana'; // default
 };

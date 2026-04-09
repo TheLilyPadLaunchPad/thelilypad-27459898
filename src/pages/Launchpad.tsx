@@ -233,14 +233,6 @@ export default function Launchpad() {
       setShowHybridForm(true);
       return;
     }
-    if (tile.id === "easy-xrp") {
-      navigate(`/launchpad/easy-xrp`);
-      return;
-    }
-    if (tile.id === "xrpl-generator") {
-      navigate(`/launchpad/xrpl-generator`);
-      return;
-    }
     if (tile.id === "art-generator") {
       navigate(`/launchpad/art-generator`);
       return;
@@ -260,7 +252,7 @@ export default function Launchpad() {
           <img src={lilypadLogo} alt="Lily Launchpad" className="w-14 h-14 rounded-xl object-contain bg-primary/10 p-2" />
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Lily Launchpad</h1>
-            <p className="text-muted-foreground mt-0.5">Launch your NFT collection on Solana, XRPL, or Monad — guided wizard, no friction.</p>
+            <p className="text-muted-foreground mt-0.5">Launch your NFT collection on Solana or Monad — guided wizard, no friction.</p>
           </div>
         </div>
 

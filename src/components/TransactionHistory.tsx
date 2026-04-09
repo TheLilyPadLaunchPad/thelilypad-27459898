@@ -32,7 +32,7 @@ export function TransactionHistory({ userId, collectionId, limit = 10 }: Transac
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { chainType } = useWallet();
-  const chainSymbol = chainType === 'xrpl' ? 'XRP' : chainType === 'monad' ? 'MON' : 'SOL';
+  const chainSymbol = chainType === 'monad' ? 'MON' : 'SOL';
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -102,7 +102,6 @@ export function TransactionHistory({ userId, collectionId, limit = 10 }: Transac
   };
 
   const explorerUrl = (hash: string) => {
-    if (chainType === 'xrpl') return `https://testnet.xrpl.org/transactions/${hash}`;
     return `https://explorer.solana.com/tx/${hash}`;
   };
 

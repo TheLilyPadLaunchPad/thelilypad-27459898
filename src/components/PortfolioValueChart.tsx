@@ -19,7 +19,7 @@ interface CollectionStats {
 interface PortfolioValueChartProps {
   nfts: NFT[];
   collectionStats: CollectionStats[];
-  /** Currency symbol to display — e.g. 'XRP', 'SOL', 'MON'. Defaults to 'SOL'. */
+  /** Currency symbol to display — e.g. 'SOL', 'MON'. Defaults to 'SOL'. */
   currency?: string;
 }
 
