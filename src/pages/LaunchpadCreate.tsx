@@ -806,7 +806,7 @@ export default function LaunchpadCreate() {
                                                 </div>
                                                 <p className="text-[10px] text-muted-foreground leading-relaxed">
                                                     Generated assets inherit the resolution of your source layers.
-                                                    For premium art, **2000x2000px** is the standard. Supports any aspect ratio. High-res files (4000px+)
+                                                    Standard aspect ratios (1:1, 4:5, 3:4, 16:9, etc.) are fully supported. High-res files (4000px+)
                                                     are supported but will increase upload time.
                                                 </p>
                                             </div>

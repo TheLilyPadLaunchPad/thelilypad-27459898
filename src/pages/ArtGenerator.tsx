@@ -35,8 +35,22 @@ import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { bundleAssetsAsZip } from "@/lib/assetBundler";
 import { cn } from "@/lib/utils";
 import { useSEO } from "@/hooks/useSEO";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Step = "setup" | "layers" | "rarity" | "generate" | "ready";
+
+const ASPECT_RATIOS = [
+    { label: "1:1 (Square)", value: "1:1", w: 1, h: 1 },
+    { label: "4:5 (Portrait)", value: "4:5", w: 4, h: 5 },
+    { label: "3:4 (Portrait)", value: "3:4", w: 3, h: 4 },
+    { label: "2:3 (Portrait)", value: "2:3", w: 2, h: 3 },
+    { label: "9:16 (Vertical)", value: "9:16", w: 9, h: 16 },
+    { label: "5:4 (Landscape)", value: "5:4", w: 5, h: 4 },
+    { label: "4:3 (Landscape)", value: "4:3", w: 4, h: 3 },
+    { label: "3:2 (Landscape)", value: "3:2", w: 3, h: 2 },
+    { label: "16:9 (Widescreen)", value: "16:9", w: 16, h: 9 },
+    { label: "Custom", value: "custom", w: 0, h: 0 },
+] as const;
 
 export default function ArtGenerator() {
     const navigate = useNavigate();
@@ -47,6 +61,8 @@ export default function ArtGenerator() {
     const [description, setDescription] = useState("");
     const [targetSupply, setTargetSupply] = useState(100);
     const [resolution, setResolution] = useState(2000);
+    const [resolutionHeight, setResolutionHeight] = useState(2000);
+    const [aspectRatio, setAspectRatio] = useState("1:1");
 
     // Generation State
     const [layers, setLayers] = useState<Layer[]>([]);
@@ -125,7 +141,10 @@ export default function ArtGenerator() {
                 (status, progress) => {
                     setDownloadStatus(status);
                     setDownloadProgress(progress);
-                }
+                },
+                "YOUR_IMAGE_CID",
+                "export.zip",
+                resolutionHeight
             );
 
             if (zipBlob) {
@@ -261,17 +280,72 @@ export default function ArtGenerator() {
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <Label>Resolution (px)</Label>
+                                                        <Label>Aspect Ratio</Label>
+                                                        <Select value={aspectRatio} onValueChange={(val) => {
+                                                            setAspectRatio(val);
+                                                            const preset = ASPECT_RATIOS.find(r => r.value === val);
+                                                            if (preset && preset.value !== "custom") {
+                                                                const base = resolution;
+                                                                setResolutionHeight(Math.round(base * preset.h / preset.w));
+                                                            }
+                                                        }}>
+                                                            <SelectTrigger>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {ASPECT_RATIOS.map(r => (
+                                                                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Width (px)</Label>
                                                         <Input
                                                             type="number"
                                                             value={resolution}
-                                                            onChange={e => setResolution(Number(e.target.value))}
+                                                            onChange={e => {
+                                                                const w = Number(e.target.value);
+                                                                setResolution(w);
+                                                                const preset = ASPECT_RATIOS.find(r => r.value === aspectRatio);
+                                                                if (preset && preset.value !== "custom") {
+                                                                    setResolutionHeight(Math.round(w * preset.h / preset.w));
+                                                                }
+                                                            }}
                                                         />
                                                         <div className="flex flex-wrap gap-1 mt-1">
-                                                            <Badge variant="outline" className="text-[9px] cursor-pointer hover:bg-muted" onClick={() => setResolution(500)}>500 Low</Badge>
-                                                            <Badge variant="outline" className="text-[9px] cursor-pointer bg-primary/10 border-primary/20" onClick={() => setResolution(2000)}>2000 High</Badge>
-                                                            <Badge variant="outline" className="text-[9px] cursor-pointer bg-primary/20 border-primary/30" onClick={() => setResolution(4000)}>4000+ Pro</Badge>
+                                                            <Badge variant="outline" className="text-[9px] cursor-pointer hover:bg-muted" onClick={() => {
+                                                                setResolution(500);
+                                                                const preset = ASPECT_RATIOS.find(r => r.value === aspectRatio);
+                                                                if (preset && preset.value !== "custom") setResolutionHeight(Math.round(500 * preset.h / preset.w));
+                                                                else setResolutionHeight(500);
+                                                            }}>500 Low</Badge>
+                                                            <Badge variant="outline" className="text-[9px] cursor-pointer bg-primary/10 border-primary/20" onClick={() => {
+                                                                setResolution(2000);
+                                                                const preset = ASPECT_RATIOS.find(r => r.value === aspectRatio);
+                                                                if (preset && preset.value !== "custom") setResolutionHeight(Math.round(2000 * preset.h / preset.w));
+                                                                else setResolutionHeight(2000);
+                                                            }}>2000 High</Badge>
+                                                            <Badge variant="outline" className="text-[9px] cursor-pointer bg-primary/20 border-primary/30" onClick={() => {
+                                                                setResolution(4000);
+                                                                const preset = ASPECT_RATIOS.find(r => r.value === aspectRatio);
+                                                                if (preset && preset.value !== "custom") setResolutionHeight(Math.round(4000 * preset.h / preset.w));
+                                                                else setResolutionHeight(4000);
+                                                            }}>4000+ Pro</Badge>
                                                         </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Height (px)</Label>
+                                                        <Input
+                                                            type="number"
+                                                            value={resolutionHeight}
+                                                            onChange={e => {
+                                                                setResolutionHeight(Number(e.target.value));
+                                                                setAspectRatio("custom");
+                                                            }}
+                                                            disabled={aspectRatio !== "custom"}
+                                                        />
+                                                        <p className="text-[9px] text-muted-foreground">Output: {resolution} × {resolutionHeight}px</p>
                                                     </div>
                                                 </div>
                                                 <Button

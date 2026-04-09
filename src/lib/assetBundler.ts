@@ -65,22 +65,27 @@ export const loadImage = (src: string, timeoutMs: number = 10000): Promise<HTMLI
 /**
  * Composite a single NFT image onto a canvas and return as data URL.
  * For small preview counts only — use compositeNFTImageToBlob for bulk exports.
+ * Supports non-square canvases via optional canvasHeight.
  */
 export const compositeNFTImage = async (
     nft: GeneratedNFT,
-    canvasSize: number
+    canvasSize: number,
+    canvasHeight?: number
 ): Promise<string | null> => {
     const hasImages = nft.traits.some((t) => t.imageUrl);
     if (!hasImages) return null;
 
+    const w = canvasSize;
+    const h = canvasHeight ?? canvasSize;
+
     const canvas = document.createElement("canvas");
-    canvas.width = canvasSize;
-    canvas.height = canvasSize;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext("2d");
 
     if (!ctx) throw new Error("Could not get canvas context");
 
-    ctx.clearRect(0, 0, canvasSize, canvasSize);
+    ctx.clearRect(0, 0, w, h);
 
     for (const trait of nft.traits) {
         if (trait.imageUrl) {
@@ -89,7 +94,7 @@ export const compositeNFTImage = async (
                 ctx.save();
                 ctx.globalCompositeOperation = trait.blendMode || "source-over";
                 ctx.globalAlpha = (trait.opacity ?? 100) / 100;
-                ctx.drawImage(img, 0, 0, canvasSize, canvasSize);
+                ctx.drawImage(img, 0, 0, w, h);
                 ctx.restore();
             } catch (error) {
                 console.warn(`Failed to load image for trait: ${trait.traitName}`, error);
@@ -138,11 +143,12 @@ export const compositeNFTImageToBlob = async (
 
 /**
  * Create a reusable canvas + context pair for bulk compositing.
+ * Supports non-square canvases via optional height parameter.
  */
-export const createReusableCanvas = (size: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } => {
+export const createReusableCanvas = (width: number, height?: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } => {
     const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = width;
+    canvas.height = height ?? width;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Could not get canvas context");
     return { canvas, ctx };
@@ -163,8 +169,9 @@ export const createReusableCanvas = (size: number): { canvas: HTMLCanvasElement;
  * avgPngBlobSize is conservatively estimated at ~12% of raw RGBA for
  * typical generative-art PNGs (flat colours, limited palette).
  */
-export const estimateExportMemoryMB = (count: number, resolution: number): number => {
-    const canvasRGBA = resolution * resolution * 4;                    // one canvas
+export const estimateExportMemoryMB = (count: number, resolution: number, resolutionHeight?: number): number => {
+    const pixels = resolution * (resolutionHeight ?? resolution);
+    const canvasRGBA = pixels * 4;                                     // one canvas
     const avgPngBlob = canvasRGBA * 0.12;                              // compressed blob
     const jsZipOverhead = count * avgPngBlob;                          // accumulated blobs
     return (canvasRGBA + avgPngBlob + jsZipOverhead) / (1024 * 1024);
@@ -286,10 +293,12 @@ export const bundleAssetsAsZip = async (
     resolution: number,
     onProgress: (status: string, progress: number) => void,
     imageCid: string = "YOUR_IMAGE_CID",
-    customFileName: string = "export.zip"
+    customFileName: string = "export.zip",
+    resolutionHeight?: number
 ): Promise<Blob | null> => {
+    const height = resolutionHeight ?? resolution;
     // ── Sanity check ──────────────────────────────
-    const estimatedMB = estimateExportMemoryMB(nfts.length, resolution);
+    const estimatedMB = estimateExportMemoryMB(nfts.length, resolution, height);
     if (estimatedMB > 3500) {
         toast.warning(
             `Very large export (~${Math.round(estimatedMB)} MB). ` +
@@ -306,7 +315,7 @@ export const bundleAssetsAsZip = async (
         return null;
     }
 
-    const { canvas, ctx } = createReusableCanvas(resolution);
+    const { canvas, ctx } = createReusableCanvas(resolution, height);
     const BATCH_SIZE = 10;
     const encoder = new TextEncoder();
 
@@ -344,7 +353,7 @@ export const bundleAssetsAsZip = async (
         name: collectionName,
         description: collectionDescription,
         total_supply: nfts.length,
-        resolution: `${resolution}x${resolution}`,
+        resolution: `${resolution}x${height}`,
         chain: chain.toUpperCase(),
         generated_at: new Date().toISOString(),
         image_cid: imageCid

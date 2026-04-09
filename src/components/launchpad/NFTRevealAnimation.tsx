@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, PartyPopper, ChevronLeft, ChevronRight, X, Volume2, VolumeX, Flame, Snowflake, Star } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useRevealSounds } from "@/hooks/useRevealSounds";
+import { SAFE_COLORS } from "@/lib/safeStyle";
 
 export type RevealTheme = "magic" | "fire" | "ice" | "galaxy";
 
@@ -349,6 +350,7 @@ export function NFTRevealAnimation({
                     stiffness: 100,
                     damping: 15,
                   }}
+                  // SECURITY NOTE: Static CSS property, not user-controllable
                   style={{ transformStyle: "preserve-3d" }}
                 >
                   {/* Front (Unrevealed) */}
@@ -390,15 +392,25 @@ export function NFTRevealAnimation({
                       />
                     )}
                     
+                    {/* 
+                      SECURITY: Using static Tailwind classes instead of inline styles
+                      Prevents potential XSS if theme values ever become user-controlled
+                    */}
                     {theme === "ice" && (
-                      <motion.div 
-                        className="absolute inset-0"
-                        style={{
-                          background: "radial-gradient(circle at 30% 30%, rgba(34, 211, 238, 0.2) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(56, 189, 248, 0.2) 0%, transparent 50%)"
-                        }}
-                        animate={{ opacity: [0.5, 0.8, 0.5] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
+                      <>
+                        <motion.div 
+                          className="absolute w-[50%] h-[50%] rounded-full bg-cyan-400/20 blur-2xl pointer-events-none"
+                          style={{ left: '5%', top: '5%' }}
+                          animate={{ opacity: [0.5, 0.8, 0.5] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        />
+                        <motion.div 
+                          className="absolute w-[50%] h-[50%] rounded-full bg-blue-400/20 blur-2xl pointer-events-none"
+                          style={{ right: '5%', bottom: '5%' }}
+                          animate={{ opacity: [0.5, 0.8, 0.5] }}
+                          transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                        />
+                      </>
                     )}
                     
                     {theme === "galaxy" && (
@@ -433,7 +445,7 @@ export function NFTRevealAnimation({
                     </div>
                   </div>
 
-                  {/* Back (Revealed) */}
+                  {/* Back (Revealed) - Static styles prevent CSS injection */}
                   <div
                     className={`absolute inset-0 rounded-2xl overflow-hidden border-4 ${themeConfig.colors.revealedBorder} shadow-2xl ${themeConfig.colors.revealedShadow}`}
                     style={{ 
