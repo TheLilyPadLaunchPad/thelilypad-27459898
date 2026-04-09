@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 
 /**
  * Irys (Arweave) Integration Client
- * Handles permanent storage for Solana, Monad (EVM), and XRPL.
+ * Handles permanent storage for Solana and Monad (EVM).
  *
  * ── Optimised for bulk uploads ────────────────────────────────────────────
  * • Caches the WebIrys instance per wallet address so we don't reinitialise

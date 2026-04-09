@@ -309,7 +309,7 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
     }
   };
 
-  const explorerUrl = (network === 'mainnet' || network === 'mainnet-beta')
+  const explorerUrl = (network === 'mainnet')
     ? `https://explorer.solana.com/tx/${txHash}`
     : `https://explorer.solana.com/tx/${txHash}?cluster=devnet`;
 

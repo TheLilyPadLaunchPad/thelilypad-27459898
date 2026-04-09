@@ -82,15 +82,6 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
           address,
           { collectionAddress: listing.nft.collection?.contract_address || undefined }
         );
-      } else if (chainId === 'xrpl') {
-        // For XRPL, the listing.marketplace_id or listing.id might store the offer index
-        // Extracting it from the listing object
-        const offerIndex = (listing as any).marketplace_id || listing.id;
-        result = await xrplTransfer.buyNFT(
-          listing.id,
-          offerIndex,
-          listing.price
-        );
       } else {
         toast.error(`${chainName} purchases not yet supported in this modal.`);
         return;
