@@ -22,19 +22,24 @@ export function FolderUploader({ onAssetsLoaded }: FolderUploaderProps) {
             const imageMap = new Map<string, File>();
             const jsonMap = new Map<string, File>();
 
+            console.log(`Processing ${fileList.length} files...`);
+
             // Separate images and JSONs
             fileList.forEach(file => {
-                // webkitRelativePath example: "my-collection/assets/1.png"
+                // webkitRelativePath example: "my-collection/assets/1.png" or "my-collection/images/0.jpeg"
                 const pathParts = file.webkitRelativePath.split('/');
                 const filename = pathParts[pathParts.length - 1];
                 const cleanName = filename.substring(0, filename.lastIndexOf('.'));
 
+                // Handle LMNFT structure: images/ and metadata/ subfolders
                 if (file.type.startsWith('image/')) {
                     imageMap.set(cleanName, file);
                 } else if (file.name.endsWith('.json')) {
                     jsonMap.set(cleanName, file);
                 }
             });
+
+            console.log(`Found ${imageMap.size} images and ${jsonMap.size} JSON files`);
 
             setStats({
                 images: imageMap.size,
@@ -47,17 +52,8 @@ export function FolderUploader({ onAssetsLoaded }: FolderUploaderProps) {
 
             for (const [name, imgFile] of imageMap) {
                 if (jsonMap.has(name)) {
-                    // For now, uri is placeholder. We need to upload these later.
-                    // Ideally we simulate the "URI" or just pass the File objects up.
-                    // The backend/hook needs to handle IPFS upload.
-                    // For this "No Code" user flow, we are preparing them for the "Insert Items" step.
-                    // But Insert Items takes strings. 
-                    // We might need a separate step to upload files to storage (Arweave/IPFS).
-
-                    // For now, let's assume valid JSONs have the metadata.
                     matchedAssets.push({
                         name: name,
-                        // This is a temporary blob URI for preview
                         uri: URL.createObjectURL(imgFile),
                         file: imgFile,
                         jsonFile: jsonMap.get(name)!
@@ -65,14 +61,14 @@ export function FolderUploader({ onAssetsLoaded }: FolderUploaderProps) {
                 }
             }
 
+            console.log(`Matched ${matchedAssets.length} asset pairs`);
+
             setStats(prev => ({ ...prev, matched: matchedAssets.length }));
 
             if (matchedAssets.length === 0) {
-                toast.error("No matching image/json pairs found. Ensure filenames match (e.g. 1.png and 1.json)");
+                toast.error("No matching image/json pairs found. Ensure filenames match (e.g. 0.png and 0.json). For LMNFT exports, select the parent folder containing images/ and metadata/ subfolders.");
             } else {
                 toast.success(`Found ${matchedAssets.length} valid asset pairs!`);
-                // Pass up the simplified Asset object (usually we need to upload first)
-                // We'll pass the files so the parent can handle the upload strategy
                 onAssetsLoaded(matchedAssets.map(a => ({
                     name: a.name,
                     uri: a.uri,
@@ -93,9 +89,12 @@ export function FolderUploader({ onAssetsLoaded }: FolderUploaderProps) {
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop: processFiles,
+        // Enable directory selection for nested folder structures (LMNFT: images/ + metadata/)
         // @ts-ignore - directory support is non-standard but works in dropzone with custom input attributes
         noClick: false,
-        noKeyboard: false
+        noKeyboard: false,
+        // Allow multiple files and directories
+        multiple: true
     });
 
     return (
@@ -109,7 +108,9 @@ export function FolderUploader({ onAssetsLoaded }: FolderUploaderProps) {
                     </h3>
                     <p className="text-muted-foreground max-w-sm mx-auto mb-6">
                         Upload a folder containing your images and JSON metadata files.
-                        We'll automatically match them by filename (e.g., <code>1.png</code> + <code>1.json</code>).
+                        We'll automatically match them by filename (e.g., <code>0.png</code> + <code>0.json</code>).
+                        <br /><br />
+                        <strong>For LMNFT exports:</strong> Select the parent folder (e.g., <code>1741154131487_lmnft_generator_output</code>) that contains the <code>images/</code> and <code>metadata/</code> subfolders.
                     </p>
                     <Button variant="outline">Browse Files</Button>
                 </div>
