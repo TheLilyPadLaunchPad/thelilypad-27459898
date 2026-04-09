@@ -112,11 +112,22 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                         if (audioFile && audioUrl) {
                             return buildMusicNftMetadata(
                                 {
+                                    id: `track-${Date.now()}`,
                                     audioFile,
+                                    audioPreview: audioPreview || '',
+                                    audioUrl,
                                     coverFile: file,
+                                    coverPreview: preview || '',
+                                    coverUrl: arweaveImageUri,
                                     metadata: {
                                         name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
                                         description: description || '',
+                                        artist: '',
+                                        album: '',
+                                        trackNumber: null,
+                                        genre: '',
+                                        bpm: null,
+                                        durationSeconds: null,
                                     }
                                 },
                                 arweaveImageUri,
