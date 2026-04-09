@@ -24,20 +24,27 @@ export function FolderUploader({ onAssetsLoaded }: FolderUploaderProps) {
 
             console.log(`Processing ${fileList.length} files...`);
 
-            // Separate images and JSONs
-            fileList.forEach(file => {
-                // webkitRelativePath example: "my-collection/assets/1.png" or "my-collection/images/0.jpeg"
-                const pathParts = file.webkitRelativePath.split('/');
-                const filename = pathParts[pathParts.length - 1];
-                const cleanName = filename.substring(0, filename.lastIndexOf('.'));
+            // Separate images and JSONs with chunking to prevent UI freeze
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < fileList.length; i += CHUNK_SIZE) {
+                const chunk = fileList.slice(i, i + CHUNK_SIZE);
+                chunk.forEach(file => {
+                    // webkitRelativePath example: "my-collection/assets/1.png" or "my-collection/images/0.jpeg"
+                    const pathParts = file.webkitRelativePath.split('/');
+                    const filename = pathParts[pathParts.length - 1];
+                    const cleanName = filename.substring(0, filename.lastIndexOf('.'));
 
-                // Handle LMNFT structure: images/ and metadata/ subfolders
-                if (file.type.startsWith('image/')) {
-                    imageMap.set(cleanName, file);
-                } else if (file.name.endsWith('.json')) {
-                    jsonMap.set(cleanName, file);
-                }
-            });
+                    // Handle LMNFT structure: images/ and metadata/ subfolders
+                    if (file.type.startsWith('image/')) {
+                        imageMap.set(cleanName, file);
+                    } else if (file.name.endsWith('.json')) {
+                        jsonMap.set(cleanName, file);
+                    }
+                });
+
+                // Yield to main thread every chunk
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
 
             console.log(`Found ${imageMap.size} images and ${jsonMap.size} JSON files`);
 
@@ -47,18 +54,26 @@ export function FolderUploader({ onAssetsLoaded }: FolderUploaderProps) {
                 matched: 0 // calc below
             });
 
-            // Match pairs
+            // Match pairs with chunking
             const matchedAssets: { name: string; uri: string; file: File; jsonFile: File }[] = [];
+            const imageNames = Array.from(imageMap.keys());
 
-            for (const [name, imgFile] of imageMap) {
-                if (jsonMap.has(name)) {
-                    matchedAssets.push({
-                        name: name,
-                        uri: URL.createObjectURL(imgFile),
-                        file: imgFile,
-                        jsonFile: jsonMap.get(name)!
-                    });
-                }
+            for (let i = 0; i < imageNames.length; i += CHUNK_SIZE) {
+                const chunk = imageNames.slice(i, i + CHUNK_SIZE);
+                chunk.forEach(name => {
+                    const imgFile = imageMap.get(name)!;
+                    if (jsonMap.has(name)) {
+                        matchedAssets.push({
+                            name: name,
+                            uri: URL.createObjectURL(imgFile),
+                            file: imgFile,
+                            jsonFile: jsonMap.get(name)!
+                        });
+                    }
+                });
+
+                // Yield to main thread every chunk
+                await new Promise(resolve => setTimeout(resolve, 0));
             }
 
             console.log(`Matched ${matchedAssets.length} asset pairs`);

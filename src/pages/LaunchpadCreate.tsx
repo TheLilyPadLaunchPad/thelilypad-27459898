@@ -271,7 +271,10 @@ export default function LaunchpadCreate() {
         }
     };
 
-    const handleAssetsLoaded = (assets: { name: string; uri: string; file: File; jsonFile?: File }[]) => {
+    const handleAssetsLoaded = async (assets: { name: string; uri: string; file: File; jsonFile?: File }[]) => {
+        // Yield to main thread before validation
+        await new Promise(resolve => setTimeout(resolve, 0));
+
         const errors = validateAssets(assets.flatMap(a => [{ name: a.file.name, file: a.file }, a.jsonFile ? { name: a.jsonFile.name, file: a.jsonFile } : null]).filter((x): x is AssetFile => x !== null));
         setValidationErrors(errors);
         if (errors.length === 0) {
