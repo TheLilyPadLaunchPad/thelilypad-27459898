@@ -52,7 +52,7 @@ interface Collection {
 
 export default function BuybackProgram() {
   const navigate = useNavigate();
-  const [selectedChain, setSelectedChain] = useState<'solana' | 'xrpl' | 'monad'>('solana');
+  const [selectedChain, setSelectedChain] = useState<'solana' | 'monad'>('solana');
   const { programCollections, isLoading: isProgramLoading } = useBuybackProgram(selectedChain);
 
   useSEO({
@@ -83,7 +83,6 @@ export default function BuybackProgram() {
 
   const getCurrencyName = () => {
     switch (selectedChain) {
-      case 'xrpl': return 'XRP';
       case 'monad': return 'MON';
       default: return 'SOL';
     }
@@ -153,10 +152,9 @@ export default function BuybackProgram() {
             Let's put it at the top of the main area for clear context. 
         */}
         <div className="flex justify-end mb-4">
-          <Tabs value={selectedChain} onValueChange={(v) => setSelectedChain(v as any)} className="w-[400px]">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs value={selectedChain} onValueChange={(v) => setSelectedChain(v as any)} className="w-[300px]">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="solana">Solana</TabsTrigger>
-              <TabsTrigger value="xrpl">XRPL</TabsTrigger>
               <TabsTrigger value="monad">Monad</TabsTrigger>
             </TabsList>
           </Tabs>
