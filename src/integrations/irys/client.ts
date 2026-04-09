@@ -397,6 +397,27 @@ async function withRetry<T>(
     throw new Error("Unreachable"); // for TS
 }
 
+// ── Funding amount coercion ──────────────────────────────────────────────
+
+/**
+ * Irys requires an integer (atomic units) for funding.
+ * BigNumber arithmetic (e.g. `.minus`, `.multipliedBy`) can produce decimals.
+ * This helper rounds UP so we never under-fund.
+ */
+function toIntegerFundAmount(amount: any): any {
+    if (typeof amount?.integerValue === 'function') {
+        // BigNumber.js ROUND_CEIL = 2
+        return amount.integerValue(2);
+    }
+    if (typeof amount === 'number') {
+        return Math.ceil(amount);
+    }
+    // If it's already a string or something else, parse and ceil
+    const n = Number(amount);
+    if (!isNaN(n)) return Math.ceil(n);
+    return amount; // last resort — pass through
+}
+
 // ── Upload progress persistence ──────────────────────────────────────────
 
 const PROGRESS_KEY_PREFIX = "lilypad_upload_progress_";
@@ -463,7 +484,7 @@ export async function uploadToArweave(
     const balance = await irys.getLoadedBalance();
 
     if (balance.lt(price)) {
-        const toFund = price.minus(balance);
+        const toFund = toIntegerFundAmount(price.minus(balance));
         console.log(`[Irys] Funding node with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
         await withTimeout(
             () => irys.fund(toFund, feeMultiplier),
@@ -534,7 +555,7 @@ export async function uploadFileChunkedToArweave(
     const balance = await irys.getLoadedBalance();
 
     if (balance.lt(price)) {
-        const toFund = price.minus(balance);
+        const toFund = toIntegerFundAmount(price.minus(balance));
         console.log(`[Irys] Funding node for chunked upload with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
         await irys.fund(toFund, feeMultiplier);
     }
@@ -638,7 +659,7 @@ export async function uploadChunkedTransactionToArweave(
     const balance = await irys.getLoadedBalance();
 
     if (balance.lt(price)) {
-        const toFund = price.minus(balance);
+        const toFund = toIntegerFundAmount(price.minus(balance));
         console.log(`[Irys] Funding node for chunked tx upload with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
         await irys.fund(toFund, feeMultiplier);
     }
@@ -995,7 +1016,7 @@ export async function uploadBatchToArweave(
         const balance = await irys.getLoadedBalance();
 
         if (balance.lt(price)) {
-            const toFund = price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25);
+            const toFund = toIntegerFundAmount(price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25));
             onProgress?.(previousResults.length, items.length, "Funding Arweave node…");
             console.log(
                 `[Irys] Pre-funding node with ${toFund.toString()} for ~${remainingItems.length} items (multiplier: ${feeMultiplier || 1})…`
@@ -1255,7 +1276,7 @@ export async function verifyIrysReceipt(receipt: any, wallet: any): Promise<bool
 export async function fundIrysNode(amountStandard: number, wallet: any, feeMultiplier?: number) {
     const irys = await getWebIrys(wallet);
     try {
-        const amountAtomic = irys.utils.toAtomic(amountStandard);
+        const amountAtomic = toIntegerFundAmount(irys.utils.toAtomic(amountStandard));
         console.log(`[Irys] Manually funding node with ${amountStandard} ${irys.token} (${amountAtomic.toString()} atomic)…`);
 
         const fundTx = await irys.fund(amountAtomic, feeMultiplier);
