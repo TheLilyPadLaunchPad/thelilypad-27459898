@@ -457,7 +457,7 @@ export async function insertItemsToCandyMachine(
     umi: Umi,
     candyMachineAddress: string,
     items: CandyMachineItem[],
-    batchSize = 10
+    batchSize = 15
 ): Promise<void> {
     const cmPublicKey = publicKey(candyMachineAddress);
 
@@ -482,7 +482,7 @@ export async function insertItemsToCandyMachine(
         const batch = itemsToInsert.slice(i, i + batchSize);
         const currentIndex = itemsLoaded + i;
 
-        console.log(`[CM Insert] Batch ${i / batchSize + 1}: Inserting ${batch.length} items at index ${currentIndex}`);
+        console.log(`[CM Insert] Batch ${Math.floor(i / batchSize) + 1}: Inserting ${batch.length} items at index ${currentIndex}`);
 
         const builder = addConfigLines(umi, {
             candyMachine: cmPublicKey,
@@ -493,14 +493,16 @@ export async function insertItemsToCandyMachine(
             })),
         });
 
+        // Use slightly higher priority for batch insertions to ensure they land during congestion
         await builder
-            .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
+            .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+            .add(setComputeUnitLimit(umi, { units: 800_000 }))
             .sendAndConfirm(umi, {
                 send: { skipPreflight: false },
                 confirm: { commitment: 'confirmed' }
             });
 
-        console.log(`[CM Insert] Batch ${i / batchSize + 1} inserted successfully`);
+        console.log(`[CM Insert] Batch ${Math.floor(i / batchSize) + 1} inserted successfully`);
     }
 
     console.log("[CM Insert] All items inserted successfully!");

@@ -693,14 +693,14 @@ export default function LaunchpadCreate() {
     return (
         <div className="min-h-screen bg-background flex flex-col">
             <Navbar />
-            <main className="flex-1 pt-16 flex flex-col md:flex-row overflow-hidden">
-                {/* CONFIG PANEL */}
-                <div className="w-full md:w-[450px] lg:w-[500px] flex flex-col border-r border-border bg-card/50 h-[calc(100vh-64px)]">
-                    <div className="px-6 py-4 border-b border-border bg-muted/30">
-                        <Button variant="ghost" size="sm" onClick={() => navigate('/launchpad')} className="-ml-2 mb-2 text-muted-foreground">
-                            <ArrowLeft className="w-4 h-4 mr-1" /> Back
+            <main className="flex-1 pt-16 flex flex-col md:flex-row overflow-hidden relative">
+                {/* CONFIG PANEL: Narrower on tablets, fixed on desktops */}
+                <div className="w-full md:w-[380px] lg:w-[480px] xl:w-[520px] flex flex-col border-r border-border bg-card/40 backdrop-blur-md h-[calc(100vh-64px)] z-20">
+                    <div className="px-6 py-5 border-b border-border bg-muted/20">
+                        <Button variant="ghost" size="sm" onClick={() => navigate('/launchpad')} className="-ml-2 mb-3 text-muted-foreground hover:text-primary transition-colors">
+                            <ArrowLeft className="w-4 h-4 mr-1" /> Back to Launchpad
                         </Button>
-                        <h1 className="text-2xl font-bold gradient-text">Collection Setup</h1>
+                        <h1 className="text-2xl font-bold tracking-tight gradient-text-premium">Collection Setup</h1>
                     </div>
 
                     <div className="px-4 py-2 flex gap-2 overflow-x-auto bg-muted/10 border-b border-border/50">
@@ -924,29 +924,72 @@ export default function LaunchpadCreate() {
                         </AnimatePresence>
                     </div>
 
-                    <div className="px-6 py-4 border-t border-border bg-muted/20 flex gap-3">
-                        <Button variant="outline" onClick={prevStep} disabled={currentStep === 0 || isDeploying} className="flex-1">Back</Button>
-                        <Button onClick={nextStep} disabled={currentStep === maxStep || isDeploying} className="flex-1">Next</Button>
+                    <div className="px-6 py-6 border-t border-border bg-muted/30 backdrop-blur-sm flex gap-4">
+                        <Button 
+                            variant="outline" 
+                            size="lg"
+                            onClick={prevStep} 
+                            disabled={currentStep === 0 || isDeploying} 
+                            className="flex-1 rounded-xl font-semibold"
+                        >
+                            Back
+                        </Button>
+                        <Button 
+                            size="lg"
+                            onClick={nextStep} 
+                            disabled={currentStep === maxStep || isDeploying} 
+                            className="flex-1 rounded-xl font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                        >
+                            {currentStep === maxStep ? "Launch" : "Next Step"}
+                        </Button>
                     </div>
                 </div>
 
-                {/* PREVIEW PANEL */}
-                <div className="hidden md:flex flex-1 bg-muted/20 flex-col overflow-y-auto p-12">
-                    <div className="max-w-xl mx-auto w-full space-y-12">
-                        <LaunchpadPreview
-                            name={name || "Collection"}
-                            description={description}
-                            coverImage={coverImage}
-                            itemsAvailable={is1of1 ? artworks.length : (mode === 'basic' ? folderAssets.length : targetSupply)}
-                            phases={phases}
-                            activePhaseIndex={0}
-                            selectedChain={selectedChain}
-                        />
-                        {(folderAssets.length > 0 || generatedAssets.length > 0 || artworks.length > 0 || tracks.length > 0) && (
-                            <LazyPreviewGrid
-                                items={mode === 'music' ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets))}
-                                isMusic={mode === 'music'}
+                {/* PREVIEW PANEL: Responsive visibility and scaling */}
+                <div className="hidden md:flex flex-1 bg-gradient-to-br from-muted/10 to-background/50 flex-col overflow-y-auto overflow-x-hidden p-6 lg:p-12 relative">
+                    {/* Perspective Background Decoration */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+                        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[120px]" />
+                        <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] rounded-full bg-accent/10 blur-[100px]" />
+                    </div>
+
+                    <div className="max-w-xl mx-auto w-full space-y-12 relative z-10 py-8">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                        >
+                            <LaunchpadPreview
+                                name={name || "Collection"}
+                                description={description}
+                                coverImage={coverImage}
+                                itemsAvailable={is1of1 ? artworks.length : (mode === 'basic' ? folderAssets.length : targetSupply)}
+                                phases={phases}
+                                activePhaseIndex={0}
+                                selectedChain={selectedChain}
                             />
+                        </motion.div>
+
+                        {(folderAssets.length > 0 || generatedAssets.length > 0 || artworks.length > 0 || tracks.length > 0) && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.4 }}
+                                className="space-y-4"
+                            >
+                                <div className="flex items-center justify-between px-2">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Asset Batch Preview</h3>
+                                    <Badge variant="outline" className="text-[10px] opacity-50">
+                                        Showing logic variants
+                                    </Badge>
+                                </div>
+                                <div className="glass-card p-4 bg-card/30">
+                                    <LazyPreviewGrid
+                                        items={mode === 'music' ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets))}
+                                        isMusic={mode === 'music'}
+                                    />
+                                </div>
+                            </motion.div>
                         )}
                     </div>
                 </div>

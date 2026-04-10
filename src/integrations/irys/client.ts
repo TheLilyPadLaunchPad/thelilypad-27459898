@@ -970,60 +970,31 @@ export async function uploadBatchToArweave(
 
     const irys = await getWebIrys(wallet);
 
-    // ── Phase 1: Generate thumbnails ─────────────────────────────────────
-    let processedImages: ProcessedImage[] | null = null;
-
-    if (enableThumbnails) {
-        onProgress?.(0, items.length, "Generating thumbnails…");
-
-        processedImages = [];
-        // Use smaller concurrency for thumbnails (5) vs uploads to prevent UI freeze
-        // Each thumbnail runs 2 compressions in parallel, so 5 × 2 = 10 max concurrent
-        const thumbConcurrency = Math.min(concurrency, 5);
-        for (let i = 0; i < items.length; i += thumbConcurrency) {
-            const windowFiles = items
-                .slice(i, i + thumbConcurrency)
-                .map((item, idx) =>
-                    item.file instanceof File
-                        ? item.file
-                        : new File([item.file], `image_${i + idx}.png`, { type: item.file.type })
-                );
-
-            const windowResults = await Promise.all(
-                windowFiles.map((f) => generateThumbnails(f))
-            );
-            processedImages.push(...windowResults);
-
-            const done = Math.min(i + thumbConcurrency, items.length);
-            onProgress?.(done, items.length, `Generated thumbnails: ${done} / ${items.length}`);
-
-            // Yield to event loop between batches
-            await new Promise((r) => setTimeout(r, 10));
-        }
+    // ── Phase 1: Pipelined Execution ─────────────────────────────────────
+    const results: BatchUploadResult[] = new Array(items.length);
+    // Pre-populate with resumed results
+    for (const r of previousResults) {
+        results[r.tokenId] = r;
     }
 
-    // ── Phase 2: Pre-fund estimate (only for remaining items) ─────────────
-    const remainingItems = items.filter((_, idx) => !completedIndices.has(idx));
-    onProgress?.(previousResults.length, items.length, "Estimating storage cost…");
-
-    // Estimate total bytes: original + thumb + preview + ~4KB metadata each
-    const totalBytes = remainingItems.reduce((sum, item, idx) => {
-        const origSize = item.file.size || 10_000_000;
-        const thumbSize = processedImages?.[idx]?.thumb?.size || 150_000;
-        const previewSize = processedImages?.[idx]?.preview?.size || 1_500_000;
-        return sum + origSize + thumbSize + previewSize + 4_096;
+    // Estimate total size for pre-funding (avoids waiting for all thumbnails)
+    const totalEstimatedBytes = items.reduce((sum, item, idx) => {
+        if (completedIndices.has(idx)) return sum;
+        const origSize = item.file.size || 5_000_000;
+        const thumbSize = 250_000; // Average 512px WebP
+        const previewSize = 1_200_000; // Average 1200px WebP
+        return sum + origSize + thumbSize + previewSize + 4096;
     }, 0);
 
-    if (totalBytes > 0) {
-        const price = await irys.getPrice(totalBytes);
+    if (totalEstimatedBytes > 0) {
+        onProgress?.(previousResults.length, items.length, "Estimating storage cost…");
+        const price = await irys.getPrice(totalEstimatedBytes);
         const balance = await irys.getLoadedBalance();
 
         if (balance.lt(price)) {
-            const toFund = toIntegerFundAmount(price.minus(balance).multipliedBy(items.length > 500 ? 1.5 : 1.25));
+            // Fund with 15% buffer for safety
+            const toFund = toIntegerFundAmount(price.minus(balance).multipliedBy(1.15));
             onProgress?.(previousResults.length, items.length, "Funding Arweave node…");
-            console.log(
-                `[Irys] Pre-funding node with ${toFund.toString()} for ~${remainingItems.length} items (multiplier: ${feeMultiplier || 1})…`
-            );
             await withRetry(
                 () => withTimeout(() => irys.fund(toFund, feeMultiplier), FUNDING_TIMEOUT_MS, "batch pre-fund"),
                 "pre-fund"
@@ -1031,52 +1002,41 @@ export async function uploadBatchToArweave(
         }
     }
 
-    // ── Phase 3: Upload loop ─────────────────────────────────────────────
-    const results: BatchUploadResult[] = new Array(items.length);
-    // Pre-populate with resumed results
-    for (const r of previousResults) {
-        results[r.tokenId] = r;
-    }
-
-    const makeTags = (type: string, isFolder: boolean = false) => {
-        const baseTags = [
-            { name: "Content-Type", value: type || "application/octet-stream" },
-            { name: "application-id", value: "The Lily Pad" },
-            { name: "generator", value: "Lily Pad Launchpad" },
-        ];
-        return [...baseTags, ...customTags];
-    };
+    const makeTags = (type: string) => [
+        { name: "Content-Type", value: type || "application/octet-stream" },
+        { name: "application-id", value: "The Lily Pad" },
+        { name: "generator", value: "Lily Pad Launchpad" },
+        ...customTags
+    ];
 
     let uploadedCount = previousResults.length;
-
-    // Cap upload concurrency to prevent UI freeze (max 5 concurrent uploads)
-    const uploadConcurrency = Math.min(concurrency, 5);
+    const uploadConcurrency = Math.min(concurrency, 10); // Increased from 5 to 10 for speed
 
     for (let i = 0; i < items.length; i += uploadConcurrency) {
-        // ── Abort check ──────────────────────────────────────────────────
-        if (signal?.aborted) {
-            console.log(`[Irys] Upload cancelled at item ${i}/${items.length}`);
-            onProgress?.(uploadedCount, items.length, `Upload cancelled — ${uploadedCount}/${items.length} saved`);
-            if (resumeKey) {
-                saveUploadProgress(resumeKey, results.filter(Boolean), items.length);
-            }
-            break;
-        }
+        if (signal?.aborted) break;
 
         const window = items.slice(i, i + uploadConcurrency);
+        const windowIndices = Array.from({ length: window.length }, (_, k) => i + k);
 
+        // Process window: Thumbnail → Upload in parallel for each item in window
         const windowResults = await Promise.all(
             window.map(async (item, idx) => {
-                const globalIdx = i + idx;
-
-                // Skip already completed items (from resume)
+                const globalIdx = windowIndices[idx];
                 if (completedIndices.has(globalIdx)) return null;
 
                 try {
-                    onProgress?.(uploadedCount, items.length, `Uploading item ${globalIdx + 1}/${items.length}…`);
-                    const processed = processedImages?.[globalIdx];
+                    onProgress?.(uploadedCount, items.length, `Processing item ${globalIdx + 1}/${items.length}…`);
+                    
+                    // 1. Generate thumbnails for THIS item only (just-in-time)
+                    let processed: ProcessedImage | undefined;
+                    if (enableThumbnails) {
+                        const file = item.file instanceof File 
+                            ? item.file 
+                            : new File([item.file], `item_${globalIdx}.png`, { type: item.file.type });
+                        processed = await generateThumbnails(file);
+                    }
 
-                    // 1. Upload full-res image (with timeout)
+                    // 2. Upload full-res image
                     const imgData = await item.file.arrayBuffer();
                     const imgUri = await withRetry(async () => {
                         const res = await irys.upload(new Uint8Array(imgData) as any, {
@@ -1085,7 +1045,7 @@ export async function uploadBatchToArweave(
                         return `https://arweave.net/${res.id}`;
                     }, `image #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
 
-                    // 2. Upload thumbnail (if generated)
+                    // 3. Upload thumbnail
                     let thumbUri = imgUri;
                     if (processed?.thumb && processed.thumb !== processed.original) {
                         const thumbData = await processed.thumb.arrayBuffer();
@@ -1097,7 +1057,7 @@ export async function uploadBatchToArweave(
                         }, `thumb #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
                     }
 
-                    // 3. Upload preview (if generated)
+                    // 4. Upload preview
                     let previewUri = imgUri;
                     if (processed?.preview && processed.preview !== processed.original) {
                         const prevData = await processed.preview.arrayBuffer();
@@ -1109,10 +1069,9 @@ export async function uploadBatchToArweave(
                         }, `preview #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
                     }
 
-                    // 4. Build & upload metadata (with timeout)
+                    // 5. Build & upload metadata
                     const metadata = item.buildMetadata(imgUri, thumbUri, previewUri);
-                    const metaJson = JSON.stringify(metadata, null, 2);
-                    const metaData = new TextEncoder().encode(metaJson);
+                    const metaData = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
                     const metaUri = await withRetry(async () => {
                         const res = await irys.upload(metaData as any, {
                             tags: makeTags("application/json"),
@@ -1129,7 +1088,6 @@ export async function uploadBatchToArweave(
                     } satisfies BatchUploadResult;
                 } catch (err) {
                     console.error(`[Irys] Item ${globalIdx + 1} failed:`, err);
-                    onProgress?.(uploadedCount, items.length, `Item ${globalIdx + 1} failed — skipping`);
                     return null;
                 }
             })
@@ -1142,20 +1100,11 @@ export async function uploadBatchToArweave(
             }
         }
 
-        const completed = uploadedCount;
-        onProgress?.(
-            completed,
-            items.length,
-            `Uploaded ${completed} / ${items.length} to Arweave…`
-        );
-
-        // Persist progress incrementally
-        if (resumeKey) {
-            saveUploadProgress(resumeKey, results.filter(Boolean), items.length);
-        }
-
-        // Yield to event loop every window with longer delay for UI responsiveness
-        await new Promise((r) => setTimeout(r, 50));
+        onProgress?.(uploadedCount, items.length, `Uploaded ${uploadedCount} / ${items.length}…`);
+        if (resumeKey) saveUploadProgress(resumeKey, results.filter(Boolean), items.length);
+        
+        // Short yield for UI responsiveness
+        await new Promise((r) => setTimeout(r, 0));
     }
 
     // Filter out nulls in case any items failed
