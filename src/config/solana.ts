@@ -4,9 +4,24 @@ import { mplCandyMachine as mplCoreCandyMachinePlugin } from '@metaplex-foundati
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 // Solana RPC endpoints
-export const SOLANA_DEVNET_RPC = "https://api.devnet.solana.com";
-export const SOLANA_TESTNET_RPC = "https://api.testnet.solana.com";
-export const SOLANA_MAINNET_RPC = "https://api.mainnet-beta.solana.com";
+export const DEVNET_RPC_LIST = [
+    "https://api.devnet.solana.com",
+    "https://devnet.helius-rpc.com/?api-key=demo",
+    "https://solana-devnet.g.alchemy.com/v2/demo",
+];
+
+export const TESTNET_RPC_LIST = [
+    "https://api.testnet.solana.com",
+];
+
+export const MAINNET_RPC_LIST = [
+    "https://api.mainnet-beta.solana.com",
+    "https://solana-mainnet.g.alchemy.com/v2/demo",
+];
+
+export const SOLANA_DEVNET_RPC = DEVNET_RPC_LIST[0];
+export const SOLANA_TESTNET_RPC = TESTNET_RPC_LIST[0];
+export const SOLANA_MAINNET_RPC = MAINNET_RPC_LIST[0];
 
 // Metaplex Core Program ID (used for Candy Machine minting)
 export const CORE_CANDY_MACHINE_ADDRESS = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
@@ -50,19 +65,48 @@ export const checkRpcHealth = async (rpcUrl: string, timeout = 5000): Promise<Rp
 export const getSolanaRpcUrl = (network: NetworkType): string => {
     switch (network) {
         case "mainnet":
-            return SOLANA_MAINNET_RPC;
+            return MAINNET_RPC_LIST[0];
         case "testnet":
-            return SOLANA_TESTNET_RPC;
+            return TESTNET_RPC_LIST[0];
         case "devnet":
         default:
-            return SOLANA_DEVNET_RPC;
+            return DEVNET_RPC_LIST[0];
     }
 };
 
-export const getBestRpc = async (network: NetworkType): Promise<string | null> => {
-    const rpcUrl = getSolanaRpcUrl(network);
-    const health = await checkRpcHealth(rpcUrl);
-    return health.healthy ? rpcUrl : null;
+export const getSolanaRpcList = (network: NetworkType): string[] => {
+    switch (network) {
+        case "mainnet":
+            return MAINNET_RPC_LIST;
+        case "testnet":
+            return TESTNET_RPC_LIST;
+        case "devnet":
+        default:
+            return DEVNET_RPC_LIST;
+    }
+};
+
+export const getBestRpc = async (network: NetworkType): Promise<string> => {
+    const preferred = getPreferredRpcUrl(network);
+    if (preferred) {
+        const health = await checkRpcHealth(preferred);
+        if (health.healthy) return preferred;
+    }
+
+    const rpcList = getSolanaRpcList(network);
+    
+    // Check all RPCs in parallel and return the first healthy one with lowest latency
+    const healthChecks = await Promise.all(rpcList.map(rpc => checkRpcHealth(rpc)));
+    const healthyRpcs = healthChecks
+        .filter(h => h.healthy)
+        .sort((a, b) => (a.latency || 9999) - (b.latency || 9999));
+
+    if (healthyRpcs.length > 0) {
+        return healthyRpcs[0].url;
+    }
+
+    // Fallback if none are healthy
+    return rpcList[0];
 };
 
 // Get preferred RPC from localStorage

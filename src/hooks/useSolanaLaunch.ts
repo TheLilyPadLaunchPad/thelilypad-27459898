@@ -79,7 +79,7 @@ export const useSolanaLaunch = () => {
             throw new Error("Solana wallet not connected");
         }
 
-        const umi = createUmi(network as 'mainnet' | 'devnet', null);
+        const umi = await createUmi(network as 'mainnet' | 'devnet', null);
 
         const wallet = {
             publicKey: provider.publicKey,

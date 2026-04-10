@@ -18,9 +18,13 @@ import {
   SOLANA_MAINNET_RPC,
   SOLANA_DEVNET_RPC,
   SOLANA_TESTNET_RPC,
+  DEVNET_RPC_LIST,
+  TESTNET_RPC_LIST,
+  MAINNET_RPC_LIST,
   checkRpcHealth,
   RpcHealthStatus,
   NetworkType,
+  getSolanaRpcList,
 } from "@/config/solana";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +35,9 @@ const RPC_LABELS: Record<string, string> = {
   [SOLANA_DEVNET_RPC]: "Solana Devnet (Public)",
   [SOLANA_TESTNET_RPC]: "Solana Testnet (Public)",
   [SOLANA_MAINNET_RPC]: "Solana Mainnet (Public)",
+  "https://devnet.helius-rpc.com/?api-key=demo": "Helius Devnet",
+  "https://solana-devnet.g.alchemy.com/v2/demo": "Alchemy Devnet",
+  "https://solana-mainnet.g.alchemy.com/v2/demo": "Alchemy Mainnet",
 };
 
 export const getPreferredRpc = (network: NetworkType): string | null => {
@@ -71,11 +78,7 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
     },
   });
 
-  const rpcs = network === "mainnet"
-    ? [SOLANA_MAINNET_RPC]
-    : network === "testnet"
-      ? [SOLANA_TESTNET_RPC]
-      : [SOLANA_DEVNET_RPC];
+  const rpcs = getSolanaRpcList(network);
 
   useEffect(() => {
     const saved = getPreferredRpc(network);

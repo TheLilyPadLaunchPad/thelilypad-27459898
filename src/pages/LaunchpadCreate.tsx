@@ -614,13 +614,13 @@ export default function LaunchpadCreate() {
             // Specifically highlight network errors which are common on testnet RPCs
             let errorMessage = e.message || "Launch failed";
             if (errorMessage.toLowerCase().includes("fetch") || errorMessage.toLowerCase().includes("network error") || errorMessage.toLowerCase().includes("failed to fetch")) {
-                errorMessage = "Network Error: The Solana RPC is currently unstable or rate-limited. Please wait a moment and try again.";
+                errorMessage = "Network Connection Error: The Solana RPC is currently unstable or rate-limited.";
             }
 
             toast.error(errorMessage, { 
                 id: 'deploy',
-                duration: 6000,
-                description: "If this persists, try switching to a different RPC in settings."
+                duration: 8000,
+                description: "Tip: Try switching to a different RPC (Helius or Alchemy) in the Wallet Connection settings (gear icon) for better stability on devnet."
             });
 
             const isOffline = (supabase as any).isOffline;

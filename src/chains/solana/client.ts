@@ -6,26 +6,13 @@ import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
 import { Umi } from '@metaplex-foundation/umi';
+import { getBestRpc, getSolanaRpcList } from '@/config/solana';
 
 /**
  * Solana Client - Centralized Umi initialization and connection management
  */
 
-// RPC endpoints by network
-// Public endpoints are often rate-limited; switching to a dedicated provider is recommended for production.
-const RPC_ENDPOINTS = {
-    mainnet: [
-        'https://api.mainnet-beta.solana.com',
-        'https://solana-mainnet.g.alchemy.com/v2/demo',
-    ],
-    devnet: [
-        'https://api.devnet.solana.com',
-        'https://devnet.helius-rpc.com/?api-key=demo',
-        'https://solana-devnet.g.alchemy.com/v2/demo',
-    ],
-} as const;
-
-export type SolanaNetwork = 'mainnet' | 'devnet';
+export type SolanaNetwork = 'mainnet' | 'devnet' | 'testnet';
 
 // Wallet adapter interface (minimal subset needed)
 interface WalletAdapterLike {
@@ -37,19 +24,22 @@ interface WalletAdapterLike {
 
 /**
  * Create and configure Umi client
+ * Now asynchronous to allow for health-based RPC selection
  */
-export function createUmi(
+export async function createUmi(
     network: SolanaNetwork = 'devnet',
     wallet?: WalletAdapterLike | null
-): Umi {
-    const endpoint = RPC_ENDPOINTS[network][0]; // Use primary RPC
+): Promise<Umi> {
+    const endpoint = await getBestRpc(network as any);
 
     const umi = createUmiClient(endpoint)
         .use(mplCore())
         .use(mplCoreCandyMachine())
         .use(mplToolbox())
         .use(mplBubblegum())
-        .use(irysUploader());
+        .use(irysUploader({
+            address: network === 'mainnet' ? 'https://node1.irys.xyz' : 'https://devnet.irys.xyz',
+        }));
 
     // Attach wallet if provided
     if (wallet) {
@@ -63,12 +53,12 @@ export function createUmi(
  * Get current RPC endpoint for a network
  */
 export function getRpcEndpoint(network: SolanaNetwork): string {
-    return RPC_ENDPOINTS[network][0];
+    return getSolanaRpcList(network as any)[0];
 }
 
 /**
  * Get all RPC endpoints for failover
  */
 export function getAllRpcEndpoints(network: SolanaNetwork): string[] {
-    return [...RPC_ENDPOINTS[network]];
+    return getSolanaRpcList(network as any);
 }
