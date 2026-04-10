@@ -2,6 +2,7 @@ import { WebUploader } from "@irys/web-upload";
 import { WebSolana } from "@irys/web-upload-solana";
 import { WebEthereum } from "@irys/web-upload-ethereum";
 import { ethers } from "ethers";
+import { getRpcUrl } from "@/config/solana";
 
 /**
  * Irys (Arweave) Integration Client
@@ -308,7 +309,7 @@ export async function getWebIrys(
             };
         }
 
-        const rpcUrl = "https://api.devnet.solana.com";
+        const rpcUrl = getRpcUrl("devnet");
         let builder = WebUploader(WebSolana).withProvider(wrappedProvider);
         if (!isMainnet) {
             builder = builder.withRpc(rpcUrl);
@@ -318,7 +319,7 @@ export async function getWebIrys(
         const provider = new ethers.BrowserProvider((window as any).ethereum);
         let builder = WebUploader(WebEthereum).withProvider(provider);
         if (!isMainnet) {
-            builder = builder.withRpc("https://api.devnet.solana.com");
+            builder = builder.withRpc(getRpcUrl("devnet"));
         }
         irys = await (isMainnet ? builder.mainnet() : builder.devnet());
     } else {
@@ -484,7 +485,14 @@ export async function uploadToArweave(
     const balance = await irys.getLoadedBalance();
 
     if (balance.lt(price)) {
-        const toFund = toIntegerFundAmount(price.minus(balance));
+        // Round UP and add 10% buffer to cover potential network fee spikes during settlement
+        let toFund = toIntegerFundAmount(price.minus(balance));
+        if (typeof toFund.multipliedBy === 'function') {
+            toFund = toIntegerFundAmount(toFund.multipliedBy(1.1));
+        } else {
+            toFund = Math.ceil(Number(toFund) * 1.1);
+        }
+        
         console.log(`[Irys] Funding node with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
         await withTimeout(
             () => irys.fund(toFund, feeMultiplier),

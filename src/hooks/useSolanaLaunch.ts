@@ -21,6 +21,28 @@ import { setComputeUnitPrice } from '@metaplex-foundation/mpl-toolbox';
 import { deleteCandyMachine as deleteCoreCandyMachine, deleteCandyGuard as deleteCoreCandyGuard } from '@metaplex-foundation/mpl-core-candy-machine';
 import { SendTransactionError } from '@solana/web3.js';
 
+/**
+ * Extract human-readable error messages from Solana transaction logs
+ */
+const extractSolanaError = (err: any): string => {
+    if (err instanceof SendTransactionError && err.logs) {
+        // Look for custom program errors in logs
+        const customErrorMatch = err.logs.some(log => log.includes("custom program error"));
+        if (customErrorMatch) {
+            if (err.logs.some(log => log.includes("Error: InsufficientFunds"))) return "Insufficient funds for transaction";
+            if (err.logs.some(log => log.includes("Error: AccountNotFound"))) return "Required account not found";
+            if (err.logs.some(log => log.includes("0x1771"))) return "Candy Machine is empty";
+            if (err.logs.some(log => log.includes("0x1770"))) return "Mint has ended";
+        }
+        
+        // General messages
+        if (err.message.includes("Blockhash not found")) return "Network congestion: Blockhash expired. Please retry.";
+        if (err.message.includes("429")) return "Network rate limit reached. Please wait a moment.";
+    }
+    
+    return err.message || "An unknown blockchain error occurred";
+};
+
 // Re-export for consumers
 export type { LaunchpadPhase } from '@/chains';
 
@@ -130,7 +152,7 @@ export const useSolanaLaunch = () => {
                 console.error(err.logs);
             }
 
-            const msg = err.message || "Failed to deploy Core collection";
+            const msg = extractSolanaError(err);
             setError(msg);
             toast.error(msg, { id: 'sol-deploy' });
             throw err;
@@ -246,7 +268,7 @@ export const useSolanaLaunch = () => {
                 console.error(err.logs);
             }
 
-            const msg = err.message || "Failed to create Candy Machine";
+            const msg = extractSolanaError(err);
             setError(msg);
             toast.error(msg, { id: 'cm-create', description: "Check logs for details." });
             throw err;

@@ -412,7 +412,7 @@ export default function LaunchpadCreate() {
             collectionId = collection.id;
 
             // ── Step 2: Upload to Arweave (Permanent Storage) — batch optimised ─
-            toast.loading(`Securing ${assetsToUpload.length} items to Arweave…`, { id: 'deploy' });
+            toast.loading(`Securing ${assetsToUpload.length} items to Arweave (this may take a few minutes)...`, { id: 'deploy' });
 
             const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
                 file: asset.file,
@@ -505,7 +505,7 @@ export default function LaunchpadCreate() {
                     );
 
                     // Insert config lines into the Candy Machine so minting works
-                    toast.loading(`Loading ${candyMachineItems.length} items into Candy Machine...`, { id: 'deploy' });
+                    toast.loading(`Finalizing: Loading ${candyMachineItems.length} items into launchpad...`, { id: 'deploy' });
                     await solanaLaunch.insertItemsToCandyMachine(
                         cmResult.address,
                         candyMachineItems,
@@ -610,7 +610,18 @@ export default function LaunchpadCreate() {
 
         } catch (e: any) {
             console.error("Launch Error:", e);
-            toast.error(e.message || "Launch failed", { id: 'deploy' });
+            
+            // Specifically highlight network errors which are common on testnet RPCs
+            let errorMessage = e.message || "Launch failed";
+            if (errorMessage.toLowerCase().includes("fetch") || errorMessage.toLowerCase().includes("network error") || errorMessage.toLowerCase().includes("failed to fetch")) {
+                errorMessage = "Network Error: The Solana RPC is currently unstable or rate-limited. Please wait a moment and try again.";
+            }
+
+            toast.error(errorMessage, { 
+                id: 'deploy',
+                duration: 6000,
+                description: "If this persists, try switching to a different RPC in settings."
+            });
 
             const isOffline = (supabase as any).isOffline;
             if (collectionId && !isOffline) {

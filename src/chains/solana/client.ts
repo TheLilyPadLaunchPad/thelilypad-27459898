@@ -12,6 +12,7 @@ import { Umi } from '@metaplex-foundation/umi';
  */
 
 // RPC endpoints by network
+// Public endpoints are often rate-limited; switching to a dedicated provider is recommended for production.
 const RPC_ENDPOINTS = {
     mainnet: [
         'https://api.mainnet-beta.solana.com',
@@ -20,6 +21,7 @@ const RPC_ENDPOINTS = {
     devnet: [
         'https://api.devnet.solana.com',
         'https://devnet.helius-rpc.com/?api-key=demo',
+        'https://solana-devnet.g.alchemy.com/v2/demo',
     ],
 } as const;
 
