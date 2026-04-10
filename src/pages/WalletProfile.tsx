@@ -13,6 +13,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { useCryptoPrice } from "@/hooks/useCryptoPrice";
 import { useWalletNFTs, NFT } from "@/hooks/useWalletNFTs";
 import { useNFTFloorPrices } from "@/hooks/useNFTFloorPrices";
+import { useHeliusTransactions } from "@/hooks/useHeliusTransactions";
 import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
 import { PublicBadgeShowcase } from "@/components/PublicBadgeShowcase";
@@ -70,6 +71,7 @@ export default function WalletProfile() {
   const [selectedNetwork, setSelectedNetwork] = useState("eth-mainnet");
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
+  const [historyType, setHistoryType] = useState<"app" | "chain">("app");
 
   // Chain-config-driven display — covers SOL, MON and any future chain in CHAINS
   const chainCfg = CHAINS[chainType as SupportedChain] ?? CHAINS.solana;
@@ -139,6 +141,9 @@ export default function WalletProfile() {
     },
     enabled: !!address,
   });
+
+  // Fetch real-time on-chain history from Helius
+  const { data: onChainTxs = [], isLoading: heliusLoading, refetch: refetchHelius } = useHeliusTransactions();
 
   // Fetch floor prices for portfolio value estimation
   const {
@@ -384,14 +389,34 @@ export default function WalletProfile() {
           <TabsContent value="transactions">
             <Card className="glass-card border-border/50">
               <CardHeader className="p-4 sm:p-6 flex flex-row items-center justify-between">
-                <CardTitle className="text-base sm:text-lg">Transaction History</CardTitle>
+                <div className="flex flex-col gap-1">
+                  <CardTitle className="text-base sm:text-lg">Transaction History</CardTitle>
+                  <div className="flex items-center gap-1 bg-muted p-1 rounded-lg w-fit">
+                    <Button
+                      variant={historyType === "app" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-7 text-[10px] px-2"
+                      onClick={() => setHistoryType("app")}
+                    >
+                      App Events
+                    </Button>
+                    <Button
+                      variant={historyType === "chain" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-7 text-[10px] px-2"
+                      onClick={() => setHistoryType("chain")}
+                    >
+                      On-Chain
+                    </Button>
+                  </div>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => refetchTx()}
-                  disabled={txLoading}
+                  onClick={() => historyType === "app" ? refetchTx() : refetchHelius()}
+                  disabled={txLoading || heliusLoading}
                 >
-                  {txLoading ? (
+                  {txLoading || heliusLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <RefreshCw className="w-4 h-4" />
@@ -399,77 +424,138 @@ export default function WalletProfile() {
                 </Button>
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-                {txLoading ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <Skeleton className="w-8 h-8 sm:w-10 sm:h-10 rounded-full shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <Skeleton className="h-3 sm:h-4 w-20 sm:w-32 mb-1.5" />
-                          <Skeleton className="h-2.5 sm:h-3 w-16 sm:w-24" />
+                {historyType === "app" ? (
+                  // App Events (Supabase)
+                  txLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <Skeleton className="w-8 h-8 sm:w-10 sm:h-10 rounded-full shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <Skeleton className="h-3 sm:h-4 w-20 sm:w-32 mb-1.5" />
+                            <Skeleton className="h-2.5 sm:h-3 w-16 sm:w-24" />
+                          </div>
+                          <Skeleton className="h-3 sm:h-4 w-14 sm:w-20 shrink-0" />
                         </div>
-                        <Skeleton className="h-3 sm:h-4 w-14 sm:w-20 shrink-0" />
-                      </div>
-                    ))}
-                  </div>
-                ) : transactions.length > 0 ? (
-                  <div className="space-y-2 sm:space-y-3">
-                    {transactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="flex items-center gap-2.5 sm:gap-4 p-2.5 sm:p-4 rounded-lg sm:rounded-xl bg-muted/50 hover:bg-muted transition-colors"
-                      >
+                      ))}
+                    </div>
+                  ) : transactions.length > 0 ? (
+                    <div className="space-y-2 sm:space-y-3">
+                      {transactions.map((tx) => (
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${tx.tx_type === "mint"
-                            ? "bg-primary/10 text-primary"
-                            : "bg-secondary/10 text-secondary-foreground"
-                            }`}
+                          key={tx.id}
+                          className="flex items-center gap-2.5 sm:gap-4 p-2.5 sm:p-4 rounded-lg sm:rounded-xl bg-muted/50 hover:bg-muted transition-colors"
                         >
-                          {tx.tx_type === "mint" ? (
-                            <ArrowDownLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-                          ) : (
-                            <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                            <span className="font-medium text-sm sm:text-base capitalize">{tx.tx_type}</span>
-                            {tx.collection?.name && (
-                              <span className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[100px] sm:max-w-none">
-                                {tx.collection.name}
-                              </span>
-                            )}
-                            <Badge variant={tx.status === 'confirmed' ? 'default' : 'secondary'} className="text-[10px]">
-                              {tx.status}
-                            </Badge>
-                          </div>
-                          <div className="text-[10px] sm:text-sm text-muted-foreground">
-                            {formatDate(tx.created_at)} · {tx.quantity} NFT{tx.quantity > 1 ? 's' : ''}
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="font-semibold text-sm sm:text-base text-primary">
-                            {tx.price_paid} {balanceSymbol}
-                          </div>
-                          <a
-                            href={getTxExplorer(tx.tx_hash)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] sm:text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 justify-end"
+                          <div
+                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${tx.tx_type === "mint"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-secondary/10 text-secondary-foreground"
+                              }`}
                           >
-                            <span className="hidden sm:inline">View</span>
-                            <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                          </a>
+                            {tx.tx_type === "mint" ? (
+                              <ArrowDownLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                            ) : (
+                              <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                              <span className="font-medium text-sm sm:text-base capitalize">{tx.tx_type}</span>
+                              {tx.collection?.name && (
+                                <span className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[100px] sm:max-w-none">
+                                  {tx.collection.name}
+                                </span>
+                              )}
+                              <Badge variant={tx.status === 'confirmed' ? 'default' : 'secondary'} className="text-[10px]">
+                                {tx.status}
+                              </Badge>
+                            </div>
+                            <div className="text-[10px] sm:text-sm text-muted-foreground">
+                              {formatDate(tx.created_at)} · {tx.quantity} NFT{tx.quantity > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-semibold text-sm sm:text-base text-primary">
+                              {tx.price_paid} {balanceSymbol}
+                            </div>
+                            <a
+                              href={getTxExplorer(tx.tx_hash)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] sm:text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 justify-end"
+                            >
+                              <span className="hidden sm:inline">View</span>
+                              <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            </a>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                      <History className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                      <p className="text-sm sm:text-base">No app transactions yet</p>
+                      <p className="text-xs text-muted-foreground mt-1">Your NFT mint and transfer history will appear here</p>
+                    </div>
+                  )
                 ) : (
-                  <div className="text-center py-8 sm:py-12 text-muted-foreground">
-                    <History className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
-                    <p className="text-sm sm:text-base">No transactions yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Your NFT mint and transfer history will appear here</p>
-                  </div>
+                  // On-Chain Activity (Helius)
+                  heliusLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <Skeleton className="w-8 h-8 sm:w-10 sm:h-10 rounded-full shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <Skeleton className="h-3 sm:h-4 w-48 sm:w-64 mb-1.5" />
+                            <Skeleton className="h-2.5 sm:h-3 w-32 sm:w-48" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : onChainTxs.length > 0 ? (
+                    <div className="space-y-2 sm:space-y-3">
+                      {onChainTxs.map((tx) => (
+                        <div
+                          key={tx.signature}
+                          className="flex items-start gap-2.5 sm:gap-4 p-2.5 sm:p-4 rounded-lg sm:rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                        >
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-1">
+                            <div className="text-[10px] font-bold">SOL</div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs sm:text-sm font-medium leading-relaxed">
+                              {tx.description || tx.type.replace(/_/g, ' ')}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                {new Date(tx.timestamp * 1000).toLocaleString()}
+                              </span>
+                              <Badge variant="outline" className="text-[9px] uppercase h-4 px-1">
+                                {tx.source || 'Solana'}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <a
+                              href={getTxExplorer(tx.signature)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] sm:text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 justify-end"
+                            >
+                              <span className="hidden sm:inline">Details</span>
+                              <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                      <History className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                      <p className="text-sm sm:text-base">No on-chain activity found</p>
+                      <p className="text-xs text-muted-foreground mt-1">This wallet has no parsed transactions on devnet yet.</p>
+                    </div>
+                  )
                 )}
               </CardContent>
             </Card>

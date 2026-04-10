@@ -6,9 +6,15 @@ import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 // Solana RPC endpoints
 export const DEVNET_RPC_LIST = [
     "https://api.devnet.solana.com",
-    "https://devnet.helius-rpc.com/?api-key=demo",
+    "https://devnet.helius-rpc.com/?api-key=0c6d7147-2cfe-4a0f-9a19-4dc723608121",
     "https://solana-devnet.g.alchemy.com/v2/demo",
 ];
+
+// Helius Configuration
+export const HELIUS_API_KEY = "0c6d7147-2cfe-4a0f-9a19-4dc723608121";
+export const HELIUS_DEVNET_URL = `https://api-devnet.helius-rpc.com/v0/transactions/?api-key=${HELIUS_API_KEY}`;
+export const HELIUS_ADDRESS_HISTORY_URL = (address: string) => 
+    `https://api-devnet.helius-rpc.com/v0/addresses/${address}/transactions/?api-key=${HELIUS_API_KEY}`;
 
 export const TESTNET_RPC_LIST = [
     "https://api.testnet.solana.com",
