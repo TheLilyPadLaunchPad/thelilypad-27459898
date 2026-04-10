@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { FolderUploader } from "@/components/launchpad/FolderUploader";
 import { GuardConfigurator } from "@/components/launchpad/GuardConfigurator";
 import { LaunchpadPreview } from "@/components/launchpad/LaunchpadPreview";
+import { LazyPreviewGrid } from "@/components/launchpad/LazyPreviewGrid";
 import { ModeSelector } from "@/components/launchpad/ModeSelector";
 import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
@@ -437,7 +438,7 @@ export default function LaunchpadCreate() {
                     setUploadProgress({ completed, total, status });
                     toast.loading(status, { id: 'deploy' });
                 },
-                25, // concurrency
+                5, // concurrency: reduced from 25 to prevent UI freeze
                 true, // enable thumbnails
                 [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }],
                 isDynamic, // isMutable
@@ -942,13 +943,10 @@ export default function LaunchpadCreate() {
                             selectedChain={selectedChain}
                         />
                         {(folderAssets.length > 0 || generatedAssets.length > 0 || artworks.length > 0 || tracks.length > 0) && (
-                            <div className="grid grid-cols-4 gap-2">
-                                {(mode === 'music' ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets))).slice(0, 12).map((a, i) => (
-                                    <div key={i} className="aspect-square rounded overflow-hidden bg-muted border border-border">
-                                        <img src={'preview' in a ? a.preview : (a.file ? URL.createObjectURL(a.file) : '')} className="w-full h-full object-contain" />
-                                    </div>
-                                ))}
-                            </div>
+                            <LazyPreviewGrid
+                                items={mode === 'music' ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets))}
+                                isMusic={mode === 'music'}
+                            />
                         )}
                     </div>
                 </div>

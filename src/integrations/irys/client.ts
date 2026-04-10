@@ -977,13 +977,16 @@ export async function uploadBatchToArweave(
         onProgress?.(0, items.length, "Generating thumbnails…");
 
         processedImages = [];
-        for (let i = 0; i < items.length; i += concurrency) {
+        // Use smaller concurrency for thumbnails (5) vs uploads to prevent UI freeze
+        // Each thumbnail runs 2 compressions in parallel, so 5 × 2 = 10 max concurrent
+        const thumbConcurrency = Math.min(concurrency, 5);
+        for (let i = 0; i < items.length; i += thumbConcurrency) {
             const windowFiles = items
-                .slice(i, i + concurrency)
-                .map((item) =>
+                .slice(i, i + thumbConcurrency)
+                .map((item, idx) =>
                     item.file instanceof File
                         ? item.file
-                        : new File([item.file], `image_${i}.png`, { type: item.file.type })
+                        : new File([item.file], `image_${i + idx}.png`, { type: item.file.type })
                 );
 
             const windowResults = await Promise.all(
@@ -991,11 +994,11 @@ export async function uploadBatchToArweave(
             );
             processedImages.push(...windowResults);
 
-            const done = Math.min(i + concurrency, items.length);
+            const done = Math.min(i + thumbConcurrency, items.length);
             onProgress?.(done, items.length, `Generated thumbnails: ${done} / ${items.length}`);
 
-            // Yield to event loop
-            await new Promise((r) => setTimeout(r, 0));
+            // Yield to event loop between batches
+            await new Promise((r) => setTimeout(r, 10));
         }
     }
 
@@ -1046,7 +1049,10 @@ export async function uploadBatchToArweave(
 
     let uploadedCount = previousResults.length;
 
-    for (let i = 0; i < items.length; i += concurrency) {
+    // Cap upload concurrency to prevent UI freeze (max 5 concurrent uploads)
+    const uploadConcurrency = Math.min(concurrency, 5);
+
+    for (let i = 0; i < items.length; i += uploadConcurrency) {
         // ── Abort check ──────────────────────────────────────────────────
         if (signal?.aborted) {
             console.log(`[Irys] Upload cancelled at item ${i}/${items.length}`);
@@ -1057,7 +1063,7 @@ export async function uploadBatchToArweave(
             break;
         }
 
-        const window = items.slice(i, i + concurrency);
+        const window = items.slice(i, i + uploadConcurrency);
 
         const windowResults = await Promise.all(
             window.map(async (item, idx) => {
@@ -1148,8 +1154,8 @@ export async function uploadBatchToArweave(
             saveUploadProgress(resumeKey, results.filter(Boolean), items.length);
         }
 
-        // Yield to event loop every window
-        await new Promise((r) => setTimeout(r, 0));
+        // Yield to event loop every window with longer delay for UI responsiveness
+        await new Promise((r) => setTimeout(r, 50));
     }
 
     // Filter out nulls in case any items failed
