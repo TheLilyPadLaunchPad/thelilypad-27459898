@@ -63,7 +63,7 @@ import { cn, dataUrlToBlob } from "@/lib/utils";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getDbChainValue } from "@/config/chains";
 import { getLaunchpadConfig, CollectionMode } from "@/config/launchpad";
-import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata, loadUploadProgress, clearUploadProgress } from "@/integrations/irys/client";
+import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata, loadUploadProgress, clearUploadProgress, preFundIrysForBatch } from "@/integrations/irys/client";
 import { Progress } from "@/components/ui/progress";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
 import { Switch } from "@/components/ui/switch";
@@ -353,6 +353,7 @@ export default function LaunchpadCreate() {
                         undefined, // rootTx
                         undefined, // feeMultiplier
                         audioTags,
+                        true // skipFunding - we already pre-funded
                     );
                     audioUriMap[i] = audioUri;
                 }
@@ -386,6 +387,33 @@ export default function LaunchpadCreate() {
             }
 
             if (assetsToUpload.length === 0) return toast.error("No assets ready for launch.");
+
+            // ── Step 0.5: Pre-fund Irys for the entire batch ────────────────
+            toast.loading("Calculating total storage cost...", { id: 'deploy' });
+            
+            // Collect all files involved in this launch for price calculation
+            const allFilesToPayFor: (File | Blob)[] = [];
+            if (coverFile) allFilesToPayFor.push(coverFile);
+            
+            assetsToUpload.forEach(asset => {
+                allFilesToPayFor.push(asset.file);
+                // Also account for audio files in music flow
+                if (flowType === 'music' && asset.metadata._audioUri === undefined) {
+                    // This case should be handled by the mapping above, but for calculation
+                    // we ensure we have the sizes. 
+                    // (Actually the audio files are already uploaded individually below, 
+                    // so we should include them here)
+                }
+            });
+
+            if (flowType === 'music') {
+                tracks.forEach(t => allFilesToPayFor.push(t.audioFile));
+            }
+
+            // Estimate total size and fund once
+            await preFundIrysForBatch(allFilesToPayFor, { address, chainType: walletChain, network }, {
+                onStatus: (status) => toast.loading(status, { id: 'deploy' })
+            });
 
             // ── Step 1: Initialize Database Entry ──────────────────────────
             toast.loading("Establishing provenance...", { id: 'deploy' });
@@ -446,6 +474,7 @@ export default function LaunchpadCreate() {
                 undefined, // feeMultiplier
                 abortCtrl.signal, // AbortSignal for cancel
                 resumeKey || undefined, // resumeKey for progress persistence
+                true // skipFunding - we already pre-funded
             );
 
             // If aborted, stop here

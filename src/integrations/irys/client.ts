@@ -476,7 +476,8 @@ export async function uploadToArweave(
     isMutable = false,
     rootTx?: string,
     feeMultiplier?: number,
-    customTags?: { name: string; value: string }[]
+    customTags?: { name: string; value: string }[],
+    skipFunding = false
 ): Promise<string> {
     const irys = await getWebIrys(wallet);
 
@@ -484,16 +485,16 @@ export async function uploadToArweave(
     const price = await irys.getPrice(file.size);
     const balance = await irys.getLoadedBalance();
 
-    if (balance.lt(price)) {
-        // Round UP and add 10% buffer to cover potential network fee spikes during settlement
+    if (!skipFunding && balance.lt(price)) {
+        // Round UP and add 15% buffer for safety (increased from 10%)
         let toFund = toIntegerFundAmount(price.minus(balance));
         if (typeof toFund.multipliedBy === 'function') {
-            toFund = toIntegerFundAmount(toFund.multipliedBy(1.1));
+            toFund = toIntegerFundAmount(toFund.multipliedBy(1.15));
         } else {
-            toFund = Math.ceil(Number(toFund) * 1.1);
+            toFund = Math.ceil(Number(toFund) * 1.15);
         }
         
-        console.log(`[Irys] Funding node with ${toFund.toString()} (multiplier: ${feeMultiplier || 1})…`);
+        console.log(`[Irys] Funding node with ${toFund.toString()}…`);
         await withTimeout(
             () => irys.fund(toFund, feeMultiplier),
             FUNDING_TIMEOUT_MS,
@@ -960,6 +961,7 @@ export async function uploadBatchToArweave(
     feeMultiplier?: number,
     signal?: AbortSignal,
     resumeKey?: string,
+    skipFunding = false
 ): Promise<BatchUploadResponse> {
     if (items.length === 0) return { items: [] };
 
@@ -994,7 +996,7 @@ export async function uploadBatchToArweave(
         return sum + origSize + thumbSize + previewSize + 4096;
     }, 0);
 
-    if (totalEstimatedBytes > 0) {
+    if (!skipFunding && totalEstimatedBytes > 0) {
         onProgress?.(previousResults.length, items.length, "Estimating storage cost…");
         const price = await irys.getPrice(totalEstimatedBytes);
         const balance = await irys.getLoadedBalance();
@@ -1227,6 +1229,51 @@ export async function verifyIrysReceipt(receipt: any, wallet: any): Promise<bool
 }
 
 // ── Manual Node Funding ──────────────────────────────────────────────────
+
+/**
+ * Pre-funds the Irys node for a batch of assets to avoid multiple funding transactions.
+ * Calculates total size, adds a buffer, and performs a single funding call.
+ */
+export async function preFundIrysForBatch(
+    assets: (File | Blob | { size: number })[],
+    wallet: any,
+    options?: {
+        feeMultiplier?: number;
+        bufferMultiplier?: number;
+        onStatus?: (status: string) => void;
+    }
+) {
+    const irys = await getWebIrys(wallet);
+    const opts = { feeMultiplier: 1.0, bufferMultiplier: 1.2, ...options };
+
+    const totalBytes = assets.reduce((sum, a) => sum + (a.size || 0), 0);
+    
+    // Account for metadata overhead (approx 4KB per item)
+    const totalEstimatedBytes = totalBytes + (assets.length * 4096);
+
+    if (totalEstimatedBytes <= 0) return;
+
+    opts.onStatus?.(`Calculating storage cost for ${assets.length} items…`);
+    const price = await irys.getPrice(totalEstimatedBytes);
+    const balance = await irys.getLoadedBalance();
+
+    if (balance.lt(price)) {
+        const toFund = toIntegerFundAmount(price.minus(balance).multipliedBy(opts.bufferMultiplier));
+        
+        opts.onStatus?.(`Funding storage node with ${irys.utils.fromAtomic(toFund)} ${irys.token}…`);
+        console.log(`[Irys] Batch pre-funding: ${toFund.toString()} atomic units…`);
+        
+        await withRetry(
+            () => withTimeout(() => irys.fund(toFund, opts.feeMultiplier), FUNDING_TIMEOUT_MS, "Batch pre-fund"),
+            "pre-fund",
+            2 // Fewer retries for funding as it prompts user
+        );
+        opts.onStatus?.(`Storage node funded successfully.`);
+    } else {
+        opts.onStatus?.(`Storage node balance sufficient.`);
+    }
+}
+
 
 /**
  * Manually tops up the connected wallet's Irys node balance using standard crypto units (e.g. 0.05 SOL).
