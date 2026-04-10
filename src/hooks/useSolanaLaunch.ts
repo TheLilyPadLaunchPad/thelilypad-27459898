@@ -20,6 +20,7 @@ import { updateV1 as updateCoreAsset } from '@metaplex-foundation/mpl-core';
 import { setComputeUnitPrice } from '@metaplex-foundation/mpl-toolbox';
 import { deleteCandyMachine as deleteCoreCandyMachine, deleteCandyGuard as deleteCoreCandyGuard } from '@metaplex-foundation/mpl-core-candy-machine';
 import { SendTransactionError } from '@solana/web3.js';
+import { invalidateRpc } from '@/config/solana';
 
 /**
  * Extract human-readable error messages from Solana transaction logs
@@ -92,6 +93,43 @@ export const useSolanaLaunch = () => {
     }, [getSolanaProvider, network]);
 
     /**
+     * Helper to retry blockchain operations with RPC failover
+     */
+    const withRetry = useCallback(async <T>(
+        operation: (umi: Umi) => Promise<T>,
+        maxRetries = 2
+    ): Promise<T> => {
+        let lastError: any;
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            const umi = await getUmi();
+            try {
+                return await operation(umi);
+            } catch (err: any) {
+                lastError = err;
+                const msg = err.message || "";
+                const isNetworkError = 
+                    msg.includes("fetch") || 
+                    msg.includes("429") || 
+                    msg.includes("Blockhash not found") ||
+                    msg.includes("Network Error");
+
+                if (isNetworkError && attempt < maxRetries) {
+                    const endpoint = umi.rpc.getEndpoint();
+                    console.warn(`[Solana] Operation failed on ${endpoint}. Attempting RPC failover (retry ${attempt + 1}/${maxRetries})...`);
+                    invalidateRpc(endpoint);
+                    toast.info("Switching to a different Solana RPC for better stability...", { id: 'rpc-failover' });
+                    // Small delay before retry
+                    await new Promise(r => setTimeout(r, 1000));
+                    continue;
+                }
+                throw err;
+            }
+        }
+        throw lastError;
+    }, [getUmi]);
+
+
+    /**
      * Upload a single file to Arweave
      */
     const uploadFile = useCallback(async (file: File) => {
@@ -132,18 +170,18 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const umi = await getUmi();
-            toast.loading(`Deploying ${metadata.name} (Core)...`, { id: 'sol-deploy' });
+            return await withRetry(async (umi) => {
+                toast.loading(`Deploying ${metadata.name} (Core)...`, { id: 'sol-deploy' });
+                const result = await createCoreCollection(umi, metadata);
+                toast.success(`Core Collection Deployed!`, { id: 'sol-deploy' });
 
-            const result = await createCoreCollection(umi, metadata);
-
-            toast.success(`Core Collection Deployed!`, { id: 'sol-deploy' });
-            return {
-                signature: new Uint8Array(0),
-                address: result.address,
-                collectionAddress: result.address,
-                collectionSigner: result.signer,
-            };
+                return {
+                    signature: new Uint8Array(0),
+                    address: result.address,
+                    collectionAddress: result.address,
+                    collectionSigner: result.signer,
+                };
+            });
         } catch (err: any) {
             console.error("Core Deployment Error:", err);
 
@@ -245,21 +283,19 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const umi = await getUmi();
-            toast.loading(`Creating Core Candy Machine...`, { id: 'cm-create' });
-
-            const result = await createCoreCandyMachine(
-                umi,
-                collectionAddress,
-                itemsAvailable,
-                phases,
-                optionalTreasuryWallet,
-                baseUri
-            );
-
-            toast.success(`Candy Machine Ready with Guards!`, { id: 'cm-create' });
-            return result;
-
+            return await withRetry(async (umi) => {
+                toast.loading(`Creating Core Candy Machine...`, { id: 'cm-create' });
+                const result = await createCoreCandyMachine(
+                    umi,
+                    collectionAddress,
+                    itemsAvailable,
+                    phases,
+                    optionalTreasuryWallet,
+                    baseUri
+                );
+                toast.success(`Candy Machine Ready with Guards!`, { id: 'cm-create' });
+                return result;
+            });
         } catch (err: any) {
             console.error("Candy Machine creation error:", err);
 
@@ -288,11 +324,10 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const umi = await getUmi();
-            toast.loading(`Inserting items...`, { id: 'cm-insert' });
-
-            await insertItemsToChain(umi, candyMachineAddress, items, batchSize);
-
+            await withRetry(async (umi) => {
+                toast.loading(`Inserting items...`, { id: 'cm-insert' });
+                await insertItemsToChain(umi, candyMachineAddress, items, batchSize);
+            });
             toast.success(`Items inserted successfully!`, { id: 'cm-insert' });
         } catch (err: any) {
             console.error("Insert items error:", err);

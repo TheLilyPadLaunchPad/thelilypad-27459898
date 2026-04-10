@@ -5,8 +5,8 @@ import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 // Solana RPC endpoints
 export const DEVNET_RPC_LIST = [
-    "https://api.devnet.solana.com",
     "https://devnet.helius-rpc.com/?api-key=0c6d7147-2cfe-4a0f-9a19-4dc723608121",
+    "https://api.devnet.solana.com",
     "https://solana-devnet.g.alchemy.com/v2/demo",
 ];
 
@@ -69,15 +69,8 @@ export const checkRpcHealth = async (rpcUrl: string, timeout = 5000): Promise<Rp
 };
 
 export const getSolanaRpcUrl = (network: NetworkType): string => {
-    switch (network) {
-        case "mainnet":
-            return MAINNET_RPC_LIST[0];
-        case "testnet":
-            return TESTNET_RPC_LIST[0];
-        case "devnet":
-        default:
-            return DEVNET_RPC_LIST[0];
-    }
+    const list = getSolanaRpcList(network);
+    return list[0];
 };
 
 export const getSolanaRpcList = (network: NetworkType): string[] => {
@@ -92,15 +85,34 @@ export const getSolanaRpcList = (network: NetworkType): string[] => {
     }
 };
 
+// List of RPCs that have failed in the current session
+const blacklistedRpcs = new Set<string>();
+
+export const invalidateRpc = (url: string) => {
+    console.warn(`[Solana] Blacklisting failing RPC: ${url}`);
+    blacklistedRpcs.add(url);
+};
+
+export const clearRpcBlacklist = () => {
+    blacklistedRpcs.clear();
+};
+
 export const getBestRpc = async (network: NetworkType): Promise<string> => {
     const preferred = getPreferredRpcUrl(network);
-    if (preferred) {
+    if (preferred && !blacklistedRpcs.has(preferred)) {
         const health = await checkRpcHealth(preferred);
         if (health.healthy) return preferred;
     }
 
-    const rpcList = getSolanaRpcList(network);
+    const rpcList = getSolanaRpcList(network).filter(rpc => !blacklistedRpcs.has(rpc));
     
+    // If all RPCs are blacklisted, clear blacklist and start over to avoid total failure
+    if (rpcList.length === 0) {
+        console.warn(`[Solana] All RPCs blacklisted. Resetting blacklist.`);
+        blacklistedRpcs.clear();
+        return getSolanaRpcList(network)[0];
+    }
+
     // Check all RPCs in parallel and return the first healthy one with lowest latency
     const healthChecks = await Promise.all(rpcList.map(rpc => checkRpcHealth(rpc)));
     const healthyRpcs = healthChecks

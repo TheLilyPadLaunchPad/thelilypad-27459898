@@ -70,6 +70,7 @@ import { Switch } from "@/components/ui/switch";
 import { Check, Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
+import { getRpcUrl } from "@/config/solana";
 
 // Default Phases
 const defaultPhases: LaunchpadPhase[] = [
@@ -309,7 +310,18 @@ export default function LaunchpadCreate() {
         setUploadProgress(null);
         let collectionId = "";
 
+        // Show initial RPC status
+        const currentRpc = getRpcUrl(network as any);
+        const rpcProvider = currentRpc.includes('helius') ? 'Helius (Premium)' : (currentRpc.includes('alchemy') ? 'Alchemy' : 'Solana (Default)');
+
         try {
+            toast.loading(
+                <div className="flex flex-col gap-0.5">
+                    <span className="font-medium">Starting deployment flow...</span>
+                    <span className="text-[10px] opacity-70">Provider: {rpcProvider}</span>
+                </div>, 
+                { id: 'deploy' }
+            );
             // ── Step 0: Identify assets to process ──────────────────────────
             let assetsToUpload: { name: string; file: File; metadata: any }[] = [];
 
@@ -654,7 +666,13 @@ export default function LaunchpadCreate() {
 
             const isOffline = (supabase as any).isOffline;
             if (collectionId && !isOffline) {
-                await supabase.from("collections").delete().eq('id', collectionId).eq('status', 'upcoming');
+                // Instead of deleting, mark as failed so the user has a record of the attempt
+                await supabase.from("collections")
+                    .update({ 
+                        status: 'failed',
+                        description: `Launch failed: ${errorMessage}. ` + (description || '')
+                    })
+                    .eq('id', collectionId);
             }
         } finally {
             setIsDeploying(false);
