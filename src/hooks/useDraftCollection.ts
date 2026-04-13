@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useWallet } from '@/providers/WalletProvider';
 
 /** Serializable subset of wizard state that can be saved to localStorage */
 export interface DraftCollectionData {
@@ -32,8 +33,8 @@ function getDraftKey(chain: string, type: string): string {
     return `${DRAFT_PREFIX}${chain}_${type}`;
 }
 
-function getDraftStoragePath(chain: string, type: string): string {
-    return `drafts/${chain}_${type}`;
+function getDraftStoragePath(address: string, chain: string, type: string): string {
+    return `drafts/${address}/${chain}_${type}`;
 }
 
 /**
@@ -41,11 +42,12 @@ function getDraftStoragePath(chain: string, type: string): string {
  * Returns the public URL on success, null on failure.
  */
 async function uploadDraftCover(
+    address: string,
     chain: string,
     type: string,
     file: File | Blob
 ): Promise<string | null> {
-    const path = `${getDraftStoragePath(chain, type)}/cover`;
+    const path = `${getDraftStoragePath(address, chain, type)}/cover`;
     try {
         const { error } = await supabase.storage
             .from(DRAFT_BUCKET)
@@ -67,11 +69,12 @@ async function uploadDraftCover(
  * Returns array of { name, url } on success.
  */
 async function uploadDraftAssets(
+    address: string,
     chain: string,
     type: string,
     assets: { name: string; file: File }[]
 ): Promise<{ name: string; url: string }[]> {
-    const basePath = `${getDraftStoragePath(chain, type)}/assets`;
+    const basePath = `${getDraftStoragePath(address, chain, type)}/assets`;
     const results: { name: string; url: string }[] = [];
 
     // Upload in batches of 5
@@ -102,8 +105,8 @@ async function uploadDraftAssets(
 /**
  * Clean up draft assets from storage bucket.
  */
-async function cleanupDraftStorage(chain: string, type: string) {
-    const basePath = getDraftStoragePath(chain, type);
+async function cleanupDraftStorage(address: string, chain: string, type: string) {
+    const basePath = getDraftStoragePath(address, chain, type);
     try {
         const { data: files } = await supabase.storage
             .from(DRAFT_BUCKET)
@@ -132,6 +135,7 @@ async function cleanupDraftStorage(chain: string, type: string) {
  * Persists text/config state to localStorage and images to Supabase storage.
  */
 export function useDraftCollection(chain: string, type: string) {
+    const { address } = useWallet();
     const draftKey = getDraftKey(chain, type);
     const [hasDraft, setHasDraft] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -181,17 +185,19 @@ export function useDraftCollection(chain: string, type: string) {
     /** Upload cover image to draft storage and return URL */
     const saveDraftCover = useCallback(
         async (file: File | Blob): Promise<string | null> => {
-            return uploadDraftCover(chain, type, file);
+            if (!address) return null;
+            return uploadDraftCover(address, chain, type, file);
         },
-        [chain, type],
+        [address, chain, type],
     );
 
     /** Upload folder assets to draft storage */
     const saveDraftAssets = useCallback(
         async (assets: { name: string; file: File }[]): Promise<{ name: string; url: string }[]> => {
-            return uploadDraftAssets(chain, type, assets);
+            if (!address) return [];
+            return uploadDraftAssets(address, chain, type, assets);
         },
-        [chain, type],
+        [address, chain, type],
     );
 
     /** Clear the draft (e.g. after successful deploy) */
@@ -200,11 +206,13 @@ export function useDraftCollection(chain: string, type: string) {
             localStorage.removeItem(draftKey);
             setHasDraft(false);
             // Clean up storage in background
-            cleanupDraftStorage(chain, type);
+            if (address) {
+                cleanupDraftStorage(address, chain, type);
+            }
         } catch {
             // ignore
         }
-    }, [draftKey, chain, type]);
+    }, [address, draftKey, chain, type]);
 
     // Cleanup timer on unmount
     useEffect(() => {
