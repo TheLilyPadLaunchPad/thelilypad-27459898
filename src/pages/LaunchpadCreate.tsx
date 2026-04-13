@@ -115,13 +115,6 @@ export default function LaunchpadCreate() {
     const chainSymbol = currentChain.symbol;
     const launchpadConfig = getLaunchpadConfig(selectedChain);
 
-    // Redirect 1/1 & Editions to Raffles & Studio
-    useEffect(() => {
-        if (typeParam === "1of1") {
-            navigate("/raffles", { replace: true });
-        }
-    }, [typeParam, navigate]);
-
     // Wizard State
     const [mode, setMode] = useState<CollectionMode>("basic");
     const [currentStep, setCurrentStep] = useState(0);
@@ -129,12 +122,14 @@ export default function LaunchpadCreate() {
     const [isDeploying, setIsDeploying] = useState(false);
 
     const flowType = resolveFlowType(typeParam);
-    const is1of1 = false; // 1/1s are now handled by Raffles & Studio
+    const is1of1 = flowType === '1of1';
     const isMusic = flowType === 'music';
 
-    const STEPS = isMusic
-        ? (launchpadConfig.modes.music || launchpadConfig.modes.basic || [])
-        : (mode === "basic" ? launchpadConfig.modes.basic : launchpadConfig.modes.advanced) || [];
+    const STEPS = is1of1
+        ? (launchpadConfig.modes['1of1'] || launchpadConfig.modes.basic || [])
+        : isMusic
+            ? (launchpadConfig.modes.music || launchpadConfig.modes.basic || [])
+            : (mode === "basic" ? launchpadConfig.modes.basic : launchpadConfig.modes.advanced) || [];
     const maxStep = STEPS.length - 1;
 
     // Collection Data

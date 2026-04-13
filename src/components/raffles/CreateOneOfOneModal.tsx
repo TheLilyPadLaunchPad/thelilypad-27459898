@@ -12,9 +12,9 @@ import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useWallet } from "@/providers/WalletProvider";
 import { getErrorMessage } from "@/lib/errorUtils";
 import { cn } from "@/lib/utils";
-import type { SupportedChain } from "@/config/chains";
+import { type SupportedChain, getDbChainValue } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadBatchToArweave, BatchUploadItem, uploadToArweave } from "@/integrations/irys/client";
+import { uploadBatchToArweave, BatchUploadItem, uploadToArweave, preFundIrysForBatch } from "@/integrations/irys/client";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
@@ -94,13 +94,21 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             // Shared Logic: Upload Image to Arweave (Irys)
             toast.loading("Uploading artwork to Arweave...", { id: "upload" });
 
+            // Wallet-chain mismatch guard
+            const walletChain = chainType === 'monad' ? 'monad' : 'solana';
+            if (walletChain !== chain) {
+                toast.error(`Wallet is connected to ${walletChain.toUpperCase()} but you are deploying on ${chain.toUpperCase()}. Switch your wallet.`);
+                setIsLoading(false);
+                return;
+            }
+
             // Upload audio file first if present (for music NFTs)
             let audioUrl = "";
             if (audioFile) {
                 toast.loading("Uploading audio file...", { id: "upload" });
                 audioUrl = await uploadToArweave(
                     audioFile,
-                    { address, chainType: chain, network: "devnet" }
+                    { address, chainType: walletChain, network }
                 );
             }
 
@@ -147,14 +155,20 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 }
             ];
 
+            // Pre-fund Irys for the batch
+            const allFiles = [file, ...(audioFile ? [audioFile] : [])];
+            await preFundIrysForBatch(allFiles, { address, chainType: walletChain, network }, {
+                onStatus: (status) => toast.loading(status, { id: 'upload' })
+            });
+
             const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
-                { address, chainType: chain, network: "devnet" }, // defaults to devnet/testnet logic or passes thru
+                { address, chainType: walletChain, network },
                 (completed, total, status) => {
                     toast.loading(status, { id: "upload" });
                 },
-                1,
-                false
+                5, // concurrency
+                true // enable thumbnails
             );
 
             const imageUrl = uploadResults[0]?.arweaveImageUri || manifestUri || "";
@@ -185,12 +199,6 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             }
 
             if (chain === 'monad') {
-                if (chainType !== 'monad') {
-                    toast.error(`Please connect your Monad wallet.`);
-                    setIsLoading(false);
-                    return;
-                }
-
                 toast.loading(`Deploying Monad Collection...`, { id: "deploy" });
                 const monadResult = await deployMonadCollection({
                     name,
@@ -215,12 +223,6 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 toast.dismiss("deploy");
             } else {
                 // Solana logic
-                if (chainType !== 'solana') {
-                    toast.error("Please connect your Solana wallet.");
-                    setIsLoading(false);
-                    return;
-                }
-
                 const provider = getSolanaProvider();
                 if (!provider) throw new Error("Solana Wallet not connected");
 
@@ -242,6 +244,9 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
 
                     toast.loading("Deploying Bubblegum Tree for compressed NFTs...", { id: "deploy" });
                     const treeAddress = await deployBubblegumTree(14, 64, 8);
+                    if (!treeAddress) {
+                        throw new Error("Failed to deploy Bubblegum Tree. Collection was created but NFTs could not be minted.");
+                    }
 
                     for (let i = 0; i < mintItems.length; i++) {
                         const item = mintItems[i];
@@ -251,7 +256,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                             result.address,
                             item.name,
                             metadataUrl,
-                            royaltyBasisPoints, // Fixed: use configured royalty
+                            royaltyBasisPoints,
                             creatorAddress
                         );
                     }
@@ -272,7 +277,11 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     creator_id: userId,
                     creator_address: address,
                     contract_address: txHash,
-                    chain: chain,  // CRITICAL: store the chain so Buy/List modals resolve correct currency
+                    chain: getDbChainValue(chain, network as 'mainnet' | 'testnet'),
+                    collection_type: mode === 'one-of-one' ? '1of1' : 'editions',
+                    total_supply: mintItems.length,
+                    status: 'upcoming',
+                    media_type: audioFile ? 'audio' : 'image',
                 })
                 .select("id")
                 .single();

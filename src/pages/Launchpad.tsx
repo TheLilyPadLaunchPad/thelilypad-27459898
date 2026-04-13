@@ -98,6 +98,14 @@ const ALL_COLLECTION_TYPES: CollectionTypeTile[] = [
     tag: "Audio",
   },
   {
+    id: "1of1",
+    title: "1-of-1 & Editions",
+    description: "Upload individual artworks, configure editions and tier pricing. Deploy as compressed NFTs with Bubblegum or Metaplex Core.",
+    icon: ImageIcon,
+    chains: ["solana", "monad"],
+    tag: "Unique",
+  },
+  {
     id: "hybrid-404",
     title: "MPL-Hybrid (404)",
     description: "Create an escrow that lets holders swap between your fungible token and NFTs instantly. The ERC-404 equivalent on Solana.",
@@ -122,7 +130,7 @@ const FILTER_TABS = [
 
 // ── Draft finder (reads from the new lilypad_draft_* keys) ────────────────────
 const DRAFT_PREFIX = 'lilypad_draft_';
-const DRAFT_TYPES = ['generative', 'music', 'advanced', 'basic'];
+const DRAFT_TYPES = ['generative', 'music', 'advanced', 'basic', '1of1'];
 
 /** Find the most recent draft for a given chain across all type keys */
 function findLatestDraft(chain: string): { key: string; type: string; data: any } | null {
