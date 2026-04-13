@@ -94,7 +94,7 @@ function resolveFlowType(standard?: string): CollectionFlowType {
 export default function LaunchpadCreate() {
     const { chain: chainParam, type: typeParam } = useParams<{ chain: string; type: string }>();
     const navigate = useNavigate();
-    const { address, network, chainType } = useWallet();
+    const { address, network, chainType, getSolanaProvider } = useWallet();
     // Derive canonical chain from the connected wallet (authoritative for deploys)
     const walletChain: typeof selectedChain =
         chainType === 'monad' ? 'monad'
@@ -360,7 +360,8 @@ export default function LaunchpadCreate() {
                         undefined, // rootTx
                         undefined, // feeMultiplier
                         audioTags,
-                        true // skipFunding - we already pre-funded
+                        true, // skipFunding - we already pre-funded
+                        getSolanaProvider()
                     );
                     audioUriMap[i] = audioUri;
                 }
@@ -420,7 +421,7 @@ export default function LaunchpadCreate() {
             // Estimate total size and fund once
             await preFundIrysForBatch(allFilesToPayFor, { address, chainType: walletChain, network }, {
                 onStatus: (status) => toast.loading(status, { id: 'deploy' })
-            });
+            }, getSolanaProvider());
 
             // ── Step 1: Initialize Database Entry ──────────────────────────
             toast.loading("Establishing provenance...", { id: 'deploy' });
@@ -481,7 +482,8 @@ export default function LaunchpadCreate() {
                 undefined, // feeMultiplier
                 abortCtrl.signal, // AbortSignal for cancel
                 resumeKey || undefined, // resumeKey for progress persistence
-                true // skipFunding - we already pre-funded
+                true, // skipFunding - we already pre-funded
+                getSolanaProvider()
             );
 
             // If aborted, stop here

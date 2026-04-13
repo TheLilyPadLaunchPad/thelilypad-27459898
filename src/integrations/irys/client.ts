@@ -2,7 +2,7 @@ import { WebUploader } from "@irys/web-upload";
 import { WebSolana } from "@irys/web-upload-solana";
 import { WebEthereum } from "@irys/web-upload-ethereum";
 import { ethers } from "ethers";
-import { getRpcUrl } from "@/config/solana";
+import { getRpcUrl, type NetworkType } from "@/config/solana";
 
 /**
  * Irys (Arweave) Integration Client
@@ -275,6 +275,7 @@ export async function getWebIrys(
         chainType: string;
         network: string;
     },
+    solanaProvider?: any,
 ): Promise<any> {
     // Return cached if it matches
     if (
@@ -296,20 +297,35 @@ export async function getWebIrys(
     const effectiveChainType = "solana";
 
     if (effectiveChainType === "solana") {
-        const provider = (window as any).phantom?.solana || (window as any).solana;
-        if (!provider) throw new Error("Solana wallet not detected");
+        // Use provided solanaProvider (from wallet context) or fall back to window lookup
+        const provider = solanaProvider
+            || (window as any).phantom?.solana
+            || (window as any).solana
+            || (window as any).solflare
+            || (window as any).backpack?.solana;
+        if (!provider) throw new Error("Solana wallet not detected. Please install Phantom, Solflare, or Backpack.");
 
-        // Wrap provider to ensure sendTransaction exists (Phantom exposes
-        // signAndSendTransaction but not sendTransaction, which Irys expects)
+        // Wrap provider to ensure sendTransaction exists.
+        // Phantom exposes signAndSendTransaction but not sendTransaction.
+        // Some wallets expose neither — we add a fallback using signTransaction + connection.
         const wrappedProvider = Object.create(provider);
-        if (!wrappedProvider.sendTransaction && wrappedProvider.signAndSendTransaction) {
-            wrappedProvider.sendTransaction = async (transaction: any, connection?: any) => {
-                const result = await provider.signAndSendTransaction(transaction);
-                return result.signature;
-            };
+        if (!wrappedProvider.sendTransaction) {
+            if (wrappedProvider.signAndSendTransaction) {
+                wrappedProvider.sendTransaction = async (transaction: any, connection?: any) => {
+                    const result = await provider.signAndSendTransaction(transaction);
+                    return result.signature || result;
+                };
+            } else if (wrappedProvider.signTransaction) {
+                wrappedProvider.sendTransaction = async (transaction: any, connection?: any) => {
+                    const signed = await provider.signTransaction(transaction);
+                    // Return the signed tx — Irys will handle sending
+                    return signed;
+                };
+            }
         }
 
-        const rpcUrl = getRpcUrl("devnet");
+        // Use the wallet's actual network for RPC, not hardcoded devnet
+        const rpcUrl = getRpcUrl((wallet.network || "devnet") as NetworkType);
         let builder = WebUploader(WebSolana).withProvider(wrappedProvider);
         if (!isMainnet) {
             builder = builder.withRpc(rpcUrl);
@@ -319,7 +335,7 @@ export async function getWebIrys(
         const provider = new ethers.BrowserProvider((window as any).ethereum);
         let builder = WebUploader(WebEthereum).withProvider(provider);
         if (!isMainnet) {
-            builder = builder.withRpc(getRpcUrl("devnet"));
+            builder = builder.withRpc(getRpcUrl((wallet.network || "devnet") as NetworkType));
         }
         irys = await (isMainnet ? builder.mainnet() : builder.devnet());
     } else {
@@ -477,9 +493,10 @@ export async function uploadToArweave(
     rootTx?: string,
     feeMultiplier?: number,
     customTags?: { name: string; value: string }[],
-    skipFunding = false
+    skipFunding = false,
+    solanaProvider?: any,
 ): Promise<string> {
-    const irys = await getWebIrys(wallet);
+    const irys = await getWebIrys(wallet, solanaProvider);
 
     // Check price and balance — fund if needed
     const price = await irys.getPrice(file.size);
@@ -743,13 +760,14 @@ export async function uploadMetadataToArweave(
     wallet: any,
     isMutable = false,
     rootTx?: string,
-    customTags?: { name: string; value: string }[]
+    customTags?: { name: string; value: string }[],
+    solanaProvider?: any,
 ): Promise<string> {
     const json = JSON.stringify(metadata, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const file = new File([blob], "metadata.json", { type: "application/json" });
 
-    return uploadToArweave(file, wallet, isMutable, rootTx, 1.0, customTags);
+    return uploadToArweave(file, wallet, isMutable, rootTx, 1.0, customTags, false, solanaProvider);
 }
 
 // ── Single NFT Upload (Irys Guide: Uploading NFTs) ──────────────────────
@@ -961,7 +979,8 @@ export async function uploadBatchToArweave(
     feeMultiplier?: number,
     signal?: AbortSignal,
     resumeKey?: string,
-    skipFunding = false
+    skipFunding = false,
+    solanaProvider?: any,
 ): Promise<BatchUploadResponse> {
     if (items.length === 0) return { items: [] };
 
@@ -978,7 +997,7 @@ export async function uploadBatchToArweave(
         }
     }
 
-    const irys = await getWebIrys(wallet);
+    const irys = await getWebIrys(wallet, solanaProvider);
 
     // ── Phase 1: Pipelined Execution ─────────────────────────────────────
     const results: BatchUploadResult[] = new Array(items.length);
@@ -1241,9 +1260,10 @@ export async function preFundIrysForBatch(
         feeMultiplier?: number;
         bufferMultiplier?: number;
         onStatus?: (status: string) => void;
-    }
+    },
+    solanaProvider?: any,
 ) {
-    const irys = await getWebIrys(wallet);
+    const irys = await getWebIrys(wallet, solanaProvider);
     const opts = { feeMultiplier: 1.0, bufferMultiplier: 1.2, ...options };
 
     const totalBytes = assets.reduce((sum, a) => sum + (a.size || 0), 0);

@@ -54,6 +54,7 @@ import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { GenerationPreview } from "./GenerationPreview";
 import { ArtworkUploader, ArtworkItem } from "./ArtworkUploader";
 import { uploadToArweave } from "@/integrations/irys/client";
+import { useWallet } from "@/providers/WalletProvider";
 
 interface Phase {
   id: string;
@@ -118,6 +119,7 @@ const collectionSchema = z.object({
 
 export function CollectionEditForm({ collection, onSave, onCancel }: CollectionEditFormProps) {
   const navigate = useNavigate();
+  const { network, getSolanaProvider } = useWallet();
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Derive chain symbol from collection's chain
@@ -324,8 +326,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
 
     setIsUploadingImage(true);
     try {
-      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: 'devnet' };
-      const arweaveUrl = await uploadToArweave(imageFile, wallet);
+      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: network || 'devnet' };
+      const arweaveUrl = await uploadToArweave(imageFile, wallet, false, undefined, undefined, undefined, false, getSolanaProvider());
       return arweaveUrl;
     } catch (err) {
       console.error("Upload error:", err);
@@ -340,8 +342,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     if (!bannerFile) return bannerUrl || null;
 
     try {
-      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: 'devnet' };
-      const arweaveUrl = await uploadToArweave(bannerFile, wallet);
+      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: network || 'devnet' };
+      const arweaveUrl = await uploadToArweave(bannerFile, wallet, false, undefined, undefined, undefined, false, getSolanaProvider());
       return arweaveUrl;
     } catch (err) {
       console.error("Banner upload error:", err);
@@ -387,8 +389,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     if (!unrevealedFile) return unrevealedUrl || null;
 
     try {
-      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: 'devnet' };
-      const arweaveUrl = await uploadToArweave(unrevealedFile, wallet);
+      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: network || 'devnet' };
+      const arweaveUrl = await uploadToArweave(unrevealedFile, wallet, false, undefined, undefined, undefined, false, getSolanaProvider());
       return arweaveUrl;
     } catch (err) {
       console.error("Unrevealed upload error:", err);

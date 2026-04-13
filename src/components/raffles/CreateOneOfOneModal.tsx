@@ -104,11 +104,15 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
 
             // Upload audio file first if present (for music NFTs)
             let audioUrl = "";
+            const solProvider = getSolanaProvider();
             if (audioFile) {
                 toast.loading("Uploading audio file...", { id: "upload" });
                 audioUrl = await uploadToArweave(
                     audioFile,
-                    { address, chainType: walletChain, network }
+                    { address, chainType: walletChain, network },
+                    false, undefined, undefined, undefined,
+                    true, // skipFunding — we pre-fund below
+                    solProvider
                 );
             }
 
@@ -159,7 +163,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             const allFiles = [file, ...(audioFile ? [audioFile] : [])];
             await preFundIrysForBatch(allFiles, { address, chainType: walletChain, network }, {
                 onStatus: (status) => toast.loading(status, { id: 'upload' })
-            });
+            }, solProvider);
 
             const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
@@ -168,7 +172,15 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     toast.loading(status, { id: "upload" });
                 },
                 5, // concurrency
-                true // enable thumbnails
+                true, // enable thumbnails
+                [], // customTags
+                false, // isMutable
+                undefined, // rootTx
+                undefined, // feeMultiplier
+                undefined, // signal
+                undefined, // resumeKey
+                true, // skipFunding — we already pre-funded
+                solProvider
             );
 
             const imageUrl = uploadResults[0]?.arweaveImageUri || manifestUri || "";
