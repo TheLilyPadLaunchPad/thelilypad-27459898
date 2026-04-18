@@ -13,7 +13,7 @@ import {
     updateV1 as updateCoreAsset,
 } from '@metaplex-foundation/mpl-core';
 import {
-    createTree,
+    createTreeV2,
     mintV2,
     parseLeafFromMintV2Transaction,
     findTreeConfigPda,
@@ -522,7 +522,9 @@ export async function createBubblegumTree(
     console.log("=== CREATING BUBBLEGUM MERKLE TREE ===");
     console.log("🌳 Tree:", merkleTree.publicKey.toString());
 
-    let builder = (await createTree(umi, {
+    // NOTE: must use createTreeV2 so the tree's schema matches mintV2.
+    // The V1 createTree produces a tree that mintV2 rejects with error 6003 UnsupportedSchemaVersion.
+    let builder = (await createTreeV2(umi, {
         merkleTree,
         maxDepth,
         maxBufferSize,
