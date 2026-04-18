@@ -498,9 +498,11 @@ export async function uploadToArweave(
 ): Promise<string> {
     const irys = await getWebIrys(wallet, solanaProvider);
 
-    // Check price and balance — fund if needed
-    const price = await irys.getPrice(file.size);
-    const balance = await irys.getLoadedBalance();
+    // Check price and balance — fund if needed.
+    // These REST calls to the Irys node can fail transiently ("Network Error");
+    // retry them so we don't bubble a generic failure up to the user on the first hiccup.
+    const price: any = await withRetry(() => irys.getPrice(file.size), "get upload price", 3);
+    const balance: any = await withRetry(() => irys.getLoadedBalance(), "get Irys balance", 3);
 
     if (!skipFunding && balance.lt(price)) {
         // Round UP and add 15% buffer for safety (increased from 10%)
@@ -1274,8 +1276,10 @@ export async function preFundIrysForBatch(
     if (totalEstimatedBytes <= 0) return;
 
     opts.onStatus?.(`Calculating storage cost for ${assets.length} items…`);
-    const price = await irys.getPrice(totalEstimatedBytes);
-    const balance = await irys.getLoadedBalance();
+    // These REST calls to the Irys node can fail transiently ("Network Error").
+    // Retry so a single hiccup doesn't abort the whole launch flow.
+    const price: any = await withRetry(() => irys.getPrice(totalEstimatedBytes), "get batch upload price", 3);
+    const balance: any = await withRetry(() => irys.getLoadedBalance(), "get Irys balance", 3);
 
     if (balance.lt(price)) {
         const toFund = toIntegerFundAmount(price.minus(balance).multipliedBy(opts.bufferMultiplier));

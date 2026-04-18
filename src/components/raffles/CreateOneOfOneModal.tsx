@@ -359,7 +359,16 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             toast.dismiss("upload");
             toast.dismiss("deploy");
             toast.dismiss("finalize");
-            toast.error(getErrorMessage(error));
+
+            // Provide a more actionable message when the Irys/RPC layer throws a
+            // generic axios "Network Error" — that's almost always a transient node/RPC hiccup.
+            const raw = getErrorMessage(error);
+            const isTransientNetwork = /network error|failed to fetch|err_network|econnreset/i.test(raw);
+            toast.error(
+                isTransientNetwork
+                    ? "Network error while contacting the storage node. Please check your connection and try again in a moment."
+                    : raw
+            );
         } finally {
             setIsLoading(false);
         }
