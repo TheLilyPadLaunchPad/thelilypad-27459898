@@ -234,12 +234,15 @@ export function useCollectionDetail() {
                 );
 
                 if (result.success && result.address) {
-                    setMintTxHash(result.address); // Using address as hash for now if hash isn't returned
-                    setRevealTxHash(result.address);
+                    const txHash = result.transactionHash || result.address;
+                    setMintTxHash(txHash);
+                    setRevealTxHash(txHash);
                     setRevealedNfts(generateRandomAttributes(amount, collection.minted));
                     setShowRevealModal(true);
                     fetchCollection();
                     toast.success("Minted!", { id: 'monad-mint' });
+                } else {
+                    toast.error(result.error || "Monad mint failed", { id: 'monad-mint' });
                 }
             } else {
                 toast.info(`${collectionNetwork} minting logic coming soon`);

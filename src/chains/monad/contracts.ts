@@ -14,7 +14,6 @@ import { MONAD_NETWORKS, DEFAULT_MONAD_NETWORK, MONAD_CONTRACTS } from '@/config
 
 /**
  * Deploy ERC-721A collection on Monad via Factory contract.
- * Falls back to mock when no factory is deployed yet.
  */
 export async function deployMonadCollection(
     params: MonadCollectionParams
@@ -23,50 +22,57 @@ export async function deployMonadCollection(
 
     const factoryAddress = MONAD_CONTRACTS[DEFAULT_MONAD_NETWORK].nftFactory;
 
-    // If factory contract is deployed, use real deployment
-    if (factoryAddress && typeof window !== 'undefined' && window.ethereum) {
-        try {
-            const walletClient = createWalletClient({
-                chain: monadTestnet,
-                transport: custom(window.ethereum),
-            });
-
-            const [account] = await walletClient.getAddresses();
-
-            const hash = await walletClient.writeContract({
-                account,
-                chain: monadTestnet,
-                address: factoryAddress as Address,
-                abi: MONAD_FACTORY_ABI,
-                functionName: 'createCollection',
-                args: [
-                    params.name,
-                    params.symbol,
-                    params.metadataBaseUri || '',
-                    BigInt(params.totalSupply),
-                    parseEther(params.mintPrice || '0'),
-                    BigInt(params.royaltyBasisPoints || 500),
-                    account,
-                ],
-            });
-
-            return {
-                success: true,
-                address: factoryAddress,
-                transactionHash: hash,
-            };
-        } catch (err: any) {
-            console.warn("[Monad] Factory deployment failed, falling back to mock:", err.message);
-        }
+    if (!factoryAddress) {
+        return {
+            success: false,
+            error: "Monad NFT factory contract not deployed yet on this network. Please try another chain.",
+        };
     }
 
-    // Beta mock fallback
-    const mockAddress = `0x${Math.random().toString(16).slice(2, 42).padEnd(40, '0')}`;
-    return {
-        success: true,
-        address: mockAddress,
-        transactionHash: "0x" + Math.random().toString(16).slice(2, 66),
-    };
+    if (typeof window === 'undefined' || !window.ethereum) {
+        return {
+            success: false,
+            error: "No EVM wallet detected. Please install Phantom or MetaMask and enable Monad support.",
+        };
+    }
+
+    try {
+        const walletClient = createWalletClient({
+            chain: monadTestnet,
+            transport: custom(window.ethereum),
+        });
+
+        const [account] = await walletClient.getAddresses();
+
+        const hash = await walletClient.writeContract({
+            account,
+            chain: monadTestnet,
+            address: factoryAddress as Address,
+            abi: MONAD_FACTORY_ABI,
+            functionName: 'createCollection',
+            args: [
+                params.name,
+                params.symbol,
+                params.metadataBaseUri || '',
+                BigInt(params.totalSupply),
+                parseEther(params.mintPrice || '0'),
+                BigInt(params.royaltyBasisPoints || 500),
+                account,
+            ],
+        });
+
+        return {
+            success: true,
+            address: factoryAddress,
+            transactionHash: hash,
+        };
+    } catch (err: any) {
+        console.error("[Monad] Factory deployment failed:", err);
+        return {
+            success: false,
+            error: err?.shortMessage || err?.message || "Monad deployment failed",
+        };
+    }
 }
 
 /**
@@ -79,48 +85,56 @@ export async function mintMonadNFT(
 ): Promise<MonadDeployResult> {
     console.log(`[Monad] Minting ${quantity} NFTs from ${contractAddress}`);
 
-    if (typeof window !== 'undefined' && window.ethereum && contractAddress.startsWith('0x')) {
-        try {
-            const publicClient = createPublicClient({
-                chain: monadTestnet,
-                transport: http(MONAD_NETWORKS[DEFAULT_MONAD_NETWORK].url),
-            });
-
-            const walletClient = createWalletClient({
-                chain: monadTestnet,
-                transport: custom(window.ethereum),
-            });
-
-            const [account] = await walletClient.getAddresses();
-
-            if (contractAddress.length === 42 && !contractAddress.includes('...')) {
-                const { request } = await publicClient.simulateContract({
-                    account,
-                    address: contractAddress as `0x${string}`,
-                    abi: MONAD_ERC721_ABI,
-                    functionName: 'batchMint',
-                    args: [account, BigInt(quantity)],
-                    value: parseEther(mintPrice) * BigInt(quantity),
-                });
-
-                const hash = await walletClient.writeContract(request);
-
-                return {
-                    success: true,
-                    address: contractAddress,
-                    transactionHash: hash,
-                };
-            }
-        } catch (err: any) {
-            console.warn("[Monad] Real mint failed. Falling back to Beta result.", err.message);
-        }
+    if (typeof window === 'undefined' || !window.ethereum) {
+        return {
+            success: false,
+            error: "No EVM wallet detected. Please install Phantom or MetaMask and enable Monad support.",
+        };
     }
 
-    return {
-        success: true,
-        address: contractAddress,
-        transactionHash: "0x" + Math.random().toString(16).slice(2, 66),
-    };
+    if (!contractAddress?.startsWith('0x') || contractAddress.length !== 42 || contractAddress.includes('...')) {
+        return {
+            success: false,
+            error: `Invalid Monad contract address: ${contractAddress}. This collection may not have been deployed on-chain.`,
+        };
+    }
+
+    try {
+        const publicClient = createPublicClient({
+            chain: monadTestnet,
+            transport: http(MONAD_NETWORKS[DEFAULT_MONAD_NETWORK].url),
+        });
+
+        const walletClient = createWalletClient({
+            chain: monadTestnet,
+            transport: custom(window.ethereum),
+        });
+
+        const [account] = await walletClient.getAddresses();
+
+        const { request } = await publicClient.simulateContract({
+            account,
+            address: contractAddress as `0x${string}`,
+            abi: MONAD_ERC721_ABI,
+            functionName: 'batchMint',
+            args: [account, BigInt(quantity)],
+            value: parseEther(mintPrice) * BigInt(quantity),
+        });
+
+        const hash = await walletClient.writeContract(request);
+
+        return {
+            success: true,
+            address: contractAddress,
+            transactionHash: hash,
+        };
+    } catch (err: any) {
+        console.error("[Monad] Mint failed:", err);
+        return {
+            success: false,
+            error: err?.shortMessage || err?.message || "Monad mint failed",
+        };
+    }
 }
 
 /**
