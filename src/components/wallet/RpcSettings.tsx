@@ -36,8 +36,6 @@ const RPC_LABELS: Record<string, string> = {
   [SOLANA_TESTNET_RPC]: "Solana Testnet (Public)",
   [SOLANA_MAINNET_RPC]: "Solana Mainnet (Public)",
   "https://devnet.helius-rpc.com/?api-key=demo": "Helius Devnet",
-  "https://solana-devnet.g.alchemy.com/v2/demo": "Alchemy Devnet",
-  "https://solana-mainnet.g.alchemy.com/v2/demo": "Alchemy Mainnet",
 };
 
 export const getPreferredRpc = (network: NetworkType): string | null => {

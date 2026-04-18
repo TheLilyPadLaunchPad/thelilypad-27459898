@@ -7,7 +7,6 @@ import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 export const DEVNET_RPC_LIST = [
     "https://devnet.helius-rpc.com/?api-key=0c6d7147-2cfe-4a0f-9a19-4dc723608121",
     "https://api.devnet.solana.com",
-    "https://solana-devnet.g.alchemy.com/v2/demo",
 ];
 
 // Helius Configuration
@@ -22,7 +21,6 @@ export const TESTNET_RPC_LIST = [
 
 export const MAINNET_RPC_LIST = [
     "https://api.mainnet-beta.solana.com",
-    "https://solana-mainnet.g.alchemy.com/v2/demo",
 ];
 
 export const SOLANA_DEVNET_RPC = DEVNET_RPC_LIST[0];
@@ -130,7 +128,15 @@ export const getBestRpc = async (network: NetworkType): Promise<string> => {
 // Get preferred RPC from localStorage
 export const getPreferredRpcUrl = (network: NetworkType = "devnet"): string | null => {
     if (typeof window !== 'undefined') {
-        return localStorage.getItem(`preferredRpc_${network}`);
+        const saved = localStorage.getItem(`preferredRpc_${network}`);
+        // Auto-migrate: Alchemy endpoints have been removed because the demo keys are
+        // unreliable for funding Irys / submitting NFT creation txs. Clear any stale
+        // preference so the user falls back to auto-selection (Helius / public RPC).
+        if (saved && /alchemy\.com/i.test(saved)) {
+            localStorage.removeItem(`preferredRpc_${network}`);
+            return null;
+        }
+        return saved;
     }
     return null;
 };

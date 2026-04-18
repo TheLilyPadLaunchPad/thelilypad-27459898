@@ -307,7 +307,7 @@ export default function LaunchpadCreate() {
 
         // Show initial RPC status
         const currentRpc = getRpcUrl(network as any);
-        const rpcProvider = currentRpc.includes('helius') ? 'Helius (Premium)' : (currentRpc.includes('alchemy') ? 'Alchemy' : 'Solana (Default)');
+        const rpcProvider = currentRpc.includes('helius') ? 'Helius (Premium)' : 'Solana (Default)';
 
         try {
             toast.loading(
@@ -658,7 +658,7 @@ export default function LaunchpadCreate() {
             toast.error(errorMessage, { 
                 id: 'deploy',
                 duration: 8000,
-                description: "Tip: Try switching to a different RPC (Helius or Alchemy) in the Wallet Connection settings (gear icon) for better stability on devnet."
+                description: "Tip: Try switching to a different RPC (Helius) in the Wallet Connection settings (gear icon) for better stability on devnet."
             });
 
             const isOffline = (supabase as any).isOffline;
