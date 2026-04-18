@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { publicKey, generateSigner, some, none, percentAmount, sol } from '@metaplex-foundation/umi';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import {
-    createV1 as createCore,
+    create as createCore,
+    fetchCollection,
 } from '@metaplex-foundation/mpl-core';
 import {
     fetchCandyMachine,
@@ -116,9 +117,11 @@ export const useSolanaMint = () => {
                 signers: [],
             };
 
+            const collection = await fetchCollection(umi, publicKey(collectionAddress));
+
             result = await createCore(umi, {
                 asset: nftSigner,
-                collection: publicKey(collectionAddress),
+                collection,
                 name: metadata.name,
                 uri: metadata.uri,
             })
