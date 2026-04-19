@@ -3,6 +3,36 @@ import { WebSolana } from "@irys/web-upload-solana";
 import { WebEthereum } from "@irys/web-upload-ethereum";
 import { ethers } from "ethers";
 import { getRpcUrl, type NetworkType } from "@/config/solana";
+import { uploadBytesViaTurbo } from "@/integrations/turbo/client";
+
+/**
+ * Arweave uploader provider selector.
+ * Defaults to "turbo" because the Irys node has had availability issues and
+ * Turbo (ArDrive) bills the same user Solana wallet via OnDemandFunding.
+ * Override with `VITE_ARWEAVE_UPLOADER=irys` to force the legacy Irys path.
+ */
+const USE_TURBO =
+    ((import.meta as any).env?.VITE_ARWEAVE_UPLOADER ?? "turbo") !== "irys";
+
+/**
+ * Unified upload primitive. Routes bytes to either Turbo or the Irys node
+ * depending on the configured provider. Returns both the tx id and the full
+ * Arweave gateway URL so callers don't need to rebuild the URL.
+ */
+async function uploadBytes(
+    bytes: Uint8Array,
+    tags: { name: string; value: string }[],
+    irys: any,
+    solanaProvider: any,
+): Promise<{ id: string; url: string }> {
+    if (USE_TURBO) {
+        const url = await uploadBytesViaTurbo(bytes, tags, solanaProvider);
+        const id = url.split("/").pop() || "";
+        return { id, url };
+    }
+    const res = await irys.upload(bytes as any, { tags });
+    return { id: res.id, url: `https://arweave.net/${res.id}` };
+}
 
 /**
  * Irys (Arweave) Integration Client
@@ -498,6 +528,25 @@ export async function uploadToArweave(
     skipFunding = false,
     solanaProvider?: any,
 ): Promise<string> {
+    // ─── Turbo fast path ─────────────────────────────────────────────────
+    // When Turbo is the active provider, bypass all Irys-specific init,
+    // price/balance, and funding logic — Turbo handles this per-upload via
+    // OnDemandFunding (pays directly from the user's Solana wallet).
+    if (USE_TURBO) {
+        const tags = [
+            { name: "Content-Type", value: file.type || "application/octet-stream" },
+            { name: "application-id", value: "The Lily Pad" },
+            ...(customTags || []),
+        ];
+        if (isMutable && rootTx) tags.push({ name: "Root-TX", value: rootTx });
+
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        return withRetry(
+            () => uploadBytesViaTurbo(bytes, tags, solanaProvider),
+            `upload ${(file as File).name || "blob"} (turbo)`,
+        );
+    }
+
     const irys = await getWebIrys(wallet, solanaProvider);
 
     // Check price and balance — fund if needed.
@@ -1001,7 +1050,9 @@ export async function uploadBatchToArweave(
         }
     }
 
-    const irys = await getWebIrys(wallet, solanaProvider);
+    // Only initialise the Irys client when we're actually going to use it.
+    // Under Turbo, all uploads bypass Irys entirely.
+    const irys: any = USE_TURBO ? null : await getWebIrys(wallet, solanaProvider);
 
     // ── Phase 1: Pipelined Execution ─────────────────────────────────────
     const results: BatchUploadResult[] = new Array(items.length);
@@ -1019,7 +1070,7 @@ export async function uploadBatchToArweave(
         return sum + origSize + thumbSize + previewSize + 4096;
     }, 0);
 
-    if (!skipFunding && totalEstimatedBytes > 0) {
+    if (!USE_TURBO && !skipFunding && totalEstimatedBytes > 0) {
         onProgress?.(previousResults.length, items.length, "Estimating storage cost…");
         const price = await irys.getPrice(totalEstimatedBytes);
         const balance = await irys.getLoadedBalance();
@@ -1072,10 +1123,13 @@ export async function uploadBatchToArweave(
                     // 2. Upload full-res image
                     const imgData = await item.file.arrayBuffer();
                     const imgUri = await withRetry(async () => {
-                        const res = await irys.upload(new Uint8Array(imgData) as any, {
-                            tags: makeTags(item.file.type),
-                        });
-                        return `https://arweave.net/${res.id}`;
+                        const { url } = await uploadBytes(
+                            new Uint8Array(imgData),
+                            makeTags(item.file.type),
+                            irys,
+                            solanaProvider,
+                        );
+                        return url;
                     }, `image #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
 
                     // 3. Upload thumbnail
@@ -1083,10 +1137,13 @@ export async function uploadBatchToArweave(
                     if (processed?.thumb && processed.thumb !== processed.original) {
                         const thumbData = await processed.thumb.arrayBuffer();
                         thumbUri = await withRetry(async () => {
-                            const res = await irys.upload(new Uint8Array(thumbData) as any, {
-                                tags: makeTags("image/webp"),
-                            });
-                            return `https://arweave.net/${res.id}`;
+                            const { url } = await uploadBytes(
+                                new Uint8Array(thumbData),
+                                makeTags("image/webp"),
+                                irys,
+                                solanaProvider,
+                            );
+                            return url;
                         }, `thumb #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
                     }
 
@@ -1095,10 +1152,13 @@ export async function uploadBatchToArweave(
                     if (processed?.preview && processed.preview !== processed.original) {
                         const prevData = await processed.preview.arrayBuffer();
                         previewUri = await withRetry(async () => {
-                            const res = await irys.upload(new Uint8Array(prevData) as any, {
-                                tags: makeTags("image/webp"),
-                            });
-                            return `https://arweave.net/${res.id}`;
+                            const { url } = await uploadBytes(
+                                new Uint8Array(prevData),
+                                makeTags("image/webp"),
+                                irys,
+                                solanaProvider,
+                            );
+                            return url;
                         }, `preview #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
                     }
 
@@ -1106,10 +1166,13 @@ export async function uploadBatchToArweave(
                     const metadata = item.buildMetadata(imgUri, thumbUri, previewUri);
                     const metaData = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
                     const metaUri = await withRetry(async () => {
-                        const res = await irys.upload(metaData as any, {
-                            tags: makeTags("application/json"),
-                        });
-                        return `https://arweave.net/${res.id}`;
+                        const { url } = await uploadBytes(
+                            metaData,
+                            makeTags("application/json"),
+                            irys,
+                            solanaProvider,
+                        );
+                        return url;
                     }, `metadata #${globalIdx + 1}`, MAX_RETRIES, METADATA_TIMEOUT_MS);
 
                     return {
@@ -1146,7 +1209,10 @@ export async function uploadBatchToArweave(
     // ── Phase 4: Create Onchain Folder (Manifest) ────────────────────────
     let manifestUri: string | undefined = undefined;
 
-    if (finalResults.length > 0) {
+    // Manifest generation is Irys-specific (uses `irys.uploader.generateFolder`).
+    // Callers consume individual item URIs as primary output; manifest is a
+    // fallback. Safe to skip entirely under Turbo.
+    if (!USE_TURBO && finalResults.length > 0) {
         try {
             onProgress?.(finalResults.length, items.length, "Creating onchain folder manifest…");
             const map = new Map<string, string>();
@@ -1267,6 +1333,13 @@ export async function preFundIrysForBatch(
     },
     solanaProvider?: any,
 ) {
+    // Turbo bills each upload at upload time via OnDemandFunding; no bulk
+    // pre-funding step is needed.
+    if (USE_TURBO) {
+        options?.onStatus?.("Using Turbo (pay-per-upload) — no pre-funding needed.");
+        return;
+    }
+
     const irys = await getWebIrys(wallet, solanaProvider);
     const opts = { feeMultiplier: 1.0, bufferMultiplier: 1.2, ...options };
 
