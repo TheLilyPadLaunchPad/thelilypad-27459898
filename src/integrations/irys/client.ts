@@ -20,7 +20,9 @@ import { getRpcUrl, type NetworkType } from "@/config/solana";
  */
 
 export const IRYS_NODE_DEV = "https://devnet.irys.xyz";
-export const IRYS_NODE_MAIN = "https://node1.irys.xyz";
+// NOTE: node1.irys.xyz was deprecated. The Irys SDK now uses uploader.irys.xyz
+// for mainnet; our direct-REST helpers must match.
+export const IRYS_NODE_MAIN = "https://uploader.irys.xyz";
 export const IRYS_GATEWAY = "https://gateway.irys.xyz";
 
 // ── Irys Programmability / Datachain Config ──────────────────────────────
