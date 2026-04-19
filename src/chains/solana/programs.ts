@@ -524,22 +524,48 @@ export async function createBubblegumTree(
 
     // NOTE: must use createTreeV2 so the tree's schema matches mintV2.
     // The V1 createTree produces a tree that mintV2 rejects with error 6003 UnsupportedSchemaVersion.
-    let builder = (await createTreeV2(umi, {
+    // ComputeBudget instructions must come BEFORE the instructions they apply to,
+    // so prepend the priority-fee ix via a fresh builder.
+    const treeBuilder = await createTreeV2(umi, {
         merkleTree,
         maxDepth,
         maxBufferSize,
         canopyDepth,
-    })).add(setComputeUnitPrice(umi, { microLamports: 100_000 }));
+    });
+    const builder = setComputeUnitPrice(umi, { microLamports: 100_000 }).add(treeBuilder);
 
+    // Use `finalized` commitment so the tree-config PDA is guaranteed to be
+    // visible to other RPCs (subsequent mintV2 calls may hit a different node
+    // if the upstream getBestRpc() picked differently). Without this, mintV2
+    // simulates against stale state and throws `tree_authority: AccountNotInitialized`.
     await builder.sendAndConfirm(umi, {
         send: { skipPreflight: false },
-        confirm: { commitment: 'confirmed' }
+        confirm: { commitment: 'finalized' },
     });
 
-    // Handle RPC propagation lag
-    console.log("Waiting for tree propagation...");
-    await new Promise(r => setTimeout(r, 2000));
+    // Defence in depth: explicitly poll the tree-config PDA until the current
+    // RPC sees it. `finalized` commitment alone is strong enough for the
+    // sending RPC, but a *different* RPC may still be catching up in its
+    // read-state cache. Wait up to ~15s for visibility.
+    const treeConfig = findTreeConfigPda(umi, { merkleTree: merkleTree.publicKey });
+    const MAX_POLL_MS = 15_000;
+    const POLL_INTERVAL_MS = 500;
+    const start = Date.now();
+    while (Date.now() - start < MAX_POLL_MS) {
+        const maybe = await umi.rpc.getAccount(treeConfig[0]);
+        if (maybe.exists) {
+            console.log(`Tree config visible after ${Date.now() - start}ms`);
+            return merkleTree.publicKey.toString();
+        }
+        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+    }
 
+    // Last-resort fallback so the caller still gets a usable address; the mint
+    // will either succeed (eventual consistency) or throw a clear error.
+    console.warn(
+        `[Bubblegum] Tree config PDA not yet visible after ${MAX_POLL_MS}ms — ` +
+            `subsequent mint may need to retry.`,
+    );
     return merkleTree.publicKey.toString();
 }
 
@@ -563,6 +589,28 @@ export async function mintCompressedCoreNft(
     const treeConfig = findTreeConfigPda(umi, { merkleTree: tree });
 
     console.log("Resolving tree config:", treeConfig[0].toString());
+
+    // Guard against RPC propagation lag. If the umi instance for this mint
+    // was created on a different RPC than the one that deployed the tree, the
+    // config PDA may not be visible yet. Poll briefly before attempting the mint.
+    {
+        const MAX_WAIT_MS = 20_000;
+        const INTERVAL_MS = 750;
+        const start = Date.now();
+        while (Date.now() - start < MAX_WAIT_MS) {
+            const acct = await umi.rpc.getAccount(treeConfig[0]);
+            if (acct.exists) break;
+            await new Promise(r => setTimeout(r, INTERVAL_MS));
+        }
+        const finalCheck = await umi.rpc.getAccount(treeConfig[0]);
+        if (!finalCheck.exists) {
+            throw new Error(
+                `Bubblegum tree config ${treeConfig[0].toString()} is not visible on the current RPC ` +
+                `after ${MAX_WAIT_MS}ms. The tree was likely created on a different RPC node; ` +
+                `wait a few seconds and retry.`,
+            );
+        }
+    }
 
     let builder = mintV2(umi, {
         leafOwner,
