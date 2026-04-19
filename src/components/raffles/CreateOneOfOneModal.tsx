@@ -249,6 +249,9 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     uri: metadataUrl, // Fixed: use metadata JSON URI, not image URL
                     sellerFeeBasisPoints: royaltyBasisPoints,
                     creators: [{ address: creatorAddress, share: 100 }],
+                    // 1-of-1 flow mints cNFTs via Bubblegum's mintV2, which
+                    // requires the collection to carry the BubblegumV2 plugin.
+                    withBubblegumV2: true,
                 });
 
                 if (result?.address) {

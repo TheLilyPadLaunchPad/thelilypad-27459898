@@ -9,7 +9,7 @@ import {
     Umi,
 } from '@metaplex-foundation/umi';
 import {
-    createCollectionV1 as createCoreCollectionIx,
+    createCollection as createCoreCollectionIx,
     updateV1 as updateCoreAsset,
 } from '@metaplex-foundation/mpl-core';
 import {
@@ -99,6 +99,12 @@ export async function createCoreCollection(
                 collection: collectionSigner,
                 name: params.name,
                 uri: params.uri,
+                // BubblegumV2 plugin is required for any collection that will
+                // receive compressed NFTs via Bubblegum's `mintV2`. Without it,
+                // the mint fails with `CollectionMustHaveBubblegumPlugin`.
+                plugins: params.withBubblegumV2
+                    ? [{ type: 'BubblegumV2' }]
+                    : undefined,
             })
                 .add({
                     instruction: {

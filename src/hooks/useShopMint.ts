@@ -159,6 +159,9 @@ export function useShopMint() {
           uri: metadataUri,
           sellerFeeBasisPoints: 0,
           creators: [{ address, share: 100 }],
+          // Pack contents are minted as cNFTs via Bubblegum mintV2,
+          // which requires the collection to carry the BubblegumV2 plugin.
+          withBubblegumV2: true,
         });
 
         if (!result?.address) throw new Error('Collection deployment failed');
