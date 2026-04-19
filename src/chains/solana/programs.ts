@@ -638,7 +638,42 @@ export async function mintCompressedCoreNft(
     });
 
     console.log("Extracting asset ID...");
-    const leaf = await parseLeafFromMintV2Transaction(umi, response.signature);
+
+    // `parseLeafFromMintV2Transaction` internally calls `rpc.getTransaction`,
+    // which often returns null for a few seconds after confirmation because
+    // the RPC hasn't indexed the tx yet (especially on public endpoints).
+    // Poll with backoff before/while parsing so we don't throw
+    // "Could not get transaction from signature" prematurely.
+    const PARSE_TIMEOUT_MS = 45_000;
+    const PARSE_INTERVAL_MS = 1_000;
+    const parseStart = Date.now();
+    let leaf: Awaited<ReturnType<typeof parseLeafFromMintV2Transaction>> | null = null;
+    let lastErr: unknown = null;
+    while (Date.now() - parseStart < PARSE_TIMEOUT_MS) {
+        try {
+            // Wait until the RPC actually has the transaction indexed.
+            const tx = await umi.rpc.getTransaction(response.signature);
+            if (!tx) {
+                await new Promise(r => setTimeout(r, PARSE_INTERVAL_MS));
+                continue;
+            }
+            leaf = await parseLeafFromMintV2Transaction(umi, response.signature);
+            break;
+        } catch (e) {
+            lastErr = e;
+            await new Promise(r => setTimeout(r, PARSE_INTERVAL_MS));
+        }
+    }
+    if (!leaf) {
+        const sig = response.signature;
+        const sigStr = typeof sig === 'string' ? sig : Buffer.from(sig).toString('hex');
+        throw new Error(
+            `Mint transaction confirmed (${sigStr}) but the RPC did not index it ` +
+            `within ${PARSE_TIMEOUT_MS}ms so the asset ID could not be extracted. ` +
+            `The NFT was minted successfully; wait a moment and refresh. ` +
+            `(${lastErr instanceof Error ? lastErr.message : String(lastErr ?? 'unknown')})`,
+        );
+    }
 
     console.log(`Minted cNFT! Asset ID: ${leaf.id}`);
 
