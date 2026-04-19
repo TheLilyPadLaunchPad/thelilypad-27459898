@@ -282,26 +282,53 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             // Insert into the Database for All Chains so they show in "My NFTs"
             toast.loading("Finalizing NFT...", { id: "finalize" });
 
-            const { data: collectionInsert, error: collectionError } = await supabase
-                .from("collections")
-                .insert({
-                    name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
-                    symbol,
-                    description: description,
-                    image_url: imageUrl,
-                    creator_id: userId,
-                    creator_address: address,
-                    contract_address: txHash,
-                    chain: getDbChainValue(chain, network as 'mainnet' | 'testnet'),
-                    collection_type: mode === 'one-of-one' ? '1of1' : 'editions',
-                    total_supply: mintItems.length,
-                    status: 'upcoming',
-                    media_type: audioFile ? 'audio' : 'image',
-                })
-                .select("id")
-                .single();
+            // Supabase requests can occasionally hang on flaky networks, which
+            // would freeze the "Finalizing NFT..." toast forever. Race every DB
+            // call against a hard timeout so the user always gets resolution.
+            const FINALIZE_TIMEOUT_MS = 20_000;
+            const withTimeout = <T,>(p: PromiseLike<T>, label: string): Promise<T> =>
+                Promise.race<T>([
+                    Promise.resolve(p),
+                    new Promise<T>((_, reject) =>
+                        setTimeout(
+                            () => reject(new Error(`${label} timed out after ${FINALIZE_TIMEOUT_MS / 1000}s`)),
+                            FINALIZE_TIMEOUT_MS,
+                        ),
+                    ),
+                ]);
 
-            const collectionId = collectionError ? null : collectionInsert?.id;
+            let collectionId: string | null = null;
+            let collectionError: { message?: string } | null = null;
+            try {
+                const collectionsQuery = supabase
+                    .from("collections")
+                    .insert({
+                        name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
+                        symbol,
+                        description: description,
+                        image_url: imageUrl,
+                        creator_id: userId,
+                        creator_address: address,
+                        contract_address: txHash,
+                        chain: getDbChainValue(chain, network as 'mainnet' | 'testnet'),
+                        collection_type: mode === 'one-of-one' ? '1of1' : 'editions',
+                        total_supply: mintItems.length,
+                        status: 'upcoming',
+                        media_type: audioFile ? 'audio' : 'image',
+                    })
+                    .select("id")
+                    .single();
+                type CollectionsResult = Awaited<typeof collectionsQuery>;
+                const { data: collectionInsert, error } = await withTimeout<CollectionsResult>(
+                    collectionsQuery,
+                    "Collection database save",
+                );
+                collectionError = error;
+                collectionId = error ? null : (collectionInsert?.id ?? null);
+            } catch (e) {
+                console.error("collections insert failed/timed out:", e);
+                collectionError = { message: e instanceof Error ? e.message : String(e) };
+            }
 
             const finalMintItems = [];
             if (mode === "edition" && useTiers && tiers.length > 0) {
@@ -344,13 +371,33 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 });
             }
 
-            const { error: insertError } = await supabase.from("minted_nfts").insert(nftRecords);
+            let insertError: { message?: string } | null = null;
+            try {
+                const nftsQuery = supabase.from("minted_nfts").insert(nftRecords);
+                type NftsResult = Awaited<typeof nftsQuery>;
+                const { error } = await withTimeout<NftsResult>(
+                    nftsQuery,
+                    "NFT database save",
+                );
+                insertError = error;
+            } catch (e) {
+                console.error("minted_nfts insert failed/timed out:", e);
+                insertError = { message: e instanceof Error ? e.message : String(e) };
+            }
 
             toast.dismiss("finalize");
 
+            if (collectionError) {
+                console.error("Collection DB Insert error:", collectionError);
+            }
             if (insertError) {
                 console.error("NFT Database Insert error:", insertError);
-                toast.error("Failed to save NFT to database, but it may have deployed.");
+                toast.error(
+                    `NFT is minted on-chain, but saving it to your profile failed (${insertError.message || "unknown"}). It may appear after a refresh.`,
+                    { duration: 8000 },
+                );
+                onSuccess?.();
+                onOpenChange(false);
             } else {
                 toast.success(mode === "one-of-one" ? `1/1 Created on ${chainName}!` : `Edition Created on ${chainName}!`);
                 onSuccess?.();
