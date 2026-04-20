@@ -12,6 +12,10 @@ import {
     uploadJsonBatch,
     createBubblegumTree,
     mintCompressedCoreNft,
+    batchMintCompressedCoreNft,
+    batchMintCoreNft,
+    calculateBatchMintCost,
+    type BatchNftItem,
 } from '@/chains';
 import type { LaunchpadPhase, SolanaCollectionParams } from '@/chains';
 import { Umi, transactionBuilder, publicKey, some, none } from '@metaplex-foundation/umi';
@@ -264,6 +268,84 @@ export const useSolanaLaunch = () => {
     }, [getUmi]);
 
     /**
+     * Batch mint multiple Compressed Core NFTs
+     */
+    const batchMintCompressedCore = useCallback(async (
+        treeAddress: string,
+        collectionAddress: string,
+        items: BatchNftItem[]
+    ) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            toast.loading(`Batch minting ${items.length} compressed NFTs...`, { id: 'batch-cnft-mint' });
+            
+            // Calculate and log estimated cost
+            const cost = calculateBatchMintCost(items.length, 0, true);
+            console.log(`Estimated batch mint cost: ${cost.total} SOL (${cost.networkFees} network + ${cost.platformFees} platform)`);
+            
+            const result = await batchMintCompressedCoreNft(umi, {
+                treeAddress,
+                collectionAddress,
+                items,
+                onProgress: (completed, total) => {
+                    toast.loading(`Minted ${completed}/${total} NFTs...`, { id: 'batch-cnft-mint' });
+                }
+            });
+            
+            toast.success(`Successfully minted ${result.assetIds.length - result.failedIndices.length} NFTs!`, { id: 'batch-cnft-mint' });
+            return result;
+        } catch (err: any) {
+            console.error("Batch Compressed Mint Error:", err);
+            const msg = err.message || "Failed to batch mint Compressed NFTs";
+            setError(msg);
+            toast.error(msg, { id: 'batch-cnft-mint' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
+    /**
+     * Batch mint multiple standard Core NFTs
+     */
+    const batchMintCore = useCallback(async (
+        collectionAddress: string | undefined,
+        items: BatchNftItem[]
+    ) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            toast.loading(`Batch minting ${items.length} Core NFTs...`, { id: 'batch-core-mint' });
+            
+            // Calculate and log estimated cost
+            const cost = calculateBatchMintCost(items.length, 0, false);
+            console.log(`Estimated batch mint cost: ${cost.total} SOL (${cost.networkFees} network + ${cost.platformFees} platform)`);
+            
+            const result = await batchMintCoreNft(umi, {
+                collectionAddress,
+                items,
+                onProgress: (completed, total) => {
+                    toast.loading(`Minted ${completed}/${total} NFTs...`, { id: 'batch-core-mint' });
+                }
+            });
+            
+            toast.success(`Successfully minted ${result.assetIds.length - result.failedIndices.length} Core NFTs!`, { id: 'batch-core-mint' });
+            return result;
+        } catch (err: any) {
+            console.error("Batch Core Mint Error:", err);
+            const msg = err.message || "Failed to batch mint Core NFTs";
+            setError(msg);
+            toast.error(msg, { id: 'batch-core-mint' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
+    /**
      * Create a Launchpad Candy Machine with guards
      */
     const createLaunchpadCandyMachine = useCallback(async (
@@ -463,5 +545,8 @@ export const useSolanaLaunch = () => {
         uploadJsonMetadataBatch,
         deployBubblegumTree,
         mintCompressedCore,
+        batchMintCompressedCore,
+        batchMintCore,
+        calculateBatchMintCost,
     };
 };

@@ -7,10 +7,13 @@ import {
     none,
     dateTime,
     Umi,
+    TransactionBuilder,
 } from '@metaplex-foundation/umi';
 import {
     createCollection as createCoreCollectionIx,
     updateV1 as updateCoreAsset,
+    create,
+    fetchCollection,
 } from '@metaplex-foundation/mpl-core';
 import {
     createTreeV2,
@@ -678,4 +681,264 @@ export async function mintCompressedCoreNft(
     console.log(`Minted cNFT! Asset ID: ${leaf.id}`);
 
     return { signature: response.signature, assetId: leaf.id.toString() };
+}
+
+// ============================================================================
+// BATCH MINTING FUNCTIONS
+// ============================================================================
+
+export interface BatchNftItem {
+    name: string;
+    uri: string;
+    sellerFeeBasisPoints?: number;
+    owner?: string;
+}
+
+export interface BatchMintResult {
+    signature: Uint8Array;
+    assetIds: string[];
+    failedIndices: number[];
+}
+
+/**
+ * Estimate fees for batch minting compressed NFTs.
+ * Returns the estimated cost in lamports.
+ */
+export function estimateBatchMintFees(itemCount: number): number {
+    // Base transaction fee: ~5000 lamports
+    // Compute unit cost: ~1 lamport per CU at 50k microLamports/CU
+    // Each mintV2 is roughly ~50k CU (based on complexity)
+    const BASE_TX_FEE = 5000;
+    const COMPUTE_UNITS_PER_MINT = 50_000;
+    const MICRO_LAMPORTS_PER_CU = 50_000;
+    
+    // Convert microLamports to lamports
+    const computeCostPerMint = (COMPUTE_UNITS_PER_MINT * MICRO_LAMPORTS_PER_CU) / 1_000_000;
+    
+    return Math.ceil(BASE_TX_FEE + (computeCostPerMint * itemCount));
+}
+
+/**
+ * Batch mint multiple compressed NFTs (cNFTs) into a single transaction.
+ * This allows minting many NFTs with just one network fee and one signature.
+ */
+export async function batchMintCompressedCoreNft(
+    umi: Umi,
+    params: {
+        treeAddress: string;
+        collectionAddress: string;
+        items: BatchNftItem[];
+        onProgress?: (completed: number, total: number) => void;
+    }
+): Promise<BatchMintResult> {
+    const { treeAddress, collectionAddress, items, onProgress } = params;
+    
+    if (items.length === 0) {
+        throw new Error("No items to mint");
+    }
+    
+    if (items.length > 10) {
+        throw new Error("Maximum 10 NFTs per batch transaction (transaction size limit)");
+    }
+
+    console.log(`Batch minting ${items.length} cNFTs...`);
+    
+    const tree = publicKey(treeAddress);
+    const treeConfig = findTreeConfigPda(umi, { merkleTree: tree });
+    
+    // Wait for tree config PDA to be visible (reuse existing polling)
+    const POLL_TIMEOUT_MS = 45_000;
+    const POLL_INTERVAL_MS = 1_000;
+    const pollStart = Date.now();
+    let treeConfigAccount: any = null;
+    while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
+        try {
+            treeConfigAccount = await umi.rpc.getAccount(treeConfig);
+            if (treeConfigAccount.exists) break;
+        } catch {
+            // continue polling
+        }
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    }
+    if (!treeConfigAccount?.exists) {
+        throw new Error(
+            `Tree config PDA not found after ${POLL_TIMEOUT_MS}ms. Please retry.`
+        );
+    }
+    
+    // Build a single transaction with all mintV2 instructions
+    let builder = new TransactionBuilder();
+    
+    // Add compute unit price instruction once for the whole batch
+    builder = builder.add(setComputeUnitPrice(umi, { microLamports: 50_000 }));
+    
+    const assetSigners: ReturnType<typeof generateSigner>[] = [];
+    
+    for (const item of items) {
+        const leafOwner = item.owner ? publicKey(item.owner) : umi.identity.publicKey;
+        
+        const mintIx = mintV2(umi, {
+            leafOwner,
+            merkleTree: tree,
+            treeConfig,
+            coreCollection: publicKey(collectionAddress),
+            metadata: {
+                name: item.name,
+                uri: item.uri,
+                sellerFeeBasisPoints: item.sellerFeeBasisPoints ?? 0,
+                collection: some(publicKey(collectionAddress)),
+                creators: [],
+            },
+        });
+        
+        builder = builder.add(mintIx);
+    }
+    
+    // Send the batched transaction
+    const response = await builder.sendAndConfirm(umi, {
+        send: { commitment: "confirmed", maxRetries: 3 },
+        confirm: { commitment: "confirmed" },
+    });
+    
+    console.log(`Batch mint transaction confirmed: ${response.signature}`);
+    
+    // Extract asset IDs for all minted NFTs
+    const assetIds: string[] = [];
+    const failedIndices: number[] = [];
+    
+    // Parse leaf data for each mint - with retry logic
+    const PARSE_TIMEOUT_MS = 60_000;
+    const PARSE_INTERVAL_MS = 1_000;
+    const parseStart = Date.now();
+    
+    while (Date.now() - parseStart < PARSE_TIMEOUT_MS && assetIds.length < items.length) {
+        try {
+            const tx = await umi.rpc.getTransaction(response.signature);
+            if (!tx) {
+                await new Promise((r) => setTimeout(r, PARSE_INTERVAL_MS));
+                continue;
+            }
+            
+            // For batch mints, we need to parse each leaf individually
+            // The asset ID extraction for batch is more complex - we'll return signatures
+            // and the UI can look up asset IDs after RPC indexing
+            for (let i = 0; i < items.length; i++) {
+                try {
+                    // In a batch, each mint produces a leaf with a unique nonce
+                    // For now, we'll note the index and look up later
+                    assetIds.push(`pending_${i}`);
+                } catch (e) {
+                    failedIndices.push(i);
+                }
+            }
+            break;
+        } catch (e) {
+            await new Promise((r) => setTimeout(r, PARSE_INTERVAL_MS));
+        }
+    }
+    
+    onProgress?.(assetIds.length, items.length);
+    
+    return { 
+        signature: response.signature, 
+        assetIds,
+        failedIndices 
+    };
+}
+
+/**
+ * Batch mint multiple standard Core NFTs into a single transaction.
+ * Each NFT gets its own asset signer but they're all minted in one tx.
+ */
+export async function batchMintCoreNft(
+    umi: Umi,
+    params: {
+        collectionAddress?: string;
+        items: BatchNftItem[];
+        onProgress?: (completed: number, total: number) => void;
+    }
+): Promise<BatchMintResult> {
+    const { collectionAddress, items, onProgress } = params;
+    
+    if (items.length === 0) {
+        throw new Error("No items to mint");
+    }
+    
+    if (items.length > 5) {
+        // Standard NFTs use more CU than cNFTs, so smaller batches
+        throw new Error("Maximum 5 Core NFTs per batch transaction");
+    }
+
+    console.log(`Batch minting ${items.length} Core NFTs...`);
+    
+    let collection: Awaited<ReturnType<typeof fetchCollection>> | undefined;
+    if (collectionAddress) {
+        collection = await fetchCollection(umi, publicKey(collectionAddress));
+    }
+    
+    // Build a single transaction with all create instructions
+    let builder = new TransactionBuilder();
+    
+    // Add compute unit price instruction once for the whole batch
+    builder = builder.add(setComputeUnitPrice(umi, { microLamports: 50_000 }));
+    
+    const assetSigners: ReturnType<typeof generateSigner>[] = [];
+    
+    for (const item of items) {
+        const asset = generateSigner(umi);
+        assetSigners.push(asset);
+        
+        const createIx = create(umi, {
+            asset,
+            collection,
+            owner: item.owner ? publicKey(item.owner) : umi.identity.publicKey,
+            name: item.name,
+            uri: item.uri,
+        });
+        
+        builder = builder.add(createIx);
+    }
+    
+    // Send the batched transaction
+    const response = await builder.sendAndConfirm(umi, {
+        send: { commitment: "confirmed", maxRetries: 3 },
+        confirm: { commitment: "confirmed" },
+    });
+    
+    console.log(`Batch mint transaction confirmed: ${response.signature}`);
+    
+    // Extract asset addresses from the signers
+    const assetIds = assetSigners.map((signer) => signer.publicKey.toString());
+    
+    onProgress?.(assetIds.length, items.length);
+    
+    return { 
+        signature: response.signature, 
+        assetIds,
+        failedIndices: [] 
+    };
+}
+
+/**
+ * Estimate total cost for a batch mint including platform fees.
+ * Returns a breakdown for UI display.
+ */
+export function calculateBatchMintCost(
+    itemCount: number,
+    platformFeePerItem: number = 0, // in SOL
+    isCompressed: boolean = true
+): {
+    networkFees: number;
+    platformFees: number;
+    total: number;
+} {
+    const networkFeeLamports = estimateBatchMintFees(itemCount);
+    const networkFees = networkFeeLamports / 1_000_000_000; // Convert to SOL
+    const platformFees = itemCount * platformFeePerItem;
+    
+    return {
+        networkFees,
+        platformFees,
+        total: networkFees + platformFees,
+    };
 }
