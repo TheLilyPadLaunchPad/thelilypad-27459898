@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { ListNFTModal } from "@/components/ListNFTModal";
+import { CreateRaffleForNFT } from "@/components/raffles/CreateRaffleForNFT";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
 import { ipfsToHttp } from "@/lib/ipfs";
@@ -34,7 +35,8 @@ import {
   Sparkles,
   Diamond,
   Star,
-  Gem
+  Gem,
+  Ticket
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Input } from "@/components/ui/input";
@@ -103,6 +105,7 @@ export default function MyNFTs() {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [transferNft, setTransferNft] = useState<NFT | null>(null);
   const [listNft, setListNft] = useState<NFT | null>(null);
+  const [raffleNft, setRaffleNft] = useState<NFT | null>(null);
   const [listedNftIds, setListedNftIds] = useState<Set<string>>(new Set());
   const [listingsMap, setListingsMap] = useState<Map<string, { id: string; price: number }>>(new Map());
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
@@ -1054,6 +1057,22 @@ export default function MyNFTs() {
                       </div>
                     )}
 
+                    {/* Create Raffle Button - Only for 1-of-1s not listed */}
+                    {!listedNftIds.has(selectedNft.id) && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedNft(null);
+                          setRaffleNft(selectedNft);
+                        }}
+                      >
+                        <Ticket className="w-4 h-4 mr-2" />
+                        Create Raffle
+                      </Button>
+                    )}
+
                     {/* Transfer Button */}
                     <Button
                       variant="outline"
@@ -1127,6 +1146,26 @@ export default function MyNFTs() {
         onSuccess={() => {
           setListNft(null);
           fetchNFTs();
+        }}
+      />
+
+      {/* Create Raffle Modal */}
+      <CreateRaffleForNFT
+        nft={raffleNft ? {
+          id: raffleNft.id,
+          token_id: raffleNft.token_id,
+          name: raffleNft.name,
+          description: raffleNft.description,
+          image_url: raffleNft.image_url,
+          collection_id: raffleNft.collection_id,
+          collection: raffleNft.collection
+        } : null}
+        open={!!raffleNft}
+        onOpenChange={(open) => !open && setRaffleNft(null)}
+        onSuccess={() => {
+          setRaffleNft(null);
+          fetchNFTs();
+          toast.success("Raffle created! Check the Raffles page.");
         }}
       />
     </div>

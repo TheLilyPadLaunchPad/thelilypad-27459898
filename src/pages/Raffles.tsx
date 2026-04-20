@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import Marketplace from "@/pages/Marketplace";
 
@@ -20,6 +21,8 @@ import type { Json } from "@/integrations/supabase/types";
 import { SupportedChain, CHAINS, getStoredChain, setStoredChain } from "@/config/chains";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { cn } from "@/lib/utils";
+import { useWallet } from "@/providers/WalletProvider";
+import { LayoutList, Trash2 } from "lucide-react";
 
 interface Raffle {
   id: string;
@@ -37,6 +40,9 @@ interface Raffle {
   winner_count: number;
   is_drawn: boolean;
   winners: Json;
+  is_active: boolean;
+  created_by?: string | null;
+  creator_address?: string | null;
 }
 
 const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void; currency?: string }> = ({ raffle, onEnter, currency = "SOL" }) => {
@@ -123,11 +129,16 @@ const RaffleCard: React.FC<{ raffle: Raffle; onEnter: (raffle: Raffle) => void; 
 };
 
 const Raffles: React.FC = () => {
+  const navigate = useNavigate();
   const [raffles, setRaffles] = useState<Raffle[]>([]);
+  const [userRaffles, setUserRaffles] = useState<Raffle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingUserRaffles, setLoadingUserRaffles] = useState(false);
   const [selectedRaffle, setSelectedRaffle] = useState<Raffle | null>(null);
   const [isLaunchOpen, setIsLaunchOpen] = useState(false);
   const { toast } = useToast();
+  const { address } = useWallet();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [selectedChain, setSelectedChain] = useState<SupportedChain>(getStoredChain() || 'solana');
   const currentChain = CHAINS[selectedChain];
@@ -139,6 +150,17 @@ const Raffles: React.FC = () => {
 
   useEffect(() => {
     fetchRaffles();
+    
+    // Get current user session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const fetchRaffles = async () => {
@@ -159,6 +181,63 @@ const Raffles: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserRaffles = async () => {
+    if (!currentUserId && !address) return;
+    
+    setLoadingUserRaffles(true);
+    try {
+      let query = supabase
+        .from('lily_raffles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Filter by creator_address (wallet) or created_by (user ID)
+      if (address) {
+        query = query.ilike('creator_address', address);
+      } else if (currentUserId) {
+        query = query.eq('created_by', currentUserId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setUserRaffles((data || []) as unknown as Raffle[]);
+    } catch (error: unknown) {
+      console.error("Error loading user raffles:", error);
+    } finally {
+      setLoadingUserRaffles(false);
+    }
+  };
+
+  // Fetch user raffles when auth state changes
+  useEffect(() => {
+    fetchUserRaffles();
+  }, [currentUserId, address]);
+
+  const handleCancelRaffle = async (raffleId: string) => {
+    try {
+      const { error } = await supabase
+        .from('lily_raffles')
+        .delete()
+        .eq('id', raffleId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Raffle cancelled",
+        description: "Your raffle has been cancelled successfully."
+      });
+
+      fetchUserRaffles();
+    } catch (error: unknown) {
+      toast({
+        title: "Error cancelling raffle",
+        description: getErrorMessage(error),
+        variant: "destructive"
+      });
     }
   };
 
@@ -213,6 +292,12 @@ const Raffles: React.FC = () => {
               <LayoutGrid className="w-4 h-4" />
               1/1 Marketplace
             </TabsTrigger>
+            {(currentUserId || address) && (
+              <TabsTrigger value="my-raffles" className="gap-2">
+                <LayoutList className="w-4 h-4" />
+                My Raffles
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="raffles">
@@ -259,6 +344,97 @@ const Raffles: React.FC = () => {
                       <TabsContent value="marketplace">
               <Marketplace />
             </TabsContent>
+
+          <TabsContent value="my-raffles">
+            {loadingUserRaffles ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <Skeleton className="aspect-video w-full" />
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-full mt-2" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-5 w-24" />
+                      </div>
+                      <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : userRaffles.length === 0 ? (
+              <Card className="p-12 text-center">
+                <LayoutList className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Raffles Created</h3>
+                <p className="text-muted-foreground mb-4">
+                  You haven't created any raffles yet. Go to My NFTs and create a raffle for your 1-of-1s!
+                </p>
+                <Button onClick={() => navigate('/my-nfts')}>
+                  Go to My NFTs
+                </Button>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {userRaffles.map((raffle) => (
+                  <Card key={raffle.id} className="overflow-hidden">
+                    <div className="aspect-video relative overflow-hidden bg-muted">
+                      {raffle.image_url ? (
+                        <img
+                          src={raffle.image_url}
+                          alt={raffle.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Trophy className="w-16 h-16 text-muted-foreground/30" />
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3">
+                        <Badge variant={raffle.is_active ? "default" : "secondary"}>
+                          {raffle.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">{raffle.name}</CardTitle>
+                      {raffle.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">{raffle.description}</p>
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Ticket className="w-4 h-4 text-primary" />
+                          <span>{raffle.entry_price > 0 ? `${raffle.entry_price} SOL` : 'Free Entry'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-yellow-500" />
+                          <span>{raffle.winner_count} Winner{raffle.winner_count > 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="flex items-center gap-2 col-span-2">
+                          <Clock className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            {new Date(raffle.end_date).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        className="w-full"
+                        onClick={() => handleCancelRaffle(raffle.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Cancel Raffle
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </main>
 
