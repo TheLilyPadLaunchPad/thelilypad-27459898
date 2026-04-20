@@ -700,22 +700,43 @@ export interface BatchMintResult {
     failedIndices: number[];
 }
 
+export interface BulkMintResult {
+    transactions: {
+        signature: Uint8Array;
+        assetIds: string[];
+        startIndex: number;
+        endIndex: number;
+    }[];
+    totalMinted: number;
+    totalFailed: number;
+    allAssetIds: string[];
+}
+
+// Chunk sizes for different NFT types
+const CHUNK_SIZE_COMPRESSED = 10;  // cNFTs per transaction
+const CHUNK_SIZE_STANDARD = 4;     // Standard Core NFTs per transaction
+
 /**
  * Estimate fees for batch minting compressed NFTs.
  * Returns the estimated cost in lamports.
  */
-export function estimateBatchMintFees(itemCount: number): number {
-    // Base transaction fee: ~5000 lamports
+export function estimateBatchMintFees(itemCount: number, isCompressed: boolean = true): number {
+    // Base transaction fee: ~5000 lamports per transaction
     // Compute unit cost: ~1 lamport per CU at 50k microLamports/CU
-    // Each mintV2 is roughly ~50k CU (based on complexity)
+    // Each mintV2 is roughly ~50k CU, create is ~100k CU
     const BASE_TX_FEE = 5000;
-    const COMPUTE_UNITS_PER_MINT = 50_000;
+    const COMPUTE_UNITS_PER_MINT = isCompressed ? 50_000 : 100_000;
     const MICRO_LAMPORTS_PER_CU = 50_000;
     
-    // Convert microLamports to lamports
+    // Calculate number of transactions needed
+    const chunkSize = isCompressed ? CHUNK_SIZE_COMPRESSED : CHUNK_SIZE_STANDARD;
+    const numTransactions = Math.ceil(itemCount / chunkSize);
+    
+    // Convert microLamports to lamports per item
     const computeCostPerMint = (COMPUTE_UNITS_PER_MINT * MICRO_LAMPORTS_PER_CU) / 1_000_000;
     
-    return Math.ceil(BASE_TX_FEE + (computeCostPerMint * itemCount));
+    // Total = base fees for all transactions + compute for all items
+    return Math.ceil((BASE_TX_FEE * numTransactions) + (computeCostPerMint * itemCount));
 }
 
 /**
@@ -744,7 +765,7 @@ export async function batchMintCompressedCoreNft(
     console.log(`Batch minting ${items.length} cNFTs...`);
     
     const tree = publicKey(treeAddress);
-    const treeConfig = findTreeConfigPda(umi, { merkleTree: tree });
+    const treeConfig = findTreeConfigPda(umi, { merkleTree: tree }) as any;
     
     // Wait for tree config PDA to be visible (reuse existing polling)
     const POLL_TIMEOUT_MS = 45_000;
@@ -780,7 +801,7 @@ export async function batchMintCompressedCoreNft(
         const mintIx = mintV2(umi, {
             leafOwner,
             merkleTree: tree,
-            treeConfig,
+            treeConfig: treeConfig as any,
             coreCollection: publicKey(collectionAddress),
             metadata: {
                 name: item.name,
@@ -931,14 +952,234 @@ export function calculateBatchMintCost(
     networkFees: number;
     platformFees: number;
     total: number;
+    transactionCount: number;
 } {
-    const networkFeeLamports = estimateBatchMintFees(itemCount);
+    const networkFeeLamports = estimateBatchMintFees(itemCount, isCompressed);
     const networkFees = networkFeeLamports / 1_000_000_000; // Convert to SOL
     const platformFees = itemCount * platformFeePerItem;
+    const chunkSize = isCompressed ? CHUNK_SIZE_COMPRESSED : CHUNK_SIZE_STANDARD;
+    const transactionCount = Math.ceil(itemCount / chunkSize);
     
     return {
         networkFees,
         platformFees,
         total: networkFees + platformFees,
+        transactionCount,
+    };
+}
+
+// ============================================================================
+// BULK MINTING FUNCTIONS - For Large Collections
+// ============================================================================
+
+/**
+ * Bulk mint a large collection of compressed NFTs across multiple transactions.
+ * Automatically chunks the collection into optimal batch sizes.
+ * 
+ * @param umi - Umi instance
+ * @param params - Mint parameters including tree, collection, and items
+ * @returns BulkMintResult with all transaction signatures and asset IDs
+ */
+export async function bulkMintCompressedCollection(
+    umi: Umi,
+    params: {
+        treeAddress: string;
+        collectionAddress: string;
+        items: BatchNftItem[];
+        onProgress?: (options: {
+            currentTransaction: number;
+            totalTransactions: number;
+            currentBatchSize: number;
+            totalMinted: number;
+            totalItems: number;
+        }) => void;
+    }
+): Promise<BulkMintResult> {
+    const { treeAddress, collectionAddress, items, onProgress } = params;
+    
+    if (items.length === 0) {
+        throw new Error("No items to mint");
+    }
+    
+    // Warn for extremely large collections
+    if (items.length > 1000) {
+        console.warn(`Large collection detected (${items.length} items). This will require ${Math.ceil(items.length / CHUNK_SIZE_COMPRESSED)} transactions.`);
+    }
+
+    console.log(`Starting bulk mint of ${items.length} cNFTs in chunks of ${CHUNK_SIZE_COMPRESSED}...`);
+    
+    const results: BulkMintResult['transactions'] = [];
+    const allAssetIds: string[] = [];
+    let totalMinted = 0;
+    let totalFailed = 0;
+    
+    // Calculate number of transactions
+    const totalTransactions = Math.ceil(items.length / CHUNK_SIZE_COMPRESSED);
+    
+    // Process in chunks
+    for (let txIndex = 0; txIndex < totalTransactions; txIndex++) {
+        const startIndex = txIndex * CHUNK_SIZE_COMPRESSED;
+        const endIndex = Math.min(startIndex + CHUNK_SIZE_COMPRESSED, items.length);
+        const chunk = items.slice(startIndex, endIndex);
+        
+        console.log(`Processing transaction ${txIndex + 1}/${totalTransactions} (${chunk.length} NFTs)...`);
+        
+        try {
+            // Call the single-batch function for this chunk
+            const result = await batchMintCompressedCoreNft(umi, {
+                treeAddress,
+                collectionAddress,
+                items: chunk,
+                onProgress: (completed) => {
+                    onProgress?.({
+                        currentTransaction: txIndex + 1,
+                        totalTransactions,
+                        currentBatchSize: chunk.length,
+                        totalMinted: totalMinted + completed,
+                        totalItems: items.length,
+                    });
+                },
+            });
+            
+            results.push({
+                signature: result.signature,
+                assetIds: result.assetIds,
+                startIndex,
+                endIndex: endIndex - 1,
+            });
+            
+            allAssetIds.push(...result.assetIds);
+            totalMinted += result.assetIds.length - result.failedIndices.length;
+            totalFailed += result.failedIndices.length;
+            
+            console.log(`Transaction ${txIndex + 1} complete: ${result.assetIds.length - result.failedIndices.length} minted, ${result.failedIndices.length} failed`);
+            
+        } catch (error) {
+            console.error(`Transaction ${txIndex + 1} failed:`, error);
+            totalFailed += chunk.length;
+            
+            // Continue with next chunk rather than failing entirely
+            // This allows partial success for large collections
+            toast.error(`Batch ${txIndex + 1} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+        
+        // Small delay between transactions to avoid rate limiting
+        if (txIndex < totalTransactions - 1) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+    
+    console.log(`Bulk mint complete: ${totalMinted} total minted, ${totalFailed} total failed across ${results.length} transactions`);
+    
+    return {
+        transactions: results,
+        totalMinted,
+        totalFailed,
+        allAssetIds,
+    };
+}
+
+/**
+ * Bulk mint a large collection of standard Core NFTs across multiple transactions.
+ * Automatically chunks the collection into optimal batch sizes.
+ * 
+ * @param umi - Umi instance
+ * @param params - Mint parameters including optional collection and items
+ * @returns BulkMintResult with all transaction signatures and asset IDs
+ */
+export async function bulkMintCoreCollection(
+    umi: Umi,
+    params: {
+        collectionAddress?: string;
+        items: BatchNftItem[];
+        onProgress?: (options: {
+            currentTransaction: number;
+            totalTransactions: number;
+            currentBatchSize: number;
+            totalMinted: number;
+            totalItems: number;
+        }) => void;
+    }
+): Promise<BulkMintResult> {
+    const { collectionAddress, items, onProgress } = params;
+    
+    if (items.length === 0) {
+        throw new Error("No items to mint");
+    }
+    
+    // Warn for large collections (standard NFTs are more expensive)
+    if (items.length > 500) {
+        console.warn(`Large standard collection detected (${items.length} items). This will require ${Math.ceil(items.length / CHUNK_SIZE_STANDARD)} transactions and significant SOL.`);
+    }
+
+    console.log(`Starting bulk mint of ${items.length} Core NFTs in chunks of ${CHUNK_SIZE_STANDARD}...`);
+    
+    const results: BulkMintResult['transactions'] = [];
+    const allAssetIds: string[] = [];
+    let totalMinted = 0;
+    let totalFailed = 0;
+    
+    // Calculate number of transactions
+    const totalTransactions = Math.ceil(items.length / CHUNK_SIZE_STANDARD);
+    
+    // Process in chunks
+    for (let txIndex = 0; txIndex < totalTransactions; txIndex++) {
+        const startIndex = txIndex * CHUNK_SIZE_STANDARD;
+        const endIndex = Math.min(startIndex + CHUNK_SIZE_STANDARD, items.length);
+        const chunk = items.slice(startIndex, endIndex);
+        
+        console.log(`Processing transaction ${txIndex + 1}/${totalTransactions} (${chunk.length} NFTs)...`);
+        
+        try {
+            // Call the single-batch function for this chunk
+            const result = await batchMintCoreNft(umi, {
+                collectionAddress,
+                items: chunk,
+                onProgress: (completed) => {
+                    onProgress?.({
+                        currentTransaction: txIndex + 1,
+                        totalTransactions,
+                        currentBatchSize: chunk.length,
+                        totalMinted: totalMinted + completed,
+                        totalItems: items.length,
+                    });
+                },
+            });
+            
+            results.push({
+                signature: result.signature,
+                assetIds: result.assetIds,
+                startIndex,
+                endIndex: endIndex - 1,
+            });
+            
+            allAssetIds.push(...result.assetIds);
+            totalMinted += result.assetIds.length - result.failedIndices.length;
+            totalFailed += result.failedIndices.length;
+            
+            console.log(`Transaction ${txIndex + 1} complete: ${result.assetIds.length - result.failedIndices.length} minted, ${result.failedIndices.length} failed`);
+            
+        } catch (error) {
+            console.error(`Transaction ${txIndex + 1} failed:`, error);
+            totalFailed += chunk.length;
+            
+            // Continue with next chunk rather than failing entirely
+            // This allows partial success for large collections
+            toast.error(`Batch ${txIndex + 1} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+        
+        // Small delay between transactions to avoid rate limiting
+        if (txIndex < totalTransactions - 1) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+    
+    console.log(`Bulk mint complete: ${totalMinted} total minted, ${totalFailed} total failed across ${results.length} transactions`);
+    
+    return {
+        transactions: results,
+        totalMinted,
+        totalFailed,
+        allAssetIds,
     };
 }

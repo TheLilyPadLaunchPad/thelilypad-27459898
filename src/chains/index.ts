@@ -22,8 +22,8 @@ export type { SolanaCollectionParams, SolanaCollectionResult, CandyMachineItem }
 export type { MonadCollectionParams, MonadDeployResult } from './monad/types';
 
 // Re-export program wrappers
-export { createCoreCollection, createCoreCandyMachine, insertItemsToCandyMachine, createBubblegumTree, mintCompressedCoreNft, batchMintCompressedCoreNft, batchMintCoreNft, estimateBatchMintFees, calculateBatchMintCost } from './solana/programs';
-export type { LaunchpadPhase, BatchNftItem, BatchMintResult } from './solana/programs';
+export { createCoreCollection, createCoreCandyMachine, insertItemsToCandyMachine, createBubblegumTree, mintCompressedCoreNft, batchMintCompressedCoreNft, batchMintCoreNft, bulkMintCompressedCollection, bulkMintCoreCollection, estimateBatchMintFees, calculateBatchMintCost } from './solana/programs';
+export type { LaunchpadPhase, BatchNftItem, BatchMintResult, BulkMintResult } from './solana/programs';
 export { initHybridEscrow, captureHybridNft, releaseHybridNft, deriveEscrowPda, mplHybrid } from './solana/hybrid';
 export type { HybridEscrowConfig, CaptureParams, ReleaseParams } from './solana/hybrid';
 export { createSplToken, mintSplTokens } from './solana/splToken';

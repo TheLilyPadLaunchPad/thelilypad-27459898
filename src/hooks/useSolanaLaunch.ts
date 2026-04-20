@@ -14,8 +14,11 @@ import {
     mintCompressedCoreNft,
     batchMintCompressedCoreNft,
     batchMintCoreNft,
+    bulkMintCompressedCollection,
+    bulkMintCoreCollection,
     calculateBatchMintCost,
     type BatchNftItem,
+    type BulkMintResult,
 } from '@/chains';
 import type { LaunchpadPhase, SolanaCollectionParams } from '@/chains';
 import { Umi, transactionBuilder, publicKey, some, none } from '@metaplex-foundation/umi';
@@ -346,6 +349,98 @@ export const useSolanaLaunch = () => {
     }, [getUmi]);
 
     /**
+     * Bulk mint a large collection of compressed NFTs (100-1000+)
+     * Automatically splits into multiple transactions
+     */
+    const bulkMintCompressedLarge = useCallback(async (
+        treeAddress: string,
+        collectionAddress: string,
+        items: BatchNftItem[]
+    ): Promise<BulkMintResult> => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            
+            // Calculate transactions needed
+            const cost = calculateBatchMintCost(items.length, 0, true);
+            console.log(`Bulk minting ${items.length} cNFTs across ${cost.transactionCount} transactions`);
+            console.log(`Estimated cost: ${cost.total} SOL (${cost.networkFees} network + ${cost.platformFees} platform)`);
+            
+            const result = await bulkMintCompressedCollection(umi, {
+                treeAddress,
+                collectionAddress,
+                items,
+                onProgress: ({ currentTransaction, totalTransactions, totalMinted, totalItems }) => {
+                    toast.loading(
+                        `Transaction ${currentTransaction}/${totalTransactions}: ${totalMinted}/${totalItems} minted`,
+                        { id: 'bulk-cnft-mint' }
+                    );
+                },
+            });
+            
+            toast.success(
+                `Successfully minted ${result.totalMinted} NFTs across ${result.transactions.length} transactions!`,
+                { id: 'bulk-cnft-mint' }
+            );
+            return result;
+        } catch (err: any) {
+            console.error("Bulk Compressed Mint Error:", err);
+            const msg = err.message || "Failed to bulk mint Compressed NFTs";
+            setError(msg);
+            toast.error(msg, { id: 'bulk-cnft-mint' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
+    /**
+     * Bulk mint a large collection of standard Core NFTs (100-500+)
+     * Automatically splits into multiple transactions
+     */
+    const bulkMintCoreLarge = useCallback(async (
+        collectionAddress: string | undefined,
+        items: BatchNftItem[]
+    ): Promise<BulkMintResult> => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+            
+            // Calculate transactions needed
+            const cost = calculateBatchMintCost(items.length, 0, false);
+            console.log(`Bulk minting ${items.length} Core NFTs across ${cost.transactionCount} transactions`);
+            console.log(`Estimated cost: ${cost.total} SOL (${cost.networkFees} network + ${cost.platformFees} platform)`);
+            
+            const result = await bulkMintCoreCollection(umi, {
+                collectionAddress,
+                items,
+                onProgress: ({ currentTransaction, totalTransactions, totalMinted, totalItems }) => {
+                    toast.loading(
+                        `Transaction ${currentTransaction}/${totalTransactions}: ${totalMinted}/${totalItems} minted`,
+                        { id: 'bulk-core-mint' }
+                    );
+                },
+            });
+            
+            toast.success(
+                `Successfully minted ${result.totalMinted} Core NFTs across ${result.transactions.length} transactions!`,
+                { id: 'bulk-core-mint' }
+            );
+            return result;
+        } catch (err: any) {
+            console.error("Bulk Core Mint Error:", err);
+            const msg = err.message || "Failed to bulk mint Core NFTs";
+            setError(msg);
+            toast.error(msg, { id: 'bulk-core-mint' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
+    /**
      * Create a Launchpad Candy Machine with guards
      */
     const createLaunchpadCandyMachine = useCallback(async (
@@ -547,6 +642,8 @@ export const useSolanaLaunch = () => {
         mintCompressedCore,
         batchMintCompressedCore,
         batchMintCore,
+        bulkMintCompressedLarge,
+        bulkMintCoreLarge,
         calculateBatchMintCost,
     };
 };
