@@ -17,6 +17,7 @@ import { ipfsToHttp } from "@/lib/ipfs";
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
+import { useWalletNFTs, NFT as OnChainNFT } from "@/hooks/useWalletNFTs";
 import {
   ExternalLink,
   Image as ImageIcon,
@@ -36,7 +37,8 @@ import {
   Diamond,
   Star,
   Gem,
-  Ticket
+  Ticket,
+  Globe
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Input } from "@/components/ui/input";
@@ -79,6 +81,8 @@ interface NFT {
     image_url: string | null;
     contract_address: string | null;
   } | null;
+  source?: 'database' | 'onchain';
+  onChainAddress?: string;
 }
 
 interface CollectionStats {
@@ -94,6 +98,14 @@ export default function MyNFTs() {
   const { address, isConnected, chainType } = useWallet();
   // Derive currency symbol from connected chain (not hardcoded SOL)
   const chainSymbol = chainType === 'monad' ? 'MON' : 'SOL';
+
+  // Fetch on-chain NFTs via DAS API
+  const solanaNetwork = `solana-${localStorage.getItem("solanaNetwork") || "devnet"}`;
+  const {
+    nfts: onChainNfts,
+    isLoading: onChainLoading,
+    refresh: refreshOnChain,
+  } = useWalletNFTs(address, solanaNetwork);
 
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -159,12 +171,62 @@ export default function MyNFTs() {
     const { data, error } = await query;
 
     if (!error && data) {
-      const nftData = data.map(nft => ({
+      const nftData: NFT[] = data.map(nft => ({
         ...nft,
         attributes: (nft.attributes as { trait_type: string; value: string }[]) || [],
-        collection: nft.collection as NFT["collection"]
+        collection: nft.collection as NFT["collection"],
+        source: 'database' as const,
       }));
-      setNfts(nftData);
+
+      // Merge on-chain NFTs that aren't already in the database
+      // Build a set of known DB identifiers for deduplication
+      const dbTxHashes = new Set(
+        nftData.map(n => n.tx_hash?.toLowerCase()).filter(Boolean)
+      );
+      const dbContractAddresses = new Set(
+        nftData
+          .map(n => n.collection?.contract_address?.toLowerCase())
+          .filter(Boolean)
+      );
+      const dbNames = new Set(
+        nftData.map(n => n.name?.toLowerCase()).filter(Boolean)
+      );
+
+      const onChainOnly: NFT[] = onChainNfts
+        .filter(ocNft => {
+          const addr = ocNft.tokenId?.toLowerCase();
+          if (!addr) return false;
+          // Skip if this on-chain asset matches a DB tx_hash or contract_address
+          if (dbTxHashes.has(addr)) return false;
+          if (dbContractAddresses.has(addr)) return false;
+          // Also skip if name + collection match exactly (compressed NFTs may have different addresses)
+          const ocName = ocNft.name?.toLowerCase();
+          if (ocName && dbNames.has(ocName)) return false;
+          return true;
+        })
+        .map((ocNft, idx): NFT => ({
+          id: `onchain-${ocNft.tokenId}`,
+          token_id: idx,
+          name: ocNft.name || null,
+          description: ocNft.description || null,
+          image_url: ocNft.image || null,
+          attributes: ocNft.attributes || [],
+          owner_address: address || '',
+          tx_hash: '',
+          minted_at: new Date().toISOString(),
+          collection_id: '',
+          collection: ocNft.collection ? {
+            id: `onchain-col-${ocNft.collection}`,
+            name: ocNft.collection,
+            image_url: null,
+            contract_address: ocNft.contractAddress || null,
+          } : null,
+          source: 'onchain',
+          onChainAddress: ocNft.tokenId,
+        }));
+
+      const mergedNfts = [...nftData, ...onChainOnly];
+      setNfts(mergedNfts);
 
       // Calculate collection stats (initial without floor prices)
       const stats: Record<string, CollectionStats> = {};
@@ -253,10 +315,10 @@ export default function MyNFTs() {
     setIsLoading(false);
   };
 
-  // Re-fetch when wallet address or user ID changes
+  // Re-fetch when wallet address, user ID, or on-chain NFTs change
   useEffect(() => {
     fetchNFTs();
-  }, [address, currentUserId]);
+  }, [address, currentUserId, onChainNfts]);
 
   // Calculate portfolio value based on floor prices
   const portfolioValue = collectionStats.reduce((total, collection) => {
@@ -291,7 +353,7 @@ export default function MyNFTs() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchNFTs();
+    await Promise.all([fetchNFTs(), refreshOnChain()]);
     setIsRefreshing(false);
   };
 
@@ -793,6 +855,13 @@ export default function MyNFTs() {
                           <ImageIcon className="w-8 h-8 text-muted-foreground" />
                         </div>
                       )}
+                      {/* On-Chain Badge */}
+                      {nft.source === 'onchain' && (
+                        <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/20 backdrop-blur-sm">
+                          <Globe className="w-3 h-3 text-blue-400" />
+                          <span className="text-[10px] font-medium text-blue-400">On-Chain</span>
+                        </div>
+                      )}
                       {/* Rarity Badge */}
                       {nft.attributes.length > 0 && tier !== 'common' && (
                         <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full ${rarity.bgColor} backdrop-blur-sm`}>
@@ -851,6 +920,12 @@ export default function MyNFTs() {
                           <p className="font-medium truncate">
                             {nft.name || `${nft.collection?.name} #${nft.token_id}`}
                           </p>
+                          {nft.source === 'onchain' && (
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/20">
+                              <Globe className="w-3 h-3 text-blue-400" />
+                              <span className="text-[10px] font-medium text-blue-400">On-Chain</span>
+                            </div>
+                          )}
                           {nft.attributes.length > 0 && tier !== 'common' && (
                             <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${rarity.bgColor}`}>
                               <RarityIcon className={`w-3 h-3 ${rarity.color}`} />
@@ -860,7 +935,7 @@ export default function MyNFTs() {
 
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {nft.collection?.name} · Token #{nft.token_id}
+                          {nft.collection?.name}{nft.source !== 'onchain' ? ` · Token #${nft.token_id}` : ''}
                         </p>
                       </div>
                       <div className="text-right text-sm text-muted-foreground">
@@ -1021,44 +1096,58 @@ export default function MyNFTs() {
                   )}
 
                   <div className="flex flex-col gap-2 pt-2">
-                    {/* List for Sale Button */}
-                    {!listedNftIds.has(selectedNft.id) ? (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          setSelectedNft(null);
-                          setListNft(selectedNft);
-                        }}
-                      >
-                        <Tag className="w-4 h-4 mr-2" />
-                        List for Sale
-                      </Button>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <Badge variant="secondary" className="w-full justify-center py-2">
-                          Listed for {listingsMap.get(selectedNft.id)?.price.toFixed(2)} {chainSymbol}
-                        </Badge>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleCancelListing(selectedNft.id)}
-                          disabled={isCancelling === selectedNft.id}
-                        >
-                          {isCancelling === selectedNft.id ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <XCircle className="w-4 h-4 mr-2" />
-                          )}
-                          Cancel Listing
-                        </Button>
+                    {/* On-chain-only info badge */}
+                    {selectedNft.source === 'onchain' && (
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                        <Globe className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                        <span className="text-xs text-blue-400">
+                          This NFT was found on-chain in your wallet
+                        </span>
                       </div>
                     )}
 
-                    {/* Create Raffle Button - Only for 1-of-1s not listed */}
-                    {!listedNftIds.has(selectedNft.id) && (
+                    {/* List for Sale Button — only for DB-backed NFTs */}
+                    {selectedNft.source !== 'onchain' && (
+                      <>
+                        {!listedNftIds.has(selectedNft.id) ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              setSelectedNft(null);
+                              setListNft(selectedNft);
+                            }}
+                          >
+                            <Tag className="w-4 h-4 mr-2" />
+                            List for Sale
+                          </Button>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            <Badge variant="secondary" className="w-full justify-center py-2">
+                              Listed for {listingsMap.get(selectedNft.id)?.price.toFixed(2)} {chainSymbol}
+                            </Badge>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => handleCancelListing(selectedNft.id)}
+                              disabled={isCancelling === selectedNft.id}
+                            >
+                              {isCancelling === selectedNft.id ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <XCircle className="w-4 h-4 mr-2" />
+                              )}
+                              Cancel Listing
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Create Raffle Button - Only for DB-backed 1-of-1s not listed */}
+                    {selectedNft.source !== 'onchain' && !listedNftIds.has(selectedNft.id) && (
                       <Button
                         variant="secondary"
                         size="sm"
@@ -1089,25 +1178,40 @@ export default function MyNFTs() {
                     </Button>
 
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => window.open(explorerUrl(selectedNft.tx_hash), "_blank")}
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        View TX
-                      </Button>
-                      {tokenExplorerUrl(selectedNft.collection?.contract_address || null, selectedNft.token_id) && (
+                      {/* On-chain NFTs: view asset on explorer; DB NFTs: view TX */}
+                      {selectedNft.source === 'onchain' && selectedNft.onChainAddress ? (
                         <Button
                           variant="outline"
                           size="sm"
                           className="flex-1"
-                          onClick={() => window.open(tokenExplorerUrl(selectedNft.collection?.contract_address || null, selectedNft.token_id)!, "_blank")}
+                          onClick={() => window.open(`https://explorer.solana.com/address/${selectedNft.onChainAddress}?cluster=devnet`, "_blank")}
                         >
                           <ExternalLink className="w-4 h-4 mr-2" />
-                          View Token
+                          View on Explorer
                         </Button>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => window.open(explorerUrl(selectedNft.tx_hash), "_blank")}
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            View TX
+                          </Button>
+                          {tokenExplorerUrl(selectedNft.collection?.contract_address || null, selectedNft.token_id) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => window.open(tokenExplorerUrl(selectedNft.collection?.contract_address || null, selectedNft.token_id)!, "_blank")}
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              View Token
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

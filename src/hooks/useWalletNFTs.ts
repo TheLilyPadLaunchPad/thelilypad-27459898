@@ -71,7 +71,7 @@ export function useWalletNFTs(
         const umi = getDasUmi(rpcUrl);
         const owner = publicKey(walletAddress);
         const page = loadMore ? currentPage + 1 : 1;
-        const limit = 12;
+        const limit = 50;
 
         // Fetch assets using DAS API
         const assets = await (umi.rpc as any).getAssetsByOwner({
@@ -81,8 +81,21 @@ export function useWalletNFTs(
           sortBy: { sortBy: 'created', sortDirection: 'desc' }
         }) as DasApiAssetList;
 
+        // Filter to only NFT-type assets (exclude fungible tokens, SOL, SPL tokens)
+        const nftAssets = assets.items.filter((asset: DasApiAsset) => {
+          const iface = asset.interface;
+          // Only keep known NFT interfaces
+          return (
+            iface === 'V1_NFT' ||
+            iface === 'MplCoreAsset' ||
+            iface === 'ProgrammableNFT' ||
+            iface === 'MplCoreCollection' ||
+            (asset.compression?.compressed === true) // compressed NFTs
+          );
+        });
+
         // Map DAS assets to our NFT interface
-        const mappedNfts: NFT[] = assets.items.map((asset: DasApiAsset) => {
+        const mappedNfts: NFT[] = nftAssets.map((asset: DasApiAsset) => {
           // Find collection grouping
           const collectionGroup = asset.grouping.find(
             (g: any) => g.group_key === 'collection'
@@ -130,8 +143,10 @@ export function useWalletNFTs(
           setCurrentPage(1);
         }
 
-        setTotalCount(assets.total); // DAS returns total count
-        setHasMore(assets.total > page * limit);
+        // DAS total includes all asset types; use it as upper bound
+        // but check if we got a full page of NFTs to determine hasMore
+        setTotalCount(loadMore ? nfts.length + mappedNfts.length : mappedNfts.length);
+        setHasMore(assets.items.length === limit && mappedNfts.length > 0);
 
       } else {
         // Legacy Supabase/Alchemy path for non-Solana (or if we revert)
