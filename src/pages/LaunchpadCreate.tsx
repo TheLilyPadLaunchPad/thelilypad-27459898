@@ -474,7 +474,7 @@ export default function LaunchpadCreate() {
                     setUploadProgress({ completed, total, status });
                     toast.loading(status, { id: 'deploy' });
                 },
-                5, // concurrency: reduced from 25 to prevent UI freeze
+                10, // concurrency: parallelizes upload batches
                 true, // enable thumbnails
                 [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }],
                 isDynamic, // isMutable
@@ -547,7 +547,7 @@ export default function LaunchpadCreate() {
                     await solanaLaunch.insertItemsToCandyMachine(
                         cmResult.address,
                         candyMachineItems,
-                        10
+                        15 // Max items per config-line transaction
                     );
                 }
             } else if (selectedChain === 'monad') {

@@ -466,7 +466,7 @@ export async function insertItemsToCandyMachine(
     umi: Umi,
     candyMachineAddress: string,
     items: CandyMachineItem[],
-    batchSize = 15
+    batchSize = 20
 ): Promise<void> {
     const cmPublicKey = publicKey(candyMachineAddress);
 
@@ -543,22 +543,20 @@ export async function createBubblegumTree(
     });
     const builder = setComputeUnitPrice(umi, { microLamports: 100_000 }).add(treeBuilder);
 
-    // Use `finalized` commitment so the tree-config PDA is guaranteed to be
-    // visible to other RPCs (subsequent mintV2 calls may hit a different node
-    // if the upstream getBestRpc() picked differently). Without this, mintV2
-    // simulates against stale state and throws `tree_authority: AccountNotInitialized`.
+    // Use `confirmed` commitment for speed (~2-3s vs ~30s for finalized).
+    // The subsequent mintV2 call reuses the same Umi/RPC instance, so the
+    // tree-config PDA will be visible immediately. The poll below acts as
+    // a safety net for edge cases.
     await builder.sendAndConfirm(umi, {
         send: { skipPreflight: false },
-        confirm: { commitment: 'finalized' },
+        confirm: { commitment: 'confirmed' },
     });
 
-    // Defence in depth: explicitly poll the tree-config PDA until the current
-    // RPC sees it. `finalized` commitment alone is strong enough for the
-    // sending RPC, but a *different* RPC may still be catching up in its
-    // read-state cache. Wait up to ~15s for visibility.
+    // Defence in depth: poll the tree-config PDA until the current RPC sees it.
+    // With `confirmed` + same RPC this should resolve in <1s typically.
     const treeConfig = findTreeConfigPda(umi, { merkleTree: merkleTree.publicKey });
-    const MAX_POLL_MS = 15_000;
-    const POLL_INTERVAL_MS = 500;
+    const MAX_POLL_MS = 8_000;
+    const POLL_INTERVAL_MS = 300;
     const start = Date.now();
     while (Date.now() - start < MAX_POLL_MS) {
         const maybe = await umi.rpc.getAccount(treeConfig[0]);
@@ -599,25 +597,26 @@ export async function mintCompressedCoreNft(
 
     console.log("Resolving tree config:", treeConfig[0].toString());
 
-    // Guard against RPC propagation lag. If the umi instance for this mint
-    // was created on a different RPC than the one that deployed the tree, the
-    // config PDA may not be visible yet. Poll briefly before attempting the mint.
+    // Guard against RPC propagation lag. Since the tree is typically created
+    // moments before in the same session/RPC, this resolves in <1s.
     {
-        const MAX_WAIT_MS = 20_000;
-        const INTERVAL_MS = 750;
+        const MAX_WAIT_MS = 5_000;
+        const INTERVAL_MS = 300;
         const start = Date.now();
-        while (Date.now() - start < MAX_WAIT_MS) {
-            const acct = await umi.rpc.getAccount(treeConfig[0]);
-            if (acct.exists) break;
-            await new Promise(r => setTimeout(r, INTERVAL_MS));
-        }
-        const finalCheck = await umi.rpc.getAccount(treeConfig[0]);
-        if (!finalCheck.exists) {
-            throw new Error(
-                `Bubblegum tree config ${treeConfig[0].toString()} is not visible on the current RPC ` +
-                `after ${MAX_WAIT_MS}ms. The tree was likely created on a different RPC node; ` +
-                `wait a few seconds and retry.`,
-            );
+        const firstCheck = await umi.rpc.getAccount(treeConfig[0]);
+        if (!firstCheck.exists) {
+            while (Date.now() - start < MAX_WAIT_MS) {
+                await new Promise(r => setTimeout(r, INTERVAL_MS));
+                const acct = await umi.rpc.getAccount(treeConfig[0]);
+                if (acct.exists) break;
+            }
+            const finalCheck = await umi.rpc.getAccount(treeConfig[0]);
+            if (!finalCheck.exists) {
+                throw new Error(
+                    `Bubblegum tree config ${treeConfig[0].toString()} is not visible on the current RPC ` +
+                    `after ${MAX_WAIT_MS}ms. Wait a few seconds and retry.`,
+                );
+            }
         }
     }
 
@@ -644,11 +643,9 @@ export async function mintCompressedCoreNft(
 
     // `parseLeafFromMintV2Transaction` internally calls `rpc.getTransaction`,
     // which often returns null for a few seconds after confirmation because
-    // the RPC hasn't indexed the tx yet (especially on public endpoints).
-    // Poll with backoff before/while parsing so we don't throw
-    // "Could not get transaction from signature" prematurely.
-    const PARSE_TIMEOUT_MS = 45_000;
-    const PARSE_INTERVAL_MS = 1_000;
+    // the RPC hasn't indexed the tx yet. With Helius RPC this is typically <3s.
+    const PARSE_TIMEOUT_MS = 15_000;
+    const PARSE_INTERVAL_MS = 500;
     const parseStart = Date.now();
     let leaf: Awaited<ReturnType<typeof parseLeafFromMintV2Transaction>> | null = null;
     let lastErr: unknown = null;
@@ -767,24 +764,26 @@ export async function batchMintCompressedCoreNft(
     const tree = publicKey(treeAddress);
     const treeConfig = findTreeConfigPda(umi, { merkleTree: tree }) as any;
     
-    // Wait for tree config PDA to be visible (reuse existing polling)
-    const POLL_TIMEOUT_MS = 45_000;
-    const POLL_INTERVAL_MS = 1_000;
+    // Wait for tree config PDA to be visible (tree was just created in same session)
+    const POLL_TIMEOUT_MS = 8_000;
+    const POLL_INTERVAL_MS = 300;
     const pollStart = Date.now();
-    let treeConfigAccount: any = null;
-    while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
-        try {
-            treeConfigAccount = await umi.rpc.getAccount(treeConfig);
-            if (treeConfigAccount.exists) break;
-        } catch {
-            // continue polling
-        }
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-    }
+    let treeConfigAccount: any = await umi.rpc.getAccount(treeConfig);
     if (!treeConfigAccount?.exists) {
-        throw new Error(
-            `Tree config PDA not found after ${POLL_TIMEOUT_MS}ms. Please retry.`
-        );
+        while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+            try {
+                treeConfigAccount = await umi.rpc.getAccount(treeConfig);
+                if (treeConfigAccount.exists) break;
+            } catch {
+                // continue polling
+            }
+        }
+        if (!treeConfigAccount?.exists) {
+            throw new Error(
+                `Tree config PDA not found after ${POLL_TIMEOUT_MS}ms. Please retry.`
+            );
+        }
     }
     
     // Build a single transaction with all mintV2 instructions
@@ -828,8 +827,8 @@ export async function batchMintCompressedCoreNft(
     const failedIndices: number[] = [];
     
     // Parse leaf data for each mint - with retry logic
-    const PARSE_TIMEOUT_MS = 60_000;
-    const PARSE_INTERVAL_MS = 1_000;
+    const PARSE_TIMEOUT_MS = 10_000;
+    const PARSE_INTERVAL_MS = 500;
     const parseStart = Date.now();
     
     while (Date.now() - parseStart < PARSE_TIMEOUT_MS && assetIds.length < items.length) {

@@ -35,7 +35,7 @@ interface CreateOneOfOneModalProps {
 }
 
 export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'solana' }: CreateOneOfOneModalProps) {
-    const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore } = useSolanaLaunch();
+    const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore, batchMintCompressedCore } = useSolanaLaunch();
     const { createCollection: deployMonadCollection, mintNFT: mintMonadNFT } = useMonadLaunch();
     const { getSolanaProvider, address, isConnected, chainType, network } = useWallet();
     const [mode, setMode] = useState<"one-of-one" | "edition">("one-of-one");
@@ -165,6 +165,8 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 onStatus: (status) => toast.loading(status, { id: 'upload' })
             }, solProvider);
 
+            // Skip thumbnails for single 1-of-1 to speed up upload
+            const shouldThumbnail = mode === "edition" && batchItems.length > 1;
             const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
                 batchItems,
                 { address, chainType: walletChain, network },
@@ -172,7 +174,7 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     toast.loading(status, { id: "upload" });
                 },
                 5, // concurrency
-                true, // enable thumbnails
+                shouldThumbnail, // skip thumbnails for 1-of-1
                 [], // customTags
                 false, // isMutable
                 undefined, // rootTx
@@ -258,22 +260,42 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     txHash = result.address;
 
                     toast.loading("Deploying Bubblegum Tree for compressed NFTs...", { id: "deploy" });
-                    const treeAddress = await deployBubblegumTree(14, 64, 8);
+                    // Use smaller tree for small mints (faster + cheaper)
+                    const treeDepth = mintItems.length <= 8 ? 3 : mintItems.length <= 16 ? 5 : 14;
+                    const treeBuffer = mintItems.length <= 8 ? 8 : mintItems.length <= 16 ? 8 : 64;
+                    const treeCanopy = mintItems.length <= 8 ? 0 : mintItems.length <= 16 ? 0 : 8;
+                    const treeAddress = await deployBubblegumTree(treeDepth, treeBuffer, treeCanopy);
                     if (!treeAddress) {
                         throw new Error("Failed to deploy Bubblegum Tree. Collection was created but NFTs could not be minted.");
                     }
 
-                    for (let i = 0; i < mintItems.length; i++) {
-                        const item = mintItems[i];
-                        toast.loading(`Minting compressed NFT ${i + 1}/${mintItems.length}...`, { id: "deploy" });
+                    if (mintItems.length === 1) {
+                        // Single mint — fastest path for 1-of-1
+                        toast.loading(`Minting compressed NFT...`, { id: "deploy" });
                         await mintCompressedCore(
                             treeAddress,
                             result.address,
-                            item.name,
+                            mintItems[0].name,
                             metadataUrl,
                             royaltyBasisPoints,
                             creatorAddress
                         );
+                    } else {
+                        // Batch mint for editions — up to 10 per transaction
+                        const batchItems = mintItems.map(item => ({
+                            name: item.name,
+                            uri: metadataUrl,
+                            sellerFeeBasisPoints: royaltyBasisPoints,
+                            owner: creatorAddress,
+                        }));
+
+                        // Process in chunks of 10 (max per transaction)
+                        const BATCH_SIZE = 10;
+                        for (let i = 0; i < batchItems.length; i += BATCH_SIZE) {
+                            const chunk = batchItems.slice(i, i + BATCH_SIZE);
+                            toast.loading(`Minting batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(batchItems.length / BATCH_SIZE)} (${chunk.length} NFTs)...`, { id: "deploy" });
+                            await batchMintCompressedCore(treeAddress, result.address, chunk);
+                        }
                     }
                 }
                 toast.dismiss("deploy");
