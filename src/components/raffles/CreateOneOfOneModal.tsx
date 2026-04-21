@@ -35,7 +35,7 @@ interface CreateOneOfOneModalProps {
 }
 
 export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'solana' }: CreateOneOfOneModalProps) {
-    const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore, batchMintCompressedCore } = useSolanaLaunch();
+    const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore, batchMintCompressedCore, batchMintCore } = useSolanaLaunch();
     const { createCollection: deployMonadCollection, mintNFT: mintMonadNFT } = useMonadLaunch();
     const { getSolanaProvider, address, isConnected, chainType, network } = useWallet();
     const [mode, setMode] = useState<"one-of-one" | "edition">("one-of-one");
@@ -244,43 +244,42 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
 
                 toast.loading("Deploying Solana collection...", { id: "deploy" });
                 const royaltyBasisPoints = Math.round(parseFloat(royaltyPercent || "0") * 100);
-                
+                const isOneOfOne = mintItems.length === 1;
+
                 const result = await deploySolanaCollection({
                     name,
                     symbol,
-                    uri: metadataUrl, // Fixed: use metadata JSON URI, not image URL
+                    uri: metadataUrl,
                     sellerFeeBasisPoints: royaltyBasisPoints,
                     creators: [{ address: creatorAddress, share: 100 }],
-                    // 1-of-1 flow mints cNFTs via Bubblegum's mintV2, which
-                    // requires the collection to carry the BubblegumV2 plugin.
-                    withBubblegumV2: true,
+                    // BubblegumV2 plugin is only needed for compressed NFTs (editions).
+                    // 1-of-1 uses standard Core NFTs which don't need it.
+                    withBubblegumV2: !isOneOfOne,
                 });
 
                 if (result?.address) {
                     txHash = result.address;
 
-                    toast.loading("Deploying Bubblegum Tree for compressed NFTs...", { id: "deploy" });
-                    // Use smaller tree for small mints (faster + cheaper)
-                    const treeDepth = mintItems.length <= 8 ? 3 : mintItems.length <= 16 ? 5 : 14;
-                    const treeBuffer = mintItems.length <= 8 ? 8 : mintItems.length <= 16 ? 8 : 64;
-                    const treeCanopy = mintItems.length <= 8 ? 0 : mintItems.length <= 16 ? 0 : 8;
-                    const treeAddress = await deployBubblegumTree(treeDepth, treeBuffer, treeCanopy);
-                    if (!treeAddress) {
-                        throw new Error("Failed to deploy Bubblegum Tree. Collection was created but NFTs could not be minted.");
-                    }
-
-                    if (mintItems.length === 1) {
-                        // Single mint — fastest path for 1-of-1
-                        toast.loading(`Minting compressed NFT...`, { id: "deploy" });
-                        await mintCompressedCore(
-                            treeAddress,
-                            result.address,
-                            mintItems[0].name,
-                            metadataUrl,
-                            royaltyBasisPoints,
-                            creatorAddress
-                        );
+                    if (isOneOfOne) {
+                        // 1-of-1: mint a single standard Core NFT (not compressed)
+                        toast.loading(`Minting 1/1 Core NFT...`, { id: "deploy" });
+                        await batchMintCore(result.address, [{
+                            name: mintItems[0].name,
+                            uri: metadataUrl,
+                            sellerFeeBasisPoints: royaltyBasisPoints,
+                            owner: creatorAddress,
+                        }]);
                     } else {
+                        // Edition: compressed NFTs via Bubblegum tree
+                        toast.loading("Deploying Bubblegum Tree for compressed NFTs...", { id: "deploy" });
+                        const treeDepth = mintItems.length <= 8 ? 3 : mintItems.length <= 16 ? 5 : 14;
+                        const treeBuffer = mintItems.length <= 8 ? 8 : mintItems.length <= 16 ? 8 : 64;
+                        const treeCanopy = mintItems.length <= 8 ? 0 : mintItems.length <= 16 ? 0 : 8;
+                        const treeAddress = await deployBubblegumTree(treeDepth, treeBuffer, treeCanopy);
+                        if (!treeAddress) {
+                            throw new Error("Failed to deploy Bubblegum Tree. Collection was created but NFTs could not be minted.");
+                        }
+
                         // Batch mint for editions — up to 10 per transaction
                         const batchItems = mintItems.map(item => ({
                             name: item.name,
@@ -289,7 +288,6 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                             owner: creatorAddress,
                         }));
 
-                        // Process in chunks of 10 (max per transaction)
                         const BATCH_SIZE = 10;
                         for (let i = 0; i < batchItems.length; i += BATCH_SIZE) {
                             const chunk = batchItems.slice(i, i + BATCH_SIZE);

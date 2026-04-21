@@ -998,17 +998,37 @@ export default function MyNFTs() {
                       Token #{selectedNft.token_id}
                     </Badge>
                     {selectedNft.collection && (
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto text-primary"
-                        onClick={() => {
-                          setSelectedNft(null);
-                          navigate(`/launchpad/${selectedNft.collection_id}`);
-                        }}
-                      >
-                        {selectedNft.collection.name}
-                        <ArrowUpRight className="w-3 h-3 ml-1" />
-                      </Button>
+                      selectedNft.collection_id ? (
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto text-primary"
+                          onClick={() => {
+                            setSelectedNft(null);
+                            navigate(`/launchpad/${selectedNft.collection_id}`);
+                          }}
+                        >
+                          {selectedNft.collection.name}
+                          <ArrowUpRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      ) : selectedNft.collection.contract_address || selectedNft.onChainAddress ? (
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto text-primary"
+                          onClick={() => {
+                            const addr = selectedNft.collection?.contract_address || selectedNft.onChainAddress;
+                            if (addr) {
+                              window.open(`https://explorer.solana.com/address/${addr}?cluster=devnet`, '_blank');
+                            }
+                          }}
+                        >
+                          {selectedNft.collection.name}
+                          <ExternalLink className="w-3 h-3 ml-1" />
+                        </Button>
+                      ) : (
+                        <span className="text-sm font-medium">
+                          {selectedNft.collection.name}
+                        </span>
+                      )
                     )}
                     {selectedNft.description && (
                       <p className="text-muted-foreground text-sm mt-2">
