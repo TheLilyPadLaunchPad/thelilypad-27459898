@@ -80,6 +80,7 @@ interface NFT {
     name: string;
     image_url: string | null;
     contract_address: string | null;
+    chain?: string | null;
   } | null;
   source?: 'database' | 'onchain';
   onChainAddress?: string;
@@ -155,7 +156,7 @@ export default function MyNFTs() {
       .from("minted_nfts")
       .select(`
         *,
-        collection:collections(id, name, image_url, contract_address)
+        collection:collections(id, name, image_url, contract_address, chain)
       `)
       .order("minted_at", { ascending: false });
 
@@ -1243,7 +1244,11 @@ export default function MyNFTs() {
           image_url: listNft.image_url,
           collection_id: listNft.collection_id,
           owner_address: listNft.owner_address,
-          owner_id: currentUserId || ""
+          owner_id: currentUserId || "",
+          collection: listNft.collection ? {
+            contract_address: listNft.collection.contract_address,
+            chain: listNft.collection.chain || null,
+          } : undefined,
         } : null}
         open={!!listNft}
         onOpenChange={(open) => !open && setListNft(null)}
