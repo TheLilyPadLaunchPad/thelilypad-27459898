@@ -27,7 +27,7 @@ import { Flame, Loader2, AlertTriangle, Image as ImageIcon } from "lucide-react"
 import { toast } from "sonner";
 import { publicKey, some, Umi } from "@metaplex-foundation/umi";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
-import { burn as coreBurn, fetchAssetV1, fetchCollection } from "@metaplex-foundation/mpl-core";
+import { burn as coreBurn, fetchAssetV1, fetchCollectionV2 } from "@metaplex-foundation/mpl-core";
 import { burnV2, getAssetWithProof, findTreeConfigPda } from "@metaplex-foundation/mpl-bubblegum";
 import { setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
 import { getDasUmi } from "@/utils/dasApi";
@@ -109,7 +109,7 @@ export function BurnNFTModal({ open, onOpenChange, nft, onBurnSuccess }: BurnNFT
                     asset: assetV1,
                     // If a Core collection is linked, pass it so currentSize decrements.
                     collection: nft.collectionAddress
-                        ? await fetchCollection(umi, publicKey(nft.collectionAddress)).catch(() => undefined)
+                        ? await fetchCollectionV2(umi, publicKey(nft.collectionAddress)).catch(() => undefined)
                         : undefined,
                 }).add(setComputeUnitPrice(umi, { microLamports: 50_000 }));
 
