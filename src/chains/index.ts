@@ -30,8 +30,13 @@ export { createSplToken, mintSplTokens } from './solana/splToken';
 export type { SplTokenConfig, SplTokenResult } from './solana/splToken';
 export { deployMonadCollection, mintMonadNFT, getMonadCollectionInfo } from './monad/contracts';
 
-// Re-export metadata utilities
-export { uploadFile, uploadFiles, uploadMetadata, uploadJsonBatch, resolveMetadataUri, resolveImageUri } from './solana/metadata';
+// Re-export metadata utilities (Umi-based)
+export {
+    uploadFile, uploadFiles, uploadMetadata, uploadJsonBatch,
+    resolveMetadataUri, resolveImageUri,
+    uploadBatchWithUmi, uploadSingleWithUmi
+} from './solana/metadata';
+export type { BatchUploadItem, BatchUploadResult, BatchUploadResponse } from './solana/metadata';
 
 // Re-export Monad metadata
 export { uploadMonadImage, uploadMonadMetadata, uploadMonadMetadataBatch, uploadMonadAudio, buildERC721Metadata } from './monad/metadata';

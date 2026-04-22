@@ -10,6 +10,8 @@ import {
     uploadFiles as uploadFilesToChain,
     uploadMetadata as uploadMetadataToChain,
     uploadJsonBatch,
+    uploadBatchWithUmi,
+    uploadSingleWithUmi,
     createBubblegumTree,
     mintCompressedCoreNft,
     batchMintCompressedCoreNft,
@@ -19,6 +21,9 @@ import {
     calculateBatchMintCost,
     type BatchNftItem,
     type BulkMintResult,
+    type BatchUploadItem,
+    type BatchUploadResult,
+    type BatchUploadResponse,
 } from '@/chains';
 import type { LaunchpadPhase, SolanaCollectionParams } from '@/chains';
 import { Umi, transactionBuilder, publicKey, some, none } from '@metaplex-foundation/umi';
@@ -166,6 +171,33 @@ export const useSolanaLaunch = () => {
     const uploadJsonMetadataBatch = useCallback(async (metadataArray: any[]) => {
         const umi = await getUmi();
         return uploadJsonBatch(umi, metadataArray);
+    }, [getUmi]);
+
+    /**
+     * Upload a batch of NFT assets using Umi's uploader interface (Irys-backed)
+     * Includes thumbnail generation, progress tracking, and automatic funding
+     */
+    const uploadBatch = useCallback(async (
+        items: BatchUploadItem[],
+        onProgress?: (completed: number, total: number, status: string) => void,
+        concurrency = 5,
+        enableThumbnails = true,
+        signal?: AbortSignal
+    ): Promise<BatchUploadResponse> => {
+        const umi = await getUmi();
+        return uploadBatchWithUmi(umi, items, onProgress, concurrency, enableThumbnails, signal);
+    }, [getUmi]);
+
+    /**
+     * Upload a single NFT asset using Umi's uploader interface (convenience wrapper)
+     */
+    const uploadSingle = useCallback(async (
+        file: File,
+        buildMetadata: (imageUri: string) => any,
+        enableThumbnails = true
+    ): Promise<BatchUploadResult> => {
+        const umi = await getUmi();
+        return uploadSingleWithUmi(umi, file, buildMetadata, enableThumbnails);
     }, [getUmi]);
 
     /**
@@ -638,6 +670,8 @@ export const useSolanaLaunch = () => {
         uploadFiles,
         uploadMetadata,
         uploadJsonMetadataBatch,
+        uploadBatch,
+        uploadSingle,
         deployBubblegumTree,
         mintCompressedCore,
         batchMintCompressedCore,
