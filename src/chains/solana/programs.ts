@@ -14,6 +14,7 @@ import {
     updateV1 as updateCoreAsset,
     create,
     fetchCollection,
+    ruleSet,
 } from '@metaplex-foundation/mpl-core';
 import {
     createTreeV2,
@@ -98,16 +99,35 @@ export async function createCoreCollection(
         try {
             await umi.rpc.getLatestBlockhash();
 
+            // Assemble collection plugins:
+            //  • Royalties — required so member Assets inherit verified creator
+            //    attribution. Without it, marketplaces and Metaplex Core Explorer
+            //    render the collection/NFTs as "unverified creator".
+            //  • BubblegumV2 — required for any collection that will receive
+            //    compressed NFTs via Bubblegum's `mintV2`. Without it, the mint
+            //    fails with `CollectionMustHaveBubblegumPlugin`.
+            const resolvedCreators = (params.creators && params.creators.length > 0
+                ? params.creators
+                : [{ address: umi.identity.publicKey.toString(), share: 100 }]
+            ).map((c) => ({ address: publicKey(c.address), percentage: c.share }));
+
+            const collectionPlugins: any[] = [
+                {
+                    type: 'Royalties',
+                    basisPoints: params.sellerFeeBasisPoints ?? 0,
+                    creators: resolvedCreators,
+                    ruleSet: ruleSet('None'),
+                },
+            ];
+            if (params.withBubblegumV2) {
+                collectionPlugins.push({ type: 'BubblegumV2' });
+            }
+
             let builder = createCoreCollectionIx(umi, {
                 collection: collectionSigner,
                 name: params.name,
                 uri: params.uri,
-                // BubblegumV2 plugin is required for any collection that will
-                // receive compressed NFTs via Bubblegum's `mintV2`. Without it,
-                // the mint fails with `CollectionMustHaveBubblegumPlugin`.
-                plugins: params.withBubblegumV2
-                    ? [{ type: 'BubblegumV2' }]
-                    : undefined,
+                plugins: collectionPlugins,
             })
                 .add({
                     instruction: {
@@ -621,6 +641,10 @@ export async function mintCompressedCoreNft(
     }
 
     let builder = mintV2(umi, {
+        // CRITICAL for Bubblegum V2 + Core: the collection's update authority
+        // (or a delegate) MUST sign the mint, otherwise the cNFT is not
+        // linked/verified into the Core Collection.
+        collectionAuthority: umi.identity,
         leafOwner,
         merkleTree: tree,
         treeConfig,
@@ -798,6 +822,9 @@ export async function batchMintCompressedCoreNft(
         const leafOwner = item.owner ? publicKey(item.owner) : umi.identity.publicKey;
         
         const mintIx = mintV2(umi, {
+            // CRITICAL for Bubblegum V2 + Core: collection's update authority
+            // must sign so the cNFT is verified into the Core Collection.
+            collectionAuthority: umi.identity,
             leafOwner,
             merkleTree: tree,
             treeConfig: treeConfig as any,
