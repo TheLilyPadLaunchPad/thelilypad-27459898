@@ -31,6 +31,7 @@ import {
     createCollection as createCoreCollectionIx,
     create,
     fetchCollection,
+    ruleSet,
 } from '@metaplex-foundation/mpl-core';
 import {
     createTreeV2,
@@ -71,6 +72,12 @@ export interface CartCheckoutParams {
     /** false → standard Core NFTs (1-of-1). true → compressed cNFTs (editions). */
     isCompressed: boolean;
     royaltyBasisPoints?: number;
+    /**
+     * On-chain creator attribution. Required for the asset to show a
+     * "verified creator" on marketplaces / Metaplex Core Explorer. If
+     * omitted we default to the connected wallet at 100%.
+     */
+    creators?: Array<{ address: string; share: number }>;
     onProgress?: (step: string, completed: number, total: number) => void;
 }
 
@@ -163,6 +170,7 @@ export async function executeCartCheckout(
         items,
         isCompressed,
         royaltyBasisPoints = 0,
+        creators,
         onProgress,
     } = params;
 
@@ -185,11 +193,29 @@ export async function executeCartCheckout(
     onProgress?.('Creating collection…', 0, totalSteps);
     const collectionSigner = generateSigner(umi);
 
+    // Attach a Royalties plugin so the collection (and, by inheritance, every
+    // member Asset) carries verified creator attribution. Without this,
+    // marketplaces render the collection as "unverified creator".
+    const resolvedCreators = (creators && creators.length > 0
+        ? creators
+        : [{ address: umi.identity.publicKey.toString(), share: 100 }]
+    ).map((c) => ({ address: publicKey(c.address), percentage: c.share }));
+
+    const collectionPlugins: any[] = [
+        {
+            type: 'Royalties',
+            basisPoints: royaltyBasisPoints,
+            creators: resolvedCreators,
+            ruleSet: ruleSet('None'),
+        },
+    ];
+    if (isCompressed) collectionPlugins.push({ type: 'BubblegumV2' });
+
     const collectionBuilder = createCoreCollectionIx(umi, {
         collection: collectionSigner,
         name,
         uri,
-        plugins: isCompressed ? [{ type: 'BubblegumV2' }] : undefined,
+        plugins: collectionPlugins,
     }).add(setComputeUnitPrice(umi, { microLamports: 50_000 }));
 
     const collectionResp = await collectionBuilder.sendAndConfirm(umi, {
@@ -260,6 +286,11 @@ export async function executeCartCheckout(
                 const leafOwner = item.owner ? publicKey(item.owner) : umi.identity.publicKey;
                 builder = builder.add(
                     mintV2(umi, {
+                        // CRITICAL for Bubblegum V2 + Core: the collection's
+                        // update authority (or a delegate) MUST sign the mint,
+                        // otherwise the cNFT is not linked/verified into the
+                        // Core Collection.
+                        collectionAuthority: umi.identity,
                         leafOwner,
                         merkleTree: publicKey(treeAddress),
                         treeConfig,

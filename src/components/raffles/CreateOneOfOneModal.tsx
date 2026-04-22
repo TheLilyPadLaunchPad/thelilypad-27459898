@@ -442,6 +442,10 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 })),
                 isCompressed,
                 royaltyBasisPoints,
+                // Creator attribution for the collection's Royalties plugin —
+                // required so the member NFTs show "verified creator" on
+                // Metaplex Core Explorer and marketplaces.
+                creators: [{ address: creatorAddress, share: 100 }],
                 onProgress: (label, completed, total) => {
                     setCheckoutProgress({ label, completed, total });
                 },
