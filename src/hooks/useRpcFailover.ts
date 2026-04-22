@@ -1,8 +1,8 @@
 // RPC Failover Hook - Solana focused
-// Provides Solana RPC health checking and failover
+// Provides Solana RPC health checking and failover across all configured providers
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { NetworkType, getSolanaRpcUrl, checkRpcHealth, RpcHealthStatus } from "@/config/solana";
+import { useState, useEffect, useCallback } from "react";
+import { NetworkType, getSolanaRpcUrl, getSolanaRpcList, getBestRpc, checkRpcHealth, RpcHealthStatus } from "@/config/solana";
 
 interface UseRpcFailoverReturn {
   currentRpc: string;
@@ -22,11 +22,15 @@ export const useRpcFailover = (network: NetworkType = "testnet"): UseRpcFailover
 
   const checkHealthAsync = useCallback(async () => {
     try {
-      const rpcUrl = getSolanaRpcUrl(network);
-      const status = await checkRpcHealth(rpcUrl);
-      setHealthStatuses([status]);
-      setIsHealthy(status.healthy);
-      setCurrentRpc(rpcUrl);
+      const rpcList = getSolanaRpcList(network);
+      const statuses = await Promise.all(rpcList.map(url => checkRpcHealth(url)));
+      setHealthStatuses(statuses);
+      const healthyStatuses = statuses.filter(s => s.healthy);
+      setIsHealthy(healthyStatuses.length > 0);
+      if (healthyStatuses.length > 0) {
+        const best = healthyStatuses.sort((a, b) => (a.latency ?? 9999) - (b.latency ?? 9999))[0];
+        setCurrentRpc(best.url);
+      }
     } catch (e) {
       console.error("Health check failed:", e);
       setIsHealthy(false);
@@ -35,22 +39,19 @@ export const useRpcFailover = (network: NetworkType = "testnet"): UseRpcFailover
 
   useEffect(() => {
     checkHealthAsync();
-    // Check every 2 minutes
-    const interval = setInterval(checkHealthAsync, 120000);
+    const interval = setInterval(checkHealthAsync, 120_000);
     return () => clearInterval(interval);
   }, [checkHealthAsync]);
 
   const failover = useCallback(async () => {
     setIsFailingOver(true);
     try {
-      // For Solana, we only have one RPC per network
-      const rpcUrl = getSolanaRpcUrl(network);
-      const status = await checkRpcHealth(rpcUrl);
-      if (status.healthy) {
-        setCurrentRpc(rpcUrl);
-        setIsHealthy(true);
-        return rpcUrl;
-      }
+      const best = await getBestRpc(network);
+      setCurrentRpc(best);
+      setIsHealthy(true);
+      return best;
+    } catch {
+      setIsHealthy(false);
       return null;
     } finally {
       setIsFailingOver(false);
@@ -59,7 +60,8 @@ export const useRpcFailover = (network: NetworkType = "testnet"): UseRpcFailover
 
   const resetFailedRpcs = useCallback(() => {
     setIsHealthy(true);
-  }, []);
+    setCurrentRpc(getSolanaRpcUrl(network));
+  }, [network]);
 
   return {
     currentRpc,

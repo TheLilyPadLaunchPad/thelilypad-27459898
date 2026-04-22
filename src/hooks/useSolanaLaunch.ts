@@ -39,6 +39,7 @@ import { setComputeUnitPrice } from '@metaplex-foundation/mpl-toolbox';
 import { deleteCandyMachine as deleteCoreCandyMachine, deleteCandyGuard as deleteCoreCandyGuard } from '@metaplex-foundation/mpl-core-candy-machine';
 import { SendTransactionError } from '@solana/web3.js';
 import { invalidateRpc } from '@/config/solana';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Extract human-readable error messages from Solana transaction logs
@@ -221,7 +222,54 @@ export const useSolanaLaunch = () => {
         params: CartCheckoutParams,
     ): Promise<CartCheckoutResult> => {
         const umi = await getUmi();
-        return executeCartCheckout(umi, params);
+        const creatorAddress = umi.identity.publicKey.toString();
+        const sessionId = crypto.randomUUID();
+
+        // Persist session so the creator can see it even if the tab closes mid-mint.
+        await supabase.from('mint_sessions').insert({
+            id: sessionId,
+            creator_address: creatorAddress,
+            status: 'pending',
+            items_requested: params.items.length,
+        }).throwOnError().catch((e) => console.warn('[session] insert failed:', e));
+
+        const paramsWithSession: CartCheckoutParams = {
+            ...params,
+            sessionId,
+            onTransaction: async (txType, signature, batchStart, batchEnd) => {
+                const sigHex = Buffer.from(signature).toString('hex');
+                await supabase.from('mint_transactions').insert({
+                    session_id: sessionId,
+                    tx_signature: sigHex,
+                    tx_type: txType,
+                    batch_start: batchStart ?? null,
+                    batch_end: batchEnd ?? null,
+                    status: 'confirmed',
+                }).catch((e) => console.warn('[session] tx log failed:', e));
+                params.onTransaction?.(txType, signature, batchStart, batchEnd);
+            },
+        };
+
+        try {
+            const result = await executeCartCheckout(umi, paramsWithSession);
+            const failed = result.failedItems.length;
+            const total = params.items.length;
+            const status = failed === 0 ? 'success' : failed === total ? 'failed' : 'partial';
+            await supabase.from('mint_sessions').update({
+                status,
+                items_minted: result.mintedCount,
+                collection_address: result.collectionAddress || null,
+                tree_address: result.treeAddress ?? null,
+                asset_ids: result.assetIds,
+            }).eq('id', sessionId).catch((e) => console.warn('[session] update failed:', e));
+            return result;
+        } catch (err) {
+            await supabase.from('mint_sessions').update({
+                status: 'failed',
+                error_message: err instanceof Error ? err.message : String(err),
+            }).eq('id', sessionId).catch((e) => console.warn('[session] fail update:', e));
+            throw err;
+        }
     }, [getUmi]);
 
     /**

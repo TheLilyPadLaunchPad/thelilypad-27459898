@@ -18,8 +18,8 @@ import { uploadBatchToArweave, BatchUploadItem, uploadToArweave, preFundIrysForB
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
-import { CartCheckoutModal } from "./CartCheckoutModal";
-import type { CartCostEstimate } from "@/chains";
+import { CartCheckoutModal, type CheckoutStatus } from "./CartCheckoutModal";
+import type { CartCostEstimate, CartItem } from "@/chains";
 
 interface Tier {
     name: string;
@@ -47,6 +47,8 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
     const [checkoutOpen, setCheckoutOpen] = useState(false);
     const [checkoutEstimate, setCheckoutEstimate] = useState<CartCostEstimate | null>(null);
     const [checkoutProcessing, setCheckoutProcessing] = useState(false);
+    const [checkoutStatus, setCheckoutStatus] = useState<CheckoutStatus>('idle');
+    const [checkoutMintedCount, setCheckoutMintedCount] = useState(0);
     const [checkoutProgress, setCheckoutProgress] = useState<{ label: string; completed: number; total: number }>({
         label: "",
         completed: 0,
@@ -61,6 +63,12 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
         royaltyBasisPoints: number;
         creatorAddress: string;
         userId: string;
+    } | null>(null);
+    // Partial-mint retry state: collection already exists, only failed items remain.
+    const [retryState, setRetryState] = useState<{
+        failedItems: CartItem[];
+        collectionAddress: string;
+        treeAddress?: string;
     } | null>(null);
 
     // Form
@@ -430,44 +438,68 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             pendingCheckout;
 
         setCheckoutProcessing(true);
+        setCheckoutStatus('processing');
+        const itemsToMint: CartItem[] = (retryState?.failedItems ?? mintItems).map((item) => ({
+            name: typeof item === 'object' && 'name' in item ? (item as any).name : (item as any).name,
+            uri: metadataUrl,
+            sellerFeeBasisPoints: royaltyBasisPoints,
+            owner: creatorAddress,
+        }));
+
         try {
             const result = await cartCheckout({
                 name,
                 uri: metadataUrl,
-                items: mintItems.map((item) => ({
-                    name: item.name,
-                    uri: metadataUrl,
-                    sellerFeeBasisPoints: royaltyBasisPoints,
-                    owner: creatorAddress,
-                })),
+                items: itemsToMint,
                 isCompressed,
                 royaltyBasisPoints,
-                // Creator attribution for the collection's Royalties plugin —
-                // required so the member NFTs show "verified creator" on
-                // Metaplex Core Explorer and marketplaces.
                 creators: [{ address: creatorAddress, share: 100 }],
+                resumeFrom: retryState
+                    ? { collectionAddress: retryState.collectionAddress, treeAddress: retryState.treeAddress }
+                    : undefined,
                 onProgress: (label, completed, total) => {
                     setCheckoutProgress({ label, completed, total });
                 },
             });
 
-            setCheckoutOpen(false);
-            setCheckoutProcessing(false);
-            setPendingCheckout(null);
+            setCheckoutMintedCount(result.mintedCount);
 
-            await finalizeInDb(
-                result.collectionAddress,
-                imageUrl,
-                mintItems,
-                "Solana",
-                userId,
-            );
+            if (result.failedItems.length > 0) {
+                // Partial failure — keep modal open, surface retry button.
+                const status = result.mintedCount === 0 ? 'failed' : 'partial';
+                setCheckoutStatus(status);
+                setRetryState({
+                    failedItems: result.failedItems,
+                    collectionAddress: result.collectionAddress,
+                    treeAddress: result.treeAddress,
+                });
+                setCheckoutProcessing(false);
+                // Still finalize what WAS minted.
+                if (result.mintedCount > 0) {
+                    const mintedItems = mintItems.slice(0, result.mintedCount);
+                    await finalizeInDb(result.collectionAddress, imageUrl, mintedItems, "Solana", userId);
+                }
+                return;
+            }
+
+            // Full success.
+            setCheckoutStatus('success');
+            setCheckoutProcessing(false);
+            setRetryState(null);
+            await finalizeInDb(result.collectionAddress, imageUrl, mintItems, "Solana", userId);
         } catch (error) {
             console.error("Cart checkout failed:", error);
+            setCheckoutStatus('failed');
+            setCheckoutProcessing(false);
             const raw = getErrorMessage(error);
             toast.error(raw || "Checkout failed. Your uploads are safe — try deploying again.");
-            setCheckoutProcessing(false);
         }
+    };
+
+    const handleRetryCheckout = () => {
+        if (!retryState) return;
+        setCheckoutStatus('idle');
+        handleConfirmCheckout();
     };
 
     return (
@@ -733,7 +765,12 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             {/* 2025 Cart Checkout — cost preview + single-flow deploy (Solana) */}
             <CartCheckoutModal
                 open={checkoutOpen}
-                onOpenChange={setCheckoutOpen}
+                onOpenChange={(v) => {
+                    if (!checkoutProcessing) {
+                        setCheckoutOpen(v);
+                        if (!v) { setCheckoutStatus('idle'); setRetryState(null); }
+                    }
+                }}
                 estimate={checkoutEstimate}
                 itemCount={pendingCheckout?.mintItems.length ?? 0}
                 isCompressed={pendingCheckout?.isCompressed ?? false}
@@ -742,6 +779,10 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 progressLabel={checkoutProgress.label}
                 progressCompleted={checkoutProgress.completed}
                 progressTotal={checkoutProgress.total}
+                checkoutStatus={checkoutStatus}
+                mintedCount={checkoutMintedCount}
+                failedCount={retryState?.failedItems.length ?? 0}
+                onRetry={retryState ? handleRetryCheckout : undefined}
             />
         </Dialog>
     );

@@ -12,15 +12,22 @@ export const DEVNET_RPC_LIST = [
 // Helius Configuration
 export const HELIUS_API_KEY = "0c6d7147-2cfe-4a0f-9a19-4dc723608121";
 export const HELIUS_DEVNET_URL = `https://api-devnet.helius-rpc.com/v0/transactions/?api-key=${HELIUS_API_KEY}`;
-export const HELIUS_ADDRESS_HISTORY_URL = (address: string) => 
+export const HELIUS_ADDRESS_HISTORY_URL = (address: string) =>
     `https://api-devnet.helius-rpc.com/v0/addresses/${address}/transactions/?api-key=${HELIUS_API_KEY}`;
+// Mainnet Helius key — set VITE_HELIUS_MAINNET_API_KEY in .env for premium mainnet RPC.
+export const HELIUS_MAINNET_API_KEY = import.meta.env.VITE_HELIUS_MAINNET_API_KEY as string | undefined;
+export const HELIUS_MAINNET_URL = HELIUS_MAINNET_API_KEY
+    ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_MAINNET_API_KEY}`
+    : null;
 
 export const TESTNET_RPC_LIST = [
     "https://api.testnet.solana.com",
 ];
 
-export const MAINNET_RPC_LIST = [
+export const MAINNET_RPC_LIST: string[] = [
+    ...(HELIUS_MAINNET_URL ? [HELIUS_MAINNET_URL] : []),
     "https://api.mainnet-beta.solana.com",
+    "https://solana-mainnet.rpc.extrnode.com",
 ];
 
 export const SOLANA_DEVNET_RPC = DEVNET_RPC_LIST[0];

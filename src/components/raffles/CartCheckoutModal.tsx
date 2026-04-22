@@ -18,8 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ShoppingCart, Check, Zap } from "lucide-react";
+import { Loader2, ShoppingCart, Check, Zap, AlertTriangle, RefreshCw, CheckCircle2 } from "lucide-react";
 import type { CartCostEstimate } from "@/chains";
+
+export type CheckoutStatus = 'idle' | 'processing' | 'success' | 'partial' | 'failed';
 
 interface CartCheckoutModalProps {
     open: boolean;
@@ -32,6 +34,10 @@ interface CartCheckoutModalProps {
     progressLabel?: string;
     progressCompleted?: number;
     progressTotal?: number;
+    checkoutStatus?: CheckoutStatus;
+    mintedCount?: number;
+    failedCount?: number;
+    onRetry?: () => void;
 }
 
 const fmtSol = (n: number) => `${n.toFixed(5)} SOL`;
@@ -47,11 +53,16 @@ export function CartCheckoutModal({
     progressLabel,
     progressCompleted = 0,
     progressTotal = 1,
+    checkoutStatus = 'idle',
+    mintedCount,
+    failedCount = 0,
+    onRetry,
 }: CartCheckoutModalProps) {
     const progressPct = progressTotal > 0 ? Math.round((progressCompleted / progressTotal) * 100) : 0;
+    const isDone = checkoutStatus === 'success' || checkoutStatus === 'partial' || checkoutStatus === 'failed';
 
     return (
-        <Dialog open={open} onOpenChange={(v) => !isProcessing && onOpenChange(v)}>
+        <Dialog open={open} onOpenChange={(v) => !isProcessing && onOpenChange(v)} >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -107,7 +118,7 @@ export function CartCheckoutModal({
                         </div>
                     )}
 
-                    {/* Progress */}
+                    {/* Progress (while processing) */}
                     {isProcessing && (
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 text-sm">
@@ -120,6 +131,40 @@ export function CartCheckoutModal({
                             </p>
                         </div>
                     )}
+
+                    {/* Result status banner */}
+                    {isDone && (
+                        <div className={`rounded-lg border p-3 flex items-start gap-3 text-sm ${
+                            checkoutStatus === 'success'
+                                ? 'bg-green-500/10 border-green-500/30 text-green-600'
+                                : checkoutStatus === 'partial'
+                                ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-600'
+                                : 'bg-destructive/10 border-destructive/30 text-destructive'
+                        }`}>
+                            {checkoutStatus === 'success' && <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />}
+                            {checkoutStatus === 'partial' && <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />}
+                            {checkoutStatus === 'failed'  && <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />}
+                            <div>
+                                {checkoutStatus === 'success' && (
+                                    <p className="font-medium">All {mintedCount ?? itemCount} NFTs minted successfully!</p>
+                                )}
+                                {checkoutStatus === 'partial' && (
+                                    <>
+                                        <p className="font-medium">
+                                            {mintedCount}/{itemCount} NFTs minted &mdash; {failedCount} failed.
+                                        </p>
+                                        <p className="text-xs mt-0.5">Your collection is live. Use &ldquo;Retry Failed Items&rdquo; to mint the rest.</p>
+                                    </>
+                                )}
+                                {checkoutStatus === 'failed' && (
+                                    <>
+                                        <p className="font-medium">Mint failed. Your collection was created.</p>
+                                        <p className="text-xs mt-0.5">Click &ldquo;Retry&rdquo; to attempt minting again.</p>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <DialogFooter className="gap-2 sm:gap-0">
@@ -128,21 +173,29 @@ export function CartCheckoutModal({
                         onClick={() => onOpenChange(false)}
                         disabled={isProcessing}
                     >
-                        Cancel
+                        {isDone ? 'Close' : 'Cancel'}
                     </Button>
-                    <Button onClick={onConfirm} disabled={isProcessing || !estimate}>
-                        {isProcessing ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                Deploying…
-                            </>
-                        ) : (
-                            <>
-                                <Check className="w-4 h-4 mr-2" />
-                                Confirm & Deploy
-                            </>
-                        )}
-                    </Button>
+                    {(checkoutStatus === 'partial' || checkoutStatus === 'failed') && onRetry && (
+                        <Button variant="secondary" onClick={onRetry} disabled={isProcessing}>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Retry {failedCount > 0 ? `${failedCount} Failed` : 'Items'}
+                        </Button>
+                    )}
+                    {!isDone && (
+                        <Button onClick={onConfirm} disabled={isProcessing || !estimate}>
+                            {isProcessing ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                    Deploying…
+                                </>
+                            ) : (
+                                <>
+                                    <Check className="w-4 h-4 mr-2" />
+                                    Confirm & Deploy
+                                </>
+                            )}
+                        </Button>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

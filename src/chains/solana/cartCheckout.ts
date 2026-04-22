@@ -79,6 +79,15 @@ export interface CartCheckoutParams {
      */
     creators?: Array<{ address: string; share: number }>;
     onProgress?: (step: string, completed: number, total: number) => void;
+    /** Skip collection/tree creation and reuse existing addresses (resume after partial failure). */
+    resumeFrom?: {
+        collectionAddress: string;
+        treeAddress?: string;
+    };
+    /** Session ID for idempotency tracking (written by caller). */
+    sessionId?: string;
+    /** Called after each tx to record the signature (used for session logging). */
+    onTransaction?: (txType: 'collection' | 'tree' | 'mint_batch', signature: Uint8Array, batchStart?: number, batchEnd?: number) => void;
 }
 
 export interface CartCheckoutResult {
@@ -86,6 +95,10 @@ export interface CartCheckoutResult {
     treeAddress?: string;
     assetIds: string[];
     signatures: Uint8Array[];
+    /** Items that failed to mint — non-empty means a partial failure occurred. */
+    failedItems: CartItem[];
+    /** Number of items successfully minted. */
+    mintedCount: number;
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -187,9 +200,16 @@ export async function executeCartCheckout(
         collectionAddress: '',
         assetIds: [],
         signatures: [],
+        failedItems: [],
+        mintedCount: 0,
     };
 
-    // ── Step 1: Create Core Collection ──────────────────────────────
+    // ── Step 1: Create Core Collection (or resume from existing) ───
+    if (params.resumeFrom) {
+        result.collectionAddress = params.resumeFrom.collectionAddress;
+        if (params.resumeFrom.treeAddress) result.treeAddress = params.resumeFrom.treeAddress;
+        bumpStep('Resuming from existing collection');
+    }
     onProgress?.('Creating collection…', 0, totalSteps);
     const collectionSigner = generateSigner(umi);
 
@@ -218,17 +238,21 @@ export async function executeCartCheckout(
         plugins: collectionPlugins,
     }).add(setComputeUnitPrice(umi, { microLamports: 50_000 }));
 
-    const collectionResp = await collectionBuilder.sendAndConfirm(umi, {
-        send: { skipPreflight: false },
-        confirm: { commitment: 'confirmed' },
-    });
-    result.collectionAddress = collectionSigner.publicKey.toString();
-    result.signatures.push(collectionResp.signature);
-    bumpStep('Collection created');
+    let skipCollection = !!params.resumeFrom;
+    if (!skipCollection) {
+        const collectionResp = await collectionBuilder.sendAndConfirm(umi, {
+            send: { skipPreflight: false },
+            confirm: { commitment: 'confirmed' },
+        });
+        result.collectionAddress = collectionSigner.publicKey.toString();
+        result.signatures.push(collectionResp.signature);
+        params.onTransaction?.('collection', collectionResp.signature);
+        bumpStep('Collection created');
+    }
 
     // ── Step 2 (compressed only): Create Bubblegum tree ─────────────
-    let treeAddress: string | undefined;
-    if (isCompressed) {
+    let treeAddress: string | undefined = params.resumeFrom?.treeAddress;
+    if (isCompressed && !treeAddress) {
         onProgress?.('Creating merkle tree…', stepIndex, totalSteps);
         const merkleTree = generateSigner(umi);
         const { maxDepth, maxBufferSize, canopyDepth } = pickTreeParams(items.length);
@@ -248,6 +272,7 @@ export async function executeCartCheckout(
         treeAddress = merkleTree.publicKey.toString();
         result.treeAddress = treeAddress;
         result.signatures.push(treeResp.signature);
+        params.onTransaction?.('tree', treeResp.signature);
         bumpStep('Merkle tree created');
 
         // Brief propagation wait — same RPC + confirmed commitment is usually <1s.
@@ -323,14 +348,22 @@ export async function executeCartCheckout(
             }
         }
 
-        const resp = await builder.sendAndConfirm(umi, {
-            send: { commitment: 'confirmed', maxRetries: 3 },
-            confirm: { commitment: 'confirmed' },
-        });
-        result.signatures.push(resp.signature);
-        result.assetIds.push(...batchAssetIds);
-        bumpStep(`Batch ${batchNumber}/${totalBatches} minted`);
+        try {
+            const resp = await builder.sendAndConfirm(umi, {
+                send: { commitment: 'confirmed', maxRetries: 3 },
+                confirm: { commitment: 'confirmed' },
+            });
+            result.signatures.push(resp.signature);
+            result.assetIds.push(...batchAssetIds);
+            params.onTransaction?.('mint_batch', resp.signature, i, i + batch.length - 1);
+            bumpStep(`Batch ${batchNumber}/${totalBatches} minted`);
+        } catch (batchErr) {
+            console.error(`[cartCheckout] Batch ${batchNumber} failed:`, batchErr);
+            result.failedItems.push(...batch);
+            bumpStep(`Batch ${batchNumber}/${totalBatches} failed`);
+        }
     }
+    result.mintedCount = items.length - result.failedItems.length;
 
     onProgress?.('Complete!', totalSteps, totalSteps);
     return result;
