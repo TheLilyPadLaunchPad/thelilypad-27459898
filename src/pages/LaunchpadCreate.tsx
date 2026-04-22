@@ -64,6 +64,7 @@ import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getDbChainValue } from "@/config/chains";
 import { getLaunchpadConfig, CollectionMode } from "@/config/launchpad";
 import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata, loadUploadProgress, clearUploadProgress, preFundIrysForBatch } from "@/integrations/irys/client";
+import { getErrorMessage } from "@/lib/errorUtils";
 import { Progress } from "@/components/ui/progress";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
 import { Switch } from "@/components/ui/switch";
@@ -176,6 +177,138 @@ export default function LaunchpadCreate() {
     const [hasResumableUpload, setHasResumableUpload] = useState(false);
     const [resumeKey, setResumeKey] = useState<string>("");
     const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
+
+    // Deploy confirmation modal — shown after upload completes, before on-chain txs
+    const handleConfirmOnChainDeploy = async () => {
+        if (!pendingOnChainDeploy) return;
+        const { collectionId, itemLinks, primaryArweaveUri, assetsCount } = pendingOnChainDeploy;
+
+        setDeployCheckoutProcessing(true);
+        setDeployCheckoutStatus('processing');
+        setDeployCheckoutProgress({ label: "Deploying collection...", completed: 0, total: 1 });
+
+        try {
+            let deployedAddress = "";
+            setDeployCheckoutProgress({ label: "Deploying collection...", completed: 1, total: 3 });
+
+            if (selectedChain === 'solana') {
+                const result = await solanaLaunch.deploySolanaCollection({
+                    name,
+                    symbol,
+                    uri: primaryArweaveUri,
+                    sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
+                    creators: [{ address, share: 100 }]
+                });
+                deployedAddress = result.address;
+
+                // Create Candy Machine for Solana (skip for 1-of-1 mode)
+                if (mode !== '1of1') {
+                    setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
+                    const candyMachineItems = itemLinks.map((item, i) => ({
+                        name: `${name} #${i + 1}`,
+                        uri: item.arweaveUri
+                    }));
+
+                    const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
+                        deployedAddress,
+                        assetsCount,
+                        phases,
+                        { name, symbol, uri: primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
+                        treasuryWallet,
+                        primaryArweaveUri
+                    );
+
+                    // Insert config lines into the Candy Machine
+                    setDeployCheckoutProgress({ label: "Loading items into Candy Machine...", completed: 3, total: 3 });
+                    await solanaLaunch.insertItemsToCandyMachine(
+                        cmResult.address,
+                        candyMachineItems,
+                        15 // Max items per config-line transaction
+                    );
+                }
+            } else if (selectedChain === 'monad') {
+                const result = await monadLaunch.createCollection({
+                    name,
+                    symbol,
+                    metadataBaseUri: primaryArweaveUri,
+                    totalSupply: assetsCount
+                });
+                deployedAddress = result.address;
+            }
+
+            // Finalize DB
+            const isOffline = (supabase as any).isOffline;
+            if (!isOffline) {
+                await supabase.from("collections").update({
+                    contract_address: deployedAddress,
+                    status: "live",
+                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
+                    is_dynamic: isDynamic || false,
+                }).eq('id', collectionId);
+            }
+
+            // Decentralized index
+            try {
+                const indexedData: IndexedCollection = {
+                    id: collectionId || `offline-${Date.now()}`,
+                    name,
+                    symbol,
+                    description,
+                    chain: selectedChain,
+                    contract_address: deployedAddress,
+                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
+                    manifest_uri: primaryArweaveUri,
+                    created_at: new Date().toISOString(),
+                    creator_address: address || '',
+                    is_dynamic: isDynamic || false
+                };
+                const indexRoot = import.meta.env.VITE_INDEX_ROOT_TX;
+                await addToDecentralizedIndex(
+                    indexedData,
+                    { address, chainType: selectedChain, network },
+                    indexRoot
+                );
+            } catch (indexErr) {
+                console.warn("Decentralized indexing failed (optional):", indexErr);
+            }
+
+            setDeployCheckoutStatus('success');
+            setDeployCheckoutProcessing(false);
+            setDeployCheckoutOpen(false);
+            setPendingOnChainDeploy(null);
+
+            toast.success(
+                <div className="flex flex-col gap-1">
+                    <span className="font-bold">Successfully Launched!</span>
+                    <span className="text-xs opacity-80">Metadata secured on Arweave</span>
+                    <a
+                        href={primaryArweaveUri}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] text-primary underline mt-1"
+                    >
+                        View Arweave Manifest
+                    </a>
+                    <span className="text-[9px] opacity-60 mt-0.5">
+                        Note: Arweave links may take 5–30 min to propagate
+                    </span>
+                </div>,
+                { duration: 10000 }
+            );
+
+            clearDraft();
+            if (isOffline) {
+                navigate('/');
+            } else {
+                navigate('/launchpad');
+            }
+        } catch (e: any) {
+            console.error("On-chain deploy failed:", e);
+            setDeployCheckoutStatus('failed');
+            setDeployCheckoutProcessing(false);
+            toast.error(getErrorMessage(e) || "On-chain deployment failed. Your uploads are safe — try again.");
+        }
+    };
 
     // Deploy confirmation modal — shown after upload completes, before on-chain txs
     interface PendingOnChainDeploy {
@@ -527,140 +660,23 @@ export default function LaunchpadCreate() {
             // If the manifest was created, we can use it, otherwise fallback to first metadata
             const primaryArweaveUri = manifestUri || (itemLinks.length > 0 ? itemLinks[0].arweaveUri : "");
 
-            // ── Step 4: Chain-Specific Deployment ───────────────────────────
-            toast.loading(`Deploying on ${currentChain.name}...`, { id: 'deploy' });
-            let deployedAddress = "";
+            // ── PAUSE: Show cost preview modal before on-chain deployment ───
+            // Storage is already paid (Turbo auto-debited during upload)
+            // Estimate on-chain costs only
+            const isCompressed = !is1of1; // generative/editions use compressed NFTs
+            const onChainEstimate = solanaLaunch.estimateCheckoutCost(assetsToUpload.length, 0, isCompressed);
 
-            if (selectedChain === 'solana') {
-                const result = await solanaLaunch.deploySolanaCollection({
-                    name,
-                    symbol,
-                    uri: primaryArweaveUri,
-                    sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
-                    creators: [{ address, share: 100 }]
-                });
-                deployedAddress = result.address;
-
-                // Create Candy Machine for Solana
-                if (mode !== '1of1') {
-                    const candyMachineItems = itemLinks.map((item, i) => ({
-                        name: `${name} #${i + 1}`,
-                        uri: item.arweaveUri
-                    }));
-
-                    toast.loading("Creating Candy Machine...", { id: 'deploy' });
-                    const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
-                        deployedAddress,
-                        assetsToUpload.length,
-                        phases,
-                        { name, symbol, uri: primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
-                        treasuryWallet,
-                        primaryArweaveUri
-                    );
-
-                    // Insert config lines into the Candy Machine so minting works
-                    toast.loading(`Finalizing: Loading ${candyMachineItems.length} items into launchpad...`, { id: 'deploy' });
-                    await solanaLaunch.insertItemsToCandyMachine(
-                        cmResult.address,
-                        candyMachineItems,
-                        15 // Max items per config-line transaction
-                    );
-                }
-            } else if (selectedChain === 'monad') {
-                const result = await monadLaunch.createCollection({
-                    name,
-                    symbol,
-                    metadataBaseUri: primaryArweaveUri, // Base Arweave Manifest or single metadata
-                    totalSupply: assetsToUpload.length
-                });
-                deployedAddress = result.address;
-            }
-
-            // ── Step 5: Finalize DB (Optional in Decentralized Mode) ────────
-            const isOffline = (supabase as any).isOffline;
-
-            if (!isOffline) {
-                await supabase.from("collections").update({
-                    contract_address: deployedAddress,
-                    status: "live",
-                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
-                    is_dynamic: isDynamic || false,
-                }).eq('id', collectionId);
-            }
-
-            // ── Step 5b: Insert audio metadata for Music NFTs ───────────────
-            if (!isOffline && flowType === 'music' && tracks.length > 0) {
-                try {
-                    const audioRows = tracks.map((track, i) => ({
-                        collection_id: collectionId,
-                        artwork_id: String(i),
-                        audio_url: assetsToUpload[i]?.metadata?._audioUri || '',
-                        cover_art_url: itemLinks[i]?.arweaveImageUri || '',
-                        artist: track.metadata.artist || null,
-                        album: track.metadata.album || null,
-                        genre: track.metadata.genre || null,
-                        bpm: track.metadata.bpm || null,
-                        duration_seconds: track.metadata.durationSeconds || null,
-                        track_number: track.metadata.trackNumber || null,
-                    }));
-                    await supabase.from('collection_audio_metadata').insert(audioRows);
-                } catch (audioErr) {
-                    console.warn('[Music] Failed to insert audio metadata:', audioErr);
-                }
-            }
-
-            try {
-                const indexedData: IndexedCollection = {
-                    id: collectionId || `offline-${Date.now()}`,
-                    name,
-                    symbol,
-                    description,
-                    chain: selectedChain,
-                    contract_address: deployedAddress,
-                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
-                    manifest_uri: primaryArweaveUri,
-                    created_at: new Date().toISOString(),
-                    creator_address: address || '',
-                    is_dynamic: isDynamic || false
-                };
-
-                const indexRoot = import.meta.env.VITE_INDEX_ROOT_TX;
-                const newIndexUri = await addToDecentralizedIndex(
-                    indexedData,
-                    { address, chainType: selectedChain, network },
-                    indexRoot
-                );
-
-                console.log("[Decentralized] Index updated. If you are using a new index, save this root:",
-                    newIndexUri.split('/').pop());
-            } catch (indexErr) {
-                console.warn("Decentralized indexing failed (optional):", indexErr);
-            }
-
-            toast.success(
-                <div className="flex flex-col gap-1">
-                    <span className="font-bold">Successfully Launched!</span>
-                    <span className="text-xs opacity-80">Metadata secured on Arweave</span>
-                    <a
-                        href={primaryArweaveUri}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] text-primary underline mt-1"
-                    >
-                        View Arweave Manifest
-                    </a>
-                </div>,
-                { id: 'deploy', duration: 10000 }
-            );
-
-            clearDraft();
-
-            // If offline, redirect to home instead of an empty launchpad list
-            if (isOffline) {
-                navigate('/');
-            } else {
-                navigate('/launchpad');
-            }
+            setPendingOnChainDeploy({
+                collectionId,
+                itemLinks,
+                primaryArweaveUri,
+                assetsCount: assetsToUpload.length,
+            });
+            setDeployCheckoutEstimate(onChainEstimate);
+            setDeployCheckoutOpen(true);
+            setIsDeploying(false); // Allow user to interact with modal
+            toast.dismiss('deploy');
+            return; // Exit here — on-chain deploy runs after modal confirm
 
         } catch (e: any) {
             console.error("Launch Error:", e);
@@ -1065,6 +1081,29 @@ export default function LaunchpadCreate() {
                     </div>
                 </div>
             </main>
+
+            {/* Deploy confirmation modal — shown after upload completes */}
+            <CartCheckoutModal
+                open={deployCheckoutOpen}
+                onOpenChange={(v) => {
+                    if (!deployCheckoutProcessing) {
+                        setDeployCheckoutOpen(v);
+                        if (!v) { setDeployCheckoutStatus('idle'); setPendingOnChainDeploy(null); }
+                    }
+                }}
+                estimate={deployCheckoutEstimate}
+                itemCount={pendingOnChainDeploy?.assetsCount ?? 0}
+                isCompressed={!is1of1}
+                onConfirm={handleConfirmOnChainDeploy}
+                isProcessing={deployCheckoutProcessing}
+                progressLabel={deployCheckoutProgress.label}
+                progressCompleted={deployCheckoutProgress.completed}
+                progressTotal={deployCheckoutProgress.total}
+                checkoutStatus={deployCheckoutStatus}
+                mintedCount={0}
+                failedCount={0}
+                onRetry={undefined}
+            />
         </div>
     );
 }

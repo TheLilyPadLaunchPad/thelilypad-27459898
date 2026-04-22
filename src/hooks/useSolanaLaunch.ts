@@ -231,7 +231,7 @@ export const useSolanaLaunch = () => {
             creator_address: creatorAddress,
             status: 'pending',
             items_requested: params.items.length,
-        }).throwOnError().catch((e) => console.warn('[session] insert failed:', e));
+        }).catch((e) => console.warn('[session] insert failed:', e));
 
         const paramsWithSession: CartCheckoutParams = {
             ...params,
