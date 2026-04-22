@@ -101,11 +101,15 @@ export function useWalletNFTs(
             (g: any) => g.group_key === 'collection'
           );
 
-          // Get image URL
+          // Get image URL — prefer DAS cdn_uri (already proxied), then raw uri.
+          // Never fall back to json_uri: that is a JSON metadata file, not an image.
+          const imageFile = (asset.content.files as any[])?.find(
+            (f: any) => f.mime?.startsWith('image/')
+          );
           const image =
             (asset.content.links as any)?.image ||
-            (asset.content.files as any[])?.find((f: any) => f.mime?.startsWith('image/'))?.uri ||
-            asset.content.json_uri ||
+            imageFile?.cdn_uri ||
+            imageFile?.uri ||
             "";
 
           // Map attributes

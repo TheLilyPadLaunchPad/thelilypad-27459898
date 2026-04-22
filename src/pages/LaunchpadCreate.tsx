@@ -71,6 +71,8 @@ import { Check, Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
 import { getRpcUrl } from "@/config/solana";
+import { CartCheckoutModal, type CheckoutStatus } from "@/components/raffles/CartCheckoutModal";
+import type { CartCostEstimate } from "@/chains";
 
 // Default Phases
 const defaultPhases: LaunchpadPhase[] = [
@@ -174,6 +176,20 @@ export default function LaunchpadCreate() {
     const [hasResumableUpload, setHasResumableUpload] = useState(false);
     const [resumeKey, setResumeKey] = useState<string>("");
     const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
+
+    // Deploy confirmation modal — shown after upload completes, before on-chain txs
+    interface PendingOnChainDeploy {
+        collectionId: string;
+        itemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[];
+        primaryArweaveUri: string;
+        assetsCount: number;
+    }
+    const [pendingOnChainDeploy, setPendingOnChainDeploy] = useState<PendingOnChainDeploy | null>(null);
+    const [deployCheckoutOpen, setDeployCheckoutOpen] = useState(false);
+    const [deployCheckoutProcessing, setDeployCheckoutProcessing] = useState(false);
+    const [deployCheckoutStatus, setDeployCheckoutStatus] = useState<CheckoutStatus>('idle');
+    const [deployCheckoutEstimate, setDeployCheckoutEstimate] = useState<CartCostEstimate | null>(null);
+    const [deployCheckoutProgress, setDeployCheckoutProgress] = useState({ label: "", completed: 0, total: 1 });
 
 
     useEffect(() => {

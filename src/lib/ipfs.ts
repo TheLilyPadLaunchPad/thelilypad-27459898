@@ -15,15 +15,35 @@
 
 // ── Gateway URLs ──────────────────────────────────────────────────────────────
 
-/** Primary IPFS gateway (Cloudflare) */
-export const IPFS_GATEWAY = "https://cloudflare-ipfs.com";
+/** Primary IPFS gateway (ipfs.io — free, no key required) */
+export const IPFS_GATEWAY = "https://ipfs.io";
 
-/** Fallback gateways (used if Cloudflare is unavailable) */
+/** Fallback gateways */
 export const IPFS_FALLBACK_GATEWAYS = [
     "https://dweb.link",
-    "https://ipfs.io",
     "https://w3s.link",
+    "https://cf-ipfs.com",
 ] as const;
+
+/**
+ * Resolve an Arweave transaction ID to the canonical arweave.net URL.
+ * Irys/Turbo may return gateway.irys.xyz or arweave.net — normalise to arweave.net.
+ */
+export function arweaveToHttp(uriOrId: string): string {
+    if (!uriOrId) return "";
+    if (uriOrId.startsWith("https://arweave.net/")) return uriOrId;
+    if (uriOrId.startsWith("https://gateway.irys.xyz/")) {
+        return uriOrId.replace("https://gateway.irys.xyz/", "https://arweave.net/");
+    }
+    if (uriOrId.startsWith("https://devnet.irys.xyz/")) {
+        return uriOrId.replace("https://devnet.irys.xyz/", "https://arweave.net/");
+    }
+    // Bare TX ID (43-char base64url)
+    if (/^[a-zA-Z0-9_-]{43}$/.test(uriOrId)) {
+        return `https://arweave.net/${uriOrId}`;
+    }
+    return uriOrId;
+}
 
 // ── Converters ────────────────────────────────────────────────────────────────
 
@@ -84,7 +104,7 @@ function rewriteGateway(url: string, preferredGateway: string): string {
     const legacyPatterns = [
         /https?:\/\/gateway\.pinata\.cloud\/ipfs\//,
         /https?:\/\/[^/]+\.mypinata\.cloud\/ipfs\//,
-        /https?:\/\/ipfs\.io\/ipfs\//,
+        /https?:\/\/cloudflare-ipfs\.com\/ipfs\//,
         /https?:\/\/dweb\.link\/ipfs\//,
         /https?:\/\/w3s\.link\/ipfs\//,
         /https?:\/\/nftstorage\.link\/ipfs\//,
