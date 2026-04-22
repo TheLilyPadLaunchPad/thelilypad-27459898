@@ -11,6 +11,8 @@ import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { ListNFTModal } from "@/components/ListNFTModal";
 import { CreateRaffleForNFT } from "@/components/raffles/CreateRaffleForNFT";
+import { BurnNFTModal } from "@/components/BurnNFTModal";
+import { ViewOffersModal } from "@/components/ViewOffersModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
 import { ipfsToHttp } from "@/lib/ipfs";
@@ -38,7 +40,9 @@ import {
   Star,
   Gem,
   Ticket,
-  Globe
+  Globe,
+  Flame,
+  MessageSquare
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Input } from "@/components/ui/input";
@@ -119,6 +123,8 @@ export default function MyNFTs() {
   const [transferNft, setTransferNft] = useState<NFT | null>(null);
   const [listNft, setListNft] = useState<NFT | null>(null);
   const [raffleNft, setRaffleNft] = useState<NFT | null>(null);
+  const [burnNft, setBurnNft] = useState<NFT | null>(null);
+  const [offersNft, setOffersNft] = useState<NFT | null>(null);
   const [listedNftIds, setListedNftIds] = useState<Set<string>>(new Set());
   const [listingsMap, setListingsMap] = useState<Map<string, { id: string; price: number }>>(new Map());
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
@@ -1198,6 +1204,39 @@ export default function MyNFTs() {
                       Transfer NFT
                     </Button>
 
+                    {/* View Offers Button - Only for DB-backed NFTs */}
+                    {selectedNft.source !== 'onchain' && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedNft(null);
+                          setOffersNft(selectedNft);
+                        }}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        View Offers
+                      </Button>
+                    )}
+
+                    {/* Burn Button - Works for any NFT with on-chain address */}
+                    {(selectedNft.source === 'onchain' || selectedNft.collection?.contract_address) && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedNft(null);
+                          setBurnNft(selectedNft);
+                        }}
+                        disabled={listedNftIds.has(selectedNft.id)}
+                      >
+                        <Flame className="w-4 h-4 mr-2" />
+                        Burn NFT
+                      </Button>
+                    )}
+
                     <div className="flex gap-2">
                       {/* On-chain NFTs: view asset on explorer; DB NFTs: view TX */}
                       {selectedNft.source === 'onchain' && selectedNft.onChainAddress ? (
@@ -1295,6 +1334,39 @@ export default function MyNFTs() {
           setRaffleNft(null);
           fetchNFTs();
           toast.success("Raffle created! Check the Raffles page.");
+        }}
+      />
+
+      {/* Burn NFT Modal */}
+      <BurnNFTModal
+        open={!!burnNft}
+        onOpenChange={(open) => !open && setBurnNft(null)}
+        nft={burnNft ? {
+          id: burnNft.id,
+          name: burnNft.name,
+          image_url: burnNft.image_url,
+          assetAddress: burnNft.onChainAddress || burnNft.collection?.contract_address || null,
+          collectionAddress: burnNft.collection?.contract_address || null,
+          source: burnNft.source,
+        } : null}
+        onBurnSuccess={() => {
+          setBurnNft(null);
+          fetchNFTs();
+          toast.success("NFT burned successfully");
+        }}
+      />
+
+      {/* View Offers Modal */}
+      <ViewOffersModal
+        open={!!offersNft}
+        onOpenChange={(open) => !open && setOffersNft(null)}
+        nft={offersNft ? {
+          id: offersNft.id,
+          name: offersNft.name,
+          image_url: offersNft.image_url,
+        } : null}
+        onAnyChange={() => {
+          fetchNFTs();
         }}
       />
     </div>
