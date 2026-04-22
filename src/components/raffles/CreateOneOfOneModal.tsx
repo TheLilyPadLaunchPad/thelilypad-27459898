@@ -18,6 +18,8 @@ import { uploadBatchToArweave, BatchUploadItem, uploadToArweave, preFundIrysForB
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
+import { CartCheckoutModal } from "./CartCheckoutModal";
+import type { CartCostEstimate } from "@/chains";
 
 interface Tier {
     name: string;
@@ -35,11 +37,31 @@ interface CreateOneOfOneModalProps {
 }
 
 export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'solana' }: CreateOneOfOneModalProps) {
-    const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore, batchMintCompressedCore, batchMintCore } = useSolanaLaunch();
+    const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore, batchMintCompressedCore, batchMintCore, cartCheckout, estimateCheckoutCost } = useSolanaLaunch();
     const { createCollection: deployMonadCollection, mintNFT: mintMonadNFT } = useMonadLaunch();
     const { getSolanaProvider, address, isConnected, chainType, network } = useWallet();
     const [mode, setMode] = useState<"one-of-one" | "edition">("one-of-one");
     const [isLoading, setIsLoading] = useState(false);
+
+    // Cart checkout state — populated after upload completes, drives the preview modal.
+    const [checkoutOpen, setCheckoutOpen] = useState(false);
+    const [checkoutEstimate, setCheckoutEstimate] = useState<CartCostEstimate | null>(null);
+    const [checkoutProcessing, setCheckoutProcessing] = useState(false);
+    const [checkoutProgress, setCheckoutProgress] = useState<{ label: string; completed: number; total: number }>({
+        label: "",
+        completed: 0,
+        total: 1,
+    });
+    // Prepared data carried from upload → checkout confirmation.
+    const [pendingCheckout, setPendingCheckout] = useState<{
+        imageUrl: string;
+        metadataUrl: string;
+        mintItems: { name: string; tier: string }[];
+        isCompressed: boolean;
+        royaltyBasisPoints: number;
+        creatorAddress: string;
+        userId: string;
+    } | null>(null);
 
     // Form
     const [name, setName] = useState("");
@@ -236,193 +258,42 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                 }
                 toast.dismiss("deploy");
             } else {
-                // Solana logic
+                // ── Solana: Cart Checkout flow ─────────────────────────
+                // Uploads are done. Stash everything we need for the on-chain
+                // step and pop the cost-preview modal. The actual collection
+                // deployment + minting happens in handleConfirmCheckout() only
+                // after the creator confirms the aggregated cost.
                 const provider = getSolanaProvider();
                 if (!provider) throw new Error("Solana Wallet not connected");
 
                 const creatorAddress = (provider as any)?.publicKey?.toString?.() || address;
-
-                toast.loading("Deploying Solana collection...", { id: "deploy" });
                 const royaltyBasisPoints = Math.round(parseFloat(royaltyPercent || "0") * 100);
                 const isOneOfOne = mintItems.length === 1;
+                // 1-of-1 → standard Core NFT. Editions → compressed via Bubblegum.
+                const isCompressed = !isOneOfOne;
 
-                const result = await deploySolanaCollection({
-                    name,
-                    symbol,
-                    uri: metadataUrl,
-                    sellerFeeBasisPoints: royaltyBasisPoints,
-                    creators: [{ address: creatorAddress, share: 100 }],
-                    // BubblegumV2 plugin is only needed for compressed NFTs (editions).
-                    // 1-of-1 uses standard Core NFTs which don't need it.
-                    withBubblegumV2: !isOneOfOne,
+                // Storage cost is already paid (Turbo auto-debited during upload);
+                // we pass 0 bytes so the preview shows only the remaining on-chain cost.
+                const estimate = estimateCheckoutCost(mintItems.length, 0, isCompressed);
+
+                setPendingCheckout({
+                    imageUrl,
+                    metadataUrl,
+                    mintItems,
+                    isCompressed,
+                    royaltyBasisPoints,
+                    creatorAddress,
+                    userId,
                 });
-
-                if (result?.address) {
-                    txHash = result.address;
-
-                    if (isOneOfOne) {
-                        // 1-of-1: mint a single standard Core NFT (not compressed)
-                        toast.loading(`Minting 1/1 Core NFT...`, { id: "deploy" });
-                        await batchMintCore(result.address, [{
-                            name: mintItems[0].name,
-                            uri: metadataUrl,
-                            sellerFeeBasisPoints: royaltyBasisPoints,
-                            owner: creatorAddress,
-                        }]);
-                    } else {
-                        // Edition: compressed NFTs via Bubblegum tree
-                        toast.loading("Deploying Bubblegum Tree for compressed NFTs...", { id: "deploy" });
-                        const treeDepth = mintItems.length <= 8 ? 3 : mintItems.length <= 16 ? 5 : 14;
-                        const treeBuffer = mintItems.length <= 8 ? 8 : mintItems.length <= 16 ? 8 : 64;
-                        const treeCanopy = mintItems.length <= 8 ? 0 : mintItems.length <= 16 ? 0 : 8;
-                        const treeAddress = await deployBubblegumTree(treeDepth, treeBuffer, treeCanopy);
-                        if (!treeAddress) {
-                            throw new Error("Failed to deploy Bubblegum Tree. Collection was created but NFTs could not be minted.");
-                        }
-
-                        // Batch mint for editions — up to 10 per transaction
-                        const batchItems = mintItems.map(item => ({
-                            name: item.name,
-                            uri: metadataUrl,
-                            sellerFeeBasisPoints: royaltyBasisPoints,
-                            owner: creatorAddress,
-                        }));
-
-                        const BATCH_SIZE = 10;
-                        for (let i = 0; i < batchItems.length; i += BATCH_SIZE) {
-                            const chunk = batchItems.slice(i, i + BATCH_SIZE);
-                            toast.loading(`Minting batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(batchItems.length / BATCH_SIZE)} (${chunk.length} NFTs)...`, { id: "deploy" });
-                            await batchMintCompressedCore(treeAddress, result.address, chunk);
-                        }
-                    }
-                }
-                toast.dismiss("deploy");
+                setCheckoutEstimate(estimate);
+                setCheckoutProgress({ label: "", completed: 0, total: estimate.transactionCount });
+                setCheckoutOpen(true);
+                setIsLoading(false);
+                return; // Hand off to cart checkout modal.
             }
 
-            // Insert into the Database for All Chains so they show in "My NFTs"
-            toast.loading("Finalizing NFT...", { id: "finalize" });
-
-            // Supabase requests can occasionally hang on flaky networks, which
-            // would freeze the "Finalizing NFT..." toast forever. Race every DB
-            // call against a hard timeout so the user always gets resolution.
-            const FINALIZE_TIMEOUT_MS = 20_000;
-            const withTimeout = <T,>(p: PromiseLike<T>, label: string): Promise<T> =>
-                Promise.race<T>([
-                    Promise.resolve(p),
-                    new Promise<T>((_, reject) =>
-                        setTimeout(
-                            () => reject(new Error(`${label} timed out after ${FINALIZE_TIMEOUT_MS / 1000}s`)),
-                            FINALIZE_TIMEOUT_MS,
-                        ),
-                    ),
-                ]);
-
-            let collectionId: string | null = null;
-            let collectionError: { message?: string } | null = null;
-            try {
-                const collectionsQuery = supabase
-                    .from("collections")
-                    .insert({
-                        name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
-                        symbol,
-                        description: description,
-                        image_url: imageUrl,
-                        creator_id: userId,
-                        creator_address: address,
-                        contract_address: txHash,
-                        chain: getDbChainValue(chain, network as 'mainnet' | 'testnet'),
-                        collection_type: mode === 'one-of-one' ? '1of1' : 'editions',
-                        total_supply: mintItems.length,
-                        status: 'upcoming',
-                        media_type: audioFile ? 'audio' : 'image',
-                    })
-                    .select("id")
-                    .single();
-                type CollectionsResult = Awaited<typeof collectionsQuery>;
-                const { data: collectionInsert, error } = await withTimeout<CollectionsResult>(
-                    collectionsQuery,
-                    "Collection database save",
-                );
-                collectionError = error;
-                collectionId = error ? null : (collectionInsert?.id ?? null);
-            } catch (e) {
-                console.error("collections insert failed/timed out:", e);
-                collectionError = { message: e instanceof Error ? e.message : String(e) };
-            }
-
-            const finalMintItems = [];
-            if (mode === "edition" && useTiers && tiers.length > 0) {
-                for (const tier of tiers) {
-                    for (let i = 0; i < tier.supply; i++) {
-                        finalMintItems.push({
-                            name: `${name} - ${tier.name} #${i + 1}`,
-                            tier: tier.name,
-                            tokenId: finalMintItems.length + 1
-                        });
-                    }
-                }
-            } else {
-                const supplyCount = mode === "edition" ? parseInt(supply) || 1 : 1;
-                for (let i = 0; i < supplyCount; i++) {
-                    finalMintItems.push({
-                        name: `${name} ${mode === "edition" ? '#' + (i + 1) : ''}`.trim(),
-                        tier: mode === "edition" ? "Edition" : "1/1",
-                        tokenId: i + 1
-                    });
-                }
-            }
-
-            const nftRecords = [];
-            for (const item of finalMintItems) {
-                nftRecords.push({
-                    name: item.name,
-                    description: description,
-                    image_url: imageUrl,
-                    collection_id: collectionId,
-                    owner_address: address,
-                    owner_id: userId,
-                    token_id: item.tokenId,
-                    tx_hash: `${txHash}_${item.tokenId}`,
-                    attributes: [
-                        { trait_type: "Type", value: item.tier },
-                        { trait_type: "Chain", value: chainName }
-                    ],
-                    is_revealed: true
-                });
-            }
-
-            let insertError: { message?: string } | null = null;
-            try {
-                const nftsQuery = supabase.from("minted_nfts").insert(nftRecords);
-                type NftsResult = Awaited<typeof nftsQuery>;
-                const { error } = await withTimeout<NftsResult>(
-                    nftsQuery,
-                    "NFT database save",
-                );
-                insertError = error;
-            } catch (e) {
-                console.error("minted_nfts insert failed/timed out:", e);
-                insertError = { message: e instanceof Error ? e.message : String(e) };
-            }
-
-            toast.dismiss("finalize");
-
-            if (collectionError) {
-                console.error("Collection DB Insert error:", collectionError);
-            }
-            if (insertError) {
-                console.error("NFT Database Insert error:", insertError);
-                toast.error(
-                    `NFT is minted on-chain, but saving it to your profile failed (${insertError.message || "unknown"}). It may appear after a refresh.`,
-                    { duration: 8000 },
-                );
-                onSuccess?.();
-                onOpenChange(false);
-            } else {
-                toast.success(mode === "one-of-one" ? `1/1 Created on ${chainName}!` : `Edition Created on ${chainName}!`);
-                onSuccess?.();
-                onOpenChange(false);
-            }
+            // Monad path only reaches here. Persist DB records via shared helper.
+            await finalizeInDb(txHash, imageUrl, mintItems, chainName, userId);
 
         } catch (error) {
             console.error(error);
@@ -441,6 +312,157 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
             );
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    /**
+     * Write the collection + minted_nfts rows to Supabase. Shared by Monad
+     * (inline above) and Solana (via cart checkout below).
+     */
+    const finalizeInDb = async (
+        txHash: string,
+        imageUrl: string,
+        mintItems: { name: string; tier: string }[],
+        chainName: string,
+        userId: string,
+    ) => {
+        toast.loading("Finalizing NFT...", { id: "finalize" });
+
+        const FINALIZE_TIMEOUT_MS = 20_000;
+        const withTimeout = <T,>(p: PromiseLike<T>, label: string): Promise<T> =>
+            Promise.race<T>([
+                Promise.resolve(p),
+                new Promise<T>((_, reject) =>
+                    setTimeout(
+                        () => reject(new Error(`${label} timed out after ${FINALIZE_TIMEOUT_MS / 1000}s`)),
+                        FINALIZE_TIMEOUT_MS,
+                    ),
+                ),
+            ]);
+
+        let collectionId: string | null = null;
+        let collectionError: { message?: string } | null = null;
+        try {
+            const collectionsQuery = supabase
+                .from("collections")
+                .insert({
+                    name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
+                    symbol,
+                    description,
+                    image_url: imageUrl,
+                    creator_id: userId,
+                    creator_address: address,
+                    contract_address: txHash,
+                    chain: getDbChainValue(chain, network as "mainnet" | "testnet"),
+                    collection_type: mode === "one-of-one" ? "1of1" : "editions",
+                    total_supply: mintItems.length,
+                    status: "upcoming",
+                    media_type: audioFile ? "audio" : "image",
+                })
+                .select("id")
+                .single();
+            type CollectionsResult = Awaited<typeof collectionsQuery>;
+            const { data: collectionInsert, error } = await withTimeout<CollectionsResult>(
+                collectionsQuery,
+                "Collection database save",
+            );
+            collectionError = error;
+            collectionId = error ? null : collectionInsert?.id ?? null;
+        } catch (e) {
+            console.error("collections insert failed/timed out:", e);
+            collectionError = { message: e instanceof Error ? e.message : String(e) };
+        }
+
+        const nftRecords = mintItems.map((item, idx) => ({
+            name: item.name,
+            description,
+            image_url: imageUrl,
+            collection_id: collectionId,
+            owner_address: address,
+            owner_id: userId,
+            token_id: idx + 1,
+            tx_hash: `${txHash}_${idx + 1}`,
+            attributes: [
+                { trait_type: "Type", value: item.tier },
+                { trait_type: "Chain", value: chainName },
+            ],
+            is_revealed: true,
+        }));
+
+        let insertError: { message?: string } | null = null;
+        try {
+            const nftsQuery = supabase.from("minted_nfts").insert(nftRecords);
+            type NftsResult = Awaited<typeof nftsQuery>;
+            const { error } = await withTimeout<NftsResult>(nftsQuery, "NFT database save");
+            insertError = error;
+        } catch (e) {
+            console.error("minted_nfts insert failed/timed out:", e);
+            insertError = { message: e instanceof Error ? e.message : String(e) };
+        }
+
+        toast.dismiss("finalize");
+
+        if (collectionError) console.error("Collection DB Insert error:", collectionError);
+        if (insertError) {
+            console.error("NFT Database Insert error:", insertError);
+            toast.error(
+                `NFT is minted on-chain, but saving it to your profile failed (${insertError.message || "unknown"}). It may appear after a refresh.`,
+                { duration: 8000 },
+            );
+        } else {
+            toast.success(
+                mode === "one-of-one"
+                    ? `1/1 Created on ${chainName}!`
+                    : `Edition Created on ${chainName}!`,
+            );
+        }
+        onSuccess?.();
+        onOpenChange(false);
+    };
+
+    /**
+     * Cart-checkout confirm handler. Runs the batched on-chain work
+     * (collection + optional tree + mints) and then writes the DB records.
+     */
+    const handleConfirmCheckout = async () => {
+        if (!pendingCheckout) return;
+        const { imageUrl, metadataUrl, mintItems, isCompressed, royaltyBasisPoints, creatorAddress, userId } =
+            pendingCheckout;
+
+        setCheckoutProcessing(true);
+        try {
+            const result = await cartCheckout({
+                name,
+                uri: metadataUrl,
+                items: mintItems.map((item) => ({
+                    name: item.name,
+                    uri: metadataUrl,
+                    sellerFeeBasisPoints: royaltyBasisPoints,
+                    owner: creatorAddress,
+                })),
+                isCompressed,
+                royaltyBasisPoints,
+                onProgress: (label, completed, total) => {
+                    setCheckoutProgress({ label, completed, total });
+                },
+            });
+
+            setCheckoutOpen(false);
+            setCheckoutProcessing(false);
+            setPendingCheckout(null);
+
+            await finalizeInDb(
+                result.collectionAddress,
+                imageUrl,
+                mintItems,
+                "Solana",
+                userId,
+            );
+        } catch (error) {
+            console.error("Cart checkout failed:", error);
+            const raw = getErrorMessage(error);
+            toast.error(raw || "Checkout failed. Your uploads are safe — try deploying again.");
+            setCheckoutProcessing(false);
         }
     };
 
@@ -703,6 +725,20 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                     </Button>
                 </div>
             </DialogContent>
+
+            {/* 2025 Cart Checkout — cost preview + single-flow deploy (Solana) */}
+            <CartCheckoutModal
+                open={checkoutOpen}
+                onOpenChange={setCheckoutOpen}
+                estimate={checkoutEstimate}
+                itemCount={pendingCheckout?.mintItems.length ?? 0}
+                isCompressed={pendingCheckout?.isCompressed ?? false}
+                onConfirm={handleConfirmCheckout}
+                isProcessing={checkoutProcessing}
+                progressLabel={checkoutProgress.label}
+                progressCompleted={checkoutProgress.completed}
+                progressTotal={checkoutProgress.total}
+            />
         </Dialog>
     );
 }

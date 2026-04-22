@@ -19,11 +19,17 @@ import {
     bulkMintCompressedCollection,
     bulkMintCoreCollection,
     calculateBatchMintCost,
+    estimateCartCost,
+    executeCartCheckout,
     type BatchNftItem,
     type BulkMintResult,
     type BatchUploadItem,
     type BatchUploadResult,
     type BatchUploadResponse,
+    type CartItem,
+    type CartCostEstimate,
+    type CartCheckoutParams,
+    type CartCheckoutResult,
 } from '@/chains';
 import type { LaunchpadPhase, SolanaCollectionParams } from '@/chains';
 import { Umi, transactionBuilder, publicKey, some, none } from '@metaplex-foundation/umi';
@@ -199,6 +205,36 @@ export const useSolanaLaunch = () => {
         const umi = await getUmi();
         return uploadSingleWithUmi(umi, file, buildMetadata, enableThumbnails);
     }, [getUmi]);
+
+    /**
+     * 2025 Cart Checkout — deploy collection + mint all items in the minimum
+     * number of signed transactions. Storage is paid transparently by Turbo
+     * during upload (no extra signing step), so the creator only confirms
+     * the on-chain work here.
+     *
+     * Usage pattern:
+     *   1. Upload assets (uploadBatch / uploadSingle) — Turbo auto-debits.
+     *   2. Show the user a CartCostEstimate (estimateCheckoutCost below).
+     *   3. Call cartCheckout() once the user confirms.
+     */
+    const cartCheckout = useCallback(async (
+        params: CartCheckoutParams,
+    ): Promise<CartCheckoutResult> => {
+        const umi = await getUmi();
+        return executeCartCheckout(umi, params);
+    }, [getUmi]);
+
+    /**
+     * Pure cost preview (no signing, no network). Safe to call from the UI
+     * whenever the cart contents or file sizes change.
+     */
+    const estimateCheckoutCost = useCallback((
+        itemCount: number,
+        totalStorageBytes: number,
+        isCompressed: boolean,
+    ): CartCostEstimate => {
+        return estimateCartCost(itemCount, totalStorageBytes, isCompressed);
+    }, []);
 
     /**
      * Deploy a Solana Core Collection
@@ -672,6 +708,8 @@ export const useSolanaLaunch = () => {
         uploadJsonMetadataBatch,
         uploadBatch,
         uploadSingle,
+        cartCheckout,
+        estimateCheckoutCost,
         deployBubblegumTree,
         mintCompressedCore,
         batchMintCompressedCore,

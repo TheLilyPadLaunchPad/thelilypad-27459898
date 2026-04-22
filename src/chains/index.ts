@@ -30,6 +30,10 @@ export { createSplToken, mintSplTokens } from './solana/splToken';
 export type { SplTokenConfig, SplTokenResult } from './solana/splToken';
 export { deployMonadCollection, mintMonadNFT, getMonadCollectionInfo } from './monad/contracts';
 
+// Re-export 2025 cart-checkout flow (upload first, preview, single sign)
+export { estimateCartCost, executeCartCheckout } from './solana/cartCheckout';
+export type { CartItem, CartCostEstimate, CartCheckoutParams, CartCheckoutResult } from './solana/cartCheckout';
+
 // Re-export metadata utilities (Umi-based)
 export {
     uploadFile, uploadFiles, uploadMetadata, uploadJsonBatch,
