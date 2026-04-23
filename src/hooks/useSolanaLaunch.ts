@@ -5,6 +5,7 @@ import {
     createUmi,
     createCoreCollection,
     createCoreCandyMachine,
+    createCoreCandyMachineHidden,
     insertItemsToCandyMachine as insertItemsToChain,
     uploadFile as uploadFileToChain,
     uploadFiles as uploadFilesToChain,
@@ -607,6 +608,45 @@ export const useSolanaLaunch = () => {
     }, [getUmi]);
 
     /**
+     * Create a Hidden Settings Candy Machine for large collections (3 sigs total)
+     */
+    const createHiddenSettingsCandyMachine = useCallback(async (
+        collectionAddress: string,
+        items: { name: string; uri: string }[],
+        phases: LaunchpadPhase[],
+        placeholderName: string,
+        placeholderUri: string,
+        treasuryWallet?: string
+    ): Promise<{ address: string; candyGuardAddress: string; itemsHash: Uint8Array }> => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            return await withRetry(async (umi) => {
+                toast.loading(`Creating Hidden Settings Candy Machine...`, { id: 'cm-hidden' });
+                const result = await createCoreCandyMachineHidden(
+                    umi,
+                    collectionAddress,
+                    items,
+                    phases,
+                    placeholderName,
+                    placeholderUri,
+                    treasuryWallet
+                );
+                toast.success(`Hidden Settings Candy Machine Ready!`, { id: 'cm-hidden' });
+                return result;
+            });
+        } catch (err: any) {
+            console.error("Hidden Settings CM creation error:", err);
+            const msg = extractSolanaError(err);
+            setError(msg);
+            toast.error(msg, { id: 'cm-hidden', description: "Check logs for details." });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi]);
+
+    /**
      * Insert items into a Candy Machine
      */
     const insertItemsToCandyMachine = useCallback(async (
@@ -746,6 +786,7 @@ export const useSolanaLaunch = () => {
         error,
         deploySolanaCollection,
         createLaunchpadCandyMachine,
+        createHiddenSettingsCandyMachine,
         createCollection,
         insertItemsToCandyMachine,
         deleteCandyMachine,

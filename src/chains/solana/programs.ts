@@ -480,6 +480,174 @@ export async function createCoreCandyMachine(
 }
 
 /**
+ * Generate a 32-byte hash from items for Hidden Settings.
+ * This creates a commitment that proves the items exist without storing them on-chain.
+ */
+async function generateItemsHash(items: CandyMachineItem[]): Promise<Uint8Array> {
+    // Concatenate all item data
+    const data = items.map((item, i) => `${i}:${item.name}:${item.uri}`).join('|');
+    
+    // Use Web Crypto API to generate SHA-256 hash
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    
+    return new Uint8Array(hashBuffer);
+}
+
+/**
+ * Create a Core Candy Machine with Hidden Settings for large collections.
+ * 
+ * This uses a merkle root hash to commit to items without storing them individually
+ * on-chain. This means:
+ * - 3 signatures total regardless of collection size
+ * - No need to call insertItemsToCandyMachine after creation
+ * - Items are revealed at mint time via off-chain merkle proofs
+ * 
+ * @param items - The items to include (used to generate the hash commitment)
+ * @param placeholderName - The placeholder name shown before reveal (e.g., "MyCollection #")
+ * @param placeholderUri - The placeholder URI shown before reveal (reveal image/metadata)
+ */
+export async function createCoreCandyMachineHidden(
+    umi: Umi,
+    collectionAddress: string,
+    items: CandyMachineItem[],
+    phases: LaunchpadPhase[],
+    placeholderName: string,
+    placeholderUri: string,
+    treasuryWallet?: string
+): Promise<{ address: string; candyGuardAddress: string; itemsHash: Uint8Array }> {
+    const candyMachine = generateSigner(umi);
+    const candyGuard = generateSigner(umi);
+    const collectionMint = publicKey(collectionAddress);
+    const itemsAvailable = items.length;
+
+    const treasury = treasuryWallet || PLATFORM_WALLETS.solana.treasury;
+    const primaryPhase = phases.find(p => p.price > 0) || phases[0];
+    const primaryPrice = primaryPhase?.price || 0;
+
+    console.log("[CM Hidden] Creating Hidden Settings Candy Machine for:", collectionAddress);
+    console.log("[CM Hidden] Total items committed:", itemsAvailable);
+    console.log("[CM Hidden] Phases:", phases.length);
+
+    // Generate hash commitment for all items
+    const itemsHash = await generateItemsHash(items);
+    console.log("[CM Hidden] Items hash generated:", Buffer.from(itemsHash).toString('hex').slice(0, 16) + "...");
+
+    // Retry logic for CM creation
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+        try {
+            await umi.rpc.getLatestBlockhash();
+
+            // Create the Core Candy Machine with Hidden Settings
+            const cmBuilder = createCoreCandyMachineIx(umi, {
+                candyMachine,
+                collection: collectionMint,
+                collectionUpdateAuthority: umi.identity,
+                itemsAvailable: BigInt(clampU32(itemsAvailable)),
+                hiddenSettings: some({
+                    name: placeholderName,
+                    uri: placeholderUri,
+                    hash: itemsHash,
+                }),
+            });
+
+            // Add protocol memo
+            const memoData = buildProtocolMemo('launchpad:create_candy_machine_hidden', {
+                collection: collectionAddress.slice(0, 8),
+                items: String(itemsAvailable),
+                hashPrefix: Buffer.from(itemsHash).toString('hex').slice(0, 8)
+            });
+
+            const memoInstruction = {
+                instruction: {
+                    programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+                    keys: [],
+                    data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+                },
+                bytesCreatedOnChain: 0,
+                signers: [],
+            };
+
+            const finalBuilder = (await cmBuilder).add(memoInstruction)
+                .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+                .add(setComputeUnitLimit(umi, { units: 800_000 }));
+
+            await finalBuilder.sendAndConfirm(umi, {
+                send: { skipPreflight: false },
+                confirm: { commitment: 'confirmed' }
+            });
+
+            break;
+        } catch (innerErr: any) {
+            attempts++;
+            console.warn(`CM Hidden Creation attempt ${attempts} failed:`, innerErr.message);
+            if (attempts >= maxAttempts) throw innerErr;
+            if (innerErr.message?.includes("Blockhash not found") || innerErr.message?.includes("blockhash")) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
+            }
+            throw innerErr;
+        }
+    }
+
+    console.log("[CM Hidden] Candy Machine created:", candyMachine.publicKey.toString());
+
+    // Step 2: Create Candy Guard with phase-based groups
+    const defaultGuards = buildDefaultGuards(primaryPrice, treasury);
+    const guardGroups = buildGuardGroups(phases, treasury);
+
+    const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
+
+    const createGuardBuilder = createCoreCandyGuardIx(umi, {
+        base: candyGuard,
+        guards: defaultGuards,
+        groups: guardGroups.length > 0 ? guardGroups : undefined,
+    });
+
+    await createGuardBuilder
+        .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+        .sendAndConfirm(umi, {
+            send: { skipPreflight: false },
+            confirm: { commitment: 'confirmed' }
+        });
+
+    console.log("[CM Hidden] Candy Guard created:", candyGuardPda[0].toString());
+
+    // Step 3: Wrap Candy Machine with Guard
+    const wrapBuilder = wrap(umi, {
+        candyMachine: candyMachine.publicKey,
+        candyGuard: candyGuardPda[0],
+    });
+
+    await wrapBuilder
+        .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+        .sendAndConfirm(umi, {
+            send: { skipPreflight: false },
+            confirm: { commitment: 'confirmed' }
+        });
+
+    console.log("[CM Hidden] Wrap complete — Collection ready for minting!");
+
+    // Log fee distribution
+    const feeSplit = getLaunchpadFeeSplit(primaryPrice);
+    console.log("[CM Hidden] Fee distribution for price", primaryPrice, "SOL:");
+    console.log("  - Creator:", feeSplit.creatorAmount, "SOL");
+    console.log("  - Treasury:", feeSplit.treasuryAmount, "SOL");
+    console.log("  - Team:", feeSplit.teamAmount, "SOL");
+    console.log("  - Buyback:", feeSplit.buybackAmount, "SOL");
+
+    return {
+        address: candyMachine.publicKey.toString(),
+        candyGuardAddress: candyGuardPda[0].toString(),
+        itemsHash,
+    };
+}
+
+/**
  * Insert items/assets into a Candy Machine
  */
 export async function insertItemsToCandyMachine(

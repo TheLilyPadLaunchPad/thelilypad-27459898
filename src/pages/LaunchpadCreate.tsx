@@ -203,28 +203,48 @@ export default function LaunchpadCreate() {
 
                 // Create Candy Machine for Solana (skip for 1-of-1 mode)
                 if (mode !== '1of1') {
-                    setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
                     const candyMachineItems = itemLinks.map((item, i) => ({
                         name: `${name} #${i + 1}`,
                         uri: item.arweaveUri
                     }));
 
-                    const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
-                        deployedAddress,
-                        assetsCount,
-                        phases,
-                        { name, symbol, uri: primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
-                        treasuryWallet,
-                        primaryArweaveUri
-                    );
+                    // For large collections (>500 items), use Hidden Settings (3 signatures total)
+                    // For smaller collections, use Config Lines (allows on-chain reveals)
+                    const USE_HIDDEN_SETTINGS_THRESHOLD = 500;
+                    
+                    if (assetsCount > USE_HIDDEN_SETTINGS_THRESHOLD) {
+                        setDeployCheckoutProgress({ label: "Creating Hidden Settings Candy Machine (Large Collection)...", completed: 2, total: 3 });
+                        const cmResult = await solanaLaunch.createHiddenSettingsCandyMachine(
+                            deployedAddress,
+                            candyMachineItems,
+                            phases,
+                            `${name} #`, // placeholder name
+                            primaryArweaveUri, // placeholder URI (pre-reveal image/metadata)
+                            treasuryWallet
+                        );
+                        console.log("[Deploy] Hidden Settings Candy Machine created:", cmResult.address);
+                        console.log("[Deploy] Items hash:", Buffer.from(cmResult.itemsHash).toString('hex').slice(0, 16) + "...");
+                        // No need to insert items - they're committed via the hash!
+                        setDeployCheckoutProgress({ label: "Candy Machine ready (Hidden Settings - no item insertion needed)", completed: 3, total: 3 });
+                    } else {
+                        setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
+                        const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
+                            deployedAddress,
+                            assetsCount,
+                            phases,
+                            { name, symbol, uri: primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
+                            treasuryWallet,
+                            primaryArweaveUri
+                        );
 
-                    // Insert config lines into the Candy Machine
-                    setDeployCheckoutProgress({ label: "Loading items into Candy Machine...", completed: 3, total: 3 });
-                    await solanaLaunch.insertItemsToCandyMachine(
-                        cmResult.address,
-                        candyMachineItems,
-                        15 // Max items per config-line transaction
-                    );
+                        // Insert config lines into the Candy Machine
+                        setDeployCheckoutProgress({ label: "Loading items into Candy Machine...", completed: 3, total: 3 });
+                        await solanaLaunch.insertItemsToCandyMachine(
+                            cmResult.address,
+                            candyMachineItems,
+                            15 // Max items per config-line transaction
+                        );
+                    }
                 }
             } else if (selectedChain === 'monad') {
                 const result = await monadLaunch.createCollection({
