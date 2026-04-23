@@ -62,6 +62,10 @@ export type { MonadShopResult, MonadShopItemType } from './monad/shop';
 export { validateSolanaRoyalty, validateSolanaAddress } from './solana/validate';
 export { validateMonadRoyalty, validateEvmAddress } from './monad/validate';
 
+// Re-export Metaplex Agent Registry
+export { mintLilyPadAgent, mintLilyPadAgentManual, submitAgentTransaction, verifyAgent, buildAgentMetadata, buildAgentNftMetadata } from './solana/agent';
+export type { MintLilyPadAgentParams, AgentVerificationResult } from './solana/agent';
+
 /**
  * Get chain client based on supported chain
  */

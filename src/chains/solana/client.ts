@@ -5,6 +5,7 @@ import { mplCandyMachine as mplCoreCandyMachine } from '@metaplex-foundation/mpl
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
 import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
+import { mplAgentIdentity } from '@metaplex-foundation/mpl-agent-registry';
 import { Umi } from '@metaplex-foundation/umi';
 import { getBestRpc, getSolanaRpcList } from '@/config/solana';
 
@@ -37,6 +38,7 @@ export async function createUmi(
         .use(mplCoreCandyMachine())
         .use(mplToolbox())
         .use(mplBubblegum())
+        .use(mplAgentIdentity())
         .use(irysUploader({
             address: network === 'mainnet' ? 'https://node1.irys.xyz' : 'https://devnet.irys.xyz',
         }));
