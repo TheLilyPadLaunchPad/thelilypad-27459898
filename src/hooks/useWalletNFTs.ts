@@ -254,10 +254,15 @@ export function useSolanaAsset(assetAddress: string | null, isDevnet: boolean = 
         (g: any) => g.group_key === 'collection'
       );
 
+      // Get image URL — prefer DAS links.image, then image file cdn_uri/uri.
+      // Never fall back to json_uri: that is a JSON metadata file, not an image.
+      const imageFile = (dasAsset.content.files as any[])?.find(
+        (f: any) => f.mime?.startsWith('image/')
+      );
       const image =
         (dasAsset.content.links as any)?.image ||
-        (dasAsset.content.files as any[])?.find((f: any) => f.mime?.startsWith('image/'))?.uri ||
-        dasAsset.content.json_uri ||
+        imageFile?.cdn_uri ||
+        imageFile?.uri ||
         "";
 
       const mappedAsset: NFT = {

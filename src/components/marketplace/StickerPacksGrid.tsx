@@ -7,7 +7,7 @@ import { Sticker, Image as ImageIcon } from "lucide-react";
 import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 import { EmptyState } from "@/components/common";
 import { type ShopItem } from "@/hooks/useMarketplaceData";
-import { ipfsToHttp } from "@/lib/ipfs";
+import { ipfsToHttp, resolveNftImageUrl } from "@/lib/ipfs";
 
 interface StickerPacksGridProps {
   stickerPacks: ShopItem[];
@@ -71,7 +71,7 @@ export const StickerPacksGrid: React.FC<StickerPacksGridProps> = ({
             <div className="aspect-square relative overflow-hidden bg-muted">
               {pack.image_url ? (
                 <img
-                  src={ipfsToHttp(pack.image_url)}
+                  src={resolveNftImageUrl(pack.image_url)}
                   alt={pack.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"

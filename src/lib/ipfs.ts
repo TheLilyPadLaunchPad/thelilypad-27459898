@@ -131,6 +131,28 @@ export function buildCollectionImageUrl(cid: string, tokenId: number, ext = "png
 }
 
 /**
+ * Unified NFT image URL resolver.
+ * Handles IPFS (`ipfs://`), Arweave (`ar://`), Irys gateway, and bare CIDs/TX IDs.
+ * Use this for any NFT image display to guarantee the URL is browser-fetchable.
+ */
+export function resolveNftImageUrl(uri: string | null | undefined): string {
+    if (!uri) return "";
+
+    // Arweave protocol shorthand
+    if (uri.startsWith("ar://")) {
+        const txId = uri.slice("ar://".length);
+        return `https://arweave.net/${txId}`;
+    }
+
+    // Normalise known Arweave/Irys gateways to arweave.net
+    const normalised = arweaveToHttp(uri);
+    if (normalised !== uri) return normalised;
+
+    // Then handle IPFS
+    return ipfsToHttp(uri);
+}
+
+/**
  * Build a metadata URL for a token.
  *
  * @example

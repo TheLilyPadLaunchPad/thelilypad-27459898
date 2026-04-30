@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
 import { PLATFORM_WALLETS, getLaunchpadFeeSplit } from '@/config/treasury';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAsset } from '@metaplex-foundation/mpl-core';
 
 export interface MintPhaseArgs {
     phaseId: string;
@@ -48,6 +49,65 @@ export const useSolanaMint = () => {
 
         return umi.use(walletAdapterIdentity(wallet));
     }, [getSolanaProvider, network]);
+
+    /**
+     * Record a minted NFT into the minted_nfts table so the gallery can display it
+     * with the correct image. Resolves the on-chain metadata URI to extract the image URL.
+     */
+    const recordMintedNft = useCallback(async (
+        mintAddress: string,
+        signatureStr: string,
+        collectionId: string,
+        walletAddress: string,
+        collectionName: string,
+        tokenIndex: number,
+        userId?: string,
+    ) => {
+        try {
+            const umi = await getUmi();
+            // Fetch the on-chain asset to get its name and metadata URI
+            let nftName = `${collectionName} #${tokenIndex}`;
+            let imageUrl = '';
+
+            try {
+                const asset = await fetchAsset(umi, publicKey(mintAddress));
+                nftName = asset.name || nftName;
+
+                // Resolve image from metadata URI
+                if (asset.uri) {
+                    try {
+                        const metaRes = await fetch(asset.uri);
+                        if (metaRes.ok) {
+                            const metaJson = await metaRes.json();
+                            imageUrl = metaJson.image || '';
+                        }
+                    } catch {
+                        // metadata fetch failed — leave imageUrl empty
+                    }
+                }
+            } catch {
+                // asset fetch failed (propagation delay) — use defaults
+            }
+
+            await supabase.from('minted_nfts').insert({
+                name: nftName,
+                description: '',
+                image_url: imageUrl,
+                collection_id: collectionId,
+                owner_address: walletAddress,
+                owner_id: userId || null,
+                token_id: tokenIndex,
+                tx_hash: mintAddress,
+                attributes: [],
+                is_revealed: true,
+            });
+
+            console.log('[CM Mint] minted_nfts record saved for', mintAddress);
+        } catch (err) {
+            // Non-fatal — the NFT is on-chain regardless
+            console.warn('[CM Mint] Failed to save minted_nfts record:', err);
+        }
+    }, [getUmi]);
 
     // Track mint transaction for fee accounting
     const trackMintTransaction = useCallback(async (
@@ -252,6 +312,30 @@ export const useSolanaMint = () => {
                 );
             }
 
+            // Record the minted NFT so gallery shows it with the correct image
+            if (phaseArgs?.collectionId) {
+                // Fetch current mint count for token index (best-effort)
+                const cm = await fetchCandyMachine(umi, publicKey(candyMachineAddress));
+                const tokenIndex = Number(cm.itemsRedeemed);
+                // Try to get collection name from DB for a nice NFT name
+                const { data: colRow } = await supabase
+                    .from('collections')
+                    .select('name')
+                    .eq('id', phaseArgs.collectionId)
+                    .maybeSingle();
+                const collectionName = colRow?.name || 'NFT';
+
+                // Fire-and-forget: don't block the success toast on DB write
+                recordMintedNft(
+                    nftMint.publicKey.toString(),
+                    signatureStr,
+                    phaseArgs.collectionId,
+                    walletAddress,
+                    collectionName,
+                    tokenIndex,
+                ).catch(() => {});
+            }
+
             toast.success(`Minted successfully!`, { id: 'cm-mint' });
 
             return {
@@ -287,7 +371,7 @@ export const useSolanaMint = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [getUmi, trackMintTransaction]);
+    }, [getUmi, trackMintTransaction, recordMintedNft]);
 
     return {
         isLoading,

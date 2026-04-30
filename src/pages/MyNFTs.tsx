@@ -15,7 +15,7 @@ import { BurnNFTModal } from "@/components/BurnNFTModal";
 import { ViewOffersModal } from "@/components/ViewOffersModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
-import { ipfsToHttp } from "@/lib/ipfs";
+import { ipfsToHttp, resolveNftImageUrl } from "@/lib/ipfs";
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
@@ -653,7 +653,7 @@ export default function MyNFTs() {
                     <span className="flex items-center gap-2 truncate">
                       {collection.image_url ? (
                         <img
-                          src={ipfsToHttp(collection.image_url)}
+                          src={resolveNftImageUrl(collection.image_url)}
                           alt={collection.name}
                           className="w-5 h-5 rounded object-cover"
                         />
@@ -728,7 +728,7 @@ export default function MyNFTs() {
                           <div className="w-10 h-10 rounded overflow-hidden bg-muted flex-shrink-0">
                             {nft.image_url ? (
                               <img
-                                src={ipfsToHttp(nft.image_url)}
+                                src={resolveNftImageUrl(nft.image_url)}
                                 alt={nft.name || `#${nft.token_id}`}
                                 className="w-full h-full object-cover"
                               />
@@ -794,7 +794,7 @@ export default function MyNFTs() {
               <div className="mb-8">
                 <CardStack3D
                   images={filteredNfts.slice(0, 5).map(nft => ({
-                    src: ipfsToHttp(nft.image_url || nft.collection?.image_url || 'https://images.unsplash.com/photo-1634973357973-f2ed2657db3c?w=400'),
+                    src: resolveNftImageUrl(nft.image_url || nft.collection?.image_url || 'https://images.unsplash.com/photo-1634973357973-f2ed2657db3c?w=400'),
                     alt: nft.name || `NFT #${nft.token_id}`
                   }))}
                   cardWidth={280}
@@ -847,13 +847,13 @@ export default function MyNFTs() {
                     >
                       {nft.image_url ? (
                         <img
-                          src={ipfsToHttp(nft.image_url)}
+                          src={resolveNftImageUrl(nft.image_url)}
                           alt={nft.name || `#${nft.token_id}`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : nft.collection?.image_url ? (
                         <img
-                          src={ipfsToHttp(nft.collection.image_url)}
+                          src={resolveNftImageUrl(nft.collection.image_url)}
                           alt={nft.name || `#${nft.token_id}`}
                           className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-300"
                         />
@@ -906,13 +906,13 @@ export default function MyNFTs() {
                       <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                         {nft.image_url ? (
                           <img
-                            src={nft.image_url}
+                            src={resolveNftImageUrl(nft.image_url)}
                             alt={nft.name || `#${nft.token_id}`}
                             className="w-full h-full object-cover"
                           />
                         ) : nft.collection?.image_url ? (
                           <img
-                            src={nft.collection.image_url}
+                            src={resolveNftImageUrl(nft.collection.image_url)}
                             alt={nft.name || `#${nft.token_id}`}
                             className="w-full h-full object-cover opacity-50"
                           />
@@ -982,13 +982,13 @@ export default function MyNFTs() {
                 <div className="aspect-square rounded-lg overflow-hidden bg-muted">
                   {selectedNft.image_url ? (
                     <img
-                      src={selectedNft.image_url}
+                      src={resolveNftImageUrl(selectedNft.image_url)}
                       alt={selectedNft.name || `#${selectedNft.token_id}`}
                       className="w-full h-full object-cover"
                     />
                   ) : selectedNft.collection?.image_url ? (
                     <img
-                      src={selectedNft.collection.image_url}
+                      src={resolveNftImageUrl(selectedNft.collection.image_url)}
                       alt={selectedNft.name || `#${selectedNft.token_id}`}
                       className="w-full h-full object-cover opacity-50"
                     />
