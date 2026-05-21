@@ -13,7 +13,7 @@ import { useWallet } from '@/providers/WalletProvider';
 import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
 import { uploadFiles, uploadJsonBatch } from '@/chains';
 import type { BatchNftItem } from '@/chains';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Collection {
     id: string;
