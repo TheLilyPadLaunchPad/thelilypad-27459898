@@ -120,7 +120,7 @@ export function AddToCollectionModal({ open, onOpenChange, collection, onSuccess
 
     const handleSubmit = async () => {
         if (!validateNfts()) return;
-        if (!address || !userId) {
+        if (!address) {
             toast.error('Wallet not connected');
             return;
         }
