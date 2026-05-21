@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, ImageIcon, Layers, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@/providers/WalletProvider';
 import AddToCollectionModal from './AddToCollectionModal';
 
