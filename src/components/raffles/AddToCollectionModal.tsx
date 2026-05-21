@@ -11,7 +11,6 @@ import { X, Upload, Plus, ImageIcon, Loader2, Coins, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@/providers/WalletProvider';
 import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
-import { uploadFiles, uploadJsonBatch } from '@/chains';
 import type { BatchNftItem } from '@/chains';
 import { supabase } from '@/integrations/supabase/client';
 
