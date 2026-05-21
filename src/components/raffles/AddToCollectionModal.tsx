@@ -11,9 +11,8 @@ import { X, Upload, Plus, ImageIcon, Loader2, Coins, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@/providers/WalletProvider';
 import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
-import { uploadFiles, uploadJsonBatch } from '@/chains';
 import type { BatchNftItem } from '@/chains';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Collection {
     id: string;
@@ -47,8 +46,8 @@ interface AddToCollectionModalProps {
 }
 
 export function AddToCollectionModal({ open, onOpenChange, collection, onSuccess }: AddToCollectionModalProps) {
-    const { address, userId } = useWallet();
-    const { batchMintCompressedCore, batchMintCore, calculateBatchMintCost, isLoading } = useSolanaLaunch();
+    const { address } = useWallet();
+    const { batchMintCompressedCore, batchMintCore, calculateBatchMintCost, isLoading, uploadFiles, uploadMetadata: _um, uploadJsonMetadataBatch: uploadJsonBatch } = useSolanaLaunch() as any;
     
     const [nfts, setNfts] = useState<NftFormData[]>([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -121,7 +120,7 @@ export function AddToCollectionModal({ open, onOpenChange, collection, onSuccess
 
     const handleSubmit = async () => {
         if (!validateNfts()) return;
-        if (!address || !userId) {
+        if (!address) {
             toast.error('Wallet not connected');
             return;
         }

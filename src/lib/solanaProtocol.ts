@@ -28,6 +28,7 @@ export type ProtocolAction =
   | 'marketplace:offer'
   | 'launchpad:deploy_collection'
   | 'launchpad:create_candy_machine'
+  | 'launchpad:create_candy_machine_hidden'
   | 'mint:nft'
   | 'mint:candy_machine'
   | 'tip:creator'
