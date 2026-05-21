@@ -46,8 +46,8 @@ interface AddToCollectionModalProps {
 }
 
 export function AddToCollectionModal({ open, onOpenChange, collection, onSuccess }: AddToCollectionModalProps) {
-    const { address, userId } = useWallet();
-    const { batchMintCompressedCore, batchMintCore, calculateBatchMintCost, isLoading } = useSolanaLaunch();
+    const { address } = useWallet();
+    const { batchMintCompressedCore, batchMintCore, calculateBatchMintCost, isLoading, uploadFiles, uploadMetadata: _um, uploadJsonMetadataBatch: uploadJsonBatch } = useSolanaLaunch() as any;
     
     const [nfts, setNfts] = useState<NftFormData[]>([]);
     const [isUploading, setIsUploading] = useState(false);
