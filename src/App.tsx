@@ -202,6 +202,7 @@ const AppContent = () => {
       <MobileBottomNav />
       <MiniPlayer />
       <PWAUpdateNotification />
+      <DeploymentDebugPanel />
       {/* Only render AdminToolbar once fully authenticated to prevent flash */}
       {isAdmin && isFullyAuthenticated && <AdminToolbar />}
     </BrowserRouter>
