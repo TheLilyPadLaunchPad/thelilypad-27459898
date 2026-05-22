@@ -41,6 +41,7 @@ import { deleteCandyMachine as deleteCoreCandyMachine, deleteCandyGuard as delet
 import { SendTransactionError } from '@solana/web3.js';
 import { invalidateRpc } from '@/config/solana';
 import { supabase } from '@/integrations/supabase/client';
+import { debugStep, debugTx, debugUri, debugError, debugUpload } from '@/lib/deployDebug';
 
 /**
  * Extract human-readable error messages from Solana transaction logs
