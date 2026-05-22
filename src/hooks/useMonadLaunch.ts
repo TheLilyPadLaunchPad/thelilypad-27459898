@@ -113,6 +113,7 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
         setError(null);
 
         try {
+            debugStep('monad.deploy', `start: ${(params as any).name}`, { uri: (params as any).baseUri, supply: (params as any).maxSupply });
             // Ensure we're on Monad network
             const switched = await switchToMonad(network);
             if (!switched) {
@@ -121,7 +122,12 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
 
             const result = await deployMonadCollection(params);
 
+            if (result?.txHash) debugTx('monad.deploy', result.txHash, { contractAddress: (result as any).contractAddress });
+            if ((result as any)?.contractAddress) debugStep('monad.deploy', `contract: ${(result as any).contractAddress}`);
+            if ((params as any).baseUri) debugUri('monad.deploy', (params as any).baseUri, { kind: 'baseUri' });
+
             if (!result.success) {
+                debugError('monad.deploy', result.error || 'deployment failed');
                 toast.error('Monad NFT deployment failed', {
                     description: result.error || 'Please check your wallet and try again.',
                 });
@@ -130,6 +136,7 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
             return result;
         } catch (err: any) {
             const errorMessage = err.message || 'Failed to create collection';
+            debugError('monad.deploy', errorMessage);
             setError(errorMessage);
             toast.error(errorMessage);
             return { success: false, error: errorMessage };
