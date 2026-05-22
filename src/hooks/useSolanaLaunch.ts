@@ -257,6 +257,7 @@ export const useSolanaLaunch = () => {
             sessionId,
             onTransaction: async (txType, signature, batchStart, batchEnd) => {
                 const sigHex = Buffer.from(signature).toString('hex');
+                debugTx('solana.cartCheckout', sigHex, { txType, batchStart, batchEnd });
                 await supabase.from('mint_transactions').insert({
                     session_id: sessionId,
                     tx_signature: sigHex,
