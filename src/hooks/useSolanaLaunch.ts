@@ -313,9 +313,11 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
+            debugStep('solana.deployCollection', `start: ${metadata.name}`, { uri: (metadata as any).uri, symbol: (metadata as any).symbol });
             return await withRetry(async (umi) => {
                 toast.loading(`Deploying ${metadata.name} (Core)...`, { id: 'sol-deploy' });
                 const result = await createCoreCollection(umi, metadata);
+                debugStep('solana.deployCollection', `deployed: ${result.address}`, { address: result.address });
                 toast.success(`Core Collection Deployed!`, { id: 'sol-deploy' });
 
                 return {
@@ -327,10 +329,12 @@ export const useSolanaLaunch = () => {
             });
         } catch (err: any) {
             console.error("Core Deployment Error:", err);
+            debugError('solana.deployCollection', err?.message || String(err));
 
             if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
                 console.error(err.logs);
+                debugError('solana.deployCollection', 'transaction logs', { logs: err.logs });
             }
 
             const msg = extractSolanaError(err);
