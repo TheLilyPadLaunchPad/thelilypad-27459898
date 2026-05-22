@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { createMonadProvider, connectMonadWallet, deployMonadCollection, mintMonadNFT } from '@/chains';
 import type { MonadCollectionParams, MonadDeployResult } from '@/chains';
 import { MonadNetwork, DEFAULT_MONAD_NETWORK, switchToMonad, getMonadExplorerUrl } from '@/config/monad';
+import { debugStep, debugTx, debugError, debugUri } from '@/lib/deployDebug';
 
 /**
  * useMonadLaunch - Thin React adapter for Monad EVM chain operations
