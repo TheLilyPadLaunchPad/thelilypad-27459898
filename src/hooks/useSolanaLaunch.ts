@@ -41,6 +41,7 @@ import { deleteCandyMachine as deleteCoreCandyMachine, deleteCandyGuard as delet
 import { SendTransactionError } from '@solana/web3.js';
 import { invalidateRpc } from '@/config/solana';
 import { supabase } from '@/integrations/supabase/client';
+import { debugStep, debugTx, debugUri, debugError, debugUpload } from '@/lib/deployDebug';
 
 /**
  * Extract human-readable error messages from Solana transaction logs
@@ -170,7 +171,15 @@ export const useSolanaLaunch = () => {
      */
     const uploadMetadata = useCallback(async (metadata: any) => {
         const umi = await getUmi();
-        return uploadMetadataToChain(umi, metadata);
+        debugUpload('solana.irys', 'uploadMetadata: start', { name: metadata?.name });
+        try {
+            const uri = await uploadMetadataToChain(umi, metadata);
+            debugUri('solana.irys', uri, { name: metadata?.name });
+            return uri;
+        } catch (e: any) {
+            debugError('solana.irys', `uploadMetadata failed: ${e?.message || e}`);
+            throw e;
+        }
     }, [getUmi]);
 
     /**
@@ -178,7 +187,16 @@ export const useSolanaLaunch = () => {
      */
     const uploadJsonMetadataBatch = useCallback(async (metadataArray: any[]) => {
         const umi = await getUmi();
-        return uploadJsonBatch(umi, metadataArray);
+        debugUpload('solana.irys', `uploadJsonBatch: start (${metadataArray.length} items)`);
+        try {
+            const uris = await uploadJsonBatch(umi, metadataArray);
+            uris.slice(0, 5).forEach(u => debugUri('solana.irys', u));
+            if (uris.length > 5) debugUpload('solana.irys', `…and ${uris.length - 5} more URIs`);
+            return uris;
+        } catch (e: any) {
+            debugError('solana.irys', `uploadJsonBatch failed: ${e?.message || e}`);
+            throw e;
+        }
     }, [getUmi]);
 
     /**
@@ -239,6 +257,7 @@ export const useSolanaLaunch = () => {
             sessionId,
             onTransaction: async (txType, signature, batchStart, batchEnd) => {
                 const sigHex = Buffer.from(signature).toString('hex');
+                debugTx('solana.cartCheckout', sigHex, { txType, batchStart, batchEnd });
                 await supabase.from('mint_transactions').insert({
                     session_id: sessionId,
                     tx_signature: sigHex,
@@ -294,9 +313,11 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
+            debugStep('solana.deployCollection', `start: ${metadata.name}`, { uri: (metadata as any).uri, symbol: (metadata as any).symbol });
             return await withRetry(async (umi) => {
                 toast.loading(`Deploying ${metadata.name} (Core)...`, { id: 'sol-deploy' });
                 const result = await createCoreCollection(umi, metadata);
+                debugStep('solana.deployCollection', `deployed: ${result.address}`, { address: result.address });
                 toast.success(`Core Collection Deployed!`, { id: 'sol-deploy' });
 
                 return {
@@ -308,10 +329,12 @@ export const useSolanaLaunch = () => {
             });
         } catch (err: any) {
             console.error("Core Deployment Error:", err);
+            debugError('solana.deployCollection', err?.message || String(err));
 
             if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
                 console.error(err.logs);
+                debugError('solana.deployCollection', 'transaction logs', { logs: err.logs });
             }
 
             const msg = extractSolanaError(err);
@@ -577,6 +600,9 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
+            debugStep('solana.candyMachine', `step 1/3 createCoreCandyMachine`, {
+                collectionAddress, itemsAvailable, uri: metadata.uri, phases: phases.length,
+            });
             return await withRetry(async (umi) => {
                 toast.loading(`Creating Core Candy Machine...`, { id: 'cm-create' });
                 const result = await createCoreCandyMachine(
@@ -587,15 +613,21 @@ export const useSolanaLaunch = () => {
                     optionalTreasuryWallet,
                     baseUri
                 );
+                debugStep('solana.candyMachine', `step 2/3 candyMachine ready: ${result.address}`, result);
+                if (result.candyGuardAddress) {
+                    debugStep('solana.candyMachine', `step 3/3 candyGuard: ${result.candyGuardAddress}`);
+                }
                 toast.success(`Candy Machine Ready with Guards!`, { id: 'cm-create' });
                 return result;
             });
         } catch (err: any) {
             console.error("Candy Machine creation error:", err);
+            debugError('solana.candyMachine', err?.message || String(err));
 
             if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
                 console.error(err.logs);
+                debugError('solana.candyMachine', 'transaction logs', { logs: err.logs });
             }
 
             const msg = extractSolanaError(err);
@@ -657,13 +689,16 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
+            debugStep('solana.candyMachine', `insertItems start (${items.length}, batch ${batchSize})`, { candyMachineAddress });
             await withRetry(async (umi) => {
                 toast.loading(`Inserting items...`, { id: 'cm-insert' });
                 await insertItemsToChain(umi, candyMachineAddress, items, batchSize);
             });
+            debugStep('solana.candyMachine', `insertItems done (${items.length})`);
             toast.success(`Items inserted successfully!`, { id: 'cm-insert' });
         } catch (err: any) {
             console.error("Insert items error:", err);
+            debugError('solana.candyMachine', `insertItems failed: ${err?.message || err}`);
             const msg = err.message || "Failed to insert items";
             setError(msg);
             toast.error(msg, { id: 'cm-insert' });
