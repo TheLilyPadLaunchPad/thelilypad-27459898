@@ -600,6 +600,9 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
+            debugStep('solana.candyMachine', `step 1/3 createCoreCandyMachine`, {
+                collectionAddress, itemsAvailable, uri: metadata.uri, phases: phases.length,
+            });
             return await withRetry(async (umi) => {
                 toast.loading(`Creating Core Candy Machine...`, { id: 'cm-create' });
                 const result = await createCoreCandyMachine(
@@ -610,15 +613,21 @@ export const useSolanaLaunch = () => {
                     optionalTreasuryWallet,
                     baseUri
                 );
+                debugStep('solana.candyMachine', `step 2/3 candyMachine ready: ${result.address}`, result);
+                if (result.candyGuardAddress) {
+                    debugStep('solana.candyMachine', `step 3/3 candyGuard: ${result.candyGuardAddress}`);
+                }
                 toast.success(`Candy Machine Ready with Guards!`, { id: 'cm-create' });
                 return result;
             });
         } catch (err: any) {
             console.error("Candy Machine creation error:", err);
+            debugError('solana.candyMachine', err?.message || String(err));
 
             if (err instanceof SendTransactionError && err.logs) {
                 console.error("--- TRANSACTION LOGS ---");
                 console.error(err.logs);
+                debugError('solana.candyMachine', 'transaction logs', { logs: err.logs });
             }
 
             const msg = extractSolanaError(err);
