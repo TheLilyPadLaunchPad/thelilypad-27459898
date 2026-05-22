@@ -171,7 +171,15 @@ export const useSolanaLaunch = () => {
      */
     const uploadMetadata = useCallback(async (metadata: any) => {
         const umi = await getUmi();
-        return uploadMetadataToChain(umi, metadata);
+        debugUpload('solana.irys', 'uploadMetadata: start', { name: metadata?.name });
+        try {
+            const uri = await uploadMetadataToChain(umi, metadata);
+            debugUri('solana.irys', uri, { name: metadata?.name });
+            return uri;
+        } catch (e: any) {
+            debugError('solana.irys', `uploadMetadata failed: ${e?.message || e}`);
+            throw e;
+        }
     }, [getUmi]);
 
     /**
@@ -179,7 +187,16 @@ export const useSolanaLaunch = () => {
      */
     const uploadJsonMetadataBatch = useCallback(async (metadataArray: any[]) => {
         const umi = await getUmi();
-        return uploadJsonBatch(umi, metadataArray);
+        debugUpload('solana.irys', `uploadJsonBatch: start (${metadataArray.length} items)`);
+        try {
+            const uris = await uploadJsonBatch(umi, metadataArray);
+            uris.slice(0, 5).forEach(u => debugUri('solana.irys', u));
+            if (uris.length > 5) debugUpload('solana.irys', `…and ${uris.length - 5} more URIs`);
+            return uris;
+        } catch (e: any) {
+            debugError('solana.irys', `uploadJsonBatch failed: ${e?.message || e}`);
+            throw e;
+        }
     }, [getUmi]);
 
     /**
