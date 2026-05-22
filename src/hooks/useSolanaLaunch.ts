@@ -689,13 +689,16 @@ export const useSolanaLaunch = () => {
         setIsLoading(true);
         setError(null);
         try {
+            debugStep('solana.candyMachine', `insertItems start (${items.length}, batch ${batchSize})`, { candyMachineAddress });
             await withRetry(async (umi) => {
                 toast.loading(`Inserting items...`, { id: 'cm-insert' });
                 await insertItemsToChain(umi, candyMachineAddress, items, batchSize);
             });
+            debugStep('solana.candyMachine', `insertItems done (${items.length})`);
             toast.success(`Items inserted successfully!`, { id: 'cm-insert' });
         } catch (err: any) {
             console.error("Insert items error:", err);
+            debugError('solana.candyMachine', `insertItems failed: ${err?.message || err}`);
             const msg = err.message || "Failed to insert items";
             setError(msg);
             toast.error(msg, { id: 'cm-insert' });
