@@ -122,8 +122,8 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
 
             const result = await deployMonadCollection(params);
 
-            if (result?.txHash) debugTx('monad.deploy', result.txHash, { contractAddress: (result as any).contractAddress });
-            if ((result as any)?.contractAddress) debugStep('monad.deploy', `contract: ${(result as any).contractAddress}`);
+            if (result?.transactionHash) debugTx('monad.deploy', result.transactionHash, { address: result.address });
+            if (result?.address) debugStep('monad.deploy', `contract: ${result.address}`);
             if ((params as any).baseUri) debugUri('monad.deploy', (params as any).baseUri, { kind: 'baseUri' });
 
             if (!result.success) {
