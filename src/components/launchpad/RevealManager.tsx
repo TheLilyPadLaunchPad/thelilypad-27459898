@@ -28,7 +28,8 @@ import {
   Star,
   Clock,
   Calendar,
-  X
+  X,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -342,6 +343,17 @@ export function RevealManager({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Hidden-settings CM hint */}
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-blue-400">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed">
+              <span className="font-semibold">Candy Machine hidden-settings collection?</span>{" "}
+              Use the <span className="font-medium">Candy Machine Manager → Reveal</span> tab to
+              run the on-chain <code className="text-[10px]">updateCandyMachine</code> step first,
+              then return here to mark items as revealed in the database.
+            </p>
+          </div>
+
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-4 bg-muted/50 rounded-lg">

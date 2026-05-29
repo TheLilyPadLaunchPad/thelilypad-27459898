@@ -6,6 +6,7 @@ import {
     createCoreCollection,
     createCoreCandyMachine,
     createCoreCandyMachineHidden,
+    revealHiddenCandyMachine,
     insertItemsToCandyMachine as insertItemsToChain,
     uploadFile as uploadFileToChain,
     uploadFiles as uploadFilesToChain,
@@ -843,12 +844,59 @@ export const useSolanaLaunch = () => {
         }
     }, [getUmi]);
 
+    /**
+     * Reveal a hidden-settings Candy Machine (Step 1 of 2).
+     *
+     * Calls updateCandyMachine on-chain to:
+     *   - Clear hiddenSettings
+     *   - Set configLineSettings.prefixUri = https://arweave.net/<manifestRoot>/
+     *
+     * Step 2 (asset-level URI updates) is handled by batchRevealAssets.
+     *
+     * @param candyMachineAddress  On-chain CM public key
+     * @param manifestRoot         43-char Arweave TX id from the deploy step
+     * @param itemCount            Total items in the collection
+     * @returns                    Transaction signature string
+     */
+    const revealCandyMachine = useCallback(async (
+        candyMachineAddress: string,
+        manifestRoot: string,
+        itemCount: number,
+    ): Promise<string> => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            debugStep('solana.reveal', `revealCandyMachine start`, {
+                candyMachineAddress,
+                manifestRoot,
+                itemCount,
+            });
+            const sig = await withRetry(async (umi) => {
+                toast.loading('Revealing Candy Machine (updating on-chain settings)…', { id: 'cm-reveal-hidden' });
+                return revealHiddenCandyMachine(umi, candyMachineAddress, manifestRoot, itemCount);
+            });
+            debugTx('solana.reveal', sig, { step: 'updateCandyMachine' });
+            toast.success('Candy Machine revealed! Future mints will get real metadata.', { id: 'cm-reveal-hidden' });
+            return sig;
+        } catch (err: any) {
+            console.error('[reveal] updateCandyMachine error:', err);
+            debugError('solana.reveal', err?.message || String(err));
+            const msg = extractSolanaError(err);
+            setError(msg);
+            toast.error(msg, { id: 'cm-reveal-hidden' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi, withRetry]);
+
     return {
         isLoading,
         error,
         deploySolanaCollection,
         createLaunchpadCandyMachine,
         createHiddenSettingsCandyMachine,
+        revealCandyMachine,
         createCollection,
         insertItemsToCandyMachine,
         deleteCandyMachine,

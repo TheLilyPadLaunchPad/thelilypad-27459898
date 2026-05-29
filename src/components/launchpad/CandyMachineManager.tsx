@@ -9,10 +9,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Upload, AlertTriangle, FileJson, Trash2, Wand2 } from "lucide-react";
 import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
 import { toast } from 'sonner';
+import { RevealCandyMachinePanel } from './RevealCandyMachinePanel';
 
 interface CandyMachineManagerProps {
     candyMachineAddress: string;
     candyGuardAddress?: string;
+    collectionAddress?: string;
+    manifestRoot?: string;
+    itemsAvailable?: number;
     isCreator: boolean;
     onRefresh: () => void;
 }
@@ -20,18 +24,19 @@ interface CandyMachineManagerProps {
 export function CandyMachineManager({
     candyMachineAddress,
     candyGuardAddress,
+    collectionAddress = '',
+    manifestRoot,
+    itemsAvailable = 0,
     isCreator,
     onRefresh
 }: CandyMachineManagerProps) {
     const {
         insertItemsToCandyMachine,
         deleteCandyMachine,
-        batchRevealAssets,
         isLoading
     } = useSolanaLaunch();
 
     const [itemsJson, setItemsJson] = useState("");
-    const [revealMapJson, setRevealMapJson] = useState("");
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Handler for inserting items (Stage 1 & 4 of Best Practices)
@@ -74,26 +79,6 @@ export function CandyMachineManager({
         }
     };
 
-    // Handler for On-Chain Reveal (Stage 6 of Best Practices)
-    const handleReveal = async () => {
-        try {
-            // Ideally this would fetch from a backend or DB. 
-            // For now, we paste the "Secure Mapping" result or a list of assets to update.
-            // Format: [{ address: "AssetAddress", uri: "NewURI", name: "NewName" }]
-
-            const assetsToReveal = JSON.parse(revealMapJson);
-            if (!Array.isArray(assetsToReveal)) {
-                toast.error("Invalid JSON format. Expected array of { address, uri }.");
-                return;
-            }
-
-            await batchRevealAssets(assetsToReveal);
-            setRevealMapJson("");
-            onRefresh();
-        } catch (e) {
-            toast.error("Failed to parse JSON.");
-        }
-    };
 
     if (!isCreator) return null;
 
@@ -137,29 +122,13 @@ export function CandyMachineManager({
                     </TabsContent>
 
                     <TabsContent value="reveal" className="space-y-4">
-                        <Alert className="bg-blue-500/10 border-blue-500/20 text-blue-500">
-                            <Wand2 className="h-4 w-4" />
-                            <AlertTitle>On-Chain Reveal</AlertTitle>
-                            <AlertDescription>
-                                Updates the Metadata URI of minted assets on-chain.
-                                Paste the list of assets to update.
-                            </AlertDescription>
-                        </Alert>
-                        <div className="space-y-2">
-                            <Label>Assets to Update (JSON)</Label>
-                            <Textarea
-                                placeholder='[{"address": "AssetAddress", "uri": "NewURI"}]'
-                                value={revealMapJson}
-                                onChange={(e) => setRevealMapJson(e.target.value)}
-                                rows={10}
-                                className="font-mono text-xs"
-                            />
-                        </div>
-                        <Button onClick={handleReveal} disabled={isLoading || !revealMapJson}>
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            <Wand2 className="mr-2 h-4 w-4" />
-                            Execute Reveal
-                        </Button>
+                        <RevealCandyMachinePanel
+                            candyMachineAddress={candyMachineAddress}
+                            collectionAddress={collectionAddress}
+                            manifestRoot={manifestRoot}
+                            mintedCount={itemsAvailable}
+                            onRevealComplete={onRefresh}
+                        />
                     </TabsContent>
 
                     <TabsContent value="danger" className="space-y-4">

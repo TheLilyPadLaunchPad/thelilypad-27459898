@@ -27,6 +27,7 @@ import {
     fetchCandyMachine,
     addConfigLines,
     createCandyGuard as createCoreCandyGuardIx,
+    updateCandyMachine as updateCandyMachineIx,
     wrap,
     findCandyGuardPda,
     deleteCandyMachine as deleteCoreCandyMachine,
@@ -1376,4 +1377,82 @@ export async function bulkMintCoreCollection(
         totalFailed,
         allAssetIds,
     };
+}
+
+// ============================================================================
+// REVEAL FLOW — hidden-settings Candy Machine
+// ============================================================================
+
+/**
+ * Step 1 of 2 for the reveal flow on a hidden-settings Candy Machine.
+ *
+ * Calls `updateCandyMachine` to:
+ *   – Clear `hiddenSettings` (set to `none()`)
+ *   – Install real `configLineSettings` whose `prefixUri` points at the
+ *     Arweave manifest root so per-item URIs resolve as:
+ *       https://arweave.net/<manifestRoot>/N.json
+ *
+ * Future mints will receive the real metadata immediately.
+ * Already-minted assets still carry the placeholder URI on their asset
+ * accounts — call `batchRevealAssets` (useSolanaLaunch) for step 2.
+ *
+ * @param candyMachineAddress - On-chain Candy Machine address
+ * @param manifestRoot        - 43-char Arweave TX id from the deploy step
+ * @param itemCount           - Total items in the collection (must match CM)
+ * @returns                   - Base-58 transaction signature string
+ */
+export async function revealHiddenCandyMachine(
+    umi: Umi,
+    candyMachineAddress: string,
+    manifestRoot: string,
+    itemCount: number,
+): Promise<string> {
+    const cmPublicKey = publicKey(candyMachineAddress);
+
+    // Fetch live CM state so we can forward all unchanged fields.
+    const cm = await fetchCandyMachine(umi, cmPublicKey);
+
+    // cm is Account<CandyMachineAccountData> — fields live under .data
+    if (cm.data.hiddenSettings.__option !== 'Some') {
+        console.warn('[CM Reveal] hiddenSettings is already cleared — nothing to do.');
+    }
+
+    const prefixUri = `https://arweave.net/${manifestRoot}/`;
+
+    console.log('[CM Reveal] Updating Candy Machine:', candyMachineAddress);
+    console.log('[CM Reveal] New prefixUri:', prefixUri);
+    console.log('[CM Reveal] Items available:', itemCount);
+
+    const builder = updateCandyMachineIx(umi, {
+        candyMachine: cmPublicKey,
+        data: {
+            itemsAvailable:   BigInt(itemCount),
+            maxEditionSupply: cm.data.maxEditionSupply ?? BigInt(0),
+            isMutable:        cm.data.isMutable ?? true,
+            // Wipe hiddenSettings — reveal the collection
+            hiddenSettings: none(),
+            // Install real config-line settings pointing at the manifest
+            configLineSettings: some({
+                prefixName: '',
+                nameLength: 32,
+                prefixUri,
+                // Each suffix is "N.json" — leave room up to 10k items
+                uriLength: 10,
+                isSequential: false,
+            }),
+        },
+    });
+
+    const { signature } = await builder
+        .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+        .add(setComputeUnitLimit(umi, { units: 400_000 }))
+        .sendAndConfirm(umi, {
+            send: { skipPreflight: false },
+            confirm: { commitment: 'confirmed' },
+        });
+
+    const sigStr = Buffer.from(signature).toString('base64');
+    console.log('[CM Reveal] updateCandyMachine confirmed:', sigStr);
+
+    return sigStr;
 }
