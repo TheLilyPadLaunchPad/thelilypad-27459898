@@ -1,13 +1,25 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
+import { useBetaMode } from "@/hooks/useBetaMode";
 import FrogLoader from "./FrogLoader";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
+// Routes that are always reachable even in beta mode
+const BETA_ALLOWLIST = [
+  '/waitroom',
+  '/leaderboard',   // leaderboard is part of the waitroom experience
+  '/auth',
+  '/auth/callback',
+  '/profile-setup',
+  '/profile-suspended',
+];
+
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { state, isAdmin } = useAuth();
+  const { isBetaMode, isLoading: betaLoading } = useBetaMode();
   const location = useLocation();
 
   // Show loader while wallet connecting, handshaking, or profile loading
@@ -24,7 +36,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/auth" replace />;
   }
 
-  // ADMIN BYPASS: Admins don't need a profile to access the site
+  // ADMIN BYPASS: Admins always have full access regardless of beta mode
   if (isAdmin) {
     if (location.pathname === '/profile-setup') {
       return <Navigate to="/" replace />;
@@ -37,12 +49,21 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/profile-setup" replace />;
   }
 
-  // After profile setup, redirect to waitroom (unless already there or on an apply page)
-  if (state === "AUTHENTICATED" && location.pathname === "/") {
-    // For now, all authenticated users go to the waitroom
-    // Remove this redirect when the platform is ready for full access
-    // return <Navigate to="/waitroom" replace />;
+  // ── BETA MODE GATE ────────────────────────────────────────────────────────
+  // Wait for the beta mode check to resolve before rendering anything
+  if (betaLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <FrogLoader size="lg" />
+      </div>
+    );
   }
+
+  // If beta mode is ON and this route is not on the allowlist, send to waitroom
+  if (isBetaMode && !BETA_ALLOWLIST.some(p => location.pathname.startsWith(p))) {
+    return <Navigate to="/waitroom" replace />;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   return <>{children}</>;
 };

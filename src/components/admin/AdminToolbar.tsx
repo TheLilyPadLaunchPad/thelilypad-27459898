@@ -6,9 +6,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { useBetaMode } from '@/hooks/useBetaMode';
 import {
     ShieldCheck,
     X,
@@ -34,6 +36,9 @@ import {
     Activity,
     Database,
     Wrench,
+    Lock,
+    Unlock,
+    FlaskConical,
 } from 'lucide-react';
 
 // --- Types ---
@@ -71,6 +76,9 @@ export const AdminToolbar: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [activeSection, setActiveSection] = useState<'overview' | 'collections' | 'moderation' | 'quick-actions'>('overview');
+    const [betaToggling, setBetaToggling] = useState(false);
+
+    const { isBetaMode, toggle: toggleBetaMode } = useBetaMode();
 
     const shouldShow = isAdmin && location.pathname !== '/admin';
 
@@ -181,6 +189,22 @@ export const AdminToolbar: React.FC = () => {
         toast.success('Admin data refreshed');
     }, [refetchStats, queryClient]);
 
+    const handleBetaToggle = useCallback(async () => {
+        setBetaToggling(true);
+        try {
+            await toggleBetaMode();
+            toast.success(
+                !isBetaMode
+                    ? '🔒 Beta mode ON — users are now locked to the Wait Room'
+                    : '🟢 Beta mode OFF — app is now open to all users'
+            );
+        } catch (err: any) {
+            toast.error('Failed to update beta mode: ' + (err?.message || 'Unknown error'));
+        } finally {
+            setBetaToggling(false);
+        }
+    }, [toggleBetaMode, isBetaMode]);
+
     // --- Keyboard Shortcut ---
     useEffect(() => {
         const handleKeyboard = (e: KeyboardEvent) => {
@@ -247,6 +271,28 @@ export const AdminToolbar: React.FC = () => {
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary/30 text-primary">
                                     LIVE
                                 </Badge>
+                            </div>
+                            {/* ── Beta Mode Toggle — always visible ── */}
+                            <div className="flex items-center gap-2">
+                                <motion.div
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                                        isBetaMode
+                                            ? 'bg-red-500/15 border-red-500/40 text-red-400'
+                                            : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                    }`}
+                                    layout
+                                >
+                                    {isBetaMode
+                                        ? <><Lock className="w-2.5 h-2.5" /> BETA LOCKED</>  
+                                        : <><Unlock className="w-2.5 h-2.5" /> APP OPEN</>}
+                                </motion.div>
+                                <Switch
+                                    id="admin-beta-mode-toggle"
+                                    checked={isBetaMode}
+                                    onCheckedChange={handleBetaToggle}
+                                    disabled={betaToggling}
+                                    className="data-[state=checked]:bg-red-500 scale-75"
+                                />
                             </div>
                             <div className="flex items-center gap-1">
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={refreshAll} title="Refresh">
@@ -447,6 +493,40 @@ export const AdminToolbar: React.FC = () => {
                                         {activeSection === 'quick-actions' && (
                                             <div className="space-y-2">
                                                 <span className="text-xs font-semibold text-muted-foreground uppercase">Quick Actions</span>
+
+                                                {/* Beta Mode Card */}
+                                                <div className={`rounded-lg border p-3 transition-colors ${
+                                                    isBetaMode
+                                                        ? 'border-red-500/30 bg-red-500/5'
+                                                        : 'border-emerald-500/20 bg-emerald-500/5'
+                                                }`}>
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div className="flex items-start gap-2.5">
+                                                            <FlaskConical className={`w-4 h-4 mt-0.5 shrink-0 ${
+                                                                isBetaMode ? 'text-red-400' : 'text-emerald-400'
+                                                            }`} />
+                                                            <div>
+                                                                <p className="text-sm font-semibold leading-tight">
+                                                                    Beta Mode
+                                                                </p>
+                                                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                                                    {isBetaMode
+                                                                        ? 'Users are locked to the Wait Room'
+                                                                        : 'App is open — users have full access'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <Switch
+                                                            id="admin-beta-mode-toggle-actions"
+                                                            checked={isBetaMode}
+                                                            onCheckedChange={handleBetaToggle}
+                                                            disabled={betaToggling}
+                                                            className="data-[state=checked]:bg-red-500 shrink-0"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <Separator className="my-1" />
 
                                                 <button
                                                     onClick={() => {

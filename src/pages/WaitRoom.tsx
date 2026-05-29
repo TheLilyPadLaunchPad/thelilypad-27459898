@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Send, Users, Copy, Share2, Trophy, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Users, Copy, Share2, Trophy, ExternalLink, FlaskConical, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useReferralCode } from '@/hooks/useReferralCode';
+import { useBetaMode } from '@/hooks/useBetaMode';
 import { LilyPadLogo } from '@/components/LilyPadLogo';
 import { useSEO } from '@/hooks/useSEO';
 import { WLCard } from '@/components/waitroom/WLCard';
@@ -35,6 +36,7 @@ export default function WaitRoom() {
   const { profile } = useUserProfile();
   const { walletAddress } = useAuth();
   const { referralCode, referralCount, loading: refLoading } = useReferralCode();
+  const { isBetaMode } = useBetaMode();
 
   useSEO({ title: 'The Lily Pad - Wait Room', description: 'Hang out and chat while we get everything ready!' });
 
@@ -109,6 +111,40 @@ export default function WaitRoom() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 pt-24 pb-12">
+
+        {/* Beta Mode Banner */}
+        <AnimatePresence>
+          {isBetaMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="mb-6 max-w-6xl mx-auto"
+            >
+              <div className="relative overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-500/10 via-orange-500/5 to-red-500/10 p-4">
+                {/* Animated shimmer */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/5 to-transparent animate-[shimmer_3s_ease-in-out_infinite] pointer-events-none" />
+                <div className="relative flex items-center gap-4">
+                  <div className="shrink-0 w-10 h-10 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+                    <FlaskConical className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <Lock className="w-3.5 h-3.5 text-red-400" />
+                      <span className="text-sm font-bold text-red-400 uppercase tracking-wider">Beta Access Only</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      The Lily Pad is currently in <span className="text-foreground font-semibold">private beta</span>. 
+                      You're in the Wait Room — hang out, chat, and climb the leaderboard while we get everything ready.
+                      You'll gain full access when beta opens! 🐸
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {/* Left sidebar - WL Card & Affiliate */}
           <div className="lg:col-span-1 space-y-4">
