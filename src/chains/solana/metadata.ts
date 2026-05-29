@@ -93,6 +93,123 @@ export async function uploadJsonBatch(umi: Umi, metadataArray: any[]): Promise<s
     return uris;
 }
 
+// ── Arweave Directory Manifest ───────────────────────────────────────────
+
+export interface ArweaveManifestResult {
+    /** TX id of the manifest itself (the "root") */
+    manifestRoot: string;
+    /** Full URI to the manifest tx (https://arweave.net/<ROOT>) */
+    manifestUri: string;
+    /** Per-item gateway URIs resolvable via the manifest, e.g. arweave.net/<ROOT>/0.json */
+    itemUris: string[];
+    /** Raw per-file TX ids from the bundled upload (order-aligned) */
+    fileTxIds: string[];
+}
+
+/**
+ * Bundle a list of files into a single Irys bundle, then publish a single
+ * Arweave path-manifest pointing at each file. Result: every item is
+ * addressable as `https://arweave.net/<ROOT>/<filename>` while only TWO
+ * Turbo-funded upload operations are performed regardless of collection size.
+ *
+ * The returned `manifestRoot` is what you want to pass as `prefixUri` to a
+ * Core Candy Machine (configLineSettings) or as the hidden-settings
+ * placeholder URI prefix, so per-item URIs collapse to e.g. "0.json".
+ *
+ * @param umi      Umi instance with irysUploader plugin
+ * @param files    Files to bundle — `fileName` is used as the manifest path
+ *                 (e.g. "0.json", "0.png"). Order is preserved in `itemUris`.
+ * @param indexPath Optional file to point the manifest's `index` at (default: first file)
+ */
+export async function uploadArweaveManifest(
+    umi: Umi,
+    files: Array<{ buffer: Uint8Array; fileName: string; contentType: string }>,
+    indexPath?: string,
+): Promise<ArweaveManifestResult> {
+    if (files.length === 0) {
+        throw new Error('uploadArweaveManifest: no files to bundle');
+    }
+
+    // 1. Upload all files in a single bundled call (Turbo will batch internally).
+    const genericFiles = files.map(f => ({
+        buffer: f.buffer,
+        fileName: f.fileName,
+        displayName: f.fileName,
+        uniqueName: f.fileName,
+        contentType: f.contentType,
+        extension: f.fileName.split('.').pop() || '',
+        tags: [],
+    }));
+
+    const fileUris = await withRetry(
+        () => umi.uploader.upload(genericFiles),
+        `manifestBundle(${files.length})`,
+    );
+
+    // Extract bare TX ids from the full URIs (arweave.net/<id> or https://...)
+    const fileTxIds = fileUris.map(u => {
+        const m = u.match(/([A-Za-z0-9_-]{43})/);
+        return m ? m[1] : u;
+    });
+
+    // 2. Build the Arweave path-manifest JSON.
+    const paths: Record<string, { id: string }> = {};
+    files.forEach((f, i) => { paths[f.fileName] = { id: fileTxIds[i] }; });
+
+    const manifest = {
+        manifest: 'arweave/paths',
+        version: '0.1.0',
+        index: { path: indexPath || files[0].fileName },
+        paths,
+    };
+
+    // 3. Upload the manifest itself, tagged so Arweave gateways serve subpaths.
+    const manifestFile = {
+        buffer: new Uint8Array(Buffer.from(JSON.stringify(manifest), 'utf-8')),
+        fileName: 'manifest.json',
+        displayName: 'Directory Manifest',
+        uniqueName: `manifest-${Date.now()}.json`,
+        contentType: 'application/x.arweave-manifest+json',
+        extension: 'json',
+        tags: [
+            { name: 'Content-Type', value: 'application/x.arweave-manifest+json' },
+            { name: 'Type', value: 'manifest' },
+        ],
+    };
+
+    const [manifestUri] = await withRetry(
+        () => umi.uploader.upload([manifestFile]),
+        'manifestRoot',
+    );
+
+    const manifestRoot = (manifestUri.match(/([A-Za-z0-9_-]{43})/) || [, manifestUri])[1];
+    const gateway = `https://arweave.net/${manifestRoot}`;
+
+    return {
+        manifestRoot,
+        manifestUri: gateway,
+        itemUris: files.map(f => `${gateway}/${f.fileName}`),
+        fileTxIds,
+    };
+}
+
+/**
+ * Convenience: bundle an array of metadata JSONs as 0.json, 1.json, … and
+ * return the manifest root. Use the root as `prefixUri` so per-item config
+ * lines collapse from a full URL to just "0.json".
+ */
+export async function uploadJsonManifest(
+    umi: Umi,
+    metadataArray: any[],
+): Promise<ArweaveManifestResult> {
+    const files = metadataArray.map((m, i) => ({
+        buffer: new Uint8Array(Buffer.from(JSON.stringify(m), 'utf-8')),
+        fileName: `${i}.json`,
+        contentType: 'application/json',
+    }));
+    return uploadArweaveManifest(umi, files);
+}
+
 /**
  * Resolve metadata URI — requires an Arweave CID
  */

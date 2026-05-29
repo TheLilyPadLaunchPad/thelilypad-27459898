@@ -208,18 +208,42 @@ export default function LaunchpadCreate() {
                         uri: item.arweaveUri
                     }));
 
-                    // For large collections (>500 items), use Hidden Settings (3 signatures total)
-                    // For smaller collections, use Config Lines (allows on-chain reveals)
-                    const USE_HIDDEN_SETTINGS_THRESHOLD = 500;
-                    
+                    // For collections >= threshold, use Hidden Settings (3 sigs total, fixed cost).
+                    // For smaller collections, use Config Lines (allows on-chain reveals).
+                    const USE_HIDDEN_SETTINGS_THRESHOLD = 200;
+
                     if (assetsCount > USE_HIDDEN_SETTINGS_THRESHOLD) {
+                        // Bundle all per-item metadata into ONE Arweave directory manifest
+                        // so reveal URIs resolve as arweave.net/<ROOT>/N.json without
+                        // ever calling addConfigLines. Re-use already-uploaded item JSONs
+                        // by re-fetching only when not already manifest-shaped.
+                        setDeployCheckoutProgress({ label: "Bundling metadata into Arweave manifest...", completed: 2, total: 3 });
+                        let placeholderUri = primaryArweaveUri;
+                        try {
+                            const metadataObjects = await Promise.all(
+                                itemLinks.map(async (item, i) => {
+                                    try {
+                                        const res = await fetch(item.arweaveUri);
+                                        return await res.json();
+                                    } catch {
+                                        return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
+                                    }
+                                })
+                            );
+                            const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
+                            placeholderUri = manifest.itemUris[0] || primaryArweaveUri;
+                            console.log("[Deploy] Arweave manifest root:", manifest.manifestRoot);
+                        } catch (e) {
+                            console.warn("[Deploy] Manifest bundle failed, falling back to primary URI:", e);
+                        }
+
                         setDeployCheckoutProgress({ label: "Creating Hidden Settings Candy Machine (Large Collection)...", completed: 2, total: 3 });
                         const cmResult = await solanaLaunch.createHiddenSettingsCandyMachine(
                             deployedAddress,
                             candyMachineItems,
                             phases,
                             `${name} #`, // placeholder name
-                            primaryArweaveUri, // placeholder URI (pre-reveal image/metadata)
+                            placeholderUri, // placeholder URI from manifest
                             treasuryWallet
                         );
                         console.log("[Deploy] Hidden Settings Candy Machine created:", cmResult.address);

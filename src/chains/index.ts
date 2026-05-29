@@ -38,9 +38,10 @@ export type { CartItem, CartCostEstimate, CartCheckoutParams, CartCheckoutResult
 export {
     uploadFile, uploadFiles, uploadMetadata, uploadJsonBatch,
     resolveMetadataUri, resolveImageUri,
-    uploadBatchWithUmi, uploadSingleWithUmi
+    uploadBatchWithUmi, uploadSingleWithUmi,
+    uploadArweaveManifest, uploadJsonManifest,
 } from './solana/metadata';
-export type { BatchUploadItem, BatchUploadResult, BatchUploadResponse } from './solana/metadata';
+export type { BatchUploadItem, BatchUploadResult, BatchUploadResponse, ArweaveManifestResult } from './solana/metadata';
 
 // Re-export Monad metadata
 export { uploadMonadImage, uploadMonadMetadata, uploadMonadMetadataBatch, uploadMonadAudio, buildERC721Metadata } from './monad/metadata';
