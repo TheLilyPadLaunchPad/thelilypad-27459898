@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Users, Copy, Share2, Trophy, ExternalLink, FlaskConical, Lock } from 'lucide-react';
+import { Send, Users, Copy, Share2, Trophy, ExternalLink, FlaskConical, Lock, ArrowRight, Medal, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -32,13 +34,35 @@ export default function WaitRoom() {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [onlineCount, setOnlineCount] = useState(1);
+  const [topReferrers, setTopReferrers] = useState<{ display_name: string | null; avatar_url: string | null; count: number }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { profile } = useUserProfile();
   const { walletAddress } = useAuth();
   const { referralCode, referralCount, loading: refLoading } = useReferralCode();
   const { isBetaMode } = useBetaMode();
+  const navigate = useNavigate();
 
   useSEO({ title: 'The Lily Pad - Wait Room', description: 'Hang out and chat while we get everything ready!' });
+
+  // Fetch top 3 referrers for the leaderboard preview
+  useEffect(() => {
+    const fetchTop = async () => {
+      const { data: signups } = await supabase.from('referral_signups').select('referrer_id');
+      if (!signups?.length) return;
+      const counts: Record<string, number> = {};
+      signups.forEach((s: any) => { counts[s.referrer_id] = (counts[s.referrer_id] || 0) + 1; });
+      const topIds = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id);
+      const { data: profiles } = await supabase
+        .from('user_profiles').select('user_id, display_name, avatar_url').in('user_id', topIds);
+      const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+      setTopReferrers(topIds.map(id => ({
+        display_name: (profileMap.get(id) as any)?.display_name || null,
+        avatar_url:   (profileMap.get(id) as any)?.avatar_url   || null,
+        count:        counts[id],
+      })));
+    };
+    fetchTop();
+  }, []);
 
   // Fetch initial messages
   useEffect(() => {
@@ -172,11 +196,85 @@ export default function WaitRoom() {
                     </Button>
                   </div>
                 )}
-                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => window.open('/leaderboard', '_self')}>
-                  <Trophy className="w-4 h-4" /> View Leaderboard
-                </Button>
               </CardContent>
             </Card>
+
+            {/* ── Leaderboard Preview Card ─────────────────────────── */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <Card className="border-yellow-500/20 bg-gradient-to-b from-yellow-500/5 to-card/80 backdrop-blur-sm overflow-hidden group cursor-pointer hover:border-yellow-500/40 transition-colors"
+                onClick={() => navigate('/leaderboard')}
+              >
+                <CardContent className="p-4 space-y-3">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold flex items-center gap-2 text-sm">
+                      <Trophy className="w-4 h-4 text-yellow-400" />
+                      Referral Leaderboard
+                    </h3>
+                    <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-500 px-1.5 h-4">
+                      LIVE
+                    </Badge>
+                  </div>
+
+                  {/* Your rank chip */}
+                  {referralCount > 0 && (
+                    <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
+                      <Star className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <p className="text-xs font-medium">
+                        You have <span className="text-primary font-bold">{referralCount} referral{referralCount !== 1 ? 's' : ''}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Top 3 preview */}
+                  {topReferrers.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {topReferrers.map((entry, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className={`w-5 text-center text-xs font-bold shrink-0 ${
+                            i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : 'text-amber-600'
+                          }`}>
+                            {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
+                          </span>
+                          <Avatar className="w-5 h-5 shrink-0">
+                            <AvatarImage src={entry.avatar_url || undefined} />
+                            <AvatarFallback className="text-[9px] bg-primary/20">
+                              {(entry.display_name || '?')[0]?.toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="flex-1 text-xs truncate font-medium">
+                            {entry.display_name || 'Anonymous'}
+                          </span>
+                          <span className="text-xs font-bold text-primary shrink-0">
+                            {entry.count}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      No entries yet — be first! 🐸
+                    </p>
+                  )}
+
+                  {/* CTA */}
+                  <button
+                    id="waitroom-view-leaderboard"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/20 hover:border-yellow-500/40 transition-all text-sm font-semibold text-yellow-500 group-hover:gap-3"
+                    onClick={(e) => { e.stopPropagation(); navigate('/leaderboard'); }}
+                  >
+                    <Trophy className="w-4 h-4" />
+                    View Full Leaderboard
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                  </button>
+                </CardContent>
+              </Card>
+            </motion.div>
+
           </div>
 
           {/* Chat area */}

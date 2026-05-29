@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Medal, Users, ArrowLeft } from 'lucide-react';
+import { Trophy, Medal, Users, ArrowLeft, Home } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import { useSEO } from '@/hooks/useSEO';
+import { useBetaMode } from '@/hooks/useBetaMode';
 import { useNavigate } from 'react-router-dom';
 
 interface LeaderboardEntry {
@@ -20,6 +22,7 @@ export default function Leaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { isBetaMode } = useBetaMode();
 
   useSEO({ title: 'Referral Leaderboard | The Lily Pad', description: 'See top referrers on The Lily Pad' });
 
@@ -72,13 +75,39 @@ export default function Leaderboard() {
     return 'text-muted-foreground';
   };
 
+  // Back destination: always /waitroom when in beta, otherwise browser history
+  const handleBack = () => {
+    if (isBetaMode) {
+      navigate('/waitroom');
+    } else {
+      navigate(-1);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 pt-24 pb-12 max-w-2xl">
-        <Button variant="ghost" className="mb-4 gap-2" onClick={() => navigate(-1)}>
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
+
+        {/* Back nav */}
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" className="gap-2" onClick={handleBack}>
+            <ArrowLeft className="w-4 h-4" />
+            {isBetaMode ? 'Back to Wait Room' : 'Back'}
+          </Button>
+
+          {/* Beta mode breadcrumb */}
+          {isBetaMode && (
+            <button
+              id="leaderboard-back-to-waitroom"
+              onClick={() => navigate('/waitroom')}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Home className="w-3.5 h-3.5" />
+              Wait Room
+            </button>
+          )}
+        </div>
 
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
           <CardHeader>
