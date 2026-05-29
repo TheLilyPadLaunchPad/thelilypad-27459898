@@ -372,9 +372,26 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Lightweight auth: require Supabase apikey or Bearer token to prevent
+  // unauthenticated external abuse of the Solana RPC proxy.
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+  const apikeyHeader = req.headers.get('apikey') || '';
+  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+  const bearer = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+  const hasValidKey = !!anonKey && (apikeyHeader === anonKey || bearer === anonKey || (!!bearer && bearer.length > 20));
+  if (!hasValidKey) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized: missing or invalid apikey' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const url = new URL(req.url);
     const network = (url.searchParams.get('network') || 'mainnet') as 'mainnet' | 'testnet';
+
 
     // Health check endpoint
     if (url.pathname.endsWith('/health')) {

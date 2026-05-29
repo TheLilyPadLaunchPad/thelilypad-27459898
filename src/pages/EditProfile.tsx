@@ -110,8 +110,22 @@ const EditProfile = () => {
       // Parse categories
       setCategories(Array.isArray(profile.categories) ? profile.categories : []);
 
-      // Set payout wallet
-      setPayoutWalletAddress(profile.payout_wallet_address || "");
+      // Load payout wallet from owner-only table
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: payout } = await (supabase as any)
+              .from('user_payout_wallets')
+              .select('payout_wallet_address')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            setPayoutWalletAddress(payout?.payout_wallet_address || "");
+          }
+        } catch (e) {
+          console.warn("Failed to load payout wallet", e);
+        }
+      })();
 
       // Set playlist IDs
       setPlaylistIds(Array.isArray((profile as any).playlist_ids) ? (profile as any).playlist_ids : []);
@@ -126,7 +140,8 @@ const EditProfile = () => {
     setSaving(true);
 
     try {
-      // Use saveProfile which does upsert - creates profile if doesn't exist
+      // Use saveProfile which does upsert - creates profile if doesn't exist.
+      // Note: payout_wallet_address is now stored in user_payout_wallets (owner-only RLS).
       const savedProfile = await saveProfile({
         display_name: displayName || null,
         bio: bio || null,
@@ -139,7 +154,6 @@ const EditProfile = () => {
         social_tiktok: socialTiktok || null,
         schedule: JSON.parse(JSON.stringify(schedule)),
         categories: categories,
-        payout_wallet_address: payoutWalletAddress || null,
         playlist_ids: playlistIds,
         is_private: isPrivate,
         // Preserve existing role flags or default to collector
@@ -147,6 +161,21 @@ const EditProfile = () => {
         is_creator: profile?.is_creator ?? false,
         is_streamer: profile?.is_streamer ?? false,
       });
+
+      // Persist payout wallet to the owner-only table
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await (supabase as any)
+            .from('user_payout_wallets')
+            .upsert(
+              { user_id: user.id, payout_wallet_address: payoutWalletAddress || null },
+              { onConflict: 'user_id' }
+            );
+        }
+      } catch (e) {
+        console.warn("Failed to save payout wallet", e);
+      }
 
       toast({
         title: "Profile saved!",

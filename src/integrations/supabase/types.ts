@@ -2862,6 +2862,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_payout_wallets: {
+        Row: {
+          created_at: string
+          payout_wallet_address: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          payout_wallet_address?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          payout_wallet_address?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_playlists: {
         Row: {
           cover_image_url: string | null
@@ -2909,7 +2930,6 @@ export type Database = {
           is_private: boolean
           is_streamer: boolean | null
           is_verified: boolean | null
-          payout_wallet_address: string | null
           playlist_ids: string[] | null
           profile_setup_completed: boolean | null
           referred_by: string | null
@@ -2936,7 +2956,6 @@ export type Database = {
           is_private?: boolean
           is_streamer?: boolean | null
           is_verified?: boolean | null
-          payout_wallet_address?: string | null
           playlist_ids?: string[] | null
           profile_setup_completed?: boolean | null
           referred_by?: string | null
@@ -2963,7 +2982,6 @@ export type Database = {
           is_private?: boolean
           is_streamer?: boolean | null
           is_verified?: boolean | null
-          payout_wallet_address?: string | null
           playlist_ids?: string[] | null
           profile_setup_completed?: boolean | null
           referred_by?: string | null
@@ -3103,7 +3121,6 @@ export type Database = {
           display_name: string | null
           id: string
           user_id: string
-          wallet_address: string
         }
         Insert: {
           avatar_url?: string | null
@@ -3112,7 +3129,6 @@ export type Database = {
           display_name?: string | null
           id?: string
           user_id: string
-          wallet_address: string
         }
         Update: {
           avatar_url?: string | null
@@ -3121,7 +3137,6 @@ export type Database = {
           display_name?: string | null
           id?: string
           user_id?: string
-          wallet_address?: string
         }
         Relationships: []
       }

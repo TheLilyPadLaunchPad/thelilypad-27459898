@@ -7,27 +7,14 @@ export const useIsAdmin = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Hardcoded admin addresses for emergency/developer access
-  const HARDCODED_ADMINS = [
-    'Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH',
-    'rDioFjwotyCXApacrJ7C1oK3tmSmGtEnjT'
-  ];
-
   useEffect(() => {
     const checkAdminStatus = async () => {
-      // 1. First check hardcoded addresses
-      if (address && HARDCODED_ADMINS.includes(address)) {
-        setIsAdmin(true);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Then check Supabase user_roles table for admin role
+      // Server-side admin role check via Supabase user_roles table.
+      // Hardcoded wallet bypasses have been removed for security.
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-          // If no user session, not admin
           setIsAdmin(false);
           setLoading(false);
           return;
@@ -61,7 +48,7 @@ export const useIsAdmin = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [isConnected, address]); // Re-run when wallet state changes
+  }, [isConnected, address]);
 
   return { isAdmin, loading };
 };
