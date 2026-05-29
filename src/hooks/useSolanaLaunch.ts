@@ -202,6 +202,31 @@ export const useSolanaLaunch = () => {
     }, [getUmi]);
 
     /**
+     * Bundle metadata JSONs into a single Arweave directory manifest.
+     * Returns a manifest root usable as prefixUri so per-item URIs become e.g.
+     *   https://arweave.net/<ROOT>/0.json
+     * This is the path that makes a hidden-settings Candy Machine deploy at
+     * fixed cost (no addConfigLines).
+     */
+    const uploadJsonManifest = useCallback(async (
+        metadataArray: any[]
+    ): Promise<ArweaveManifestResult> => {
+        const umi = await getUmi();
+        debugUpload('solana.irys', `uploadJsonManifest: bundling ${metadataArray.length} items`);
+        try {
+            const result = await uploadJsonManifestToChain(umi, metadataArray);
+            debugUri('solana.irys', result.manifestUri, {
+                manifestRoot: result.manifestRoot,
+                items: result.itemUris.length,
+            });
+            return result;
+        } catch (e: any) {
+            debugError('solana.irys', `uploadJsonManifest failed: ${e?.message || e}`);
+            throw e;
+        }
+    }, [getUmi]);
+
+    /**
      * Upload a batch of NFT assets using Umi's uploader interface (Irys-backed)
      * Includes thumbnail generation, progress tracking, and automatic funding
      */
