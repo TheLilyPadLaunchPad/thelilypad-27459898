@@ -857,6 +857,7 @@ export const useSolanaLaunch = () => {
         uploadFiles,
         uploadMetadata,
         uploadJsonMetadataBatch,
+        uploadJsonManifest,
         uploadBatch,
         uploadSingle,
         cartCheckout,
