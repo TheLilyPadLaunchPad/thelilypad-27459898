@@ -24,7 +24,8 @@ export interface UserProfile {
     social_tiktok: string | null;
     schedule: unknown;
     categories: string[] | null;
-    payout_wallet_address: string | null;
+    /** @deprecated payout wallet now lives in user_payout_wallets table (owner-only RLS) */
+    payout_wallet_address?: string | null;
     playlist_ids: string[] | null;
     is_verified: boolean;
     is_private: boolean;

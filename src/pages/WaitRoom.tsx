@@ -22,7 +22,6 @@ interface ChatMessage {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
-  wallet_address: string;
   content: string;
   created_at: string;
 }
@@ -85,7 +84,6 @@ export default function WaitRoom() {
         user_id: profile.user_id,
         display_name: profile.display_name,
         avatar_url: profile.avatar_url,
-        wallet_address: profile.wallet_address,
         content: newMessage.trim(),
       });
       setNewMessage('');
@@ -181,13 +179,13 @@ export default function WaitRoom() {
                       <Avatar className="w-8 h-8 shrink-0">
                         <AvatarImage src={msg.avatar_url || undefined} />
                         <AvatarFallback className="text-xs bg-primary/20">
-                          {(msg.display_name || msg.wallet_address)?.[0]?.toUpperCase() || '?'}
+                          {msg.display_name?.[0]?.toUpperCase() || '?'}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
                         <div className="flex items-baseline gap-2">
                           <span className="font-semibold text-sm truncate">
-                            {msg.display_name || shortWallet(msg.wallet_address)}
+                            {msg.display_name || 'Anonymous'}
                           </span>
                           <span className="text-[10px] text-muted-foreground shrink-0">
                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

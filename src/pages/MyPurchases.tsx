@@ -204,9 +204,33 @@ export default function MyPurchases() {
     fetchPurchases();
   }, [userId]);
 
-  const handleDownload = (url: string, name: string) => {
-    window.open(url, "_blank");
-    toast.success(`Opening ${name}`);
+  const handleDownload = async (url: string, name: string) => {
+    try {
+      // Extract storage path from publicUrl. Public URLs look like:
+      //   .../storage/v1/object/public/shop-items/<path>
+      // Signed URLs look like:
+      //   .../storage/v1/object/sign/shop-items/<path>?token=...
+      const match = url.match(/\/object\/(?:public|sign)\/shop-items\/([^?]+)/);
+      if (!match) {
+        // Fallback: open the URL directly (legacy non-shop links)
+        window.open(url, "_blank");
+        toast.success(`Opening ${name}`);
+        return;
+      }
+      const path = decodeURIComponent(match[1]);
+      const { data, error } = await supabase
+        .storage
+        .from("shop-items")
+        .createSignedUrl(path, 300);
+      if (error || !data?.signedUrl) {
+        throw error || new Error("Failed to create download link");
+      }
+      window.open(data.signedUrl, "_blank");
+      toast.success(`Opening ${name}`);
+    } catch (e: any) {
+      console.error("Download failed:", e);
+      toast.error(e?.message || "Failed to open download");
+    }
   };
 
   const totalItems = purchasedItems.length;
