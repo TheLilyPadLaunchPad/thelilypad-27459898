@@ -645,20 +645,29 @@ export default function LaunchpadCreate() {
             // ── Step 2: Upload to Arweave (Permanent Storage) — batch optimised ─
             toast.loading(`Securing ${assetsToUpload.length} items to Arweave (this may take a few minutes)...`, { id: 'deploy' });
 
+            // Capture every built metadata object so we can bundle them into an
+            // Arweave directory manifest later without re-fetching from the gateway
+            // (Arweave propagation can take 5–30 min — re-fetching right after
+            // upload is the single biggest source of "manifest failed" errors).
+            const builtMetadata: any[] = new Array(assetsToUpload.length);
+
             const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
                 file: asset.file,
                 buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
-                    // Music flow: use buildMusicNftMetadata for proper Metaplex-standard audio metadata
+                    let m: any;
                     if (flowType === 'music' && asset.metadata._audioUri) {
                         const track = tracks[asset.metadata._trackIndex ?? idx];
-                        return buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
+                        m = buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
+                    } else {
+                        m = {
+                            ...asset.metadata,
+                            image: arweaveImageUri,
+                            ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                            ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
+                        };
                     }
-                    return {
-                        ...asset.metadata,
-                        image: arweaveImageUri,
-                        ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                        ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
-                    };
+                    builtMetadata[idx] = m;
+                    return m;
                 },
             }));
 
