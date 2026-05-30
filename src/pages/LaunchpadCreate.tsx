@@ -210,29 +210,35 @@ export default function LaunchpadCreate() {
 
                     // For collections >= threshold, use Hidden Settings (3 sigs total, fixed cost).
                     // For smaller collections, use Config Lines (allows on-chain reveals).
-                    const USE_HIDDEN_SETTINGS_THRESHOLD = 200;
+                    // Lowered to 50 so generative drops use the fixed-cost path aggressively.
+                    const USE_HIDDEN_SETTINGS_THRESHOLD = 50;
 
                     if (assetsCount > USE_HIDDEN_SETTINGS_THRESHOLD) {
-                        // Bundle all per-item metadata into ONE Arweave directory manifest
-                        // so reveal URIs resolve as arweave.net/<ROOT>/N.json without
-                        // ever calling addConfigLines. Re-use already-uploaded item JSONs
-                        // by re-fetching only when not already manifest-shaped.
+                        // FASTEST PATH: bundle all per-item metadata into ONE Arweave
+                        // directory manifest so reveal URIs resolve as
+                        // arweave.net/<ROOT>/N.json without any addConfigLines tx.
+                        // We use the in-memory metadata captured during upload — this
+                        // avoids the 5–30 min Arweave propagation window that would
+                        // otherwise break a fetch() loop here.
                         setDeployCheckoutProgress({ label: "Bundling metadata into Arweave manifest...", completed: 2, total: 3 });
                         let placeholderUri = primaryArweaveUri;
                         try {
-                            const metadataObjects = await Promise.all(
-                                itemLinks.map(async (item, i) => {
-                                    try {
-                                        const res = await fetch(item.arweaveUri);
-                                        return await res.json();
-                                    } catch {
-                                        return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
-                                    }
-                                })
-                            );
+                            const metadataObjects = (builtMetadata && builtMetadata.length === itemLinks.length)
+                                ? builtMetadata
+                                : await Promise.all(
+                                    itemLinks.map(async (item, i) => {
+                                        try {
+                                            const res = await fetch(item.arweaveUri);
+                                            return await res.json();
+                                        } catch {
+                                            return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
+                                        }
+                                    })
+                                );
                             const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
                             placeholderUri = manifest.itemUris[0] || primaryArweaveUri;
                             console.log("[Deploy] Arweave manifest root:", manifest.manifestRoot);
+                            console.log("[Deploy] Source:", builtMetadata?.length === itemLinks.length ? "in-memory (fast)" : "re-fetch (slow)");
                         } catch (e) {
                             console.warn("[Deploy] Manifest bundle failed, falling back to primary URI:", e);
                         }
@@ -242,13 +248,12 @@ export default function LaunchpadCreate() {
                             deployedAddress,
                             candyMachineItems,
                             phases,
-                            `${name} #`, // placeholder name
-                            placeholderUri, // placeholder URI from manifest
+                            `${name} #`,
+                            placeholderUri,
                             treasuryWallet
                         );
                         console.log("[Deploy] Hidden Settings Candy Machine created:", cmResult.address);
                         console.log("[Deploy] Items hash:", Buffer.from(cmResult.itemsHash).toString('hex').slice(0, 16) + "...");
-                        // No need to insert items - they're committed via the hash!
                         setDeployCheckoutProgress({ label: "Candy Machine ready (Hidden Settings - no item insertion needed)", completed: 3, total: 3 });
                     } else {
                         setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
