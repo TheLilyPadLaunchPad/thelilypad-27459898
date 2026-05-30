@@ -516,7 +516,9 @@ export async function createCoreCandyMachineHidden(
     phases: LaunchpadPhase[],
     placeholderName: string,
     placeholderUri: string,
-    treasuryWallet?: string
+    treasuryWallet?: string,
+    /** Pre-computed SHA-256 hash from bundleCollectionDeploy; skips internal hashing when provided */
+    precomputedHash?: Uint8Array,
 ): Promise<{ address: string; candyGuardAddress: string; itemsHash: Uint8Array }> {
     const candyMachine = generateSigner(umi);
     const candyGuard = generateSigner(umi);
@@ -531,9 +533,10 @@ export async function createCoreCandyMachineHidden(
     console.log("[CM Hidden] Total items committed:", itemsAvailable);
     console.log("[CM Hidden] Phases:", phases.length);
 
-    // Generate hash commitment for all items
-    const itemsHash = await generateItemsHash(items);
-    console.log("[CM Hidden] Items hash generated:", Buffer.from(itemsHash).toString('hex').slice(0, 16) + "...");
+    // Use caller-supplied hash (bundle-deploy path) or generate from items
+    const itemsHash = precomputedHash ?? await generateItemsHash(items);
+    console.log("[CM Hidden] Items hash:", Buffer.from(itemsHash).toString('hex').slice(0, 16) + "...");
+
 
     // Retry logic for CM creation
     let attempts = 0;
