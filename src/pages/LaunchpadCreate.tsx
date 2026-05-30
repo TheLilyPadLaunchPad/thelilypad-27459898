@@ -726,6 +726,7 @@ export default function LaunchpadCreate() {
                 itemLinks,
                 primaryArweaveUri,
                 assetsCount: assetsToUpload.length,
+                builtMetadata: builtMetadata.filter(Boolean),
             });
             setDeployCheckoutEstimate(onChainEstimate);
             setDeployCheckoutOpen(true);
