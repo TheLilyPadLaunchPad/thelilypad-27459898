@@ -43,6 +43,16 @@ export {
 } from './solana/metadata';
 export type { BatchUploadItem, BatchUploadResult, BatchUploadResponse, ArweaveManifestResult } from './solana/metadata';
 
+// Re-export one-bundle deploy (best-in-class fixed-cost architecture)
+export { bundleCollectionDeploy, bundleCollectionDeployFromFiles } from './solana/bundleDeploy';
+export type {
+    CollectionAsset,
+    CollectionMetadataTemplate,
+    BundleDeployResult,
+    BundleDeployProgress,
+    FileBundleAsset,
+} from './solana/bundleDeploy';
+
 // Re-export Monad metadata
 export { uploadMonadImage, uploadMonadMetadata, uploadMonadMetadataBatch, uploadMonadAudio, buildERC721Metadata } from './monad/metadata';
 export type { ERC721Metadata, ERC721Attribute } from './monad/metadata';

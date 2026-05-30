@@ -15,6 +15,7 @@ import {
     uploadJsonManifest as uploadJsonManifestToChain,
     uploadBatchWithUmi,
     uploadSingleWithUmi,
+    bundleCollectionDeployFromFiles,
     createBubblegumTree,
     mintCompressedCoreNft,
     batchMintCompressedCoreNft,
@@ -34,6 +35,10 @@ import {
     type CartCostEstimate,
     type CartCheckoutParams,
     type CartCheckoutResult,
+    type FileBundleAsset,
+    type CollectionMetadataTemplate,
+    type BundleDeployResult,
+    type BundleDeployProgress,
 } from '@/chains';
 import type { LaunchpadPhase, SolanaCollectionParams } from '@/chains';
 import { Umi, transactionBuilder, publicKey, some, none } from '@metaplex-foundation/umi';
@@ -890,9 +895,117 @@ export const useSolanaLaunch = () => {
         }
     }, [getUmi, withRetry]);
 
+    /**
+     * deployHiddenCollection — One-bundle, fixed-cost deploy pipeline
+     *
+     * Implements the best-in-class architecture:
+     *   1. Generate all metadata locally (no network calls)
+     *   2. Upload all images as one Irys bundle
+     *   3. Generate all metadata JSONs locally referencing real image URIs
+     *   4. Upload metadata JSONs + Arweave path-manifest as one Irys bundle
+     *   5. Create Candy Machine with hiddenSettings
+     *   6. Create Candy Guard (wraps in phases/guards)
+     *
+     * Result: 2 Irys uploads + 3 Solana signatures regardless of collection size.
+     *
+     * @param files              Browser File objects (images)
+     * @param template           Shared metadata fields (name prefix, description, …)
+     * @param collectionAddress  Already-deployed Core Collection address
+     * @param phases             Launchpad phases (start time, price, guards)
+     * @param placeholderName    Name shown while hidden (e.g. "My Collection #")
+     * @param treasuryWallet     Optional treasury override for guard payments
+     * @param onProgress         Progress callback for upload status
+     */
+    const deployHiddenCollection = useCallback(async (
+        files:             FileBundleAsset[],
+        template:          CollectionMetadataTemplate,
+        collectionAddress: string,
+        phases:            LaunchpadPhase[],
+        placeholderName:   string,
+        treasuryWallet?:   string,
+        onProgress?:       (p: BundleDeployProgress) => void,
+    ): Promise<{
+        bundleResult:       BundleDeployResult;
+        candyMachineAddress: string;
+        candyGuardAddress:   string;
+    }> => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const umi = await getUmi();
+
+            // ── Step 1 + 2 + 3: bundle upload ──────────────────────────────
+            debugStep('solana.deployHidden', `starting bundle deploy (${files.length} items)`);
+            toast.loading('Uploading collection assets to Arweave…', { id: 'bundle-deploy' });
+
+            const bundleResult = await bundleCollectionDeployFromFiles(
+                umi,
+                files,
+                template,
+                (p: BundleDeployProgress) => {
+                    onProgress?.(p);
+                    debugUpload('solana.deployHidden', p.message, { pct: p.pct });
+                },
+            );
+
+            debugUri('solana.deployHidden', bundleResult.manifestUri, {
+                manifestRoot: bundleResult.manifestRoot,
+                items:        bundleResult.itemCount,
+            });
+
+            toast.loading('Creating Candy Machine with hidden settings…', { id: 'bundle-deploy' });
+
+            // ── Step 4: on-chain CM + guard ─────────────────────────────────
+            const cmResult = await withRetry(async (umiRetry) => {
+                return createCoreCandyMachineHidden(
+                    umiRetry,
+                    collectionAddress,
+                    // items[] only used for itemCount in hidden mode — one placeholder
+                    Array.from({ length: bundleResult.itemCount }, (_, i) => ({
+                        name: `${placeholderName}${i}`,
+                        uri:  bundleResult.placeholderUri,
+                    })),
+                    phases,
+                    placeholderName,
+                    bundleResult.placeholderUri,
+                    treasuryWallet,
+                    bundleResult.itemsHash,
+                );
+            });
+
+            debugStep('solana.deployHidden', 'CM + guard deployed', {
+                cm:    cmResult.address,
+                guard: cmResult.candyGuardAddress,
+            });
+
+            toast.success(
+                `Collection deployed! ${bundleResult.itemCount} items, 1 Arweave bundle, 3 Solana txs.`,
+                { id: 'bundle-deploy' }
+            );
+
+            return {
+                bundleResult,
+                candyMachineAddress: cmResult.address,
+                candyGuardAddress:   cmResult.candyGuardAddress,
+            };
+        } catch (err: any) {
+            console.error('[deployHiddenCollection] error:', err);
+            debugError('solana.deployHidden', err?.message || String(err));
+            const msg = extractSolanaError(err);
+            setError(msg);
+            toast.error(msg, { id: 'bundle-deploy' });
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getUmi, withRetry]);
+
     return {
         isLoading,
         error,
+        // ── Best-in-class fixed-cost deploy ──
+        deployHiddenCollection,
+        // ── Existing helpers ──
         deploySolanaCollection,
         createLaunchpadCandyMachine,
         createHiddenSettingsCandyMachine,
