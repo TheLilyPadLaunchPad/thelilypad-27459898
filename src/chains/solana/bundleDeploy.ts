@@ -94,7 +94,11 @@ function contentTypeToExt(mime: string): string {
 
 /** SHA-256 in the browser via SubtleCrypto */
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
-    const buf = await crypto.subtle.digest('SHA-256', data);
+    // Copy into a fresh ArrayBuffer-backed view so TS narrows the buffer type
+    // (SubtleCrypto rejects SharedArrayBuffer-backed views).
+    const view = new Uint8Array(data.byteLength);
+    view.set(data);
+    const buf = await crypto.subtle.digest('SHA-256', view.buffer);
     return new Uint8Array(buf);
 }
 

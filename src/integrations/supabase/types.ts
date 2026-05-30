@@ -575,7 +575,10 @@ export type Database = {
         Row: {
           artworks_metadata: Json | null
           banner_url: string | null
+          candy_guard_address: string | null
+          candy_machine_address: string | null
           chain: string
+          collection_mint_address: string | null
           collection_type: string
           contract_address: string | null
           created_at: string
@@ -588,6 +591,7 @@ export type Database = {
           ipfs_base_cid: string | null
           is_revealed: boolean
           layers_metadata: Json | null
+          manifest_root: string | null
           media_type: string | null
           minted: number
           name: string
@@ -609,7 +613,10 @@ export type Database = {
         Insert: {
           artworks_metadata?: Json | null
           banner_url?: string | null
+          candy_guard_address?: string | null
+          candy_machine_address?: string | null
           chain?: string
+          collection_mint_address?: string | null
           collection_type?: string
           contract_address?: string | null
           created_at?: string
@@ -622,6 +629,7 @@ export type Database = {
           ipfs_base_cid?: string | null
           is_revealed?: boolean
           layers_metadata?: Json | null
+          manifest_root?: string | null
           media_type?: string | null
           minted?: number
           name: string
@@ -643,7 +651,10 @@ export type Database = {
         Update: {
           artworks_metadata?: Json | null
           banner_url?: string | null
+          candy_guard_address?: string | null
+          candy_machine_address?: string | null
           chain?: string
+          collection_mint_address?: string | null
           collection_type?: string
           contract_address?: string | null
           created_at?: string
@@ -656,6 +667,7 @@ export type Database = {
           ipfs_base_cid?: string | null
           is_revealed?: boolean
           layers_metadata?: Json | null
+          manifest_root?: string | null
           media_type?: string | null
           minted?: number
           name?: string

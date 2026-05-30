@@ -245,7 +245,11 @@ export default function CollectionDetail() {
                   onConfigured={fetchCollection}
                 />
                 <CandyMachineManager
-                  candyMachineAddress={collection.contract_address}
+                  candyMachineAddress={(collection as any).candy_machine_address || collection.contract_address}
+                  candyGuardAddress={(collection as any).candy_guard_address || undefined}
+                  collectionAddress={(collection as any).collection_mint_address || collection.contract_address}
+                  manifestRoot={(collection as any).manifest_root || undefined}
+                  itemsAvailable={totalSupply}
                   isCreator={!!isCreator}
                   onRefresh={fetchCollection}
                 />
