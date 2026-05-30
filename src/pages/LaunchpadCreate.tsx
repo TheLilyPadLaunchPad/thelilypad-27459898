@@ -181,7 +181,7 @@ export default function LaunchpadCreate() {
     // Deploy confirmation modal — shown after upload completes, before on-chain txs
     const handleConfirmOnChainDeploy = async () => {
         if (!pendingOnChainDeploy) return;
-        const { collectionId, itemLinks, primaryArweaveUri, assetsCount } = pendingOnChainDeploy;
+        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata } = pendingOnChainDeploy;
 
         setDeployCheckoutProcessing(true);
         setDeployCheckoutStatus('processing');
@@ -210,29 +210,35 @@ export default function LaunchpadCreate() {
 
                     // For collections >= threshold, use Hidden Settings (3 sigs total, fixed cost).
                     // For smaller collections, use Config Lines (allows on-chain reveals).
-                    const USE_HIDDEN_SETTINGS_THRESHOLD = 200;
+                    // Lowered to 50 so generative drops use the fixed-cost path aggressively.
+                    const USE_HIDDEN_SETTINGS_THRESHOLD = 50;
 
                     if (assetsCount > USE_HIDDEN_SETTINGS_THRESHOLD) {
-                        // Bundle all per-item metadata into ONE Arweave directory manifest
-                        // so reveal URIs resolve as arweave.net/<ROOT>/N.json without
-                        // ever calling addConfigLines. Re-use already-uploaded item JSONs
-                        // by re-fetching only when not already manifest-shaped.
+                        // FASTEST PATH: bundle all per-item metadata into ONE Arweave
+                        // directory manifest so reveal URIs resolve as
+                        // arweave.net/<ROOT>/N.json without any addConfigLines tx.
+                        // We use the in-memory metadata captured during upload — this
+                        // avoids the 5–30 min Arweave propagation window that would
+                        // otherwise break a fetch() loop here.
                         setDeployCheckoutProgress({ label: "Bundling metadata into Arweave manifest...", completed: 2, total: 3 });
                         let placeholderUri = primaryArweaveUri;
                         try {
-                            const metadataObjects = await Promise.all(
-                                itemLinks.map(async (item, i) => {
-                                    try {
-                                        const res = await fetch(item.arweaveUri);
-                                        return await res.json();
-                                    } catch {
-                                        return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
-                                    }
-                                })
-                            );
+                            const metadataObjects = (builtMetadata && builtMetadata.length === itemLinks.length)
+                                ? builtMetadata
+                                : await Promise.all(
+                                    itemLinks.map(async (item, i) => {
+                                        try {
+                                            const res = await fetch(item.arweaveUri);
+                                            return await res.json();
+                                        } catch {
+                                            return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
+                                        }
+                                    })
+                                );
                             const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
                             placeholderUri = manifest.itemUris[0] || primaryArweaveUri;
                             console.log("[Deploy] Arweave manifest root:", manifest.manifestRoot);
+                            console.log("[Deploy] Source:", builtMetadata?.length === itemLinks.length ? "in-memory (fast)" : "re-fetch (slow)");
                         } catch (e) {
                             console.warn("[Deploy] Manifest bundle failed, falling back to primary URI:", e);
                         }
@@ -242,13 +248,12 @@ export default function LaunchpadCreate() {
                             deployedAddress,
                             candyMachineItems,
                             phases,
-                            `${name} #`, // placeholder name
-                            placeholderUri, // placeholder URI from manifest
+                            `${name} #`,
+                            placeholderUri,
                             treasuryWallet
                         );
                         console.log("[Deploy] Hidden Settings Candy Machine created:", cmResult.address);
                         console.log("[Deploy] Items hash:", Buffer.from(cmResult.itemsHash).toString('hex').slice(0, 16) + "...");
-                        // No need to insert items - they're committed via the hash!
                         setDeployCheckoutProgress({ label: "Candy Machine ready (Hidden Settings - no item insertion needed)", completed: 3, total: 3 });
                     } else {
                         setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
@@ -360,6 +365,8 @@ export default function LaunchpadCreate() {
         itemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[];
         primaryArweaveUri: string;
         assetsCount: number;
+        /** In-memory metadata captured during upload — avoids re-fetching from Arweave (5–30 min propagation). */
+        builtMetadata?: any[];
     }
     const [pendingOnChainDeploy, setPendingOnChainDeploy] = useState<PendingOnChainDeploy | null>(null);
     const [deployCheckoutOpen, setDeployCheckoutOpen] = useState(false);
@@ -643,20 +650,29 @@ export default function LaunchpadCreate() {
             // ── Step 2: Upload to Arweave (Permanent Storage) — batch optimised ─
             toast.loading(`Securing ${assetsToUpload.length} items to Arweave (this may take a few minutes)...`, { id: 'deploy' });
 
+            // Capture every built metadata object so we can bundle them into an
+            // Arweave directory manifest later without re-fetching from the gateway
+            // (Arweave propagation can take 5–30 min — re-fetching right after
+            // upload is the single biggest source of "manifest failed" errors).
+            const builtMetadata: any[] = new Array(assetsToUpload.length);
+
             const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
                 file: asset.file,
                 buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
-                    // Music flow: use buildMusicNftMetadata for proper Metaplex-standard audio metadata
+                    let m: any;
                     if (flowType === 'music' && asset.metadata._audioUri) {
                         const track = tracks[asset.metadata._trackIndex ?? idx];
-                        return buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
+                        m = buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
+                    } else {
+                        m = {
+                            ...asset.metadata,
+                            image: arweaveImageUri,
+                            ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                            ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
+                        };
                     }
-                    return {
-                        ...asset.metadata,
-                        image: arweaveImageUri,
-                        ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                        ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
-                    };
+                    builtMetadata[idx] = m;
+                    return m;
                 },
             }));
 
@@ -715,6 +731,7 @@ export default function LaunchpadCreate() {
                 itemLinks,
                 primaryArweaveUri,
                 assetsCount: assetsToUpload.length,
+                builtMetadata: builtMetadata.filter(Boolean),
             });
             setDeployCheckoutEstimate(onChainEstimate);
             setDeployCheckoutOpen(true);
