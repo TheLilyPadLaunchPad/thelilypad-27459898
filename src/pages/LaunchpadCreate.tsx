@@ -189,6 +189,11 @@ export default function LaunchpadCreate() {
 
         try {
             let deployedAddress = "";
+            // Reveal-flow metadata captured during the hidden-settings path
+            let manifestRootForReveal: string | null = null;
+            let candyMachineAddressForReveal: string | null = null;
+            let candyGuardAddressForReveal: string | null = null;
+            let collectionMintForReveal: string | null = null;
             setDeployCheckoutProgress({ label: "Deploying collection...", completed: 1, total: 3 });
 
             if (selectedChain === 'solana') {
@@ -200,6 +205,7 @@ export default function LaunchpadCreate() {
                     creators: [{ address, share: 100 }]
                 });
                 deployedAddress = result.address;
+                collectionMintForReveal = result.address;
 
                 // Create Candy Machine for Solana (skip for 1-of-1 mode)
                 if (mode !== '1of1') {
@@ -237,6 +243,7 @@ export default function LaunchpadCreate() {
                                 );
                             const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
                             placeholderUri = manifest.itemUris[0] || primaryArweaveUri;
+                            manifestRootForReveal = manifest.manifestRoot;
                             console.log("[Deploy] Arweave manifest root:", manifest.manifestRoot);
                             console.log("[Deploy] Source:", builtMetadata?.length === itemLinks.length ? "in-memory (fast)" : "re-fetch (slow)");
                         } catch (e) {
@@ -252,6 +259,8 @@ export default function LaunchpadCreate() {
                             placeholderUri,
                             treasuryWallet
                         );
+                        candyMachineAddressForReveal = cmResult.address;
+                        candyGuardAddressForReveal = (cmResult as any).candyGuardAddress ?? null;
                         console.log("[Deploy] Hidden Settings Candy Machine created:", cmResult.address);
                         console.log("[Deploy] Items hash:", Buffer.from(cmResult.itemsHash).toString('hex').slice(0, 16) + "...");
                         setDeployCheckoutProgress({ label: "Candy Machine ready (Hidden Settings - no item insertion needed)", completed: 3, total: 3 });
@@ -265,6 +274,8 @@ export default function LaunchpadCreate() {
                             treasuryWallet,
                             primaryArweaveUri
                         );
+                        candyMachineAddressForReveal = cmResult.address;
+                        candyGuardAddressForReveal = (cmResult as any).candyGuardAddress ?? null;
 
                         // Insert config lines into the Candy Machine
                         setDeployCheckoutProgress({ label: "Loading items into Candy Machine...", completed: 3, total: 3 });
@@ -293,8 +304,15 @@ export default function LaunchpadCreate() {
                     status: "live",
                     image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
                     is_dynamic: isDynamic || false,
-                }).eq('id', collectionId);
+                    // Reveal-flow metadata — powers RevealCandyMachinePanel's
+                    // updateCandyMachine step without any manual paste.
+                    manifest_root: manifestRootForReveal,
+                    candy_machine_address: candyMachineAddressForReveal,
+                    candy_guard_address: candyGuardAddressForReveal,
+                    collection_mint_address: collectionMintForReveal,
+                } as any).eq('id', collectionId);
             }
+
 
             // Decentralized index
             try {
