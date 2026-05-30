@@ -181,7 +181,7 @@ export default function LaunchpadCreate() {
     // Deploy confirmation modal — shown after upload completes, before on-chain txs
     const handleConfirmOnChainDeploy = async () => {
         if (!pendingOnChainDeploy) return;
-        const { collectionId, itemLinks, primaryArweaveUri, assetsCount } = pendingOnChainDeploy;
+        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata } = pendingOnChainDeploy;
 
         setDeployCheckoutProcessing(true);
         setDeployCheckoutStatus('processing');
