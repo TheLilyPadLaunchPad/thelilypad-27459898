@@ -857,306 +857,336 @@ export default function LaunchpadCreate() {
     };
 
     return (
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="min-h-screen bg-muted/40 flex flex-col">
             <Navbar />
-            <main className="flex-1 pt-16 flex flex-col md:flex-row overflow-hidden relative">
-                {/* CONFIG PANEL: Narrower on tablets, fixed on desktops */}
-                <div className="w-full md:w-[380px] lg:w-[480px] xl:w-[520px] flex flex-col border-r border-border bg-card/40 backdrop-blur-md h-[calc(100vh-64px)] z-20">
-                    <div className="px-6 py-5 border-b border-border bg-muted/20">
-                        <Button variant="ghost" size="sm" onClick={() => navigate('/launchpad')} className="-ml-2 mb-3 text-muted-foreground hover:text-primary transition-colors">
-                            <ArrowLeft className="w-4 h-4 mr-1" /> Back to Launchpad
-                        </Button>
-                        <h1 className="text-2xl font-bold tracking-tight gradient-text-premium">Collection Setup</h1>
-                    </div>
-
-                    <div className="px-4 py-2 flex gap-2 overflow-x-auto bg-muted/10 border-b border-border/50">
-                        {STEPS.map((step) => {
-                            const Icon = step.icon;
-                            return (
-                                <button
-                                    key={step.id}
-                                    className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all whitespace-nowrap", currentStep === step.id ? "bg-primary/20 border-primary text-primary" : "opacity-40")}
-                                >
-                                    <Icon className="w-3 h-3" />
-                                    <span>{step.title}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto px-6 py-6">
-                        <AnimatePresence initial={false} custom={direction} mode="wait">
-                            <motion.div
-                                key={currentStep}
-                                custom={direction}
-                                variants={variants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                className="space-y-8"
+            <main className="flex-1 pt-16 px-3 sm:px-6 lg:px-10 pb-6 lg:pb-10">
+                <div className="mx-auto w-full max-w-[1400px] bg-card rounded-[28px] lg:rounded-[40px] shadow-[0_30px_80px_-30px_hsl(var(--foreground)/0.15)] border border-border/60 overflow-hidden flex flex-col lg:flex-row min-h-[calc(100vh-7rem)]">
+                    {/* CONFIG PANEL */}
+                    <div className="w-full lg:w-[460px] xl:w-[520px] flex flex-col bg-card relative z-20 lg:border-r lg:border-border/60">
+                        {/* Header */}
+                        <div className="px-6 sm:px-8 pt-8 sm:pt-10 pb-5">
+                            <button
+                                onClick={() => navigate('/launchpad')}
+                                className="flex items-center text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground hover:text-primary transition-colors mb-5 group"
                             >
-                                {currentStep === 0 && !is1of1 && !isMusic && <ModeSelector mode={mode as "basic" | "advanced"} onModeChange={setMode} />}
-                                {((is1of1 && currentStep === 0) || (isMusic && currentStep === 0) || (!is1of1 && !isMusic && currentStep === 1)) && (
-                                    <div className="space-y-6">
-                                        <div className="space-y-4">
-                                            <Label>Cover Image</Label>
-                                            <div className="border-2 border-dashed border-white/10 rounded-xl p-8 hover:bg-white/5 text-center cursor-pointer relative">
-                                                <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleCoverUpload} />
-                                                {coverImage ? <img src={coverImage} className="max-h-48 mx-auto rounded" alt="Cover" /> : <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground" />}
-                                            </div>
-                                            <div className="flex flex-wrap justify-center gap-2 mt-1">
-                                                <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20">2000px+ Recommended</Badge>
-                                                <Badge variant="outline" className="text-[10px] bg-muted opacity-60">Max 100MB</Badge>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-3"><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-3"><Label>Symbol</Label><Input value={symbol} onChange={e => setSymbol(e.target.value)} /></div>
-                                            <div className="space-y-3"><Label>Royalty %</Label><Input type="number" value={royaltyPercent} onChange={e => setRoyaltyPercent(Number(e.target.value))} /></div>
-                                        </div>
-                                        <div className="space-y-3"><Label>Description</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
+                                <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
+                                Back to Launchpad
+                            </button>
+                            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">Collection Setup</h1>
+                        </div>
 
-                                        {/* Dynamic NFT Toggle */}
-                                        <div className="p-4 rounded-xl border border-purple-500/20 bg-purple-500/5 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Sparkles className="w-4 h-4 text-purple-400" />
-                                                    <Label className="text-sm font-bold text-purple-300">Dynamic NFT (Evolving)</Label>
+                        {/* Numbered step pills */}
+                        <div className="px-6 sm:px-8 mb-6">
+                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-1 px-1">
+                                {STEPS.map((step, idx) => {
+                                    const active = currentStep === step.id;
+                                    const completed = currentStep > step.id;
+                                    return (
+                                        <button
+                                            key={step.id}
+                                            onClick={() => completed && setCurrentStep(step.id)}
+                                            className={cn(
+                                                "shrink-0 px-4 py-2 rounded-2xl text-[11px] font-bold whitespace-nowrap transition-all",
+                                                active && "bg-primary text-primary-foreground shadow-lg shadow-primary/25 px-5",
+                                                !active && completed && "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 cursor-pointer",
+                                                !active && !completed && "bg-muted/60 text-muted-foreground/60"
+                                            )}
+                                        >
+                                            {String(idx + 1).padStart(2, '0')} {step.title}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Form Content */}
+                        <div className="flex-1 overflow-y-auto px-6 sm:px-8 pb-40 scroll-smooth">
+                            <AnimatePresence initial={false} custom={direction} mode="wait">
+                                <motion.div
+                                    key={currentStep}
+                                    custom={direction}
+                                    variants={variants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                    className="space-y-8"
+                                >
+                                    {currentStep === 0 && !is1of1 && !isMusic && <ModeSelector mode={mode as "basic" | "advanced"} onModeChange={setMode} />}
+                                    {((is1of1 && currentStep === 0) || (isMusic && currentStep === 0) || (!is1of1 && !isMusic && currentStep === 1)) && (
+                                        <div className="space-y-6">
+                                            <div className="space-y-4">
+                                                <Label>Cover Image</Label>
+                                                <div className="border-2 border-dashed border-border rounded-3xl p-8 hover:border-primary/50 hover:bg-primary/5 text-center cursor-pointer relative transition-all bg-muted/30">
+                                                    <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleCoverUpload} />
+                                                    {coverImage ? <img src={coverImage} className="max-h-48 mx-auto rounded-2xl" alt="Cover" /> : (
+                                                        <div className="flex flex-col items-center gap-2 py-4">
+                                                            <div className="w-10 h-10 bg-card rounded-full shadow-sm flex items-center justify-center">
+                                                                <ImageIcon className="w-5 h-5 text-primary" />
+                                                            </div>
+                                                            <span className="text-xs font-semibold text-muted-foreground">Upload Cover Art</span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <Switch checked={isDynamic} onCheckedChange={setIsDynamic} />
+                                                <div className="flex flex-wrap justify-center gap-2 mt-1">
+                                                    <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20">2000px+ Recommended</Badge>
+                                                    <Badge variant="outline" className="text-[10px] bg-muted opacity-60">Max 100MB</Badge>
+                                                </div>
                                             </div>
-                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                                Enable to create <strong>evolving NFTs</strong> whose metadata can be updated after minting.
-                                                Perfect for gaming assets that level up, loyalty programs, or seasonal art.
-                                                Uses Irys mutable references — metadata updates under 100 KiB are <strong>free</strong>!
-                                            </p>
-                                            {isDynamic && (
-                                                <div className="flex items-start gap-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/15">
-                                                    <Info className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" />
-                                                    <p className="text-[10px] text-purple-300/80 leading-relaxed">
-                                                        Your NFT metadata URI will use <code className="bg-purple-500/20 px-1 rounded text-[9px]">gateway.irys.xyz/mutable/</code> —
-                                                        the same URL always resolves to the latest version. Only the original creator wallet can push updates.
+                                            <div className="space-y-3"><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-3"><Label>Symbol</Label><Input value={symbol} onChange={e => setSymbol(e.target.value)} /></div>
+                                                <div className="space-y-3"><Label>Royalty %</Label><Input type="number" value={royaltyPercent} onChange={e => setRoyaltyPercent(Number(e.target.value))} /></div>
+                                            </div>
+                                            <div className="space-y-3"><Label>Description</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
+
+                                            {/* Dynamic NFT Toggle */}
+                                            <div className="p-1 bg-muted rounded-3xl">
+                                                <div className="bg-card p-5 rounded-[20px] shadow-sm flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center shrink-0">
+                                                            <Sparkles className="w-5 h-5 text-primary-foreground" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-foreground text-sm">Dynamic NFT</h4>
+                                                            <p className="text-[11px] text-muted-foreground">Enable post-mint metadata updates</p>
+                                                        </div>
+                                                    </div>
+                                                    <Switch checked={isDynamic} onCheckedChange={setIsDynamic} />
+                                                </div>
+                                                {isDynamic && (
+                                                    <div className="flex items-start gap-2 p-3 pt-2">
+                                                        <Info className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                                            Mutable URI via <code className="bg-primary/10 px-1 rounded text-[9px]">gateway.irys.xyz/mutable/</code> — only the creator wallet can push updates.
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {is1of1 && currentStep === 1 && <ArtworkUploader artworks={artworks} onArtworksChange={setArtworks} collectionType="one_of_one" creatorId={address || 'anonymous'} chainSymbol={chainSymbol} />}
+                                    {is1of1 && currentStep === 2 && (
+                                        <EditionTierManager
+                                            artworks={artworks}
+                                            configs={editionConfigs}
+                                            onConfigsChange={setEditionConfigs}
+                                            chainSymbol={chainSymbol}
+                                        />
+                                    )}
+                                    {!is1of1 && !isMusic && currentStep === 2 && (mode === "basic" ? <FolderUploader onAssetsLoaded={handleAssetsLoaded} /> : <LayerManager layers={layers} onLayersChange={setLayers} />)}
+                                    {!is1of1 && mode === "advanced" && currentStep === 3 && (
+                                        <div className="space-y-8">
+                                            <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
+                                            <div className="border-t border-border/50 pt-8 mt-8">
+                                                <TraitRulesManager layers={layers} rules={rules} onRulesChange={setRules} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {!is1of1 && mode === "advanced" && currentStep === 4 && (
+                                        <div className="space-y-6 text-center py-10">
+                                            <h3 className="text-xl font-bold">Generation</h3>
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label>Target Supply</Label>
+                                                    <Input type="number" value={targetSupply} onChange={e => setTargetSupply(Number(e.target.value))} />
+                                                </div>
+
+                                                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 text-left space-y-2">
+                                                    <div className="flex items-center gap-2 text-primary text-sm font-bold">
+                                                        <Info className="w-4 h-4" />
+                                                        Resolution Info
+                                                    </div>
+                                                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                                        Generated assets inherit the resolution of your source layers. Standard aspect ratios (1:1, 4:5, 3:4, 16:9, etc.) are fully supported.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <Button onClick={handleGenerate} disabled={isGenerating} className="w-full h-12 rounded-2xl">
+                                                {isGenerating ? `Generating ${generationProgress.current}/${generationProgress.total}` : "Generate NFTs"}
+                                            </Button>
+                                        </div>
+                                    )}
+                                    {isMusic && currentStep === 1 && <MusicArtworkUploader tracks={tracks} onTracksChange={setTracks} />}
+                                    {isMusic && currentStep === 2 && (
+                                        <div className="space-y-4">
+                                            <div className="p-4 rounded-2xl bg-muted/30 border border-border">
+                                                <h3 className="font-bold mb-1">Track Customization</h3>
+                                                <p className="text-xs text-muted-foreground">Adjust metadata for your tracks.</p>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {tracks.map((track, i) => (
+                                                    <div key={track.id} className="flex items-center gap-4 p-3 border rounded-xl bg-card">
+                                                        <img src={track.coverPreview} className="w-10 h-10 rounded-lg object-cover" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium truncate">{track.metadata.name || `Track ${i + 1}`}</p>
+                                                            <p className="text-[10px] text-muted-foreground truncate">{track.metadata.artist || 'No artist'}</p>
+                                                        </div>
+                                                        <Badge variant="outline" className="text-[10px]">
+                                                            {track.metadata.genre || 'No genre'}
+                                                        </Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {((is1of1 && currentStep === 3) || (isMusic && currentStep === 3) || (!is1of1 && !isMusic && (mode === "basic" ? currentStep === 3 : currentStep === 5))) && (
+                                        <div className="space-y-6">
+                                            <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
+                                            <Separator />
+                                            <div className="space-y-3">
+                                                <Label>Treasury Wallet</Label>
+                                                <Input value={treasuryWallet} onChange={e => setTreasuryWallet(e.target.value)} placeholder="0x... / Address" />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {((is1of1 && currentStep === 4) || (isMusic && currentStep === 4) || (!is1of1 && !isMusic && (mode === "basic" ? currentStep === 4 : currentStep === 6))) && (
+                                        <div className="space-y-6 text-center py-10">
+                                            <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center mx-auto">
+                                                <Rocket className="w-10 h-10 text-primary" />
+                                            </div>
+                                            <h2 className="text-2xl font-bold">Ready to Launch!</h2>
+                                            <LaunchpadTools config={launchpadConfig} theme={theme} />
+
+                                            {hasResumableUpload && !isDeploying && (
+                                                <div className="p-4 rounded-2xl border border-accent/30 bg-accent/5 space-y-3 text-left">
+                                                    <div className="flex items-center gap-2">
+                                                        <RotateCcw className="w-4 h-4 text-accent" />
+                                                        <span className="text-sm font-semibold">Resume Previous Upload</span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        A previous upload was interrupted. Your progress has been saved — click Launch to resume.
                                                     </p>
                                                 </div>
                                             )}
-                                        </div>
-                                    </div>
-                                )}
-                                {is1of1 && currentStep === 1 && <ArtworkUploader artworks={artworks} onArtworksChange={setArtworks} collectionType="one_of_one" creatorId={address || 'anonymous'} chainSymbol={chainSymbol} />}
-                                {is1of1 && currentStep === 2 && (
-                                    <EditionTierManager
-                                        artworks={artworks}
-                                        configs={editionConfigs}
-                                        onConfigsChange={setEditionConfigs}
-                                        chainSymbol={chainSymbol}
-                                    />
-                                )}
-                                {!is1of1 && !isMusic && currentStep === 2 && (mode === "basic" ? <FolderUploader onAssetsLoaded={handleAssetsLoaded} /> : <LayerManager layers={layers} onLayersChange={setLayers} />)}
-                                {!is1of1 && mode === "advanced" && currentStep === 3 && (
-                                    <div className="space-y-8">
-                                        <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
-                                        <div className="border-t border-border/50 pt-8 mt-8">
-                                            <TraitRulesManager layers={layers} rules={rules} onRulesChange={setRules} />
-                                        </div>
-                                    </div>
-                                )}
-                                {!is1of1 && mode === "advanced" && currentStep === 4 && (
-                                    <div className="space-y-6 text-center py-10">
-                                        <h3 className="text-xl font-bold">Generation</h3>
-                                        <div className="space-y-4">
-                                            <div className="space-y-2">
-                                                <Label>Target Supply</Label>
-                                                <Input type="number" value={targetSupply} onChange={e => setTargetSupply(Number(e.target.value))} />
-                                            </div>
 
-                                            <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 text-left space-y-2">
-                                                <div className="flex items-center gap-2 text-blue-500 text-sm font-bold">
-                                                    <Info className="w-4 h-4" />
-                                                    Resolution Info
-                                                </div>
-                                                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                                    Generated assets inherit the resolution of your source layers.
-                                                    Standard aspect ratios (1:1, 4:5, 3:4, 16:9, etc.) are fully supported. High-res files (4000px+)
-                                                    are supported but will increase upload time.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <Button onClick={handleGenerate} disabled={isGenerating} className="w-full h-12">
-                                            {isGenerating ? `Generating ${generationProgress.current}/${generationProgress.total}` : "Generate NFTs"}
-                                        </Button>
-                                    </div>
-                                )}
-                                {isMusic && currentStep === 1 && <MusicArtworkUploader tracks={tracks} onTracksChange={setTracks} />}
-                                {isMusic && currentStep === 2 && (
-                                    <div className="space-y-4">
-                                        <div className="p-4 rounded-xl bg-muted/30 border border-border">
-                                            <h3 className="font-bold mb-1">Track Customization</h3>
-                                            <p className="text-xs text-muted-foreground">Adjust metadata for your tracks.</p>
-                                        </div>
-                                        <div className="space-y-3">
-                                            {tracks.map((track, i) => (
-                                                <div key={track.id} className="flex items-center gap-4 p-3 border rounded bg-card">
-                                                    <img src={track.coverPreview} className="w-10 h-10 rounded object-cover" />
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium truncate">{track.metadata.name || `Track ${i + 1}`}</p>
-                                                        <p className="text-[10px] text-muted-foreground truncate">{track.metadata.artist || 'No artist'}</p>
+                                            {isDeploying && uploadProgress && (
+                                                <div className="space-y-3 text-left">
+                                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                        <span>{uploadProgress.status}</span>
+                                                        <span>
+                                                            {uploadProgress.completed}/{uploadProgress.total}
+                                                            {uploadEta && ` • ETA: ${uploadEta}`}
+                                                        </span>
                                                     </div>
-                                                    <Badge variant="outline" className="text-[10px]">
-                                                        {track.metadata.genre || 'No genre'}
-                                                    </Badge>
+                                                    <Progress value={uploadProgress.total > 0 ? (uploadProgress.completed / uploadProgress.total) * 100 : 0} className="h-2" />
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                {((is1of1 && currentStep === 3) || (isMusic && currentStep === 3) || (!is1of1 && !isMusic && (mode === "basic" ? currentStep === 3 : currentStep === 5))) && (
-                                    <div className="space-y-6">
-                                        <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
-                                        <Separator />
-                                        <div className="space-y-3">
-                                            <Label>Treasury Wallet</Label>
-                                            <Input value={treasuryWallet} onChange={e => setTreasuryWallet(e.target.value)} placeholder="0x... / Address" />
-                                        </div>
-                                    </div>
-                                )}
-                                {((is1of1 && currentStep === 4) || (isMusic && currentStep === 4) || (!is1of1 && !isMusic && (mode === "basic" ? currentStep === 4 : currentStep === 6))) && (
-                                    <div className="space-y-6 text-center py-10">
-                                        <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto"><Rocket className="w-10 h-10" /></div>
-                                        <h2 className="text-2xl font-bold">Ready to Launch!</h2>
-                                        <LaunchpadTools config={launchpadConfig} theme={theme} />
-
-                                        {/* Resume banner */}
-                                        {hasResumableUpload && !isDeploying && (
-                                            <div className="p-4 rounded-xl border border-accent/30 bg-accent/5 space-y-3 text-left">
-                                                <div className="flex items-center gap-2">
-                                                    <RotateCcw className="w-4 h-4 text-accent" />
-                                                    <span className="text-sm font-semibold">Resume Previous Upload</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    A previous upload was interrupted. Your progress has been saved — click Launch to resume where you left off.
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {/* Upload progress bar */}
-                                        {isDeploying && uploadProgress && (
-                                            <div className="space-y-3 text-left">
-                                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                                    <span>{uploadProgress.status}</span>
-                                                    <span>
-                                                        {uploadProgress.completed}/{uploadProgress.total}
-                                                        {uploadEta && ` • ETA: ${uploadEta}`}
-                                                    </span>
-                                                </div>
-                                                <Progress value={uploadProgress.total > 0 ? (uploadProgress.completed / uploadProgress.total) * 100 : 0} className="h-2" />
-                                            </div>
-                                        )}
-
-                                        <div className="space-y-4">
-                                            {isDeploying ? (
-                                                <div className="flex gap-3">
-                                                    <Button disabled className="flex-1 h-16 text-xl font-bold">
-                                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                                                        Deploying...
-                                                    </Button>
-                                                    <Button
-                                                        variant="destructive"
-                                                        onClick={handleCancelUpload}
-                                                        className="h-16 px-6"
-                                                    >
-                                                        <XCircle className="w-5 h-5 mr-1" />
-                                                        Cancel
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <Button onClick={handleDeploy} className="w-full h-16 text-xl font-bold">
-                                                    {hasResumableUpload ? (
-                                                        <><RotateCcw className="w-5 h-5 mr-2" /> Resume Upload</>
-                                                    ) : (
-                                                        "Launch Collection"
-                                                    )}
-                                                </Button>
                                             )}
-                                            <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
-                                                <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[9px]">LOWEST FEES</Badge>
-                                                <span>2.0% Flat Fee • Zero Launch Fees • Permanent Arweave Storage</span>
+
+                                            <div className="space-y-4">
+                                                {isDeploying ? (
+                                                    <div className="flex gap-3">
+                                                        <Button disabled className="flex-1 h-16 text-xl font-bold rounded-2xl">
+                                                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                            Deploying...
+                                                        </Button>
+                                                        <Button variant="destructive" onClick={handleCancelUpload} className="h-16 px-6 rounded-2xl">
+                                                            <XCircle className="w-5 h-5 mr-1" />
+                                                            Cancel
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <Button onClick={handleDeploy} className="w-full h-16 text-xl font-bold rounded-2xl">
+                                                        {hasResumableUpload ? (
+                                                            <><RotateCcw className="w-5 h-5 mr-2" /> Resume Upload</>
+                                                        ) : (
+                                                            "Launch Collection"
+                                                        )}
+                                                    </Button>
+                                                )}
+                                                <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+                                                    <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[9px]">LOWEST FEES</Badge>
+                                                    <span>2.0% Flat Fee • Zero Launch Fees • Permanent Arweave Storage</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                            </motion.div>
-                        </AnimatePresence>
-                    </div>
+                                    )}
+                                </motion.div>
+                            </AnimatePresence>
+                        </div>
 
-                    <div className="px-6 py-6 border-t border-border bg-muted/30 backdrop-blur-sm flex gap-4">
-                        <Button 
-                            variant="outline" 
-                            size="lg"
-                            onClick={prevStep} 
-                            disabled={currentStep === 0 || isDeploying} 
-                            className="flex-1 rounded-xl font-semibold"
-                        >
-                            Back
-                        </Button>
-                        <Button 
-                            size="lg"
-                            onClick={nextStep} 
-                            disabled={currentStep === maxStep || isDeploying} 
-                            className="flex-1 rounded-xl font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-                        >
-                            {currentStep === maxStep ? "Launch" : "Next Step"}
-                        </Button>
-                    </div>
-                </div>
-
-                {/* PREVIEW PANEL: Responsive visibility and scaling */}
-                <div className="hidden md:flex flex-1 bg-gradient-to-br from-muted/10 to-background/50 flex-col overflow-y-auto overflow-x-hidden p-6 lg:p-12 relative">
-                    {/* Perspective Background Decoration */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
-                        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[120px]" />
-                        <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] rounded-full bg-accent/10 blur-[100px]" />
-                    </div>
-
-                    <div className="max-w-xl mx-auto w-full space-y-12 relative z-10 py-8">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                        >
-                            <LaunchpadPreview
-                                name={name || "Collection"}
-                                description={description}
-                                coverImage={coverImage}
-                                itemsAvailable={is1of1 ? artworks.length : (mode === 'basic' ? folderAssets.length : targetSupply)}
-                                phases={phases}
-                                activePhaseIndex={0}
-                                selectedChain={selectedChain}
-                            />
-                        </motion.div>
-
-                        {(folderAssets.length > 0 || generatedAssets.length > 0 || artworks.length > 0 || tracks.length > 0) && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.4 }}
-                                className="space-y-4"
+                        {/* Sticky Action Footer */}
+                        <div className="absolute bottom-0 left-0 w-full p-5 sm:p-6 bg-card/95 backdrop-blur-xl border-t border-border/60 flex items-center gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={prevStep}
+                                disabled={currentStep === 0 || isDeploying}
+                                className="h-14 w-14 p-0 rounded-2xl shrink-0"
+                                aria-label="Previous step"
                             >
-                                <div className="flex items-center justify-between px-2">
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60">Asset Batch Preview</h3>
-                                    <Badge variant="outline" className="text-[10px] opacity-50">
-                                        Showing logic variants
-                                    </Badge>
-                                </div>
-                                <div className="glass-card p-4 bg-card/30">
-                                    <LazyPreviewGrid
-                                        items={mode === 'music' ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets))}
-                                        isMusic={mode === 'music'}
-                                    />
-                                </div>
+                                <ArrowLeft className="w-5 h-5" />
+                            </Button>
+                            <Button
+                                onClick={nextStep}
+                                disabled={currentStep === maxStep || isDeploying}
+                                className="flex-1 h-14 rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 group"
+                            >
+                                {currentStep === maxStep ? "Launch" : (
+                                    <>
+                                        Continue
+                                        <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* PREVIEW PANEL */}
+                    <div className="hidden lg:flex flex-1 bg-[hsl(160_30%_8%)] relative flex-col overflow-y-auto overflow-x-hidden p-8 lg:p-12">
+                        {/* Ambient glows */}
+                        <div className="absolute -top-20 -right-20 w-[500px] h-[500px] rounded-full bg-primary/15 blur-[120px] pointer-events-none" />
+                        <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full bg-accent/15 blur-[100px] pointer-events-none" />
+
+                        {/* Preview header */}
+                        <div className="relative z-10 flex justify-between items-center mb-8 max-w-xl mx-auto w-full">
+                            <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">Live Preview</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Draft</span>
+                        </div>
+
+                        <div className="max-w-xl mx-auto w-full space-y-10 relative z-10 pb-12">
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="rounded-[32px] bg-[hsl(160_25%_12%)]/80 border border-white/5 p-4 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                            >
+                                <LaunchpadPreview
+                                    name={name || "Collection"}
+                                    description={description}
+                                    coverImage={coverImage}
+                                    itemsAvailable={is1of1 ? artworks.length : (mode === 'basic' ? folderAssets.length : targetSupply)}
+                                    phases={phases}
+                                    activePhaseIndex={0}
+                                    selectedChain={selectedChain}
+                                />
                             </motion.div>
-                        )}
+
+                            {(folderAssets.length > 0 || generatedAssets.length > 0 || artworks.length > 0 || tracks.length > 0) && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.4 }}
+                                    className="space-y-4"
+                                >
+                                    <div className="flex items-center justify-between px-2">
+                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Asset Batch</h3>
+                                        <Badge variant="outline" className="text-[10px] border-white/10 bg-white/5 text-white/70">
+                                            {(mode === 'music' ? tracks.length : (is1of1 ? artworks.length : (mode === 'basic' ? folderAssets.length : generatedAssets.length)))} items
+                                        </Badge>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-xl">
+                                        <LazyPreviewGrid
+                                            items={mode === 'music' ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets))}
+                                            isMusic={mode === 'music'}
+                                        />
+                                    </div>
+                                </motion.div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </main>
