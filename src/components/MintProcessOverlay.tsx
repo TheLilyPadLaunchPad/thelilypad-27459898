@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { MetaplexBadge } from "@/components/MetaplexBadge";
 
 export type MintStep = 'idle' | 'waiting_wallet' | 'submitting' | 'processing' | 'syncing' | 'success' | 'error';
 
@@ -212,9 +213,9 @@ export function MintProcessOverlay({
                             ) : null}
 
                             {!isComplete && !isError && (
-                                <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest">
-                                    Powered by Solana
-                                </p>
+                                <div className="flex justify-center">
+                                    <MetaplexBadge variant="inline" />
+                                </div>
                             )}
                         </div>
                     </div>

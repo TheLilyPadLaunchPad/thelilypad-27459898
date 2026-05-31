@@ -21,6 +21,7 @@ import {
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
+import { MetaplexBadge, MetaplexHexIcon } from "@/components/MetaplexBadge";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -259,7 +260,10 @@ export default function Launchpad() {
         <div className="flex items-center gap-4 mb-10">
           <img src={lilypadLogo} alt="Lily Launchpad" className="w-14 h-14 rounded-xl object-contain bg-primary/10 p-2" />
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Lily Launchpad</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Lily Launchpad</h1>
+              <MetaplexBadge variant="inline" />
+            </div>
             <p className="text-muted-foreground mt-0.5">Launch your NFT collection on Solana or Monad — guided wizard, no friction.</p>
           </div>
         </div>
@@ -555,6 +559,7 @@ export default function Launchpad() {
                                       <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-5 text-[10px]">
                                         <ChainIcon chain={selectedChain} className="w-2.5 h-2.5 mr-1" />
                                         {currentChain.symbol}
+                                        {selectedChain === 'solana' && <MetaplexHexIcon className="ml-1" />}
                                       </Badge>
                                       {canEdit && (
                                         <>

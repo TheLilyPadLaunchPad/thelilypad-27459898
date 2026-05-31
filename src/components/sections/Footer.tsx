@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
+import { MetaplexBadge } from "@/components/MetaplexBadge";
 import { Twitter, MessageCircle, Github } from "lucide-react";
 
 const footerLinks = {
@@ -18,6 +19,8 @@ const footerLinks = {
     { label: "Fees & Pricing", href: "/fees" },
   ],
   resources: [
+    { label: "Metaplex Docs", href: "https://developers.metaplex.com" },
+    { label: "Metaplex Core", href: "https://developers.metaplex.com/core" },
     { label: "Solana AI Tools", href: "https://github.com/solana-foundation/awesome-solana-ai" },
   ],
 };
@@ -134,9 +137,7 @@ export const Footer: React.FC = () => {
           <p className="text-muted-foreground text-sm">
             © 2024 The Lily Pad. All rights reserved.
           </p>
-          <p className="text-muted-foreground text-sm">
-            Built for <span className="text-secondary font-medium">Solana</span>
-          </p>
+          <MetaplexBadge variant="footer" />
         </div>
       </div>
     </footer>

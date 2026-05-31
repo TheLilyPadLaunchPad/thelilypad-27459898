@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MetaplexBadge } from "@/components/MetaplexBadge";
 import {
   Rocket,
   AlertTriangle,
@@ -257,22 +258,25 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
           )}
 
           {/* Info about Solana deployment */}
-          {isConnected && !showManualInput && (
-            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 mt-0.5 text-primary" />
-                <div className="text-sm">
-                  <p className="font-medium text-primary">{currentChain.name} Deployment</p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {chainId === 'solana'
-                      ? "Collections on Solana are deployed using the Metaplex Core standard for high performance and low fees."
-                      : `Collections on ${currentChain.name} are deployed using standard ERC-721 smart contracts.`
-                    }
-                  </p>
+            {isConnected && !showManualInput && (
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 mt-0.5 text-primary" />
+                  <div className="text-sm space-y-2">
+                    <p className="font-medium text-primary">{currentChain.name} Deployment</p>
+                    <p className="text-muted-foreground text-xs">
+                      {chainId === 'solana'
+                        ? "Collections on Solana are deployed using the Metaplex Core standard for high performance and low fees."
+                        : `Collections on ${currentChain.name} are deployed using standard ERC-721 smart contracts.`
+                      }
+                    </p>
+                    {chainId === 'solana' && (
+                      <MetaplexBadge variant="inline" />
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Deploy Button */}
           {isConnected && !showManualInput && (
@@ -297,6 +301,11 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
               <p className="text-[10px] text-center text-muted-foreground uppercase tracking-wider">
                 This will trigger a wallet transaction
               </p>
+              {chainId === 'solana' && (
+                <div className="flex justify-center">
+                  <MetaplexBadge variant="inline" className="mt-1" />
+                </div>
+              )}
             </div>
           )}
 
