@@ -250,3 +250,12 @@
 .mobile-nav-link {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Hide scrollbars for step rails / horizontal pill rows */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
