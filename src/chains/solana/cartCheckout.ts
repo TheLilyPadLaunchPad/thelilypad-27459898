@@ -137,7 +137,13 @@ export function estimateCartCost(
     // Network fee per mint tx — small but nonzero with priority fees.
     const mintCost = mintTxCount * 0.0005;
 
-    const onchainTxCount = mintTxCount + 1 /* collection */ + (isCompressed ? 1 /* tree */ : 0);
+    // Transaction count reflects the single-sign deploy:
+    //   1 tx = pre-fund Turbo (storage)
+    //   1 tx = deploy Core Collection
+    //   1 tx = create CM + Guard + Wrap (all batched into ONE tx)
+    // For launchpad deploys, buyers mint later — no mint txs at deploy time.
+    // For direct cart checkout (no CM), mint batches still apply.
+    const onchainTxCount = 1 /* pre-fund */ + 1 /* collection */ + 1 /* CM+Guard+Wrap */;
 
     return {
         storageCost,

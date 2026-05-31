@@ -3,7 +3,7 @@ import { WebSolana } from "@irys/web-upload-solana";
 import { WebEthereum } from "@irys/web-upload-ethereum";
 import { ethers } from "ethers";
 import { getRpcUrl, type NetworkType } from "@/config/solana";
-import { uploadBytesViaTurbo } from "@/integrations/turbo/client";
+import { uploadBytesViaTurbo, preFundTurboForBatch } from "@/integrations/turbo/client";
 
 /**
  * Arweave uploader provider selector.
@@ -18,15 +18,18 @@ const USE_TURBO =
  * Unified upload primitive. Routes bytes to either Turbo or the Irys node
  * depending on the configured provider. Returns both the tx id and the full
  * Arweave gateway URL so callers don't need to rebuild the URL.
+ *
+ * When `prefunded` is true, Turbo uploads skip OnDemandFunding (no wallet popup).
  */
 async function uploadBytes(
     bytes: Uint8Array,
     tags: { name: string; value: string }[],
     irys: any,
     solanaProvider: any,
+    prefunded = false,
 ): Promise<{ id: string; url: string }> {
     if (USE_TURBO) {
-        const url = await uploadBytesViaTurbo(bytes, tags, solanaProvider);
+        const url = await uploadBytesViaTurbo(bytes, tags, solanaProvider, prefunded);
         const id = url.split("/").pop() || "";
         return { id, url };
     }
@@ -542,7 +545,7 @@ export async function uploadToArweave(
 
         const bytes = new Uint8Array(await file.arrayBuffer());
         return withRetry(
-            () => uploadBytesViaTurbo(bytes, tags, solanaProvider),
+            () => uploadBytesViaTurbo(bytes, tags, solanaProvider, skipFunding),
             `upload ${(file as File).name || "blob"} (turbo)`,
         );
     }
@@ -1128,6 +1131,7 @@ export async function uploadBatchToArweave(
                             makeTags(item.file.type),
                             irys,
                             solanaProvider,
+                            skipFunding, // prefunded — skip per-file wallet popups
                         );
                         return url;
                     }, `image #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
@@ -1142,6 +1146,7 @@ export async function uploadBatchToArweave(
                                 makeTags("image/webp"),
                                 irys,
                                 solanaProvider,
+                                skipFunding,
                             );
                             return url;
                         }, `thumb #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
@@ -1157,6 +1162,7 @@ export async function uploadBatchToArweave(
                                 makeTags("image/webp"),
                                 irys,
                                 solanaProvider,
+                                skipFunding,
                             );
                             return url;
                         }, `preview #${globalIdx + 1}`, MAX_RETRIES, UPLOAD_TIMEOUT_MS);
@@ -1171,9 +1177,11 @@ export async function uploadBatchToArweave(
                             makeTags("application/json"),
                             irys,
                             solanaProvider,
+                            skipFunding,
                         );
                         return url;
                     }, `metadata #${globalIdx + 1}`, MAX_RETRIES, METADATA_TIMEOUT_MS);
+
 
                     return {
                         tokenId: globalIdx,
@@ -1333,10 +1341,15 @@ export async function preFundIrysForBatch(
     },
     solanaProvider?: any,
 ) {
-    // Turbo bills each upload at upload time via OnDemandFunding; no bulk
-    // pre-funding step is needed.
+    // When Turbo is active, pre-fund credits in a SINGLE wallet signature.
+    // This replaces the old no-op that caused 130+ signMessage popups.
     if (USE_TURBO) {
-        options?.onStatus?.("Using Turbo (pay-per-upload) — no pre-funding needed.");
+        options?.onStatus?.('Pre-funding Turbo credits for entire batch (1 wallet signature)...');
+        await preFundTurboForBatch(
+            assets as (File | Blob | { size: number })[],
+            solanaProvider,
+            options?.onStatus,
+        );
         return;
     }
 

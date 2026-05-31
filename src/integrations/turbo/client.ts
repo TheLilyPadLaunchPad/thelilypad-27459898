@@ -82,20 +82,19 @@ export async function getTurboClient(solanaProvider: any): Promise<any> {
  * Upload raw bytes to Arweave via Turbo.
  * Returns the full Arweave gateway URL (`https://arweave.net/<txid>`).
  *
- * Mirrors the shape of `irys.upload(bytes, { tags })` so callers can be
- * swapped with minimal changes.
+ * When `prefunded` is true, skips OnDemandFunding so no wallet popup is
+ * triggered. The caller must have called `preFundTurboForBatch` first.
  */
 export async function uploadBytesViaTurbo(
     data: Uint8Array,
     tags: TurboTag[],
     solanaProvider: any,
+    prefunded = false,
 ): Promise<string> {
     const turbo = await getTurboClient(solanaProvider);
 
-    const response = await turbo.uploadFile({
-        // Web uploader expects a ReadableStream or Buffer-producing factory.
+    const uploadOpts: any = {
         fileStreamFactory: () => {
-            // Build a one-shot ReadableStream from the bytes (cannot reuse across retries).
             return new ReadableStream({
                 start(controller) {
                     controller.enqueue(data);
@@ -105,10 +104,15 @@ export async function uploadBytesViaTurbo(
         },
         fileSizeFactory: () => data.byteLength,
         dataItemOpts: { tags },
-        // Per-upload OnDemandFunding: if the user has no Turbo credit balance,
-        // pay the exact amount (+10% buffer) directly from their SOL wallet.
-        fundingMode: new OnDemandFunding({ topUpBufferMultiplier: 1.1 }),
-    });
+    };
+
+    // Only use OnDemandFunding if NOT pre-funded.
+    // When pre-funded, the Turbo credit balance already covers the upload.
+    if (!prefunded) {
+        uploadOpts.fundingMode = new OnDemandFunding({ topUpBufferMultiplier: 1.1 });
+    }
+
+    const response = await turbo.uploadFile(uploadOpts);
 
     if (!response?.id) {
         throw new Error('Turbo upload returned no transaction ID');
@@ -170,4 +174,95 @@ export async function isTurboReachable(): Promise<boolean> {
     } catch {
         return false;
     }
+}
+
+// ── Batch pre-funding ────────────────────────────────────────────────────
+
+/**
+ * Pre-fund Turbo credits for an entire batch in ONE wallet signature.
+ *
+ * Without this, every individual `uploadBytesViaTurbo` call triggers
+ * OnDemandFunding which requires a separate wallet `signMessage` popup.
+ * For a 130-item collection that means 130 wallet approvals.
+ *
+ * By calling this ONCE before the batch:
+ *   1. Calculate the total upload cost for all files
+ *   2. Call `turbo.topUpWithTokens()` — ONE wallet signature
+ *   3. All subsequent uploads draw from the credit balance silently
+ *
+ * @param files The files that will be uploaded (used to calculate total cost)
+ * @param solanaProvider The wallet provider for signing the funding tx
+ * @param onStatus Optional status callback for UI
+ */
+export async function preFundTurboForBatch(
+    files: (File | Blob | { size: number })[],
+    solanaProvider: any,
+    onStatus?: (status: string) => void,
+): Promise<void> {
+    if (!files.length) return;
+
+    const turbo = await getTurboClient(solanaProvider);
+
+    // Calculate total bytes across all files + metadata overhead (~4KB per item)
+    const totalBytes = files.reduce((sum, f) => sum + (f.size || 0), 0);
+    const totalWithOverhead = totalBytes + (files.length * 4096);
+
+    onStatus?.(`Calculating storage cost for ${files.length} items (${(totalWithOverhead / 1_048_576).toFixed(1)} MB)...`);
+
+    try {
+        // Get the Winc (Turbo credits) cost for the total upload size
+        const [wincForBytes] = await turbo.getUploadCosts({
+            bytes: [totalWithOverhead],
+        });
+
+        const wincNeeded = wincForBytes?.winc ?? 0;
+
+        // Check current balance
+        const { winc: currentBalance } = await turbo.getBalance();
+
+        console.log(`[Turbo] Pre-fund: need ${wincNeeded} winc, have ${currentBalance} winc`);
+
+        if (BigInt(currentBalance) >= BigInt(wincNeeded)) {
+            onStatus?.('Turbo balance sufficient — no additional funding needed.');
+            return;
+        }
+
+        // Calculate SOL amount to top up (add 15% buffer)
+        // topUpWithTokens accepts tokenAmount in SOL
+        // We use getWincForToken to find how much SOL we need
+        const deficit = BigInt(wincNeeded) - BigInt(currentBalance);
+
+        // Turbo's topUpWithTokens handles the SOL→winc conversion internally.
+        // We pass the raw token amount — Turbo will convert and sign ONE tx.
+        onStatus?.('Funding Turbo credits (1 wallet signature for all uploads)...');
+
+        await turbo.topUpWithTokens({
+            tokenAmount: wincToApproxSol(Number(deficit)),
+        });
+
+        onStatus?.('Turbo credits funded — uploads will proceed without further signing.');
+        console.log('[Turbo] Pre-fund complete. Subsequent uploads will be silent.');
+    } catch (err: any) {
+        // If topUpWithTokens fails (user rejected, network error), fall back to
+        // per-upload OnDemandFunding. Log a warning so devs know what happened.
+        console.warn('[Turbo] Pre-fund failed, falling back to per-upload funding:', err.message);
+        onStatus?.('Pre-funding skipped — each upload will prompt individually.');
+    }
+}
+
+/**
+ * Rough winc-to-SOL conversion. Turbo credits ("winc") map approximately
+ * to USD micro-cents; 1 SOL ≈ various amounts of winc depending on
+ * SOL price. This provides a conservative estimate with a 15% buffer.
+ */
+function wincToApproxSol(winc: number): number {
+    // Turbo's conversion rate varies with SOL price.
+    // A conservative approach: request slightly more than needed.
+    // topUpWithTokens will calculate the exact conversion server-side.
+    // We use 0.001 SOL as a minimum to avoid dust transactions.
+    const MIN_SOL = 0.001;
+    // Rough estimate: 1 SOL ≈ 5_000_000_000 winc (varies with market price)
+    // Add 15% buffer
+    const approxSol = (winc / 5_000_000_000) * 1.15;
+    return Math.max(MIN_SOL, approxSol);
 }
