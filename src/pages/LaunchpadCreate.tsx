@@ -226,26 +226,34 @@ export default function LaunchpadCreate() {
                         // We use the in-memory metadata captured during upload — this
                         // avoids the 5–30 min Arweave propagation window that would
                         // otherwise break a fetch() loop here.
+
+                        if (itemLinks.length === 0) {
+                            throw new Error(
+                                "No uploaded items found — cannot create Arweave manifest. " +
+                                "Ensure your assets uploaded successfully before deploying."
+                            );
+                        }
+
                         setDeployCheckoutProgress({ label: "Bundling metadata into Arweave manifest...", completed: 2, total: 3 });
                         let placeholderUri = primaryArweaveUri;
                         try {
-                            const metadataObjects = (builtMetadata && builtMetadata.length === itemLinks.length)
+                            // Use in-memory metadata when available (avoids Arweave propagation delay).
+                            // builtMetadata may have undefined holes if buildMetadata wasn't called
+                            // for every index — fill those holes with fallback objects so the array
+                            // length matches itemLinks exactly.
+                            const metadataObjects = (builtMetadata && builtMetadata.length === itemLinks.length && builtMetadata.every(Boolean))
                                 ? builtMetadata
-                                : await Promise.all(
-                                    itemLinks.map(async (item, i) => {
-                                        try {
-                                            const res = await fetch(item.arweaveUri);
-                                            return await res.json();
-                                        } catch {
-                                            return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
-                                        }
-                                    })
-                                );
+                                : itemLinks.map((item, i) => {
+                                    // Prefer in-memory if available for this index
+                                    if (builtMetadata && builtMetadata[i]) return builtMetadata[i];
+                                    // Fallback: construct minimal metadata from what we know
+                                    return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
+                                });
                             const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
                             placeholderUri = manifest.itemUris[0] || primaryArweaveUri;
                             manifestRootForReveal = manifest.manifestRoot;
                             console.log("[Deploy] Arweave manifest root:", manifest.manifestRoot);
-                            console.log("[Deploy] Source:", builtMetadata?.length === itemLinks.length ? "in-memory (fast)" : "re-fetch (slow)");
+                            console.log("[Deploy] Metadata entries:", metadataObjects.length);
                         } catch (e) {
                             console.warn("[Deploy] Manifest bundle failed, falling back to primary URI:", e);
                         }
@@ -264,6 +272,7 @@ export default function LaunchpadCreate() {
                         console.log("[Deploy] Hidden Settings Candy Machine created:", cmResult.address);
                         console.log("[Deploy] Items hash:", Buffer.from(cmResult.itemsHash).toString('hex').slice(0, 16) + "...");
                         setDeployCheckoutProgress({ label: "Candy Machine ready (Hidden Settings - no item insertion needed)", completed: 3, total: 3 });
+
                     } else {
                         setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
                         const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
@@ -749,7 +758,9 @@ export default function LaunchpadCreate() {
                 itemLinks,
                 primaryArweaveUri,
                 assetsCount: assetsToUpload.length,
-                builtMetadata: builtMetadata.filter(Boolean),
+                // Pass the full array including possible undefined holes —
+                // the consumer fills gaps with fallback metadata per-index.
+                builtMetadata,
             });
             setDeployCheckoutEstimate(onChainEstimate);
             setDeployCheckoutOpen(true);

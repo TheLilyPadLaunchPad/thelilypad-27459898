@@ -202,6 +202,9 @@ export async function uploadJsonManifest(
     umi: Umi,
     metadataArray: any[],
 ): Promise<ArweaveManifestResult> {
+    if (!metadataArray || metadataArray.length === 0) {
+        throw new Error('uploadJsonManifest: metadataArray is empty — nothing to bundle');
+    }
     const files = metadataArray.map((m, i) => ({
         buffer: new Uint8Array(Buffer.from(JSON.stringify(m), 'utf-8')),
         fileName: `${i}.json`,
