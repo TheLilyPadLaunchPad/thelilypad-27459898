@@ -333,7 +333,10 @@ function buildDefaultGuards(
 }
 
 /**
- * Create a Core Candy Machine with guards
+ * Create a Core Candy Machine with guards.
+ *
+ * ONE wallet signature — all instructions (create CM + create Guard + wrap)
+ * are composed into a single atomic Solana transaction.
  */
 export async function createCoreCandyMachine(
     umi: Umi,
@@ -351,12 +354,32 @@ export async function createCoreCandyMachine(
     const primaryPhase = phases.find(p => p.price > 0) || phases[0];
     const primaryPrice = primaryPhase?.price || 0;
 
-    console.log("[CM] Creating Core Candy Machine for:", collectionAddress);
+    console.log("[CM] Creating Core Candy Machine (single-sign) for:", collectionAddress);
     console.log("[CM] Items available:", itemsAvailable);
     console.log("[CM] Phases:", phases.length);
     console.log("[CM] Treasury wallet:", treasury);
 
-    // Retry logic for CM creation
+    // Guard config
+    const defaultGuards = buildDefaultGuards(primaryPrice, treasury);
+    const guardGroups = buildGuardGroups(phases, treasury);
+    const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
+
+    // Protocol memo
+    const memoData = buildProtocolMemo('launchpad:create_candy_machine', {
+        collection: collectionAddress.slice(0, 8),
+        items: String(itemsAvailable)
+    });
+    const memoInstruction = {
+        instruction: {
+            programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+            keys: [],
+            data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+        },
+        bytesCreatedOnChain: 0,
+        signers: [],
+    };
+
+    // Retry loop
     let attempts = 0;
     const maxAttempts = 3;
 
@@ -364,7 +387,8 @@ export async function createCoreCandyMachine(
         try {
             await umi.rpc.getLatestBlockhash();
 
-            // Step 1: Create the Core Candy Machine
+            // ── Build ONE combined transaction ──────────────────────────────
+            // Instruction 1: Create Candy Machine
             const cmBuilder = createCoreCandyMachineIx(umi, {
                 candyMachine,
                 collection: collectionMint,
@@ -379,27 +403,29 @@ export async function createCoreCandyMachine(
                 }),
             });
 
-            // Add protocol memo
-            const memoData = buildProtocolMemo('launchpad:create_candy_machine', {
-                collection: collectionAddress.slice(0, 8),
-                items: String(itemsAvailable)
+            // Instruction 2: Create Candy Guard
+            const guardBuilder = createCoreCandyGuardIx(umi, {
+                base: candyGuard,
+                guards: defaultGuards,
+                groups: guardGroups.length > 0 ? guardGroups : undefined,
             });
 
-            const memoInstruction = {
-                instruction: {
-                    programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
-                    keys: [],
-                    data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
-                },
-                bytesCreatedOnChain: 0,
-                signers: [],
-            };
+            // Instruction 3: Wrap CM with Guard
+            const wrapBuilder = wrap(umi, {
+                candyGuard: candyGuardPda[0],
+                candyMachine: candyMachine.publicKey,
+                candyMachineAuthority: umi.identity,
+            });
 
-            const finalBuilder = (await cmBuilder).add(memoInstruction)
+            // Chain everything into ONE transaction → ONE wallet popup
+            const combinedBuilder = (await cmBuilder)
+                .add(memoInstruction)
+                .add(guardBuilder)
+                .add(wrapBuilder)
                 .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
                 .add(setComputeUnitLimit(umi, { units: 800_000 }));
 
-            await finalBuilder.sendAndConfirm(umi, {
+            await combinedBuilder.sendAndConfirm(umi, {
                 send: { skipPreflight: false },
                 confirm: { commitment: 'confirmed' }
             });
@@ -417,54 +443,9 @@ export async function createCoreCandyMachine(
         }
     }
 
-    console.log("[CM] Candy Machine created:", candyMachine.publicKey.toString());
-
-    // Step 2: Create Candy Guard with phase-based groups
-    const defaultGuards = buildDefaultGuards(primaryPrice, treasury);
-    const guardGroups = buildGuardGroups(phases, treasury);
-
-    const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
-
-    const createGuardBuilder = createCoreCandyGuardIx(umi, {
-        base: candyGuard,
-        guards: defaultGuards,
-        groups: guardGroups.length > 0 ? guardGroups : undefined,
-    });
-
-    await createGuardBuilder
-        .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
-        .sendAndConfirm(umi, {
-            send: { skipPreflight: false },
-            confirm: { commitment: 'confirmed' }
-        });
-
-    // Verify Guard Account Exists
-    let guardAccount = await umi.rpc.getAccount(candyGuardPda[0]);
-    let retries = 0;
-    while (!guardAccount.exists && retries < 3) {
-        await new Promise(r => setTimeout(r, 500));
-        guardAccount = await umi.rpc.getAccount(candyGuardPda[0]);
-        retries++;
-    }
-
-    if (!guardAccount.exists) {
-        throw new Error("Candy Guard account failed to initialize");
-    }
-
-    console.log("[CM] Candy Guard confirmed at:", candyGuardPda[0].toString());
-
-    // Step 3: Wrap the Candy Machine with the Candy Guard
-    const wrapBuilder = wrap(umi, {
-        candyGuard: candyGuardPda[0],
-        candyMachine: candyMachine.publicKey,
-        candyMachineAuthority: umi.identity,
-    });
-
-    await wrapBuilder
-        .add(setComputeUnitPrice(umi, { microLamports: 50_000 }))
-        .sendAndConfirm(umi);
-
-    console.log("[CM] Candy Machine wrapped with Guard successfully!");
+    console.log("[CM] Single-sign deploy complete!");
+    console.log("[CM] Candy Machine:", candyMachine.publicKey.toString());
+    console.log("[CM] Candy Guard:", candyGuardPda[0].toString());
 
     // Log fee distribution
     const feeSplit = getLaunchpadFeeSplit(primaryPrice);
@@ -538,7 +519,28 @@ export async function createCoreCandyMachineHidden(
     console.log("[CM Hidden] Items hash:", Buffer.from(itemsHash).toString('hex').slice(0, 16) + "...");
 
 
-    // Retry logic for CM creation
+    // Guard config
+    const defaultGuards = buildDefaultGuards(primaryPrice, treasury);
+    const guardGroups = buildGuardGroups(phases, treasury);
+    const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
+
+    // Protocol memo
+    const memoData = buildProtocolMemo('launchpad:create_candy_machine_hidden', {
+        collection: collectionAddress.slice(0, 8),
+        items: String(itemsAvailable),
+        hashPrefix: Buffer.from(itemsHash).toString('hex').slice(0, 8)
+    });
+    const memoInstruction = {
+        instruction: {
+            programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
+            keys: [],
+            data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
+        },
+        bytesCreatedOnChain: 0,
+        signers: [],
+    };
+
+    // Retry loop — ONE wallet approval for the whole deploy
     let attempts = 0;
     const maxAttempts = 3;
 
@@ -546,7 +548,8 @@ export async function createCoreCandyMachineHidden(
         try {
             await umi.rpc.getLatestBlockhash();
 
-            // Create the Core Candy Machine with Hidden Settings
+            // ── Build ONE combined transaction ──────────────────────────────
+            // Instruction 1: Create Candy Machine with Hidden Settings
             const cmBuilder = createCoreCandyMachineIx(umi, {
                 candyMachine,
                 collection: collectionMint,
@@ -559,28 +562,28 @@ export async function createCoreCandyMachineHidden(
                 }),
             });
 
-            // Add protocol memo
-            const memoData = buildProtocolMemo('launchpad:create_candy_machine_hidden', {
-                collection: collectionAddress.slice(0, 8),
-                items: String(itemsAvailable),
-                hashPrefix: Buffer.from(itemsHash).toString('hex').slice(0, 8)
+            // Instruction 2: Create Candy Guard
+            const guardBuilder = createCoreCandyGuardIx(umi, {
+                base: candyGuard,
+                guards: defaultGuards,
+                groups: guardGroups.length > 0 ? guardGroups : undefined,
             });
 
-            const memoInstruction = {
-                instruction: {
-                    programId: publicKey(MEMO_PROGRAM_ID.toBase58()),
-                    keys: [],
-                    data: new Uint8Array(Buffer.from(memoData, 'utf-8')),
-                },
-                bytesCreatedOnChain: 0,
-                signers: [],
-            };
+            // Instruction 3: Wrap CM with Guard
+            const wrapBuilder = wrap(umi, {
+                candyMachine: candyMachine.publicKey,
+                candyGuard: candyGuardPda[0],
+            });
 
-            const finalBuilder = (await cmBuilder).add(memoInstruction)
+            // Chain everything into ONE transaction → ONE wallet popup
+            const combinedBuilder = (await cmBuilder)
+                .add(memoInstruction)
+                .add(guardBuilder)
+                .add(wrapBuilder)
                 .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
                 .add(setComputeUnitLimit(umi, { units: 800_000 }));
 
-            await finalBuilder.sendAndConfirm(umi, {
+            await combinedBuilder.sendAndConfirm(umi, {
                 send: { skipPreflight: false },
                 confirm: { commitment: 'confirmed' }
             });
@@ -598,43 +601,9 @@ export async function createCoreCandyMachineHidden(
         }
     }
 
-    console.log("[CM Hidden] Candy Machine created:", candyMachine.publicKey.toString());
-
-    // Step 2: Create Candy Guard with phase-based groups
-    const defaultGuards = buildDefaultGuards(primaryPrice, treasury);
-    const guardGroups = buildGuardGroups(phases, treasury);
-
-    const candyGuardPda = findCandyGuardPda(umi, { base: candyGuard.publicKey });
-
-    const createGuardBuilder = createCoreCandyGuardIx(umi, {
-        base: candyGuard,
-        guards: defaultGuards,
-        groups: guardGroups.length > 0 ? guardGroups : undefined,
-    });
-
-    await createGuardBuilder
-        .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
-        .sendAndConfirm(umi, {
-            send: { skipPreflight: false },
-            confirm: { commitment: 'confirmed' }
-        });
-
-    console.log("[CM Hidden] Candy Guard created:", candyGuardPda[0].toString());
-
-    // Step 3: Wrap Candy Machine with Guard
-    const wrapBuilder = wrap(umi, {
-        candyMachine: candyMachine.publicKey,
-        candyGuard: candyGuardPda[0],
-    });
-
-    await wrapBuilder
-        .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
-        .sendAndConfirm(umi, {
-            send: { skipPreflight: false },
-            confirm: { commitment: 'confirmed' }
-        });
-
-    console.log("[CM Hidden] Wrap complete — Collection ready for minting!");
+    console.log("[CM Hidden] Single-sign deploy complete!");
+    console.log("[CM Hidden] Candy Machine:", candyMachine.publicKey.toString());
+    console.log("[CM Hidden] Candy Guard:", candyGuardPda[0].toString());
 
     // Log fee distribution
     const feeSplit = getLaunchpadFeeSplit(primaryPrice);
