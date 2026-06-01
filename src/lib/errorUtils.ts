@@ -13,7 +13,29 @@ interface EthereumError extends Error {
  */
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    return error.message;
+    let msg = error.message;
+
+    // Retrieve Solana SendTransactionError logs
+    const anyErr = error as any;
+    let logs: string[] = [];
+    if (anyErr.logs && Array.isArray(anyErr.logs)) {
+      logs = anyErr.logs;
+    } else if (typeof anyErr.getLogs === 'function') {
+      try {
+        logs = anyErr.getLogs();
+      } catch {}
+    }
+
+    if (logs && logs.length > 0) {
+      msg += `\n\nOn-chain Logs:\n${logs.slice(-10).join('\n')}`;
+    }
+
+    // Smart troubleshooting tip for missing Metaplex Core / Candy Machine programs
+    if (msg.includes("Attempt to load a program that does not exist") || msg.includes("program that does not exist")) {
+      msg += "\n\n💡 Tip: Metaplex Core Candy Machine programs are only deployed on Solana DEVNET and MAINNET. They are NOT deployed on Solana Testnet. If you are using Solana Testnet, please open your Wallet Connection settings (gear icon) and switch the Solana network to Devnet or Mainnet.";
+    }
+
+    return msg;
   }
   if (typeof error === 'string') {
     return error;
