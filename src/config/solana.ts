@@ -18,7 +18,7 @@ export const HELIUS_ADDRESS_HISTORY_URL = (address: string) =>
 export const HELIUS_MAINNET_API_KEY = import.meta.env.VITE_HELIUS_MAINNET_API_KEY as string | undefined;
 export const HELIUS_MAINNET_URL = HELIUS_MAINNET_API_KEY
     ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_MAINNET_API_KEY}`
-    : null;
+    : `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
 
 export const TESTNET_RPC_LIST = [
     "https://api.testnet.solana.com",

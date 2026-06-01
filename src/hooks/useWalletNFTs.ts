@@ -30,11 +30,11 @@ interface UseWalletNFTsResult {
 
 // Check if network is Solana
 const isSolanaNetwork = (network: string) =>
-  network === "solana-mainnet" || network === "solana-devnet";
+  network === "solana-mainnet" || network === "solana-devnet" || network === "mainnet" || network === "devnet";
 
 const getNetworkType = (network: string): NetworkType => {
-  if (network === "solana-mainnet") return "mainnet";
-  if (network === "solana-devnet") return "devnet";
+  if (network === "solana-mainnet" || network === "mainnet") return "mainnet";
+  if (network === "solana-devnet" || network === "devnet") return "devnet";
   return "devnet"; // Default fallback
 };
 
