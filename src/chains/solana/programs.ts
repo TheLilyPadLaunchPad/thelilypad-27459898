@@ -647,6 +647,15 @@ export async function insertItemsToCandyMachine(
     const itemsToInsert = items.slice(itemsLoaded);
     console.log(`[CM Insert] Inserting ${itemsToInsert.length} items starting at index ${itemsLoaded}`);
 
+    // Retrieve config line settings to handle prefix stripping automatically
+    const configLineSettings = (candyMachine as any).data?.configLineSettings?.value || (candyMachine as any).configLineSettings?.value;
+    const prefixName = configLineSettings?.prefixName || "";
+    const prefixUri = configLineSettings?.prefixUri || "";
+
+    if (prefixName || prefixUri) {
+        console.log(`[CM Insert] Prefix optimization active. Stripping Name Prefix: "${prefixName}", URI Prefix: "${prefixUri}"`);
+    }
+
     // Insert in batches
     for (let i = 0; i < itemsToInsert.length; i += batchSize) {
         const batch = itemsToInsert.slice(i, i + batchSize);
@@ -657,10 +666,22 @@ export async function insertItemsToCandyMachine(
         const builder = addConfigLines(umi, {
             candyMachine: cmPublicKey,
             index: currentIndex,
-            configLines: batch.map(item => ({
-                name: item.name,
-                uri: item.uri,
-            })),
+            configLines: batch.map(item => {
+                let finalName = item.name;
+                let finalUri = item.uri;
+
+                if (prefixName && finalName.startsWith(prefixName)) {
+                    finalName = finalName.slice(prefixName.length);
+                }
+                if (prefixUri && finalUri.startsWith(prefixUri)) {
+                    finalUri = finalUri.slice(prefixUri.length);
+                }
+
+                return {
+                    name: finalName,
+                    uri: finalUri,
+                };
+            }),
         });
 
         // Use slightly higher priority for batch insertions to ensure they land during congestion
