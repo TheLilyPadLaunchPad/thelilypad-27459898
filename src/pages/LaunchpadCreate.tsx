@@ -652,27 +652,45 @@ export default function LaunchpadCreate() {
 
             // ── Step 1: Initialize Database Entry ──────────────────────────
             toast.loading("Establishing provenance...", { id: 'deploy' });
-            const { data: { user } } = await supabase.auth.getUser();
+            
+            let user = null;
+            try {
+                const userPromise = supabase.auth.getUser();
+                const timeoutPromise = new Promise<{ data: { user: null } }>((resolve) => setTimeout(() => resolve({ data: { user: null } }), 4000));
+                const userResult = await Promise.race([userPromise, timeoutPromise]);
+                user = userResult?.data?.user || null;
+            } catch (err) {
+                console.warn("[LilyPad] Supabase auth check timed out or failed:", err);
+            }
 
-            const { data: collection, error: collErr } = await supabase
-                .from("collections")
-                .insert({
-                    name,
-                    symbol,
-                    description,
-                    chain: getDbChainValue(selectedChain, network as 'mainnet' | 'testnet'),
-                    status: "upcoming",
-                    total_supply: assetsToUpload.length,
-                    creator_id: user?.id,
-                    creator_address: address,
-                    collection_type: flowType === 'music' ? 'music' : (is1of1 ? '1of1' : 'generative'),
-                    media_type: flowType === 'music' ? 'audio' : 'image',
-                })
-                .select('id')
-                .single();
+            try {
+                const insertPromise = supabase
+                    .from("collections")
+                    .insert({
+                        name,
+                        symbol,
+                        description,
+                        chain: getDbChainValue(selectedChain, network as 'mainnet' | 'testnet'),
+                        status: "upcoming",
+                        total_supply: assetsToUpload.length,
+                        creator_id: user?.id,
+                        creator_address: address,
+                        collection_type: flowType === 'music' ? 'music' : (is1of1 ? '1of1' : 'generative'),
+                        media_type: flowType === 'music' ? 'audio' : 'image',
+                    })
+                    .select('id')
+                    .single();
 
-            if (collErr) throw collErr;
-            collectionId = collection.id;
+                const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Supabase insert timed out")), 5000));
+                
+                const result = await Promise.race([insertPromise, timeoutPromise]);
+                if (result.error) throw result.error;
+                collectionId = result.data.id;
+            } catch (err) {
+                console.warn("[LilyPad] Supabase collection insertion failed or timed out. Proceeding in decentralized offline mode.", err);
+                toast.error("Database connection slow or offline. Proceeding with Arweave + Solana deployment (Decentralized Mode)...", { duration: 5000 });
+                collectionId = `offline-${Date.now()}`;
+            }
 
             // ── Step 2: Upload to Arweave (Permanent Storage) — batch optimised ─
             toast.loading(`Securing ${assetsToUpload.length} items to Arweave (this may take a few minutes)...`, { id: 'deploy' });
