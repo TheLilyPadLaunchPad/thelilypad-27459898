@@ -100,12 +100,12 @@ interface CollectionStats {
 
 export default function MyNFTs() {
   const navigate = useNavigate();
-  const { address, isConnected, chainType } = useWallet();
+  const { address, isConnected, chainType, network } = useWallet();
   // Derive currency symbol from connected chain (not hardcoded SOL)
   const chainSymbol = chainType === 'monad' ? 'MON' : 'SOL';
 
-  // Fetch on-chain NFTs via DAS API
-  const solanaNetwork = `solana-${localStorage.getItem("solanaNetwork") || "devnet"}`;
+  // Fetch on-chain NFTs via DAS API using the current network from provider
+  const solanaNetwork = network; // e.g., 'solana-mainnet' or 'solana-devnet'
   const {
     nfts: onChainNfts,
     isLoading: onChainLoading,
@@ -404,12 +404,14 @@ export default function MyNFTs() {
 
   // Chain-aware explorer URLs
   const explorerUrl = (hash: string) => {
-    return `https://explorer.solana.com/tx/${hash}?cluster=devnet`;
+    const cluster = network.includes('mainnet') ? 'mainnet' : 'devnet';
+    return `https://explorer.solana.com/tx/${hash}?cluster=${cluster}`;
   };
 
   const tokenExplorerUrl = (contractAddress: string | null, tokenId: number) => {
     if (!contractAddress) return null;
-    return `https://explorer.solana.com/address/${contractAddress}?cluster=devnet`;
+    const cluster = network.includes('mainnet') ? 'mainnet' : 'devnet';
+    return `https://explorer.solana.com/address/${contractAddress}?cluster=${cluster}`;
   };
 
   // Calculate rarity scores and trait data for NFTs based on trait occurrence
