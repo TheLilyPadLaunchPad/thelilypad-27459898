@@ -12,4 +12,4 @@ export const LILYPAD_AGENT_ADDRESS = 'GYTkz5Jmr1XuMLCtdTeRWTe2PmLNu4siPs5RVaSgus
 export const LILYPAD_AGENT_METADATA_URI = 'https://thelilypad.app/agent-metadata.json';
 
 /** The network the agent was minted on */
-export const LILYPAD_AGENT_NETWORK = 'solana-devnet' as const;
+export const LILYPAD_AGENT_NETWORK = 'solana-mainnet' as const;
