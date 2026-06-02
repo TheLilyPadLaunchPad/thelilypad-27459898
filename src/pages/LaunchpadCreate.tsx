@@ -181,7 +181,7 @@ export default function LaunchpadCreate() {
     // Deploy confirmation modal — shown after upload completes, before on-chain txs
     const handleConfirmOnChainDeploy = async () => {
         if (!pendingOnChainDeploy) return;
-        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata } = pendingOnChainDeploy;
+        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri } = pendingOnChainDeploy;
 
         setDeployCheckoutProcessing(true);
         setDeployCheckoutStatus('processing');
@@ -200,7 +200,7 @@ export default function LaunchpadCreate() {
                 const result = await solanaLaunch.deploySolanaCollection({
                     name,
                     symbol,
-                    uri: primaryArweaveUri,
+                    uri: collectionMetadataUri || primaryArweaveUri,
                     sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
                     creators: [{ address, share: 100 }]
                 });
@@ -250,7 +250,7 @@ export default function LaunchpadCreate() {
                                     return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
                                 });
                             const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
-                            placeholderUri = manifest.itemUris[0] || primaryArweaveUri;
+                            placeholderUri = revealPlaceholderUri || manifest.itemUris[0] || primaryArweaveUri;
                             manifestRootForReveal = manifest.manifestRoot;
                             console.log("[Deploy] Arweave manifest root:", manifest.manifestRoot);
                             console.log("[Deploy] Metadata entries:", metadataObjects.length);
@@ -279,7 +279,7 @@ export default function LaunchpadCreate() {
                             deployedAddress,
                             assetsCount,
                             phases,
-                            { name, symbol, uri: primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
+                            { name, symbol, uri: collectionMetadataUri || primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
                             treasuryWallet,
                             primaryArweaveUri
                         );
@@ -394,6 +394,8 @@ export default function LaunchpadCreate() {
         assetsCount: number;
         /** In-memory metadata captured during upload — avoids re-fetching from Arweave (5–30 min propagation). */
         builtMetadata?: any[];
+        collectionMetadataUri?: string;
+        revealPlaceholderUri?: string;
     }
     const [pendingOnChainDeploy, setPendingOnChainDeploy] = useState<PendingOnChainDeploy | null>(null);
     const [deployCheckoutOpen, setDeployCheckoutOpen] = useState(false);
@@ -748,6 +750,48 @@ export default function LaunchpadCreate() {
             // If the manifest was created, we can use it, otherwise fallback to first metadata
             const primaryArweaveUri = manifestUri || (itemLinks.length > 0 ? itemLinks[0].arweaveUri : "");
 
+            // ── Step 3.5: Upload Collection Metadata & Reveal Placeholder ───
+            let collectionMetadataUri = "";
+            let revealPlaceholderUri = "";
+
+            if (coverFile) {
+                toast.loading("Uploading collection banner/metadata to Arweave...", { id: 'deploy' });
+                const collectionImageUri = await uploadToArweave(
+                    coverFile, 
+                    { address, chainType: walletChain, network }, 
+                    false, undefined, undefined, 
+                    [{ name: "Content-Type", value: coverFile.type }], 
+                    true, getSolanaProvider()
+                );
+                
+                const collectionMetadata = {
+                    name,
+                    symbol,
+                    description,
+                    image: collectionImageUri,
+                };
+                
+                collectionMetadataUri = await uploadMetadataToArweave(
+                    collectionMetadata, 
+                    { address, chainType: walletChain, network }, 
+                    false, undefined, undefined, 
+                    true, getSolanaProvider()
+                );
+
+                const revealMetadata = {
+                    name: `Unrevealed - ${name}`,
+                    description: "This item has not been revealed yet.",
+                    image: collectionImageUri,
+                };
+
+                revealPlaceholderUri = await uploadMetadataToArweave(
+                    revealMetadata, 
+                    { address, chainType: walletChain, network }, 
+                    false, undefined, undefined, 
+                    true, getSolanaProvider()
+                );
+            }
+
             // ── PAUSE: Show cost preview modal before on-chain deployment ───
             // Storage is already paid (Turbo auto-debited during upload)
             // Estimate on-chain costs only
@@ -762,6 +806,8 @@ export default function LaunchpadCreate() {
                 // Pass the full array including possible undefined holes —
                 // the consumer fills gaps with fallback metadata per-index.
                 builtMetadata,
+                collectionMetadataUri,
+                revealPlaceholderUri,
             });
             setDeployCheckoutEstimate(onChainEstimate);
             setDeployCheckoutOpen(true);
