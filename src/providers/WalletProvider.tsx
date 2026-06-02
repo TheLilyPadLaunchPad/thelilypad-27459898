@@ -75,7 +75,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isConnecting: wasConnected,
       isTransactionPending: false,
       balance: null,
-      network: (localStorage.getItem("solanaNetwork") as NetworkType) || "mainnet",
+      network: ((localStorage.getItem("solanaNetwork") === "testnet" ? "devnet" : localStorage.getItem("solanaNetwork")) as NetworkType) || "mainnet",
       walletType: (localStorage.getItem("walletType") as WalletType) || "phantom",
       chainType: (localStorage.getItem("chainType") as ChainType) || "solana",
     };

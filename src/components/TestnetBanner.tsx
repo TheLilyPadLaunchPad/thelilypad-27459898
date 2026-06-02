@@ -12,8 +12,7 @@ export const TestnetBanner: React.FC = () => {
     return null;
   }
 
-  const isTestnet = network === "testnet";
-  const label = isTestnet ? "Solana Testnet" : "Solana Devnet";
+  const label = "Solana Devnet";
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-amber-950">

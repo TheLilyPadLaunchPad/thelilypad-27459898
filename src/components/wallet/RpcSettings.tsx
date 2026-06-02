@@ -17,9 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   SOLANA_MAINNET_RPC,
   SOLANA_DEVNET_RPC,
-  SOLANA_TESTNET_RPC,
   DEVNET_RPC_LIST,
-  TESTNET_RPC_LIST,
   MAINNET_RPC_LIST,
   checkRpcHealth,
   RpcHealthStatus,
@@ -33,7 +31,7 @@ import { useNavigate } from "react-router-dom";
 
 const RPC_LABELS: Record<string, string> = {
   [SOLANA_DEVNET_RPC]: "Solana Devnet (Public)",
-  [SOLANA_TESTNET_RPC]: "Solana Testnet (Public)",
+
   [SOLANA_MAINNET_RPC]: "Solana Mainnet (Public)",
   "https://devnet.helius-rpc.com/?api-key=demo": "Helius Devnet",
 };
@@ -185,7 +183,7 @@ export const RpcSettings: React.FC<RpcSettingsProps> = ({
         <DialogHeader>
           <DialogTitle>RPC Endpoint Settings</DialogTitle>
           <DialogDescription>
-            Select your preferred RPC endpoint for {network === "mainnet" ? "Solana Mainnet" : network === "testnet" ? "Solana Testnet" : "Solana Devnet"}
+            Select your preferred RPC endpoint for {network === "mainnet" ? "Solana Mainnet" : "Solana Devnet"}
           </DialogDescription>
         </DialogHeader>
 

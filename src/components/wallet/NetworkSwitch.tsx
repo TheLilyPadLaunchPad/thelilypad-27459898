@@ -22,7 +22,7 @@ export const NetworkSwitch: React.FC = () => {
     const chainName = chainType === 'monad' ? 'Monad' : 'Solana';
     switch (net) {
       case "mainnet": return `${chainName} Mainnet`;
-      case "testnet": return `${chainName} Testnet`;
+
       case "devnet": return `${chainName} Devnet`;
       default: return net;
     }
@@ -31,7 +31,7 @@ export const NetworkSwitch: React.FC = () => {
   const getNetworkColor = (net: string) => {
     switch (net) {
       case "mainnet": return "bg-green-500/10 text-green-500 border-green-500/30";
-      case "testnet": return "bg-blue-500/10 text-blue-500 border-blue-500/30";
+
       default: return "bg-purple-500/10 text-purple-500 border-purple-500/30";
     }
   };
@@ -44,8 +44,6 @@ export const NetworkSwitch: React.FC = () => {
             <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
               {network === "mainnet" ? (
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-              ) : network === "testnet" ? (
-                <FlaskConical className="w-4 h-4 text-blue-500" />
               ) : (
                 <FlaskConical className="w-4 h-4 text-purple-500" />
               )}
@@ -66,13 +64,7 @@ export const NetworkSwitch: React.FC = () => {
               </div>
               {network === "mainnet" && <Check className="w-3 h-3 ml-auto" />}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => switchNetwork("testnet")}>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span>Testnet</span>
-              </div>
-              {network === "testnet" && <Check className="w-3 h-3 ml-auto" />}
-            </DropdownMenuItem>
+
             <DropdownMenuItem onClick={() => switchNetwork("devnet")}>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-purple-500" />

@@ -20,10 +20,6 @@ export const HELIUS_MAINNET_URL = HELIUS_MAINNET_API_KEY
     ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_MAINNET_API_KEY}`
     : `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
 
-export const TESTNET_RPC_LIST = [
-    "https://api.testnet.solana.com",
-];
-
 export const MAINNET_RPC_LIST: string[] = [
     ...(HELIUS_MAINNET_URL ? [HELIUS_MAINNET_URL] : []),
     "https://api.mainnet-beta.solana.com",
@@ -31,13 +27,13 @@ export const MAINNET_RPC_LIST: string[] = [
 ];
 
 export const SOLANA_DEVNET_RPC = DEVNET_RPC_LIST[0];
-export const SOLANA_TESTNET_RPC = TESTNET_RPC_LIST[0];
+
 export const SOLANA_MAINNET_RPC = MAINNET_RPC_LIST[0];
 
 // Metaplex Core Program ID (used for Candy Machine minting)
 export const CORE_CANDY_MACHINE_ADDRESS = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
 
-export type NetworkType = "mainnet" | "testnet" | "devnet";
+export type NetworkType = "mainnet" | "devnet";
 
 // Simple health check for Solana RPC
 export interface RpcHealthStatus {
@@ -82,8 +78,7 @@ export const getSolanaRpcList = (network: NetworkType): string[] => {
     switch (network) {
         case "mainnet":
             return MAINNET_RPC_LIST;
-        case "testnet":
-            return TESTNET_RPC_LIST;
+
         case "devnet":
         default:
             return DEVNET_RPC_LIST;
@@ -179,7 +174,7 @@ export const initializeUmi = (network: NetworkType) => {
  */
 export const fetchSolanaAsset = async (
     nftAddress: string,
-    network: NetworkType = 'testnet'
+    network: NetworkType = 'devnet'
 ): Promise<any> => {
     const rpcUrl = getSolanaRpcUrl(network);
 
@@ -208,7 +203,7 @@ export const fetchSolanaAsset = async (
  */
 export const fetchSolanaAssets = async (
     nftAddresses: string[],
-    network: NetworkType = 'testnet'
+    network: NetworkType = 'devnet'
 ): Promise<any[]> => {
     const rpcUrl = getSolanaRpcUrl(network);
 
