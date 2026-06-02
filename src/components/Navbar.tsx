@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
-import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Ticket, Package, LogOut, LogIn, Vote, Music } from "lucide-react";
+import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Ticket, Package, LogOut, LogIn, Vote, Music, Coins } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
@@ -11,6 +11,8 @@ import { useWallet } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useMockMode } from "@/hooks/useMockMode";
+import { BuyTokensModal } from "@/components/shop/BuyTokensModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -67,6 +69,9 @@ export const Navbar: React.FC = () => {
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const isTestnet = network === "testnet";
+
+  const { isMockMode } = useMockMode();
+  const [isBuyTokensOpen, setIsBuyTokensOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -277,6 +282,21 @@ export const Navbar: React.FC = () => {
                 <ShieldCheck className="w-4 h-4" />
                 <span className="font-bold text-xs uppercase tracking-tight">Admin</span>
               </Button>
+            )}
+
+            {isMockMode && profile && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="hidden md:flex items-center gap-2 border-primary/30 hover:bg-primary/10"
+                  onClick={() => setIsBuyTokensOpen(true)}
+                >
+                  <Coins className="w-4 h-4 text-primary" />
+                  <span className="font-bold">{profile.native_token_balance || 0} LPT</span>
+                </Button>
+                <BuyTokensModal open={isBuyTokensOpen} onOpenChange={setIsBuyTokensOpen} />
+              </>
             )}
 
             <NotificationBell />

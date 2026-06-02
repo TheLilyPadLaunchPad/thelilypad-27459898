@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          id: string
+          is_mock_mode_enabled: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          is_mock_mode_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          is_mock_mode_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      token_transactions: {
+        Row: {
+          id: string
+          user_id: string
+          amount: number
+          transaction_type: string
+          reference_id: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          amount: number
+          transaction_type: string
+          reference_id?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          amount?: number
+          transaction_type?: string
+          reference_id?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       allowlist_entries: {
         Row: {
           collection_id: string
@@ -171,6 +224,7 @@ export type Database = {
           collection_id: string
           id: string
           is_active: boolean
+          locked_buyback_tokens: number | null
           notified_creator: boolean
           reason: string | null
         }
@@ -180,6 +234,7 @@ export type Database = {
           collection_id: string
           id?: string
           is_active?: boolean
+          locked_buyback_tokens?: number | null
           notified_creator?: boolean
           reason?: string | null
         }
@@ -189,6 +244,7 @@ export type Database = {
           collection_id?: string
           id?: string
           is_active?: boolean
+          locked_buyback_tokens?: number | null
           notified_creator?: boolean
           reason?: string | null
         }
@@ -2946,6 +3002,7 @@ export type Database = {
           is_streamer: boolean | null
           is_verified: boolean | null
           playlist_ids: string[] | null
+          native_token_balance: number | null
           profile_setup_completed: boolean | null
           referred_by: string | null
           schedule: Json | null
@@ -2972,6 +3029,7 @@ export type Database = {
           is_streamer?: boolean | null
           is_verified?: boolean | null
           playlist_ids?: string[] | null
+          native_token_balance?: number | null
           profile_setup_completed?: boolean | null
           referred_by?: string | null
           schedule?: Json | null

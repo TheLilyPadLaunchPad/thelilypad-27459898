@@ -13,12 +13,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Sticker, Loader2, ShoppingCart, Check, Sparkles, AlertCircle } from "lucide-react";
+import { Sticker, Loader2, ShoppingCart, Check, Sparkles, AlertCircle, Coins } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSEO } from "@/hooks/useSEO";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { useMockMode } from "@/hooks/useMockMode";
 import {
   Connection,
   PublicKey,
@@ -58,6 +59,7 @@ export default function StickerPackDetail() {
   const navigate = useNavigate();
   const { isConnected, address, getSolanaProvider, network } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
+  const { isMockMode } = useMockMode();
   // Prefer auth.users ID if available (for standard auth), otherwise profile ID (for wallet-only)
   const userId = profile?.user_id || profile?.id || null;
 
@@ -186,74 +188,113 @@ export default function StickerPackDetail() {
       return;
     }
 
-    // Paid sticker pack - process USDC payment (mocked via standard tx for now)
+    // Paid sticker pack
     setIsPurchasing(true);
     try {
-      const solanaProvider = getSolanaProvider();
-      if (!solanaProvider) {
-        toast.error("Solana wallet not available");
-        setIsPurchasing(false);
-        return;
-      }
-
-      const rpcUrl = network === "mainnet"
-        ? "https://api.mainnet-beta.solana.com"
-        : "https://api.devnet.solana.com";
-      const connection = new Connection(rpcUrl, "confirmed");
-
-      const fromPubkey = new PublicKey(address!);
-      const treasuryPubkey = new PublicKey(TREASURY_CONFIG.treasuryWallet);
-
-      // Calculate amounts
-      const totalLamports = Math.floor(pack.price_mon * LAMPORTS_PER_SOL);
-      const { platformAmount, creatorAmount } = getTransactionSplit(pack.price_mon, "shop");
-      const platformLamports = Math.floor(platformAmount * LAMPORTS_PER_SOL);
-
-      // Create transaction
-      const transaction = new Transaction();
-
-      // Add transfer to treasury
-      transaction.add(
-        SystemProgram.transfer({
-          fromPubkey,
-          toPubkey: treasuryPubkey,
-          lamports: totalLamports,
-        })
-      );
-
-      // Add protocol memo
-      transaction.add(
-        createProtocolMemoInstruction("shop:item_purchase", {
-          item: pack.id,
-          type: "sticker_pack",
-        })
-      );
-
-      // Get recent blockhash
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = fromPubkey;
-
-      // Sign and send
-      const signedTx = await solanaProvider.signTransaction(transaction);
-      const signature = await connection.sendRawTransaction(signedTx.serialize());
-
-      // Wait for confirmation
-      await connection.confirmTransaction(signature, "confirmed");
-
-      // Prefer auth user_id, fallback to profile id for wallet-only
       const purchaseUserId = profile?.user_id || profile?.id;
 
       if (!purchaseUserId) {
         throw new Error("User profile not found. Please connect your wallet.");
       }
 
+      let txSignature = "";
+
+      if (isMockMode) {
+        // Native Token flow
+        const balance = Number(profile.native_token_balance || 0);
+        if (balance < pack.price_mon) {
+          throw new Error(`Insufficient LPT balance. You need ${pack.price_mon} LPT.`);
+        }
+
+        // Deduct from buyer
+        const { error: deductError } = await supabase
+          .from("user_profiles")
+          .update({ native_token_balance: balance - pack.price_mon })
+          .eq("id", purchaseUserId);
+
+        if (deductError) throw deductError;
+
+        // Record buyer transaction
+        await supabase.from("token_transactions").insert({
+          user_id: purchaseUserId,
+          amount: -pack.price_mon,
+          transaction_type: "purchase",
+          reference_id: pack.id,
+        });
+
+        // Add to creator
+        if (pack.creator_id) {
+          const { data: creatorData } = await supabase
+            .from("user_profiles")
+            .select("native_token_balance")
+            .eq("id", pack.creator_id)
+            .maybeSingle();
+            
+          if (creatorData) {
+            const currentCreatorBalance = Number(creatorData.native_token_balance || 0);
+            await supabase
+              .from("user_profiles")
+              .update({ native_token_balance: currentCreatorBalance + pack.price_mon })
+              .eq("id", pack.creator_id);
+
+            // Record creator transaction
+            await supabase.from("token_transactions").insert({
+              user_id: pack.creator_id,
+              amount: pack.price_mon,
+              transaction_type: "sale",
+              reference_id: pack.id,
+            });
+          }
+        }
+        
+        txSignature = `mock_lpt_purchase_${Date.now()}`;
+      } else {
+        // Standard Solana logic
+        const solanaProvider = getSolanaProvider();
+        if (!solanaProvider) {
+          throw new Error("Solana wallet not available");
+        }
+
+        const rpcUrl = network === "mainnet"
+          ? "https://api.mainnet-beta.solana.com"
+          : "https://api.devnet.solana.com";
+        const connection = new Connection(rpcUrl, "confirmed");
+
+        const fromPubkey = new PublicKey(address!);
+        const treasuryPubkey = new PublicKey(TREASURY_CONFIG.treasuryWallet);
+
+        const totalLamports = Math.floor(pack.price_mon * LAMPORTS_PER_SOL);
+        
+        const transaction = new Transaction();
+        transaction.add(
+          SystemProgram.transfer({
+            fromPubkey,
+            toPubkey: treasuryPubkey,
+            lamports: totalLamports,
+          })
+        );
+        transaction.add(
+          createProtocolMemoInstruction("shop:item_purchase", {
+            item: pack.id,
+            type: "sticker_pack",
+          })
+        );
+
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = fromPubkey;
+
+        const signedTx = await solanaProvider.signTransaction(transaction);
+        txSignature = await connection.sendRawTransaction(signedTx.serialize());
+        await connection.confirmTransaction(txSignature, "confirmed");
+      }
+
       const { error } = await supabase.from("shop_purchases").insert({
         item_id: pack.id,
         user_id: purchaseUserId,
         price_paid: pack.price_mon,
-        currency: "USDC",
-        tx_hash: signature,
+        currency: isMockMode ? "LPT" : "USDC",
+        tx_hash: txSignature,
       });
 
       if (error) {
@@ -273,7 +314,7 @@ export default function StickerPackDetail() {
       if (err.message?.includes("User rejected")) {
         toast.error("Transaction cancelled");
       } else {
-        toast.error("Failed to complete purchase");
+        toast.error(err.message || "Failed to complete purchase");
       }
     } finally {
       setIsPurchasing(false);
@@ -413,10 +454,16 @@ export default function StickerPackDetail() {
                   >
                     {isPurchasing ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : isMockMode ? (
+                      <Coins className="w-4 h-4" />
                     ) : (
                       <ShoppingCart className="w-4 h-4" />
                     )}
-                    {pack.price_mon > 0 ? `Buy for ${pack.price_mon} USDC` : "Get for Free"}
+                    {isMockMode ? (
+                      pack.price_mon > 0 ? `Buy for ${pack.price_mon} LPT` : "Get for Free"
+                    ) : (
+                      pack.price_mon > 0 ? `Buy for ${pack.price_mon} USDC` : "Get for Free"
+                    )}
                   </Button>
                 )}
               </CardContent>

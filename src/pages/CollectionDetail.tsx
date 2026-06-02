@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, Rocket } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { RarityLeaderboard } from "@/components/RarityLeaderboard";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
 import { BuybackProgramInfo } from "@/components/BuybackProgramInfo";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
+import { BuybackAllocationModal } from "@/components/modals/BuybackAllocationModal";
 import { useCollectionDetail } from "@/components/collection-detail/useCollectionDetail";
 import { useSEO } from "@/hooks/useSEO";
 import { getExplorerUrl } from "@/config/chains";
@@ -77,6 +78,14 @@ export default function CollectionDetail() {
     handleConnectWallet,
     handleMint,
   } = useCollectionDetail();
+
+  const [isBuybackModalOpen, setIsBuybackModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (isCreator && totalSupply > 0 && liveSupply >= totalSupply) {
+      setIsBuybackModalOpen(true);
+    }
+  }, [isCreator, liveSupply, totalSupply]);
 
   useSEO({
     title: collection?.name ? `${collection.name} | The Lily Pad` : "NFT Collection | The Lily Pad",
@@ -314,6 +323,15 @@ export default function CollectionDetail() {
         creatorId={collection.creator_id}
         phases={phases}
       />
+
+      {collection?.id && collection?.creator_id && (
+        <BuybackAllocationModal
+          open={isBuybackModalOpen}
+          onOpenChange={setIsBuybackModalOpen}
+          collectionId={collection.id}
+          creatorId={collection.creator_id}
+        />
+      )}
     </div>
   );
 }

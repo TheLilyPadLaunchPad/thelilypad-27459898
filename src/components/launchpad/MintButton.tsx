@@ -3,7 +3,11 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useSolanaMint } from '@/hooks/useSolanaMint';
 import { useMonadLaunch } from '@/hooks/useMonadLaunch';
+import { useMockMode } from '@/hooks/useMockMode';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { supabase } from '@/integrations/supabase/client';
 import { SupportedChain, CHAINS } from '@/config/chains';
+import { Coins } from 'lucide-react';
 
 interface MintButtonProps {
     collectionId: string;
@@ -26,10 +30,12 @@ export function MintButton({
 }: MintButtonProps) {
     const { isLoading: isSolanaLoading, mintFromCandyMachine } = useSolanaMint();
     const { isCreating: isMonadLoading, mintNFT: mintMonadNFT } = useMonadLaunch();
+    const { isMockMode } = useMockMode();
+    const { profile } = useUserProfile();
 
     // Get chain config for display
     const chainConfig = CHAINS[chain] || CHAINS.solana;
-    const currencySymbol = chainConfig.symbol;
+    const currencySymbol = isMockMode ? "LPT" : chainConfig.symbol;
 
     // Check if chain supports minting via this button
     const isMintingSupported = chain === 'solana' || chain === 'monad';
@@ -42,6 +48,61 @@ export function MintButton({
         }
 
         try {
+            if (isMockMode) {
+                if (!profile) throw new Error("Please connect your wallet/profile.");
+                const balance = Number(profile.native_token_balance || 0);
+                if (balance < price) {
+                    throw new Error(`Insufficient LPT balance. You need ${price} LPT.`);
+                }
+
+                // Deduct LPT
+                const { error: deductError } = await supabase
+                  .from("user_profiles")
+                  .update({ native_token_balance: balance - price })
+                  .eq("id", profile.id);
+                if (deductError) throw deductError;
+
+                // Record transaction
+                await supabase.from("token_transactions").insert({
+                  user_id: profile.id,
+                  amount: -price,
+                  transaction_type: "purchase",
+                  reference_id: collectionId,
+                });
+
+                // Fetch collection creator
+                const { data: collection } = await supabase
+                  .from("collections")
+                  .select("creator_id")
+                  .eq("id", collectionId)
+                  .single();
+
+                if (collection?.creator_id) {
+                    const { data: creatorProfile } = await supabase
+                        .from("user_profiles")
+                        .select("native_token_balance")
+                        .eq("id", collection.creator_id)
+                        .maybeSingle();
+                        
+                    if (creatorProfile) {
+                        await supabase
+                          .from("user_profiles")
+                          .update({ native_token_balance: Number(creatorProfile.native_token_balance || 0) + price })
+                          .eq("id", collection.creator_id);
+
+                        await supabase.from("token_transactions").insert({
+                          user_id: collection.creator_id,
+                          amount: price,
+                          transaction_type: "sale",
+                          reference_id: collectionId,
+                        });
+                    }
+                }
+
+                toast.success('Mint succeeded! (Mock Web2 Mode)');
+                return;
+            }
+
             if (chain === 'solana') {
                 await mintFromCandyMachine(
                     candyMachineAddress,
@@ -70,10 +131,11 @@ export function MintButton({
             size="sm"
             onClick={handleMint}
             disabled={isLoading || !isMintingSupported}
-            className="mt-2 w-full"
+            className="mt-2 w-full gap-2"
         >
+            {isMockMode && <Coins className="w-4 h-4" />}
             {isLoading
-                ? 'Minting…'
+                ? 'Minting...'
                 : !isMintingSupported
                     ? `${chainConfig.name} Coming Soon`
                     : `Mint for ${price} ${currencySymbol}`
