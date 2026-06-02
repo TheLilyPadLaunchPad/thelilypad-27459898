@@ -30,6 +30,7 @@ import {
   StickerPacksGrid,
   HomepageFeaturedCollections,
 } from "@/components/marketplace";
+import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
 
 
 export default function Marketplace() {
@@ -127,6 +128,7 @@ export default function Marketplace() {
             title="Lily Marketplace"
             subtitle={`Browse collections and digital assets on ${chainLabel}`}
           />
+          <CollectionApplicationModal />
         </div>
 
         {/* Chain Selector Tabs */}

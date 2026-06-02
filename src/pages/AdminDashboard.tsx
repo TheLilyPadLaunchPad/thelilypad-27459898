@@ -59,7 +59,9 @@ import { ErrorLogManager } from '@/components/admin/ErrorLogManager';
 
 import { FeatureSectionManager } from '@/components/admin/FeatureSectionManager';
 import { CreatorApplicationsManager } from '@/components/admin/CreatorApplicationsManager';
-import { Star, Trophy } from 'lucide-react';
+import { MarketplaceApplicationsManager } from '@/components/admin/MarketplaceApplicationsManager';
+import { AdminDirectCollectionModal } from '@/components/admin/AdminDirectCollectionModal';
+import { Star, Trophy, Store } from 'lucide-react';
 
 interface AdminUser {
   id: string;
@@ -608,6 +610,10 @@ const AdminDashboard: React.FC = () => {
                 <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Creators</span>
               </TabsTrigger>
+              <TabsTrigger value="marketplace-apps" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <Store className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>Marketplace Apps</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -817,14 +823,24 @@ const AdminDashboard: React.FC = () => {
             <SiteAssetsManager />
           </TabsContent>
 
+          {/* Marketplace Apps Tab */}
+          <TabsContent value="marketplace-apps">
+            <MarketplaceApplicationsManager />
+          </TabsContent>
+
           {/* Collections Tab */}
           <TabsContent value="collections">
             <Card>
               <CardHeader className="px-4 sm:px-6">
-                <CardTitle className="text-lg sm:text-xl">All Collections</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Manage NFT collections across the platform
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg sm:text-xl">All Collections</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      Manage NFT collections across the platform
+                    </CardDescription>
+                  </div>
+                  <AdminDirectCollectionModal onSuccess={fetchCollections} />
+                </div>
               </CardHeader>
               <CardContent className="px-4 sm:px-6">
                 {/* Mobile Card Layout */}

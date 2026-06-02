@@ -45,6 +45,7 @@ import {
   MessageSquare
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
+import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
 import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -565,6 +566,7 @@ export default function MyNFTs() {
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
             </Button>
+            <CollectionApplicationModal />
           </div>
         </div>
 
