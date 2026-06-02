@@ -21,6 +21,7 @@ interface OfficialPack {
   tier: string;
   price_mon: number;
   total_sales: number;
+  max_editions?: number | null;
   created_at: string;
 }
 
@@ -171,12 +172,19 @@ const OfficialPacks: React.FC = () => {
         )}
 
         {/* Official Badge Overlay */}
-        <div className="absolute top-2 left-2">
+        <div className="absolute top-2 left-2 z-20">
           <Badge className="bg-primary/90 text-primary-foreground border-0 gap-1">
             <Leaf className="w-3 h-3" />
             Official
           </Badge>
         </div>
+
+        {/* Sold Out Overlay */}
+        {pack.max_editions && pack.total_sales >= pack.max_editions && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none">
+            <Badge variant="destructive" className="text-lg py-1 px-4">Sold Out</Badge>
+          </div>
+        )}
 
         {/* Price Overlay */}
         <div className="absolute bottom-2 right-2">
@@ -207,7 +215,7 @@ const OfficialPacks: React.FC = () => {
           </div>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <ShoppingCart className="w-3 h-3" />
-            {pack.total_sales} sold
+            {pack.max_editions ? `${pack.total_sales} / ${pack.max_editions} sold` : `${pack.total_sales} sold`}
           </div>
         </div>
 

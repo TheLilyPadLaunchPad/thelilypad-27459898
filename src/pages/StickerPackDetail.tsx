@@ -38,6 +38,7 @@ interface ShopItem {
   category: string;
   tier: string;
   total_sales: number;
+  max_editions?: number | null;
   creator_id: string;
   is_active: boolean;
   created_at: string;
@@ -382,7 +383,7 @@ export default function StickerPackDetail() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Total Sales</span>
-                    <span className="font-medium">{pack.total_sales}</span>
+                    <span className="font-medium">{pack.total_sales} {pack.max_editions ? `/ ${pack.max_editions}` : ''}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Price</span>
@@ -394,7 +395,12 @@ export default function StickerPackDetail() {
 
                 <Separator />
 
-                {hasPurchased ? (
+                {pack.max_editions && pack.total_sales >= pack.max_editions ? (
+                  <Button disabled className="w-full gap-2" variant="destructive">
+                    <AlertCircle className="w-4 h-4" />
+                    Sold Out
+                  </Button>
+                ) : hasPurchased ? (
                   <Button disabled className="w-full gap-2" variant="secondary">
                     <Check className="w-4 h-4" />
                     Owned

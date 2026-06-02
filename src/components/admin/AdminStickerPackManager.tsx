@@ -45,6 +45,7 @@ interface OfficialPack {
   is_active: boolean;
   created_at: string;
   total_sales: number;
+  max_editions?: number | null;
   collection_address?: string | null;
   tree_address?: string | null;
 }
@@ -73,6 +74,7 @@ export const AdminStickerPackManager: React.FC = () => {
   const [description, setDescription] = useState("");
   const [tier, setTier] = useState("exclusive");
   const [price, setPrice] = useState("0");
+  const [maxEditions, setMaxEditions] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,6 +151,8 @@ export const AdminStickerPackManager: React.FC = () => {
           ? `🐸 ${name}`
           : name;
 
+      const editions = tier === "1of1" ? 1 : (maxEditions ? parseInt(maxEditions) : null);
+
       const { error } = await supabase.from("shop_items").insert({
         creator_id: creatorId,
         creator_type: "platform",
@@ -158,6 +162,7 @@ export const AdminStickerPackManager: React.FC = () => {
         category: packType,
         tier,
         price_mon: parseFloat(price) || 0,
+        max_editions: editions,
         is_active: true,
       });
 
@@ -215,6 +220,7 @@ export const AdminStickerPackManager: React.FC = () => {
     setDescription("");
     setTier("exclusive");
     setPrice("0");
+    setMaxEditions("");
     setPackType("sticker_pack");
     setBrand("lilypad");
     setImageFile(null);
@@ -316,7 +322,9 @@ export const AdminStickerPackManager: React.FC = () => {
                     <TableCell>
                       {pack.price_mon > 0 ? `${pack.price_mon} USDC` : 'Free'}
                     </TableCell>
-                    <TableCell>{pack.total_sales}</TableCell>
+                    <TableCell>
+                      {pack.total_sales} {pack.max_editions ? `/ ${pack.max_editions}` : ''}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <Badge variant={pack.is_active ? "default" : "secondary"}>
@@ -508,10 +516,13 @@ export const AdminStickerPackManager: React.FC = () => {
             </div>
 
             {/* Tier and Price */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="admin-pack-tier">Tier</Label>
-                <Select value={tier} onValueChange={setTier}>
+                <Select value={tier} onValueChange={(val) => {
+                  setTier(val);
+                  if (val === "1of1") setMaxEditions("1");
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -520,6 +531,7 @@ export const AdminStickerPackManager: React.FC = () => {
                     <SelectItem value="premium">Premium</SelectItem>
                     <SelectItem value="exclusive">Exclusive</SelectItem>
                     <SelectItem value="legendary">Legendary</SelectItem>
+                    <SelectItem value="1of1">1of1</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -533,6 +545,19 @@ export const AdminStickerPackManager: React.FC = () => {
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="0 = Free"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="admin-pack-editions">Max Editions</Label>
+                <Input
+                  id="admin-pack-editions"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={tier === "1of1" ? "1" : maxEditions}
+                  onChange={(e) => setMaxEditions(e.target.value)}
+                  placeholder="Unlimited"
+                  disabled={tier === "1of1"}
                 />
               </div>
             </div>

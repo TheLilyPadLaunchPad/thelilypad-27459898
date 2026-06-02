@@ -2335,6 +2335,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          max_editions: number | null
           name: string
           price_mon: number
           price_sol: number | null
@@ -2353,6 +2354,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          max_editions?: number | null
           name: string
           price_mon?: number
           price_sol?: number | null
@@ -2371,6 +2373,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          max_editions?: number | null
           name?: string
           price_mon?: number
           price_sol?: number | null
