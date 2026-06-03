@@ -314,7 +314,7 @@ export default function LaunchpadCreate() {
                 await supabase.from("collections").update({
                     contract_address: deployedAddress,
                     status: "live",
-                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
+                    image_url: finalCollectionImageUrl,
                     is_dynamic: isDynamic || false,
                     // Reveal-flow metadata — powers RevealCandyMachinePanel's
                     // updateCandyMachine step without any manual paste.
