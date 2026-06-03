@@ -297,6 +297,24 @@ export default function LaunchpadCreate() {
                             15 // Max items per config-line transaction
                         );
                     }
+                } else {
+                    // 1-of-1 "Metaplex RAW" flow
+                    setDeployCheckoutProgress({ label: "Minting RAW 1-of-1 NFTs directly to your wallet...", completed: 2, total: 3 });
+                    
+                    const batchItems = itemLinks.map((item, i) => ({
+                        name: builtMetadata?.[i]?.name || `${name} #${i + 1}`,
+                        uri: item.arweaveUri,
+                        sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
+                    }));
+                    
+                    if (batchItems.length > 0) {
+                        await solanaLaunch.batchMintCore(
+                            deployedAddress,
+                            batchItems
+                        );
+                    }
+                    
+                    setDeployCheckoutProgress({ label: "RAW Minting Complete!", completed: 3, total: 3 });
                 }
             } else if (selectedChain === 'monad') {
                 const result = await monadLaunch.createCollection({

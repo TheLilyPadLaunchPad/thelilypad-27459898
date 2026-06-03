@@ -168,6 +168,8 @@ export async function createCoreCollection(
     };
 }
 
+import { getTokenByMint } from '@/config/tokens';
+
 /**
  * Build guard configuration for a single phase
  */
@@ -179,8 +181,11 @@ function buildGuardSetForPhase(
 
     // 1. Payment Guard (SOL or Token)
     if (phase.payment?.type === 'token' && phase.payment.mint) {
+        const tokenConfig = getTokenByMint(phase.payment.mint);
+        const decimals = tokenConfig ? tokenConfig.decimals : 6;
+        const multiplier = Math.pow(10, decimals);
         guards.tokenPayment = some({
-            amount: BigInt(phase.payment.amount * 1000000),
+            amount: BigInt(Math.floor(phase.payment.amount * multiplier)),
             mint: publicKey(phase.payment.mint),
             destinationAta: publicKey(phase.payment.destination || treasuryWallet),
         });

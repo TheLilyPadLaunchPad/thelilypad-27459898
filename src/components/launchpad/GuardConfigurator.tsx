@@ -53,14 +53,50 @@ export function GuardConfigurator({ phase, onChange, chainSymbol = 'SOL' }: Guar
                             {phase.price >= 0.3 ? "1.25% FEE (PREMIUM)" : "2.0% FEE"}
                         </Badge>
                     </div>
-                    <Label className="flex items-center gap-2 text-primary font-semibold"><Coins className="w-4 h-4" /> Mint Price ({chainSymbol})</Label>
-                    <Input
-                        type="number"
-                        value={phase.price}
-                        onChange={(e) => onChange({ price: Number(e.target.value) })}
-                        className="bg-background/50 border-white/10"
-                        placeholder="0.00"
-                    />
+                    <Label className="flex items-center gap-2 text-primary font-semibold"><Coins className="w-4 h-4" /> Mint Price</Label>
+                    <div className="flex gap-2">
+                        <Input
+                            type="number"
+                            value={phase.payment?.amount ?? phase.price}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                onChange({ 
+                                    price: phase.payment?.type === 'token' ? 0 : val,
+                                    payment: {
+                                        type: phase.payment?.type || 'sol',
+                                        amount: val,
+                                        mint: phase.payment?.mint,
+                                    }
+                                });
+                            }}
+                            className="bg-background/50 border-white/10 flex-1"
+                            placeholder="0.00"
+                        />
+                        <select 
+                            className="bg-background/50 border-white/10 rounded-md px-3 text-sm"
+                            value={phase.payment?.type === 'token' ? phase.payment.mint : 'sol'}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === 'sol') {
+                                    onChange({
+                                        price: phase.payment?.amount || phase.price,
+                                        payment: { type: 'sol', amount: phase.payment?.amount || phase.price }
+                                    });
+                                } else {
+                                    onChange({
+                                        price: 0, // Not using sol payment
+                                        payment: { type: 'token', amount: phase.payment?.amount || phase.price, mint: val }
+                                    });
+                                }
+                            }}
+                        >
+                            <option value="sol">SOL</option>
+                            <option value="L3APxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">L3AP</option>
+                            <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">USDC</option>
+                            <option value="MONxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">MON</option>
+                            <option value="wXRPxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">wXRP</option>
+                        </select>
+                    </div>
                     <p className="text-[10px] text-muted-foreground mt-1">
                         {phase.price >= 0.3 
                             ? "✨ Premium Rate: 1.25% (Saves 50% vs competition)" 
