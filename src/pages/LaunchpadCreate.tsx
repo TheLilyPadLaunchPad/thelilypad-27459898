@@ -809,6 +809,7 @@ export default function LaunchpadCreate() {
                 builtMetadata,
                 collectionMetadataUri,
                 revealPlaceholderUri,
+                collectionImageUri,
             });
             setDeployCheckoutEstimate(onChainEstimate);
             setDeployCheckoutOpen(true);
