@@ -181,7 +181,10 @@ export default function LaunchpadCreate() {
     // Deploy confirmation modal — shown after upload completes, before on-chain txs
     const handleConfirmOnChainDeploy = async () => {
         if (!pendingOnChainDeploy) return;
-        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri } = pendingOnChainDeploy;
+        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri, collectionImageUri } = pendingOnChainDeploy;
+        // Prefer the explicit collection cover; fall back to the first item image so the
+        // collection card / banner never ends up empty after a successful deploy.
+        const finalCollectionImageUrl = collectionImageUri || (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : '');
 
         setDeployCheckoutProcessing(true);
         setDeployCheckoutStatus('processing');
@@ -311,7 +314,7 @@ export default function LaunchpadCreate() {
                 await supabase.from("collections").update({
                     contract_address: deployedAddress,
                     status: "live",
-                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
+                    image_url: finalCollectionImageUrl,
                     is_dynamic: isDynamic || false,
                     // Reveal-flow metadata — powers RevealCandyMachinePanel's
                     // updateCandyMachine step without any manual paste.
@@ -332,7 +335,7 @@ export default function LaunchpadCreate() {
                     description,
                     chain: selectedChain,
                     contract_address: deployedAddress,
-                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
+                    image_url: finalCollectionImageUrl,
                     manifest_uri: primaryArweaveUri,
                     created_at: new Date().toISOString(),
                     creator_address: address || '',
@@ -753,10 +756,11 @@ export default function LaunchpadCreate() {
             // ── Step 3.5: Upload Collection Metadata & Reveal Placeholder ───
             let collectionMetadataUri = "";
             let revealPlaceholderUri = "";
+            let collectionImageUri = "";
 
             if (coverFile) {
                 toast.loading("Uploading collection banner/metadata to Arweave...", { id: 'deploy' });
-                const collectionImageUri = await uploadToArweave(
+                collectionImageUri = await uploadToArweave(
                     coverFile, 
                     { address, chainType: walletChain, network }, 
                     false, undefined, undefined, 
@@ -808,6 +812,7 @@ export default function LaunchpadCreate() {
                 builtMetadata,
                 collectionMetadataUri,
                 revealPlaceholderUri,
+                collectionImageUri,
             });
             setDeployCheckoutEstimate(onChainEstimate);
             setDeployCheckoutOpen(true);
