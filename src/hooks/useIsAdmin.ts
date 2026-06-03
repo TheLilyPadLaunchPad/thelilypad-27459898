@@ -8,9 +8,20 @@ export const useIsAdmin = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const ADMIN_WALLETS = [
+      'Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH',
+      '3xxV9tbTanfAqRTSZkiZKMGdVDb3KZrrPm3NCkU38Hty',
+    ];
+
     const checkAdminStatus = async () => {
+      // Fast path: wallet-based admin bypass
+      if (isConnected && address && ADMIN_WALLETS.includes(address)) {
+        setIsAdmin(true);
+        setLoading(false);
+        return;
+      }
+
       // Server-side admin role check via Supabase user_roles table.
-      // Hardcoded wallet bypasses have been removed for security.
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
