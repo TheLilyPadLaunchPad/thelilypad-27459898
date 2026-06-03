@@ -335,7 +335,7 @@ export default function LaunchpadCreate() {
                     description,
                     chain: selectedChain,
                     contract_address: deployedAddress,
-                    image_url: (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : ''),
+                    image_url: finalCollectionImageUrl,
                     manifest_uri: primaryArweaveUri,
                     created_at: new Date().toISOString(),
                     creator_address: address || '',
