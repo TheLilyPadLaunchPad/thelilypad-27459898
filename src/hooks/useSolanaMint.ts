@@ -89,6 +89,23 @@ export const useSolanaMint = () => {
                 // asset fetch failed (propagation delay) — use defaults
             }
 
+            // Fallback: Arweave takes 5-30 min to propagate, so the metadata
+            // fetch above frequently returns empty right after mint. Fall back to
+            // the parent collection's cover so the gallery shows something
+            // immediately instead of a broken/empty tile.
+            if (!imageUrl) {
+                try {
+                    const { data: coll } = await supabase
+                        .from('collections')
+                        .select('image_url, banner_url')
+                        .eq('id', collectionId)
+                        .maybeSingle();
+                    imageUrl = (coll as any)?.image_url || (coll as any)?.banner_url || '';
+                } catch {
+                    // ignore — leave empty
+                }
+            }
+
             await supabase.from('minted_nfts').insert({
                 name: nftName,
                 description: '',
