@@ -753,10 +753,11 @@ export default function LaunchpadCreate() {
             // ── Step 3.5: Upload Collection Metadata & Reveal Placeholder ───
             let collectionMetadataUri = "";
             let revealPlaceholderUri = "";
+            let collectionImageUri = "";
 
             if (coverFile) {
                 toast.loading("Uploading collection banner/metadata to Arweave...", { id: 'deploy' });
-                const collectionImageUri = await uploadToArweave(
+                collectionImageUri = await uploadToArweave(
                     coverFile, 
                     { address, chainType: walletChain, network }, 
                     false, undefined, undefined, 
