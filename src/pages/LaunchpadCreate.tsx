@@ -181,7 +181,10 @@ export default function LaunchpadCreate() {
     // Deploy confirmation modal — shown after upload completes, before on-chain txs
     const handleConfirmOnChainDeploy = async () => {
         if (!pendingOnChainDeploy) return;
-        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri } = pendingOnChainDeploy;
+        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri, collectionImageUri } = pendingOnChainDeploy;
+        // Prefer the explicit collection cover; fall back to the first item image so the
+        // collection card / banner never ends up empty after a successful deploy.
+        const finalCollectionImageUrl = collectionImageUri || (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : '');
 
         setDeployCheckoutProcessing(true);
         setDeployCheckoutStatus('processing');
