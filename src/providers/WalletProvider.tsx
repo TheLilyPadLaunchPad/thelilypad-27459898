@@ -350,6 +350,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       } catch (e) {
         console.warn("Auto-connect failed:", e);
+        // Clear the flag so ProtectedRoute stops showing a loader
+        localStorage.removeItem("walletConnected");
       } finally {
         setState(prev => ({ ...prev, isConnecting: false }));
       }

@@ -22,6 +22,12 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isBetaMode, isLoading: betaLoading } = useBetaMode();
   const location = useLocation();
 
+  // On page refresh the wallet auto-reconnect hasn't fired yet, so
+  // the auth state starts as DISCONNECTED for a brief moment.
+  // If localStorage says the user was previously connected, treat this
+  // as a loading state instead of redirecting to /auth immediately.
+  const hadPreviousSession = typeof window !== 'undefined' && localStorage.getItem('walletConnected') === 'true';
+
   // Show loader while wallet connecting, handshaking, or profile loading
   if (state === "CONNECTING_WALLET" || state === "WALLET_CONNECTED" || state === "LOADING_PROFILE") {
     return (
@@ -31,7 +37,16 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  // Redirect to auth if disconnected
+  // If disconnected but a previous session exists, wait for auto-reconnect
+  if (state === "DISCONNECTED" && hadPreviousSession) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <FrogLoader size="lg" />
+      </div>
+    );
+  }
+
+  // Redirect to auth if truly disconnected (no prior session)
   if (state === "DISCONNECTED") {
     return <Navigate to="/auth" replace />;
   }
