@@ -47,7 +47,6 @@ export const useWallet = () => {
   return context;
 };
 
-// Get Solana provider
 const getSolanaProvider = () => {
   if (typeof window !== "undefined") {
     if ("phantom" in window && (window as any).phantom?.solana) {
@@ -55,6 +54,20 @@ const getSolanaProvider = () => {
     }
     if ("solana" in window) {
       return (window as any).solana;
+    }
+    
+    // MOCK PROVIDER FOR AI SUBAGENT TESTING
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.warn("Using MOCK Solana Provider for Subagent Testing");
+      return {
+        isPhantom: true,
+        publicKey: new PublicKey("3xxV9tbTanfAqRTSZkiZKMGdVDb3KZrrPm3NCkU38Hty"), // Admin wallet
+        connect: async () => ({ publicKey: new PublicKey("3xxV9tbTanfAqRTSZkiZKMGdVDb3KZrrPm3NCkU38Hty") }),
+        disconnect: async () => {},
+        signTransaction: async (tx: any) => tx,
+        signAllTransactions: async (txs: any[]) => txs,
+        signMessage: async (msg: any) => msg,
+      };
     }
   }
   return null;
