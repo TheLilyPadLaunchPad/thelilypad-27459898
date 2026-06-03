@@ -105,7 +105,7 @@ export const getBestRpc = async (network: NetworkType): Promise<string> => {
     }
 
     const rpcList = getSolanaRpcList(network).filter(rpc => !blacklistedRpcs.has(rpc));
-    
+
     // If all RPCs are blacklisted, clear blacklist and start over to avoid total failure
     if (rpcList.length === 0) {
         console.warn(`[Solana] All RPCs blacklisted. Resetting blacklist.`);
