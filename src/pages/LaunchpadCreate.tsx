@@ -89,7 +89,7 @@ const defaultPhases: LaunchpadPhase[] = [
 type CollectionFlowType = "generative" | "1of1" | "music";
 
 function resolveFlowType(standard?: string): CollectionFlowType {
-    if (standard === "1of1") return "1of1";
+    if (standard === "1of1" || standard === "rwa") return "1of1";
     if (standard === "music") return "music";
     return "generative";
 }

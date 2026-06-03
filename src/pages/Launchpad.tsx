@@ -100,11 +100,20 @@ const ALL_COLLECTION_TYPES: CollectionTypeTile[] = [
   },
   {
     id: "1of1",
-    title: "1-of-1 & Editions",
-    description: "Upload individual artworks, configure editions and tier pricing. Deploy as compressed NFTs with Bubblegum or Metaplex Core.",
+    title: "1-of-1 Art",
+    description: "Upload individual artworks, configure editions and tier pricing. Direct RAW minting or deploy as compressed NFTs.",
     icon: ImageIcon,
     chains: ["solana", "monad"],
-    tag: "Unique",
+    tag: "Art Only",
+  },
+  {
+    id: "rwa",
+    title: "Real World Assets",
+    description: "Tokenize physical items like real estate, watches, or collectibles. Direct RAW minting to keep assets fully controlled.",
+    icon: Globe,
+    chains: ["solana", "monad"],
+    tag: "RWA / Physical",
+    highlight: true,
   },
   {
     id: "hybrid-404",
