@@ -353,71 +353,48 @@ export default function LaunchpadCreate() {
             setDeployCheckoutProgress({ label: "Deploying collection...", completed: 1, total: 3 });
 
             if (selectedChain === 'solana') {
-                const result = await solanaLaunch.deploySolanaCollection({
-                    name,
-                    symbol,
-                    uri: collectionMetadataUri || primaryArweaveUri,
-                    sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
-                    creators: [{ address, share: 100 }]
-                });
-                deployedAddress = result.address;
-                collectionMintForReveal = result.address;
-
                 if (!is1of1) {
-                    const candyMachineItems = itemLinks.map((item, i) => ({
-                        name: `${name} #${i + 1}`,
-                        uri: item.arweaveUri
-                    }));
+                    setDeployCheckoutProgress({ label: "Deploying collection via backend...", completed: 1, total: 3 });
+                    
+                    const result = await solanaLaunch.deployViaBackend({
+                        collectionId,
+                        name,
+                        symbol,
+                        uri: collectionMetadataUri || primaryArweaveUri,
+                        creatorAddress: address,
+                        itemsAvailable: assetsCount,
+                        phases,
+                        baseUri: primaryArweaveUri,
+                        royaltyPercent,
+                        network: network as string
+                    });
 
-                    const USE_HIDDEN_SETTINGS_THRESHOLD = 50;
-
-                    if (assetsCount > USE_HIDDEN_SETTINGS_THRESHOLD) {
-                        if (itemLinks.length === 0) {
-                            throw new Error(
-                                "No uploaded items found — cannot create Arweave manifest. " +
-                                "Ensure your assets uploaded successfully before deploying."
-                            );
-                        }
-
-                        setDeployCheckoutProgress({ label: "Bundling metadata into Arweave manifest...", completed: 2, total: 3 });
-                        let placeholderUri = primaryArweaveUri;
-                        try {
-                            const metadataObjects = (builtMetadata && builtMetadata.length === itemLinks.length && builtMetadata.every(Boolean))
-                                ? builtMetadata
-                                : itemLinks.map((item, i) => {
-                                    if (builtMetadata && builtMetadata[i]) return builtMetadata[i];
-                                    return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
-                                });
-                            const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
-                            placeholderUri = revealPlaceholderUri || manifest.itemUris[0] || primaryArweaveUri;
-                            manifestRootForReveal = manifest.manifestRoot;
-                        } catch (e) {
-                            console.warn("[Deploy] Manifest bundle failed, falling back to primary URI:", e);
-                        }
-
-                        setDeployCheckoutProgress({ label: "Creating Candy Machine (large collection)...", completed: 2, total: 3 });
-                        const cmResult = await solanaLaunch.createHiddenSettingsCandyMachine(
-                            deployedAddress, candyMachineItems, phases,
-                            `${name} #`, placeholderUri, treasuryWallet
-                        );
-                        candyMachineAddressForReveal = cmResult.address;
-                        candyGuardAddressForReveal = (cmResult as any).candyGuardAddress ?? null;
-                        setDeployCheckoutProgress({ label: "Candy Machine ready!", completed: 3, total: 3 });
-
-                    } else {
-                        setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
-                        const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
-                            deployedAddress, assetsCount, phases,
-                            { name, symbol, uri: collectionMetadataUri || primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
-                            treasuryWallet, primaryArweaveUri
-                        );
-                        candyMachineAddressForReveal = cmResult.address;
-                        candyGuardAddressForReveal = (cmResult as any).candyGuardAddress ?? null;
-
-                        setDeployCheckoutProgress({ label: "Loading items into Candy Machine...", completed: 3, total: 3 });
-                        await solanaLaunch.insertItemsToCandyMachine(cmResult.address, candyMachineItems, 15);
-                    }
+                    deployedAddress = result.collectionAddress;
+                    collectionMintForReveal = result.collectionAddress;
+                    candyMachineAddressForReveal = result.candyMachineAddress;
+                    candyGuardAddressForReveal = result.candyGuardAddress;
+                    
+                    setDeployCheckoutProgress({ label: "Candy Machine ready!", completed: 3, total: 3 });
                 } else {
+                    // For 1-of-1s, we still deploy the collection, then mint
+                    setDeployCheckoutProgress({ label: "Deploying 1-of-1 collection via backend...", completed: 1, total: 3 });
+                    
+                    const result = await solanaLaunch.deployViaBackend({
+                        collectionId,
+                        name,
+                        symbol,
+                        uri: collectionMetadataUri || primaryArweaveUri,
+                        creatorAddress: address,
+                        itemsAvailable: 0, // No Candy Machine for 1-of-1s
+                        phases: [],
+                        baseUri: primaryArweaveUri,
+                        royaltyPercent,
+                        network: network as string
+                    });
+                    
+                    deployedAddress = result.collectionAddress;
+                    collectionMintForReveal = result.collectionAddress;
+
                     setDeployCheckoutProgress({ label: "Minting 1-of-1 NFTs to your wallet...", completed: 2, total: 3 });
                     const batchItems = itemLinks.map((item, i) => ({
                         name: builtMetadata?.[i]?.name || `${name} #${i + 1}`,

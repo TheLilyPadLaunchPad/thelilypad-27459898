@@ -1000,11 +1000,60 @@ export const useSolanaLaunch = () => {
         }
     }, [getUmi, withRetry]);
 
+    /**
+     * Deploy Collection and Candy Machine via Backend
+     */
+    const deployViaBackend = useCallback(async (params: {
+        collectionId: string;
+        name: string;
+        symbol: string;
+        uri: string;
+        creatorAddress: string;
+        itemsAvailable: number;
+        phases: LaunchpadPhase[];
+        baseUri?: string;
+        royaltyPercent?: number;
+        network?: string;
+    }) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Must be logged in to deploy via backend");
+
+            const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deploy-metaplex-launchpad`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify(params)
+                }
+            );
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || "Backend deployment failed");
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (err: any) {
+            console.error("Backend deploy error:", err);
+            setError(err.message);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
     return {
         isLoading,
         error,
         // ── Best-in-class fixed-cost deploy ──
         deployHiddenCollection,
+        deployViaBackend,
         // ── Existing helpers ──
         deploySolanaCollection,
         createLaunchpadCandyMachine,
