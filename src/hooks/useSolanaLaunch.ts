@@ -283,7 +283,7 @@ export const useSolanaLaunch = () => {
             creator_address: creatorAddress,
             status: 'pending',
             items_requested: params.items.length,
-        } as any).catch((e: any) => console.warn('[session] insert failed:', e));
+        } as any).then(undefined, (e: any) => console.warn('[session] insert failed:', e));
 
         const paramsWithSession: CartCheckoutParams = {
             ...params,
@@ -298,7 +298,7 @@ export const useSolanaLaunch = () => {
                     batch_start: batchStart ?? null,
                     batch_end: batchEnd ?? null,
                     status: 'confirmed',
-                } as any).catch((e: any) => console.warn('[session] tx log failed:', e));
+                } as any).then(undefined, (e: any) => console.warn('[session] tx log failed:', e));
                 params.onTransaction?.(txType, signature, batchStart, batchEnd);
             },
         };
