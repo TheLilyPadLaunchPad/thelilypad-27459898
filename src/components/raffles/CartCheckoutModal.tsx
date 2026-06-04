@@ -92,28 +92,17 @@ export function CartCheckoutModal({
 
                     {/* Cost breakdown */}
                     {estimate && (
-                        <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
+                        <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4 space-y-2 text-sm">
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Arweave storage</span>
-                                <span className="font-mono">{fmtSol(estimate.storageCost)}</span>
+                                <span className="text-muted-foreground">Arweave Storage (Prefunded)</span>
+                                <span className="font-mono text-muted-foreground opacity-70 line-through mr-2">{fmtSol(estimate.storageCost)}</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Collection rent</span>
-                                <span className="font-mono">{fmtSol(estimate.collectionCost)}</span>
+                            <div className="flex justify-between font-medium text-green-500">
+                                <span>Network Rent & Deployment</span>
+                                <span>Covered by Platform</span>
                             </div>
-                            {estimate.treeCost !== undefined && (
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Merkle tree rent</span>
-                                    <span className="font-mono">{fmtSol(estimate.treeCost)}</span>
-                                </div>
-                            )}
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Mint network fees</span>
-                                <span className="font-mono">{fmtSol(estimate.mintCost)}</span>
-                            </div>
-                            <div className="border-t pt-2 flex justify-between font-semibold">
-                                <span>Total</span>
-                                <span className="font-mono text-primary">{fmtSol(estimate.total)}</span>
+                            <div className="border-t border-green-500/20 pt-2 text-xs text-muted-foreground">
+                                Enjoy gasless deployments. Only standard transaction fees apply for minting.
                             </div>
                         </div>
                     )}
