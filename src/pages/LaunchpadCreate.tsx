@@ -416,7 +416,9 @@ export default function LaunchpadCreate() {
         /** In-memory metadata captured during upload — avoids re-fetching from Arweave (5–30 min propagation). */
         builtMetadata?: any[];
         collectionMetadataUri?: string;
+        collectionImageUri?: string;
         revealPlaceholderUri?: string;
+
     }
     const [pendingOnChainDeploy, setPendingOnChainDeploy] = useState<PendingOnChainDeploy | null>(null);
     const [deployCheckoutOpen, setDeployCheckoutOpen] = useState(false);
@@ -796,8 +798,8 @@ export default function LaunchpadCreate() {
                 collectionMetadataUri = await uploadMetadataToArweave(
                     collectionMetadata, 
                     { address, chainType: walletChain, network }, 
-                    false, undefined, undefined, 
-                    true, getSolanaProvider()
+                    false, undefined, undefined,
+                    getSolanaProvider()
                 );
 
                 const revealMetadata = {
@@ -809,10 +811,11 @@ export default function LaunchpadCreate() {
                 revealPlaceholderUri = await uploadMetadataToArweave(
                     revealMetadata, 
                     { address, chainType: walletChain, network }, 
-                    false, undefined, undefined, 
-                    true, getSolanaProvider()
+                    false, undefined, undefined,
+                    getSolanaProvider()
                 );
             }
+
 
             // ── PAUSE: Show cost preview modal before on-chain deployment ───
             // Storage is already paid (Turbo auto-debited during upload)

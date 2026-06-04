@@ -47,6 +47,24 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          id: string
+          is_mock_mode_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          is_mock_mode_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          is_mock_mode_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       banned_users: {
         Row: {
           banned_at: string
@@ -1504,6 +1522,54 @@ export type Database = {
           },
         ]
       }
+      marketplace_applications: {
+        Row: {
+          collection_address: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          name: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          collection_address: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          collection_address?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       meta_transactions: {
         Row: {
           action_type: string
@@ -1569,51 +1635,152 @@ export type Database = {
           },
         ]
       }
+      mint_sessions: {
+        Row: {
+          asset_ids: Json | null
+          collection_address: string | null
+          created_at: string
+          creator_address: string
+          error_message: string | null
+          id: string
+          items_minted: number | null
+          items_requested: number | null
+          status: string
+          tree_address: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_ids?: Json | null
+          collection_address?: string | null
+          created_at?: string
+          creator_address: string
+          error_message?: string | null
+          id: string
+          items_minted?: number | null
+          items_requested?: number | null
+          status?: string
+          tree_address?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_ids?: Json | null
+          collection_address?: string | null
+          created_at?: string
+          creator_address?: string
+          error_message?: string | null
+          id?: string
+          items_minted?: number | null
+          items_requested?: number | null
+          status?: string
+          tree_address?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mint_transactions: {
+        Row: {
+          batch_end: number | null
+          batch_start: number | null
+          created_at: string
+          id: string
+          session_id: string | null
+          status: string | null
+          tx_signature: string | null
+          tx_type: string | null
+        }
+        Insert: {
+          batch_end?: number | null
+          batch_start?: number | null
+          created_at?: string
+          id?: string
+          session_id?: string | null
+          status?: string | null
+          tx_signature?: string | null
+          tx_type?: string | null
+        }
+        Update: {
+          batch_end?: number | null
+          batch_start?: number | null
+          created_at?: string
+          id?: string
+          session_id?: string | null
+          status?: string | null
+          tx_signature?: string | null
+          tx_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mint_transactions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "mint_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       minted_nfts: {
         Row: {
+          asset_id: string | null
           attributes: Json | null
+          chain: string | null
           collection_id: string | null
+          creator_address: string | null
           description: string | null
           id: string
           image_url: string | null
           is_revealed: boolean
+          metadata_uri: string | null
+          mint_transaction: string | null
           minted_at: string
           name: string | null
           owner_address: string
-          owner_id: string
+          owner_id: string | null
           revealed_at: string | null
+          status: string | null
           token_id: number
-          tx_hash: string
+          tx_hash: string | null
         }
         Insert: {
+          asset_id?: string | null
           attributes?: Json | null
+          chain?: string | null
           collection_id?: string | null
+          creator_address?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           is_revealed?: boolean
+          metadata_uri?: string | null
+          mint_transaction?: string | null
           minted_at?: string
           name?: string | null
           owner_address: string
-          owner_id: string
+          owner_id?: string | null
           revealed_at?: string | null
+          status?: string | null
           token_id: number
-          tx_hash: string
+          tx_hash?: string | null
         }
         Update: {
+          asset_id?: string | null
           attributes?: Json | null
+          chain?: string | null
           collection_id?: string | null
+          creator_address?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           is_revealed?: boolean
+          metadata_uri?: string | null
+          mint_transaction?: string | null
           minted_at?: string
           name?: string | null
           owner_address?: string
-          owner_id?: string
+          owner_id?: string | null
           revealed_at?: string | null
+          status?: string | null
           token_id?: number
-          tx_hash?: string
+          tx_hash?: string | null
         }
         Relationships: [
           {
@@ -2291,27 +2458,33 @@ export type Database = {
       }
       shop_item_contents: {
         Row: {
+          arweave_uri: string | null
           created_at: string
           display_order: number
           file_url: string
           id: string
           item_id: string
+          metadata_uri: string | null
           name: string
         }
         Insert: {
+          arweave_uri?: string | null
           created_at?: string
           display_order?: number
           file_url: string
           id?: string
           item_id: string
+          metadata_uri?: string | null
           name: string
         }
         Update: {
+          arweave_uri?: string | null
           created_at?: string
           display_order?: number
           file_url?: string
           id?: string
           item_id?: string
+          metadata_uri?: string | null
           name?: string
         }
         Relationships: [
@@ -2561,6 +2734,7 @@ export type Database = {
           sticker_url: string | null
           user_id: string
           username: string
+          wallet_address: string | null
         }
         Insert: {
           created_at?: string
@@ -2573,6 +2747,7 @@ export type Database = {
           sticker_url?: string | null
           user_id: string
           username: string
+          wallet_address?: string | null
         }
         Update: {
           created_at?: string
@@ -2585,6 +2760,7 @@ export type Database = {
           sticker_url?: string | null
           user_id?: string
           username?: string
+          wallet_address?: string | null
         }
         Relationships: [
           {
@@ -2856,6 +3032,33 @@ export type Database = {
         }
         Relationships: []
       }
+      token_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          reference_id: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          reference_id?: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          reference_id?: string | null
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_nonces: {
         Row: {
           nonce: number
@@ -2942,6 +3145,7 @@ export type Database = {
           is_private: boolean
           is_streamer: boolean | null
           is_verified: boolean | null
+          native_token_balance: number
           playlist_ids: string[] | null
           profile_setup_completed: boolean | null
           referred_by: string | null
@@ -2968,6 +3172,7 @@ export type Database = {
           is_private?: boolean
           is_streamer?: boolean | null
           is_verified?: boolean | null
+          native_token_balance?: number
           playlist_ids?: string[] | null
           profile_setup_completed?: boolean | null
           referred_by?: string | null
@@ -2994,6 +3199,7 @@ export type Database = {
           is_private?: boolean
           is_streamer?: boolean | null
           is_verified?: boolean | null
+          native_token_balance?: number
           playlist_ids?: string[] | null
           profile_setup_completed?: boolean | null
           referred_by?: string | null
