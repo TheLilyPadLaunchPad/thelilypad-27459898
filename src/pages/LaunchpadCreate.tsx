@@ -798,8 +798,8 @@ export default function LaunchpadCreate() {
                 collectionMetadataUri = await uploadMetadataToArweave(
                     collectionMetadata, 
                     { address, chainType: walletChain, network }, 
-                    false, undefined, undefined, 
-                    true, getSolanaProvider()
+                    false, undefined, undefined,
+                    getSolanaProvider()
                 );
 
                 const revealMetadata = {
@@ -811,10 +811,11 @@ export default function LaunchpadCreate() {
                 revealPlaceholderUri = await uploadMetadataToArweave(
                     revealMetadata, 
                     { address, chainType: walletChain, network }, 
-                    false, undefined, undefined, 
-                    true, getSolanaProvider()
+                    false, undefined, undefined,
+                    getSolanaProvider()
                 );
             }
+
 
             // ── PAUSE: Show cost preview modal before on-chain deployment ───
             // Storage is already paid (Turbo auto-debited during upload)
