@@ -314,13 +314,13 @@ export const useSolanaLaunch = () => {
                 collection_address: result.collectionAddress || null,
                 tree_address: result.treeAddress ?? null,
                 asset_ids: result.assetIds,
-            }).eq('id', sessionId).catch((e) => console.warn('[session] update failed:', e));
+            } as any).eq('id', sessionId).then(undefined, (e: any) => console.warn('[session] update failed:', e));
             return result;
         } catch (err) {
             await supabase.from('mint_sessions').update({
                 status: 'failed',
                 error_message: err instanceof Error ? err.message : String(err),
-            }).eq('id', sessionId).catch((e) => console.warn('[session] fail update:', e));
+            } as any).eq('id', sessionId).then(undefined, (e: any) => console.warn('[session] fail update:', e));
             throw err;
         }
     }, [getUmi]);
