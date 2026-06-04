@@ -339,12 +339,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (storedChainType === 'monad') {
           const phantomEvm = (window as any).phantom?.ethereum;
           if (phantomEvm) {
-            const accounts = await phantomEvm.request({ method: 'eth_accounts' });
-            if (accounts?.[0]) {
-              await connectMonad(true);
-              return;
+            try {
+              const accounts = await phantomEvm.request({ method: 'eth_accounts' });
+              if (accounts?.[0]) {
+                await connectMonad(true);
+                return;
+              }
+            } catch (evmErr: any) {
+              // Phantom returns code 4001 when no EVM accounts are configured — expected, not an error
+              if (evmErr?.code === 4001) {
+                console.log('Auto-connect: No EVM accounts in Phantom (expected for Solana-only users).');
+              } else {
+                console.warn('Auto-connect: EVM account check failed:', evmErr);
+              }
             }
           }
+          // No EVM accounts available — fall through to clear walletConnected flag
           throw new Error("No trusted EVM accounts");
         }
 

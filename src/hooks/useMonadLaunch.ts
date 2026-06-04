@@ -26,7 +26,7 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Check wallet connection
+    // Check wallet connection (EVM only)
     useEffect(() => {
         const checkConnection = async () => {
             if (typeof window === 'undefined' || !window.ethereum) {
@@ -39,8 +39,13 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
                     setAddress(accounts[0]);
                     setIsConnected(true);
                 }
-            } catch (err) {
-                console.error('Error checking connection:', err);
+            } catch (err: any) {
+                // Phantom returns code 4001 when no EVM accounts are configured — this is expected, not an error
+                if (err?.code === 4001) {
+                    console.log('Monad: No EVM accounts configured in wallet (expected if using Solana-only).');
+                } else {
+                    console.error('Error checking connection:', err);
+                }
             }
         };
 
