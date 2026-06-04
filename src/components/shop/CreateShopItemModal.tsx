@@ -516,12 +516,15 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
                 <p className="text-sm text-muted-foreground mb-2">
                   Restrict this pack to holders of one of your NFT collections.
                 </p>
-                <Select value={requiredCollectionId} onValueChange={setRequiredCollectionId}>
+                <Select
+                  value={requiredCollectionId || "__none__"}
+                  onValueChange={(v) => setRequiredCollectionId(v === "__none__" ? "" : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="No restriction (public)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No restriction (public)</SelectItem>
+                    <SelectItem value="__none__">No restriction (public)</SelectItem>
                     {collections.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         <div className="flex items-center gap-2">
