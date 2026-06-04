@@ -29,8 +29,11 @@ export interface UserProfile {
     playlist_ids: string[] | null;
     is_verified: boolean;
     is_private: boolean;
+    native_token_balance?: number | null;
+    referred_by?: string | null;
     created_at: string;
     updated_at: string;
+
 }
 
 export const useUserProfile = () => {
