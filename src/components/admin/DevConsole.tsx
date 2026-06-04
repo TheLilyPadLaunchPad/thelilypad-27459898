@@ -264,7 +264,6 @@ export const DevConsole = () => {
 
             <TabsContent value={tab} className="flex-1 min-h-0 mt-2">
               <ScrollArea className="h-full px-3 pb-3">
-                <div ref={scrollRef} className="hidden" aria-hidden />
                 <div className="font-mono text-[11px] leading-relaxed space-y-1">
                   {filtered.length === 0 && (
                     <div className="text-muted-foreground italic py-6 text-center">No entries</div>
