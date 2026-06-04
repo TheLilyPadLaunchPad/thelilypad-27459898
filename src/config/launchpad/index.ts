@@ -1,67 +1,33 @@
 import {
     Rocket,
-    Settings,
-    Image,
-    Layers,
-    Folder,
-    FileText,
-    Music,
-    ListMusic,
-    Type
+    Tags,
+    FolderOpen,
 } from "lucide-react";
 import { SupportedChain } from "../chains";
 import { SOLANA_LAUNCHPAD_CONFIG } from "./solana";
-import { ChainLaunchpadConfig, LaunchpadStep } from "./types";
+import { ChainLaunchpadConfig } from "./types";
 
 export * from "./types";
 export * from "./solana";
 
-// Generic Music Flow (EVM/Solana compatible)
-const musicSteps: LaunchpadStep[] = [
-    {
-        id: 0,
-        title: "Essentials",
-        description: "Album info & branding",
-        icon: Type
-    },
-    {
-        id: 1,
-        title: "Audio Tracks",
-        description: "Upload MP3/WAV files",
-        icon: Music
-    },
-    {
-        id: 2,
-        title: "Track Metadata",
-        description: "BPM, Genre & Details",
-        icon: ListMusic
-    },
-    {
-        id: 3,
-        title: "Mint Config",
-        description: "Pricing & Royalties",
-        icon: Settings
-    },
-    {
-        id: 4,
-        title: "Launch",
-        description: "Deploy to Chain",
-        icon: Rocket
-    }
+/**
+ * Unified 3-step flow shared across all chains.
+ */
+const UNIFIED_STEPS = [
+    { id: 0, title: "Collection Info", icon: Tags, description: "Name, type & branding" },
+    { id: 1, title: "Upload Assets",   icon: FolderOpen, description: "Images, layers or audio" },
+    { id: 2, title: "Review & Launch",  icon: Rocket, description: "Preview & deploy" },
 ];
 
-// Monad Placeholder Config
+// Monad Config
 export const MONAD_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
     chain: 'monad',
     name: 'Monad',
     modes: {
-        basic: [
-            { id: 0, title: "Mode", icon: (SOLANA_LAUNCHPAD_CONFIG.modes.basic as any)[0].icon, description: "Choose Mode" },
-            { id: 1, title: "Essentials", icon: (SOLANA_LAUNCHPAD_CONFIG.modes.basic as any)[1].icon, description: "Name, Symbol & Story" },
-            { id: 2, title: "Artworks", icon: (SOLANA_LAUNCHPAD_CONFIG.modes.basic as any)[2].icon, description: "Upload Pieces" },
-            { id: 3, title: "Contracts", icon: (SOLANA_LAUNCHPAD_CONFIG.modes.basic as any)[3].icon, description: "Pricing & Royalties" },
-            { id: 4, title: "Launch", icon: (SOLANA_LAUNCHPAD_CONFIG.modes.basic as any)[4].icon, description: "Deploy" },
-        ]
+        basic: UNIFIED_STEPS,
+        advanced: UNIFIED_STEPS,
+        "1of1": UNIFIED_STEPS,
+        music: UNIFIED_STEPS,
     },
     features: {
         allowlist: true,
@@ -74,8 +40,8 @@ export const MONAD_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
             supportsScheduledReveal: true,
             supportsInstantReveal: true,
         },
-        multiCommunityWL: true, // EVM-style WL supports multiple community snapshots
-        persistentWL: true, // Monad WL can remain open after phase window
+        multiCommunityWL: true,
+        persistentWL: true,
     },
     defaultWLPhases: [
         {
@@ -106,20 +72,8 @@ export const MONAD_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
 };
 
 export const CHAIN_LAUNCHPAD_CONFIGS: Record<string, ChainLaunchpadConfig> = {
-    solana: {
-        ...SOLANA_LAUNCHPAD_CONFIG,
-        modes: {
-            ...SOLANA_LAUNCHPAD_CONFIG.modes,
-            music: musicSteps
-        }
-    },
-    monad: {
-        ...MONAD_LAUNCHPAD_CONFIG,
-        modes: {
-            ...MONAD_LAUNCHPAD_CONFIG.modes,
-            music: musicSteps
-        }
-    }
+    solana: SOLANA_LAUNCHPAD_CONFIG,
+    monad: MONAD_LAUNCHPAD_CONFIG,
 };
 
 export function getLaunchpadConfig(chain: SupportedChain): ChainLaunchpadConfig {

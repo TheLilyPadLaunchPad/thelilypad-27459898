@@ -8,33 +8,27 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-    ChevronLeft,
-    ChevronRight,
     Sparkles,
-    Tags,
     Image as ImageIcon,
     Rocket,
-    AlertTriangle,
     FolderOpen,
     Layers,
-    Wand2,
     Settings,
-    AlertCircle,
-    Hash,
-    Palette,
     ArrowLeft,
     ExternalLink,
-    Download,
     Loader2,
     XCircle,
-    RotateCcw
+    RotateCcw,
+    Music,
+    ChevronDown,
+    Check,
+    Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FolderUploader } from "@/components/launchpad/FolderUploader";
 import { GuardConfigurator } from "@/components/launchpad/GuardConfigurator";
 import { LaunchpadPreview } from "@/components/launchpad/LaunchpadPreview";
 import { LazyPreviewGrid } from "@/components/launchpad/LazyPreviewGrid";
-import { ModeSelector } from "@/components/launchpad/ModeSelector";
 import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
 import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesManager";
@@ -49,13 +43,11 @@ import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { pinCollectionToIPFS } from "@/lib/nftStorageService";
 import { useIpfs } from "@/providers/IpfsProvider";
 import { supabase } from "@/integrations/supabase/client";
-// storageClient removed — Arweave-only flow
 import { motion, AnimatePresence } from "framer-motion";
 import { validateAssets, AssetFile } from "@/utils/assetValidator";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
-// payloadMapper no longer needed — Arweave-only flow
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
 import { useDraftCollection } from "@/hooks/useDraftCollection";
@@ -68,12 +60,22 @@ import { getErrorMessage } from "@/lib/errorUtils";
 import { Progress } from "@/components/ui/progress";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";
 import { Switch } from "@/components/ui/switch";
-import { Check, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
 import { getRpcUrl } from "@/config/solana";
 import { CartCheckoutModal, type CheckoutStatus } from "@/components/raffles/CartCheckoutModal";
 import type { CartCostEstimate } from "@/chains";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type CollectionType = "generative" | "1of1" | "music";
+
+const COLLECTION_TYPE_OPTIONS: { id: CollectionType; label: string; description: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: "generative", label: "Generative / PFP", description: "Upload pre-made assets or layer-based traits", icon: Layers },
+    { id: "1of1", label: "1-of-1 Art", description: "Individual artworks with unique metadata", icon: ImageIcon },
+    { id: "music", label: "Music NFTs", description: "Audio tracks with cover art & metadata", icon: Music },
+];
 
 // Default Phases
 const defaultPhases: LaunchpadPhase[] = [
@@ -86,22 +88,14 @@ const defaultPhases: LaunchpadPhase[] = [
     },
 ];
 
-type CollectionFlowType = "generative" | "1of1" | "music";
-
-function resolveFlowType(standard?: string): CollectionFlowType {
-    if (standard === "1of1" || standard === "rwa") return "1of1";
-    if (standard === "music") return "music";
-    return "generative";
-}
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function LaunchpadCreate() {
     const { chain: chainParam, type: typeParam } = useParams<{ chain: string; type: string }>();
     const navigate = useNavigate();
     const { address, network, chainType, getSolanaProvider } = useWallet();
-    // Derive canonical chain from the connected wallet (authoritative for deploys)
     const walletChain: typeof selectedChain =
-        chainType === 'monad' ? 'monad'
-        : 'solana';
+        chainType === 'monad' ? 'monad' : 'solana';
     const { isAdmin } = useAuth();
     const { chain } = useChain();
     const { theme } = chain;
@@ -118,24 +112,30 @@ export default function LaunchpadCreate() {
     const chainSymbol = currentChain.symbol;
     const launchpadConfig = getLaunchpadConfig(selectedChain);
 
-    // Wizard State
-    const [mode, setMode] = useState<CollectionMode>("basic");
+    // ─── Wizard State ────────────────────────────────────────────────────────
     const [currentStep, setCurrentStep] = useState(0);
     const [direction, setDirection] = useState(0);
     const [isDeploying, setIsDeploying] = useState(false);
 
-    const flowType = resolveFlowType(typeParam);
-    const is1of1 = flowType === '1of1';
-    const isMusic = flowType === 'music';
+    // Collection type — selected inline in Step 1
+    const [collectionType, setCollectionType] = useState<CollectionType>(() => {
+        if (typeParam === '1of1' || typeParam === 'rwa') return '1of1';
+        if (typeParam === 'music') return 'music';
+        return 'generative';
+    });
 
-    const STEPS = is1of1
-        ? (launchpadConfig.modes['1of1'] || launchpadConfig.modes.basic || [])
-        : isMusic
-            ? (launchpadConfig.modes.music || launchpadConfig.modes.basic || [])
-            : (mode === "basic" ? launchpadConfig.modes.basic : launchpadConfig.modes.advanced) || [];
+    // Derived mode for backward compat with backend
+    const mode: CollectionMode = collectionType === '1of1' ? '1of1' : collectionType === 'music' ? 'music' : 'basic';
+    const is1of1 = collectionType === '1of1';
+    const isMusic = collectionType === 'music';
+
+    // Generative sub-mode: basic (folder) vs advanced (layers)
+    const [useLayerMode, setUseLayerMode] = useState(false);
+
+    const STEPS = launchpadConfig.modes[mode] || launchpadConfig.modes.basic || [];
     const maxStep = STEPS.length - 1;
 
-    // Collection Data
+    // ─── Collection Data ─────────────────────────────────────────────────────
     const [name, setName] = useState("");
     const [symbol, setSymbol] = useState("");
     const [description, setDescription] = useState("");
@@ -168,7 +168,7 @@ export default function LaunchpadCreate() {
     const [phases, setPhases] = useState<LaunchpadPhase[]>(defaultPhases);
     const [treasuryWallet, setTreasuryWallet] = useState("");
 
-    // Dynamic NFT (Evolving): uses Irys mutable references so metadata can be updated post-mint
+    // Dynamic NFT
     const [isDynamic, setIsDynamic] = useState(false);
 
     // Upload cancel/resume state
@@ -178,247 +178,19 @@ export default function LaunchpadCreate() {
     const [resumeKey, setResumeKey] = useState<string>("");
     const [uploadStartTime, setUploadStartTime] = useState<number | null>(null);
 
-    // Deploy confirmation modal — shown after upload completes, before on-chain txs
-    const handleConfirmOnChainDeploy = async () => {
-        if (!pendingOnChainDeploy) return;
-        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri, collectionImageUri } = pendingOnChainDeploy;
-        // Prefer the explicit collection cover; fall back to the first item image so the
-        // collection card / banner never ends up empty after a successful deploy.
-        const finalCollectionImageUrl = collectionImageUri || (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : '');
+    // Advanced settings accordion (Step 3)
+    const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
-        setDeployCheckoutProcessing(true);
-        setDeployCheckoutStatus('processing');
-        setDeployCheckoutProgress({ label: "Deploying collection...", completed: 0, total: 1 });
-
-        try {
-            let deployedAddress = "";
-            // Reveal-flow metadata captured during the hidden-settings path
-            let manifestRootForReveal: string | null = null;
-            let candyMachineAddressForReveal: string | null = null;
-            let candyGuardAddressForReveal: string | null = null;
-            let collectionMintForReveal: string | null = null;
-            setDeployCheckoutProgress({ label: "Deploying collection...", completed: 1, total: 3 });
-
-            if (selectedChain === 'solana') {
-                const result = await solanaLaunch.deploySolanaCollection({
-                    name,
-                    symbol,
-                    uri: collectionMetadataUri || primaryArweaveUri,
-                    sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
-                    creators: [{ address, share: 100 }]
-                });
-                deployedAddress = result.address;
-                collectionMintForReveal = result.address;
-
-                // Create Candy Machine for Solana (skip for 1-of-1 mode)
-                if (mode !== '1of1') {
-                    const candyMachineItems = itemLinks.map((item, i) => ({
-                        name: `${name} #${i + 1}`,
-                        uri: item.arweaveUri
-                    }));
-
-                    // For collections >= threshold, use Hidden Settings (3 sigs total, fixed cost).
-                    // For smaller collections, use Config Lines (allows on-chain reveals).
-                    // Lowered to 50 so generative drops use the fixed-cost path aggressively.
-                    const USE_HIDDEN_SETTINGS_THRESHOLD = 50;
-
-                    if (assetsCount > USE_HIDDEN_SETTINGS_THRESHOLD) {
-                        // FASTEST PATH: bundle all per-item metadata into ONE Arweave
-                        // directory manifest so reveal URIs resolve as
-                        // arweave.net/<ROOT>/N.json without any addConfigLines tx.
-                        // We use the in-memory metadata captured during upload — this
-                        // avoids the 5–30 min Arweave propagation window that would
-                        // otherwise break a fetch() loop here.
-
-                        if (itemLinks.length === 0) {
-                            throw new Error(
-                                "No uploaded items found — cannot create Arweave manifest. " +
-                                "Ensure your assets uploaded successfully before deploying."
-                            );
-                        }
-
-                        setDeployCheckoutProgress({ label: "Bundling metadata into Arweave manifest...", completed: 2, total: 3 });
-                        let placeholderUri = primaryArweaveUri;
-                        try {
-                            // Use in-memory metadata when available (avoids Arweave propagation delay).
-                            // builtMetadata may have undefined holes if buildMetadata wasn't called
-                            // for every index — fill those holes with fallback objects so the array
-                            // length matches itemLinks exactly.
-                            const metadataObjects = (builtMetadata && builtMetadata.length === itemLinks.length && builtMetadata.every(Boolean))
-                                ? builtMetadata
-                                : itemLinks.map((item, i) => {
-                                    // Prefer in-memory if available for this index
-                                    if (builtMetadata && builtMetadata[i]) return builtMetadata[i];
-                                    // Fallback: construct minimal metadata from what we know
-                                    return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
-                                });
-                            const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
-                            placeholderUri = revealPlaceholderUri || manifest.itemUris[0] || primaryArweaveUri;
-                            manifestRootForReveal = manifest.manifestRoot;
-                            console.log("[Deploy] Arweave manifest root:", manifest.manifestRoot);
-                            console.log("[Deploy] Metadata entries:", metadataObjects.length);
-                        } catch (e) {
-                            console.warn("[Deploy] Manifest bundle failed, falling back to primary URI:", e);
-                        }
-
-                        setDeployCheckoutProgress({ label: "Creating Hidden Settings Candy Machine (Large Collection)...", completed: 2, total: 3 });
-                        const cmResult = await solanaLaunch.createHiddenSettingsCandyMachine(
-                            deployedAddress,
-                            candyMachineItems,
-                            phases,
-                            `${name} #`,
-                            placeholderUri,
-                            treasuryWallet
-                        );
-                        candyMachineAddressForReveal = cmResult.address;
-                        candyGuardAddressForReveal = (cmResult as any).candyGuardAddress ?? null;
-                        console.log("[Deploy] Hidden Settings Candy Machine created:", cmResult.address);
-                        console.log("[Deploy] Items hash:", Buffer.from(cmResult.itemsHash).toString('hex').slice(0, 16) + "...");
-                        setDeployCheckoutProgress({ label: "Candy Machine ready (Hidden Settings - no item insertion needed)", completed: 3, total: 3 });
-
-                    } else {
-                        setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
-                        const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
-                            deployedAddress,
-                            assetsCount,
-                            phases,
-                            { name, symbol, uri: collectionMetadataUri || primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
-                            treasuryWallet,
-                            primaryArweaveUri
-                        );
-                        candyMachineAddressForReveal = cmResult.address;
-                        candyGuardAddressForReveal = (cmResult as any).candyGuardAddress ?? null;
-
-                        // Insert config lines into the Candy Machine
-                        setDeployCheckoutProgress({ label: "Loading items into Candy Machine...", completed: 3, total: 3 });
-                        await solanaLaunch.insertItemsToCandyMachine(
-                            cmResult.address,
-                            candyMachineItems,
-                            15 // Max items per config-line transaction
-                        );
-                    }
-                } else {
-                    // 1-of-1 "Metaplex RAW" flow
-                    setDeployCheckoutProgress({ label: "Minting RAW 1-of-1 NFTs directly to your wallet...", completed: 2, total: 3 });
-                    
-                    const batchItems = itemLinks.map((item, i) => ({
-                        name: builtMetadata?.[i]?.name || `${name} #${i + 1}`,
-                        uri: item.arweaveUri,
-                        sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
-                    }));
-                    
-                    if (batchItems.length > 0) {
-                        await solanaLaunch.batchMintCore(
-                            deployedAddress,
-                            batchItems
-                        );
-                    }
-                    
-                    setDeployCheckoutProgress({ label: "RAW Minting Complete!", completed: 3, total: 3 });
-                }
-            } else if (selectedChain === 'monad') {
-                const result = await monadLaunch.createCollection({
-                    name,
-                    symbol,
-                    metadataBaseUri: primaryArweaveUri,
-                    totalSupply: assetsCount
-                });
-                deployedAddress = result.address;
-            }
-
-            // Finalize DB
-            const isOffline = (supabase as any).isOffline;
-            if (!isOffline) {
-                await supabase.from("collections").update({
-                    contract_address: deployedAddress,
-                    status: "live",
-                    image_url: finalCollectionImageUrl,
-                    is_dynamic: isDynamic || false,
-                    // Reveal-flow metadata — powers RevealCandyMachinePanel's
-                    // updateCandyMachine step without any manual paste.
-                    manifest_root: manifestRootForReveal,
-                    candy_machine_address: candyMachineAddressForReveal,
-                    candy_guard_address: candyGuardAddressForReveal,
-                    collection_mint_address: collectionMintForReveal,
-                } as any).eq('id', collectionId);
-            }
-
-
-            // Decentralized index
-            try {
-                const indexedData: IndexedCollection = {
-                    id: collectionId || `offline-${Date.now()}`,
-                    name,
-                    symbol,
-                    description,
-                    chain: selectedChain,
-                    contract_address: deployedAddress,
-                    image_url: finalCollectionImageUrl,
-                    manifest_uri: primaryArweaveUri,
-                    created_at: new Date().toISOString(),
-                    creator_address: address || '',
-                    is_dynamic: isDynamic || false
-                };
-                const indexRoot = import.meta.env.VITE_INDEX_ROOT_TX;
-                await addToDecentralizedIndex(
-                    indexedData,
-                    { address, chainType: selectedChain, network },
-                    indexRoot
-                );
-            } catch (indexErr) {
-                console.warn("Decentralized indexing failed (optional):", indexErr);
-            }
-
-            setDeployCheckoutStatus('success');
-            setDeployCheckoutProcessing(false);
-            setDeployCheckoutOpen(false);
-            setPendingOnChainDeploy(null);
-
-            toast.success(
-                <div className="flex flex-col gap-1">
-                    <span className="font-bold">Successfully Launched!</span>
-                    <span className="text-xs opacity-80">Metadata secured on Arweave</span>
-                    <a
-                        href={primaryArweaveUri}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] text-primary underline mt-1"
-                    >
-                        View Arweave Manifest
-                    </a>
-                    <span className="text-[9px] opacity-60 mt-0.5">
-                        Note: Arweave links may take 5–30 min to propagate
-                    </span>
-                </div>,
-                { duration: 10000 }
-            );
-
-            clearDraft();
-            if (isOffline) {
-                navigate('/');
-            } else {
-                navigate('/launchpad');
-            }
-        } catch (e: any) {
-            console.error("On-chain deploy failed:", e);
-            setDeployCheckoutStatus('failed');
-            setDeployCheckoutProcessing(false);
-            toast.error(getErrorMessage(e) || "On-chain deployment failed. Your uploads are safe — try again.");
-        }
-    };
-
-    // Deploy confirmation modal — shown after upload completes, before on-chain txs
+    // ─── Deploy confirmation modal ───────────────────────────────────────────
     interface PendingOnChainDeploy {
         collectionId: string;
         itemLinks: { tokenID: string; arweaveUri: string; arweaveImageUri: string }[];
         primaryArweaveUri: string;
         assetsCount: number;
-        /** In-memory metadata captured during upload — avoids re-fetching from Arweave (5–30 min propagation). */
         builtMetadata?: any[];
         collectionMetadataUri?: string;
         collectionImageUri?: string;
         revealPlaceholderUri?: string;
-
     }
     const [pendingOnChainDeploy, setPendingOnChainDeploy] = useState<PendingOnChainDeploy | null>(null);
     const [deployCheckoutOpen, setDeployCheckoutOpen] = useState(false);
@@ -427,19 +199,7 @@ export default function LaunchpadCreate() {
     const [deployCheckoutEstimate, setDeployCheckoutEstimate] = useState<CartCostEstimate | null>(null);
     const [deployCheckoutProgress, setDeployCheckoutProgress] = useState({ label: "", completed: 0, total: 1 });
 
-
-    useEffect(() => {
-        if (flowType === '1of1') {
-            setMode('1of1');
-        } else if (flowType === 'music') {
-            setMode('music');
-        } else if (typeParam === 'advanced' || typeParam === 'generative') {
-            setMode('advanced');
-        } else {
-            setMode('basic');
-        }
-    }, [typeParam, flowType]);
-
+    // ─── Draft restore ───────────────────────────────────────────────────────
     useEffect(() => {
         const draft = loadDraft();
         if (draft) {
@@ -450,10 +210,8 @@ export default function LaunchpadCreate() {
             setTargetSupply(draft.targetSupply ?? 100);
             setTreasuryWallet(draft.treasuryWallet || '');
             if (draft.phases?.length) setPhases(draft.phases);
-            if (draft.currentStep > 0) setCurrentStep(draft.currentStep);
-            if (draft.mode) setMode(draft.mode);
+            if (draft.currentStep > 0) setCurrentStep(Math.min(draft.currentStep, 2));
             if (draft.coverImageUrl) setCoverImage(draft.coverImageUrl);
-            // editionConfigs are not persisted in draft (re-configure on restore)
             toast.info('Draft restored — re-upload your asset files to continue');
         }
     }, [loadDraft]);
@@ -470,7 +228,7 @@ export default function LaunchpadCreate() {
         });
     }, [name, symbol, description, royaltyPercent, targetSupply, mode, currentStep, treasuryWallet, phases, coverImage, folderAssets, artworks, saveDraft]);
 
-    // Resume detection: check for saved upload progress
+    // Resume detection
     useEffect(() => {
         if (name && symbol) {
             const key = `${name}_${symbol}`.replace(/\s+/g, '_');
@@ -496,7 +254,6 @@ export default function LaunchpadCreate() {
         }
     }, [uploadAbortController]);
 
-    // Calculate ETA
     const uploadEta = useMemo(() => {
         if (!uploadProgress || !uploadStartTime || uploadProgress.completed === 0) return null;
         const elapsed = Date.now() - uploadStartTime;
@@ -506,6 +263,7 @@ export default function LaunchpadCreate() {
         return minutes <= 1 ? "< 1 min" : `~${minutes} min`;
     }, [uploadProgress, uploadStartTime]);
 
+    // ─── Handlers ────────────────────────────────────────────────────────────
     const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -513,7 +271,6 @@ export default function LaunchpadCreate() {
             const reader = new FileReader();
             reader.onloadend = () => setCoverImage(reader.result as string);
             reader.readAsDataURL(file);
-            // Persist cover to storage bucket for draft restoration
             saveDraftCover(file).then(url => {
                 if (url) setCoverImage(url);
             });
@@ -521,9 +278,7 @@ export default function LaunchpadCreate() {
     };
 
     const handleAssetsLoaded = async (assets: { name: string; uri: string; file: File; jsonFile?: File }[]) => {
-        // Yield to main thread before validation
         await new Promise(resolve => setTimeout(resolve, 0));
-
         const errors = validateAssets(assets.flatMap(a => [{ name: a.file.name, file: a.file }, a.jsonFile ? { name: a.jsonFile.name, file: a.jsonFile } : null]).filter((x): x is AssetFile => x !== null));
         setValidationErrors(errors);
         if (errors.length === 0) {
@@ -535,358 +290,6 @@ export default function LaunchpadCreate() {
     };
 
     const { resolveToGateway } = useIpfs();
-
-    const handleDeploy = async () => {
-        if (isDeploying) return;
-        if (!name || !symbol) return toast.error("Please enter a name and symbol.");
-        if (!address) return toast.error("Connect your wallet to launch.");
-
-        // ── Chain-wallet mismatch guard ─────────────────────────────────────
-        if (walletChain !== selectedChain) {
-            setIsDeploying(false);
-            return toast.error(
-                `Wallet is connected to ${walletChain.toUpperCase()} but you are deploying on ${selectedChain.toUpperCase()}. ` +
-                `Switch your wallet or select the correct chain.`
-            );
-        }
-
-        setIsDeploying(true);
-        const abortCtrl = new AbortController();
-        setUploadAbortController(abortCtrl);
-        setUploadStartTime(Date.now());
-        setUploadProgress(null);
-        let collectionId = "";
-
-        // Show initial RPC status
-        const currentRpc = getRpcUrl(network as any);
-        const rpcProvider = currentRpc.includes('helius') ? 'Helius (Premium)' : 'Solana (Default)';
-
-        try {
-            toast.loading(
-                <div className="flex flex-col gap-0.5">
-                    <span className="font-medium">Starting deployment flow...</span>
-                    <span className="text-[10px] opacity-70">Provider: {rpcProvider}</span>
-                </div>, 
-                { id: 'deploy' }
-            );
-            // ── Step 0: Identify assets to process ──────────────────────────
-            let assetsToUpload: { name: string; file: File; metadata: any }[] = [];
-
-            if (is1of1) {
-                assetsToUpload = artworks.map((art, i) => ({
-                    name: art.name,
-                    file: art.file!,
-                    metadata: {
-                        name: art.name,
-                        description: art.description || description,
-                        attributes: art.attributes || []
-                    }
-                }));
-            } else if (flowType === 'music') {
-                // Music flow: upload audio files first, then covers
-                toast.loading("Uploading audio tracks to Arweave...", { id: 'deploy' });
-                const audioUriMap: Record<number, string> = {};
-                for (let i = 0; i < tracks.length; i++) {
-                    const track = tracks[i];
-                    toast.loading(`Uploading audio ${i + 1}/${tracks.length}...`, { id: 'deploy' });
-                    const audioTags = [
-                        { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
-                        { name: "App-Name", value: "TheLilyPad" },
-                        { name: "Collection-Name", value: name },
-                        { name: "Track-Name", value: track.metadata.name || `Track ${i + 1}` },
-                        ...(track.metadata.artist ? [{ name: "Artist", value: track.metadata.artist }] : []),
-                        ...(track.metadata.genre ? [{ name: "Genre", value: track.metadata.genre }] : []),
-                        ...(track.metadata.bpm ? [{ name: "BPM", value: String(track.metadata.bpm) }] : []),
-                        ...(track.metadata.durationSeconds ? [{ name: "Duration", value: String(track.metadata.durationSeconds) }] : []),
-                        { name: "x-lilypad-music", value: "true" },
-                        // UDL licensing tags
-                        { name: "License", value: "yRj4a5KMctX_uOmKWCFJIjmY8DeJcusVk6-HzLiM_t8" },
-                        { name: "License-Fee", value: "One-Time-0.1" },
-                        { name: "Commercial-Use", value: "Allowed" },
-                        { name: "Derivation", value: "Allowed-With-Credit" },
-                    ];
-                    const audioUri = await uploadToArweave(
-                        track.audioFile,
-                        { address, chainType: walletChain, network },
-                        false, // isMutable
-                        undefined, // rootTx
-                        undefined, // feeMultiplier
-                        audioTags,
-                        true, // skipFunding - we already pre-funded
-                        getSolanaProvider()
-                    );
-                    audioUriMap[i] = audioUri;
-                }
-
-                assetsToUpload = tracks.map((track, i) => ({
-                    name: track.metadata.name || `${name} Track #${i + 1}`,
-                    file: track.coverFile!,
-                    metadata: {
-                        // Placeholder — will be replaced by buildMetadata in batchItems
-                        ...track.metadata,
-                        _audioUri: audioUriMap[i],
-                        _trackIndex: i,
-                    }
-                }));
-            } else if (mode === 'advanced') {
-                assetsToUpload = generatedAssets.map((asset, i) => ({
-                    name: asset.name,
-                    file: dataUrlToBlob(asset.preview) as File,
-                    metadata: asset.metadata
-                }));
-            } else {
-                assetsToUpload = folderAssets.map((asset, i) => ({
-                    name: asset.name,
-                    file: asset.file,
-                    metadata: {
-                        name: asset.name,
-                        description: description,
-                        attributes: []
-                    }
-                }));
-            }
-
-            if (assetsToUpload.length === 0) return toast.error("No assets ready for launch.");
-
-            // ── Step 0.5: Pre-fund Irys for the entire batch ────────────────
-            toast.loading("Calculating total storage cost...", { id: 'deploy' });
-            
-            // Collect all files involved in this launch for price calculation
-            const allFilesToPayFor: (File | Blob)[] = [];
-            if (coverFile) allFilesToPayFor.push(coverFile);
-            
-            assetsToUpload.forEach(asset => {
-                allFilesToPayFor.push(asset.file);
-                // Also account for audio files in music flow
-                if (flowType === 'music' && asset.metadata._audioUri === undefined) {
-                    // This case should be handled by the mapping above, but for calculation
-                    // we ensure we have the sizes. 
-                    // (Actually the audio files are already uploaded individually below, 
-                    // so we should include them here)
-                }
-            });
-
-            if (flowType === 'music') {
-                tracks.forEach(t => allFilesToPayFor.push(t.audioFile));
-            }
-
-            // Estimate total size and fund once
-            await preFundIrysForBatch(allFilesToPayFor, { address, chainType: walletChain, network }, {
-                onStatus: (status) => toast.loading(status, { id: 'deploy' })
-            }, getSolanaProvider());
-
-            // ── Step 1: Initialize Database Entry ──────────────────────────
-            toast.loading("Establishing provenance...", { id: 'deploy' });
-            
-            const { data: { user } } = await supabase.auth.getUser();
-
-            const { data: collection, error: collErr } = await supabase
-                .from("collections")
-                .insert({
-                    name,
-                    symbol,
-                    description,
-                    chain: getDbChainValue(selectedChain, network as 'mainnet' | 'testnet'),
-                    status: "upcoming",
-                    total_supply: assetsToUpload.length,
-                    creator_id: user?.id,
-                    creator_address: address,
-                    collection_type: flowType === 'music' ? 'music' : (is1of1 ? '1of1' : 'generative'),
-                    media_type: flowType === 'music' ? 'audio' : 'image',
-                })
-                .select('id')
-                .single();
-
-            if (collErr) throw collErr;
-            collectionId = collection.id;
-
-            // ── Step 2: Upload to Arweave (Permanent Storage) — batch optimised ─
-            toast.loading(`Securing ${assetsToUpload.length} items to Arweave (this may take a few minutes)...`, { id: 'deploy' });
-
-            // Capture every built metadata object so we can bundle them into an
-            // Arweave directory manifest later without re-fetching from the gateway
-            // (Arweave propagation can take 5–30 min — re-fetching right after
-            // upload is the single biggest source of "manifest failed" errors).
-            const builtMetadata: any[] = new Array(assetsToUpload.length);
-
-            const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
-                file: asset.file,
-                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
-                    let m: any;
-                    if (flowType === 'music' && asset.metadata._audioUri) {
-                        const track = tracks[asset.metadata._trackIndex ?? idx];
-                        m = buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
-                    } else {
-                        m = {
-                            ...asset.metadata,
-                            image: arweaveImageUri,
-                            ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                            ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
-                        };
-                    }
-                    builtMetadata[idx] = m;
-                    return m;
-                },
-            }));
-
-            const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
-                batchItems,
-                { address, chainType: walletChain, network },
-                (completed, total, status) => {
-                    setUploadProgress({ completed, total, status });
-                    toast.loading(status, { id: 'deploy' });
-                },
-                10, // concurrency: parallelizes upload batches
-                true, // enable thumbnails
-                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }],
-                isDynamic, // isMutable
-                undefined, // rootTx
-                undefined, // feeMultiplier
-                abortCtrl.signal, // AbortSignal for cancel
-                resumeKey || undefined, // resumeKey for progress persistence
-                true, // skipFunding - we already pre-funded
-                getSolanaProvider()
-            );
-
-            // If aborted, stop here
-            if (abortCtrl.signal.aborted) {
-                setIsDeploying(false);
-                setUploadAbortController(null);
-                setHasResumableUpload(true);
-                return;
-            }
-
-            // Clear saved progress on success
-            if (resumeKey) clearUploadProgress(resumeKey);
-            setHasResumableUpload(false);
-
-            const itemLinks = uploadResults.map((r) => ({
-                tokenID: r.tokenId.toString(),
-                arweaveUri: r.arweaveUri,
-                arweaveImageUri: r.arweaveImageUri,
-                arweaveThumbUri: r.arweaveThumbUri,
-                arweavePreviewUri: r.arweavePreviewUri,
-            }));
-
-            // ── Step 3: Persistence Finalized ───────────────────────────────
-            toast.loading("Persistence secured on Arweave...", { id: 'deploy' });
-            // If the manifest was created, we can use it, otherwise fallback to first metadata
-            const primaryArweaveUri = manifestUri || (itemLinks.length > 0 ? itemLinks[0].arweaveUri : "");
-
-            // ── Step 3.5: Upload Collection Metadata & Reveal Placeholder ───
-            let collectionMetadataUri = "";
-            let revealPlaceholderUri = "";
-            let collectionImageUri = "";
-
-            if (coverFile) {
-                toast.loading("Uploading collection banner/metadata to Arweave...", { id: 'deploy' });
-                collectionImageUri = await uploadToArweave(
-                    coverFile, 
-                    { address, chainType: walletChain, network }, 
-                    false, undefined, undefined, 
-                    [{ name: "Content-Type", value: coverFile.type }], 
-                    true, getSolanaProvider()
-                );
-                
-                const collectionMetadata = {
-                    name,
-                    symbol,
-                    description,
-                    image: collectionImageUri,
-                };
-                
-                collectionMetadataUri = await uploadMetadataToArweave(
-                    collectionMetadata, 
-                    { address, chainType: walletChain, network }, 
-                    false, undefined, undefined,
-                    getSolanaProvider()
-                );
-
-                const revealMetadata = {
-                    name: `Unrevealed - ${name}`,
-                    description: "This item has not been revealed yet.",
-                    image: collectionImageUri,
-                };
-
-                revealPlaceholderUri = await uploadMetadataToArweave(
-                    revealMetadata, 
-                    { address, chainType: walletChain, network }, 
-                    false, undefined, undefined,
-                    getSolanaProvider()
-                );
-            }
-
-
-            // ── PAUSE: Show cost preview modal before on-chain deployment ───
-            // Storage is already paid (Turbo auto-debited during upload)
-            // Estimate on-chain costs only
-            const isCompressed = !is1of1; // generative/editions use compressed NFTs
-            const onChainEstimate = solanaLaunch.estimateCheckoutCost(assetsToUpload.length, 0, isCompressed);
-
-            setPendingOnChainDeploy({
-                collectionId,
-                itemLinks,
-                primaryArweaveUri,
-                assetsCount: assetsToUpload.length,
-                // Pass the full array including possible undefined holes —
-                // the consumer fills gaps with fallback metadata per-index.
-                builtMetadata,
-                collectionMetadataUri,
-                revealPlaceholderUri,
-                collectionImageUri,
-            });
-            setDeployCheckoutEstimate(onChainEstimate);
-            setDeployCheckoutOpen(true);
-            setIsDeploying(false); // Allow user to interact with modal
-            toast.dismiss('deploy');
-            return; // Exit here — on-chain deploy runs after modal confirm
-
-        } catch (e: any) {
-            console.error("Launch Error:", e);
-            
-            // Specifically highlight network errors which are common on testnet RPCs
-            let errorMessage = e.message || "Launch failed";
-            if (errorMessage.toLowerCase().includes("fetch") || errorMessage.toLowerCase().includes("network error") || errorMessage.toLowerCase().includes("failed to fetch")) {
-                errorMessage = "Network Connection Error: The Solana RPC is currently unstable or rate-limited.";
-            }
-
-            toast.error(errorMessage, { 
-                id: 'deploy',
-                duration: 8000,
-                description: "Tip: Try switching to a different RPC (Helius) in the Wallet Connection settings (gear icon) for better stability on devnet."
-            });
-
-            const isOffline = (supabase as any).isOffline;
-            if (collectionId && !isOffline) {
-                // Instead of deleting, mark as failed so the user has a record of the attempt
-                await supabase.from("collections")
-                    .update({ 
-                        status: 'failed',
-                        description: `Launch failed: ${errorMessage}. ` + (description || '')
-                    })
-                    .eq('id', collectionId);
-            }
-        } finally {
-            setIsDeploying(false);
-            setUploadAbortController(null);
-            setUploadProgress(null);
-            setUploadStartTime(null);
-        }
-    };
-
-    const nextStep = () => {
-        if (currentStep < maxStep) {
-            setDirection(1);
-            setCurrentStep(s => s + 1);
-        }
-    };
-
-    const prevStep = () => {
-        if (currentStep > 0) {
-            setDirection(-1);
-            setCurrentStep(s => s - 1);
-        }
-    };
 
     const handleGenerate = async () => {
         setIsGenerating(true);
@@ -915,10 +318,7 @@ export default function LaunchpadCreate() {
                         imageUrl: a.preview
                     }))
                 })),
-                name,
-                description,
-                selectedChain,
-                1024, // Resolution
+                name, description, selectedChain, 1024,
                 (status, progress) => { console.log(status); setDownloadProgress(progress); }
             );
             const url = URL.createObjectURL(zipBlob);
@@ -934,19 +334,453 @@ export default function LaunchpadCreate() {
         }
     };
 
+    // ─── On-chain deploy (called from checkout modal) ────────────────────────
+    const handleConfirmOnChainDeploy = async () => {
+        if (!pendingOnChainDeploy) return;
+        const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri, collectionImageUri } = pendingOnChainDeploy;
+        const finalCollectionImageUrl = collectionImageUri || (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : '');
+
+        setDeployCheckoutProcessing(true);
+        setDeployCheckoutStatus('processing');
+        setDeployCheckoutProgress({ label: "Deploying collection...", completed: 0, total: 1 });
+
+        try {
+            let deployedAddress = "";
+            let manifestRootForReveal: string | null = null;
+            let candyMachineAddressForReveal: string | null = null;
+            let candyGuardAddressForReveal: string | null = null;
+            let collectionMintForReveal: string | null = null;
+            setDeployCheckoutProgress({ label: "Deploying collection...", completed: 1, total: 3 });
+
+            if (selectedChain === 'solana') {
+                const result = await solanaLaunch.deploySolanaCollection({
+                    name,
+                    symbol,
+                    uri: collectionMetadataUri || primaryArweaveUri,
+                    sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
+                    creators: [{ address, share: 100 }]
+                });
+                deployedAddress = result.address;
+                collectionMintForReveal = result.address;
+
+                if (!is1of1) {
+                    const candyMachineItems = itemLinks.map((item, i) => ({
+                        name: `${name} #${i + 1}`,
+                        uri: item.arweaveUri
+                    }));
+
+                    const USE_HIDDEN_SETTINGS_THRESHOLD = 50;
+
+                    if (assetsCount > USE_HIDDEN_SETTINGS_THRESHOLD) {
+                        if (itemLinks.length === 0) {
+                            throw new Error(
+                                "No uploaded items found — cannot create Arweave manifest. " +
+                                "Ensure your assets uploaded successfully before deploying."
+                            );
+                        }
+
+                        setDeployCheckoutProgress({ label: "Bundling metadata into Arweave manifest...", completed: 2, total: 3 });
+                        let placeholderUri = primaryArweaveUri;
+                        try {
+                            const metadataObjects = (builtMetadata && builtMetadata.length === itemLinks.length && builtMetadata.every(Boolean))
+                                ? builtMetadata
+                                : itemLinks.map((item, i) => {
+                                    if (builtMetadata && builtMetadata[i]) return builtMetadata[i];
+                                    return { name: `${name} #${i + 1}`, image: item.arweaveImageUri };
+                                });
+                            const manifest = await solanaLaunch.uploadJsonManifest(metadataObjects);
+                            placeholderUri = revealPlaceholderUri || manifest.itemUris[0] || primaryArweaveUri;
+                            manifestRootForReveal = manifest.manifestRoot;
+                        } catch (e) {
+                            console.warn("[Deploy] Manifest bundle failed, falling back to primary URI:", e);
+                        }
+
+                        setDeployCheckoutProgress({ label: "Creating Candy Machine (large collection)...", completed: 2, total: 3 });
+                        const cmResult = await solanaLaunch.createHiddenSettingsCandyMachine(
+                            deployedAddress, candyMachineItems, phases,
+                            `${name} #`, placeholderUri, treasuryWallet
+                        );
+                        candyMachineAddressForReveal = cmResult.address;
+                        candyGuardAddressForReveal = (cmResult as any).candyGuardAddress ?? null;
+                        setDeployCheckoutProgress({ label: "Candy Machine ready!", completed: 3, total: 3 });
+
+                    } else {
+                        setDeployCheckoutProgress({ label: "Creating Candy Machine...", completed: 2, total: 3 });
+                        const cmResult = await solanaLaunch.createLaunchpadCandyMachine(
+                            deployedAddress, assetsCount, phases,
+                            { name, symbol, uri: collectionMetadataUri || primaryArweaveUri, sellerFeeBasisPoints: Math.round(royaltyPercent * 100), creators: [{ address, share: 100 }] },
+                            treasuryWallet, primaryArweaveUri
+                        );
+                        candyMachineAddressForReveal = cmResult.address;
+                        candyGuardAddressForReveal = (cmResult as any).candyGuardAddress ?? null;
+
+                        setDeployCheckoutProgress({ label: "Loading items into Candy Machine...", completed: 3, total: 3 });
+                        await solanaLaunch.insertItemsToCandyMachine(cmResult.address, candyMachineItems, 15);
+                    }
+                } else {
+                    setDeployCheckoutProgress({ label: "Minting 1-of-1 NFTs to your wallet...", completed: 2, total: 3 });
+                    const batchItems = itemLinks.map((item, i) => ({
+                        name: builtMetadata?.[i]?.name || `${name} #${i + 1}`,
+                        uri: item.arweaveUri,
+                        sellerFeeBasisPoints: Math.round(royaltyPercent * 100),
+                    }));
+                    if (batchItems.length > 0) {
+                        await solanaLaunch.batchMintCore(deployedAddress, batchItems);
+                    }
+                    setDeployCheckoutProgress({ label: "Minting complete!", completed: 3, total: 3 });
+                }
+            } else if (selectedChain === 'monad') {
+                const result = await monadLaunch.createCollection({
+                    name, symbol,
+                    metadataBaseUri: primaryArweaveUri,
+                    totalSupply: assetsCount
+                });
+                deployedAddress = result.address;
+            }
+
+            // Finalize DB
+            const isOffline = (supabase as any).isOffline;
+            if (!isOffline) {
+                await supabase.from("collections").update({
+                    contract_address: deployedAddress,
+                    status: "live",
+                    image_url: finalCollectionImageUrl,
+                    is_dynamic: isDynamic || false,
+                    manifest_root: manifestRootForReveal,
+                    candy_machine_address: candyMachineAddressForReveal,
+                    candy_guard_address: candyGuardAddressForReveal,
+                    collection_mint_address: collectionMintForReveal,
+                } as any).eq('id', collectionId);
+            }
+
+            // Decentralized index
+            try {
+                const indexedData: IndexedCollection = {
+                    id: collectionId || `offline-${Date.now()}`,
+                    name, symbol, description,
+                    chain: selectedChain,
+                    contract_address: deployedAddress,
+                    image_url: finalCollectionImageUrl,
+                    manifest_uri: primaryArweaveUri,
+                    created_at: new Date().toISOString(),
+                    creator_address: address || '',
+                    is_dynamic: isDynamic || false
+                };
+                const indexRoot = import.meta.env.VITE_INDEX_ROOT_TX;
+                await addToDecentralizedIndex(indexedData, { address, chainType: selectedChain, network }, indexRoot);
+            } catch (indexErr) {
+                console.warn("Decentralized indexing failed (optional):", indexErr);
+            }
+
+            setDeployCheckoutStatus('success');
+            setDeployCheckoutProcessing(false);
+            setDeployCheckoutOpen(false);
+            setPendingOnChainDeploy(null);
+
+            toast.success(
+                <div className="flex flex-col gap-1">
+                    <span className="font-bold">Successfully Launched!</span>
+                    <span className="text-xs opacity-80">Metadata secured on Arweave</span>
+                    <a href={primaryArweaveUri} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline mt-1">View Arweave Manifest</a>
+                    <span className="text-[9px] opacity-60 mt-0.5">Note: Arweave links may take 5–30 min to propagate</span>
+                </div>,
+                { duration: 10000 }
+            );
+
+            clearDraft();
+            navigate(isOffline ? '/' : '/launchpad');
+        } catch (e: any) {
+            console.error("On-chain deploy failed:", e);
+            setDeployCheckoutStatus('failed');
+            setDeployCheckoutProcessing(false);
+            toast.error(getErrorMessage(e) || "On-chain deployment failed. Your uploads are safe — try again.");
+        }
+    };
+
+    // ─── Main deploy handler ─────────────────────────────────────────────────
+    const handleDeploy = async () => {
+        if (isDeploying) return;
+        if (!name || !symbol) return toast.error("Please enter a name and symbol.");
+        if (!address) return toast.error("Connect your wallet to launch.");
+
+        if (walletChain !== selectedChain) {
+            setIsDeploying(false);
+            return toast.error(
+                `Wallet is connected to ${walletChain.toUpperCase()} but you are deploying on ${selectedChain.toUpperCase()}. Switch your wallet or select the correct chain.`
+            );
+        }
+
+        setIsDeploying(true);
+        const abortCtrl = new AbortController();
+        setUploadAbortController(abortCtrl);
+        setUploadStartTime(Date.now());
+        setUploadProgress(null);
+        let collectionId = "";
+
+        const currentRpc = getRpcUrl(network as any);
+        const rpcProvider = currentRpc.includes('helius') ? 'Helius (Premium)' : 'Solana (Default)';
+
+        try {
+            toast.loading(
+                <div className="flex flex-col gap-0.5">
+                    <span className="font-medium">Starting deployment flow...</span>
+                    <span className="text-[10px] opacity-70">Provider: {rpcProvider}</span>
+                </div>,
+                { id: 'deploy' }
+            );
+
+            let assetsToUpload: { name: string; file: File; metadata: any }[] = [];
+
+            if (is1of1) {
+                assetsToUpload = artworks.map((art) => ({
+                    name: art.name,
+                    file: art.file!,
+                    metadata: { name: art.name, description: art.description || description, attributes: art.attributes || [] }
+                }));
+            } else if (isMusic) {
+                toast.loading("Uploading audio tracks to Arweave...", { id: 'deploy' });
+                const audioUriMap: Record<number, string> = {};
+                for (let i = 0; i < tracks.length; i++) {
+                    const track = tracks[i];
+                    toast.loading(`Uploading audio ${i + 1}/${tracks.length}...`, { id: 'deploy' });
+                    const audioTags = [
+                        { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
+                        { name: "App-Name", value: "TheLilyPad" },
+                        { name: "Collection-Name", value: name },
+                        { name: "Track-Name", value: track.metadata.name || `Track ${i + 1}` },
+                        ...(track.metadata.artist ? [{ name: "Artist", value: track.metadata.artist }] : []),
+                        ...(track.metadata.genre ? [{ name: "Genre", value: track.metadata.genre }] : []),
+                        ...(track.metadata.bpm ? [{ name: "BPM", value: String(track.metadata.bpm) }] : []),
+                        ...(track.metadata.durationSeconds ? [{ name: "Duration", value: String(track.metadata.durationSeconds) }] : []),
+                        { name: "x-lilypad-music", value: "true" },
+                        { name: "License", value: "yRj4a5KMctX_uOmKWCFJIjmY8DeJcusVk6-HzLiM_t8" },
+                        { name: "License-Fee", value: "One-Time-0.1" },
+                        { name: "Commercial-Use", value: "Allowed" },
+                        { name: "Derivation", value: "Allowed-With-Credit" },
+                    ];
+                    const audioUri = await uploadToArweave(
+                        track.audioFile, { address, chainType: walletChain, network },
+                        false, undefined, undefined, audioTags, true, getSolanaProvider()
+                    );
+                    audioUriMap[i] = audioUri;
+                }
+                assetsToUpload = tracks.map((track, i) => ({
+                    name: track.metadata.name || `${name} Track #${i + 1}`,
+                    file: track.coverFile!,
+                    metadata: { ...track.metadata, _audioUri: audioUriMap[i], _trackIndex: i }
+                }));
+            } else if (useLayerMode && generatedAssets.length > 0) {
+                assetsToUpload = generatedAssets.map((asset) => ({
+                    name: asset.name,
+                    file: dataUrlToBlob(asset.preview) as File,
+                    metadata: asset.metadata
+                }));
+            } else {
+                assetsToUpload = folderAssets.map((asset) => ({
+                    name: asset.name,
+                    file: asset.file,
+                    metadata: { name: asset.name, description, attributes: [] }
+                }));
+            }
+
+            if (assetsToUpload.length === 0) return toast.error("No assets ready for launch.");
+
+            // Pre-fund Irys
+            toast.loading("Calculating total storage cost...", { id: 'deploy' });
+            const allFilesToPayFor: (File | Blob)[] = [];
+            if (coverFile) allFilesToPayFor.push(coverFile);
+            assetsToUpload.forEach(asset => allFilesToPayFor.push(asset.file));
+            if (isMusic) tracks.forEach(t => allFilesToPayFor.push(t.audioFile));
+
+            await preFundIrysForBatch(allFilesToPayFor, { address, chainType: walletChain, network }, {
+                onStatus: (status) => toast.loading(status, { id: 'deploy' })
+            }, getSolanaProvider());
+
+            // DB entry
+            toast.loading("Establishing provenance...", { id: 'deploy' });
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: collection, error: collErr } = await supabase
+                .from("collections")
+                .insert({
+                    name, symbol, description,
+                    chain: getDbChainValue(selectedChain, network as 'mainnet' | 'testnet'),
+                    status: "upcoming",
+                    total_supply: assetsToUpload.length,
+                    creator_id: user?.id,
+                    creator_address: address,
+                    collection_type: isMusic ? 'music' : (is1of1 ? '1of1' : 'generative'),
+                    media_type: isMusic ? 'audio' : 'image',
+                })
+                .select('id')
+                .single();
+
+            if (collErr) throw collErr;
+            collectionId = collection.id;
+
+            // Upload to Arweave
+            toast.loading(`Securing ${assetsToUpload.length} items to Arweave...`, { id: 'deploy' });
+            const builtMetadata: any[] = new Array(assetsToUpload.length);
+
+            const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
+                file: asset.file,
+                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
+                    let m: any;
+                    if (isMusic && asset.metadata._audioUri) {
+                        const track = tracks[asset.metadata._trackIndex ?? idx];
+                        m = buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
+                    } else {
+                        m = {
+                            ...asset.metadata,
+                            image: arweaveImageUri,
+                            ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
+                            ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
+                        };
+                    }
+                    builtMetadata[idx] = m;
+                    return m;
+                },
+            }));
+
+            const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
+                batchItems,
+                { address, chainType: walletChain, network },
+                (completed, total, status) => {
+                    setUploadProgress({ completed, total, status });
+                    toast.loading(status, { id: 'deploy' });
+                },
+                10, true,
+                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }],
+                isDynamic, undefined, undefined,
+                abortCtrl.signal, resumeKey || undefined, true, getSolanaProvider()
+            );
+
+            if (abortCtrl.signal.aborted) {
+                setIsDeploying(false);
+                setUploadAbortController(null);
+                setHasResumableUpload(true);
+                return;
+            }
+
+            if (resumeKey) clearUploadProgress(resumeKey);
+            setHasResumableUpload(false);
+
+            const itemLinks = uploadResults.map((r) => ({
+                tokenID: r.tokenId.toString(),
+                arweaveUri: r.arweaveUri,
+                arweaveImageUri: r.arweaveImageUri,
+                arweaveThumbUri: r.arweaveThumbUri,
+                arweavePreviewUri: r.arweavePreviewUri,
+            }));
+
+            toast.loading("Persistence secured on Arweave...", { id: 'deploy' });
+            const primaryArweaveUri = manifestUri || (itemLinks.length > 0 ? itemLinks[0].arweaveUri : "");
+
+            // Upload collection metadata & reveal placeholder
+            let collectionMetadataUri = "";
+            let revealPlaceholderUri = "";
+            let collectionImageUri = "";
+
+            if (coverFile) {
+                toast.loading("Uploading collection banner/metadata to Arweave...", { id: 'deploy' });
+                collectionImageUri = await uploadToArweave(
+                    coverFile, { address, chainType: walletChain, network },
+                    false, undefined, undefined, [{ name: "Content-Type", value: coverFile.type }], true, getSolanaProvider()
+                );
+
+                const collectionMetadata = { name, symbol, description, image: collectionImageUri };
+                collectionMetadataUri = await uploadMetadataToArweave(
+                    collectionMetadata, { address, chainType: walletChain, network },
+                    false, undefined, undefined, getSolanaProvider()
+                );
+
+                const revealMetadata = { name: `Unrevealed - ${name}`, description: "This item has not been revealed yet.", image: collectionImageUri };
+                revealPlaceholderUri = await uploadMetadataToArweave(
+                    revealMetadata, { address, chainType: walletChain, network },
+                    false, undefined, undefined, getSolanaProvider()
+                );
+            }
+
+            // Show cost preview modal
+            const isCompressed = !is1of1;
+            const onChainEstimate = solanaLaunch.estimateCheckoutCost(assetsToUpload.length, 0, isCompressed);
+
+            setPendingOnChainDeploy({
+                collectionId, itemLinks, primaryArweaveUri,
+                assetsCount: assetsToUpload.length,
+                builtMetadata, collectionMetadataUri, revealPlaceholderUri, collectionImageUri,
+            });
+            setDeployCheckoutEstimate(onChainEstimate);
+            setDeployCheckoutOpen(true);
+            setIsDeploying(false);
+            toast.dismiss('deploy');
+            return;
+
+        } catch (e: any) {
+            console.error("Launch Error:", e);
+            let errorMessage = e.message || "Launch failed";
+            if (errorMessage.toLowerCase().includes("fetch") || errorMessage.toLowerCase().includes("network error") || errorMessage.toLowerCase().includes("failed to fetch")) {
+                errorMessage = "Network Connection Error: The Solana RPC is currently unstable or rate-limited.";
+            }
+
+            toast.error(errorMessage, {
+                id: 'deploy',
+                duration: 8000,
+                description: "Tip: Try switching to a different RPC (Helius) in the Wallet Connection settings (gear icon) for better stability on devnet."
+            });
+
+            const isOffline = (supabase as any).isOffline;
+            if (collectionId && !isOffline) {
+                await supabase.from("collections")
+                    .update({ status: 'failed', description: `Launch failed: ${errorMessage}. ` + (description || '') })
+                    .eq('id', collectionId);
+            }
+        } finally {
+            setIsDeploying(false);
+            setUploadAbortController(null);
+            setUploadProgress(null);
+            setUploadStartTime(null);
+        }
+    };
+
+    // ─── Navigation ──────────────────────────────────────────────────────────
+    const nextStep = () => {
+        if (currentStep < maxStep) { setDirection(1); setCurrentStep(s => s + 1); }
+    };
+    const prevStep = () => {
+        if (currentStep > 0) { setDirection(-1); setCurrentStep(s => s - 1); }
+    };
+
     const variants = {
         enter: (d: number) => ({ x: d > 0 ? 50 : -50, opacity: 0 }),
         center: { x: 0, opacity: 1 },
         exit: (d: number) => ({ x: d < 0 ? 50 : -50, opacity: 0 }),
     };
 
+    // ─── Step validation ─────────────────────────────────────────────────────
+    const canProceedFromStep = (step: number): boolean => {
+        if (step === 0) return !!(name && symbol);
+        if (step === 1) {
+            if (is1of1) return artworks.length > 0;
+            if (isMusic) return tracks.length > 0;
+            if (useLayerMode) return generatedAssets.length > 0 || layers.length > 0;
+            return folderAssets.length > 0;
+        }
+        return true;
+    };
+
+    // Asset count for preview
+    const assetCount = is1of1 ? artworks.length : isMusic ? tracks.length : useLayerMode ? (generatedAssets.length || targetSupply) : folderAssets.length;
+
+    // ─── Render ──────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-muted/40 flex flex-col">
             <Navbar />
             <main className="flex-1 pt-16 px-3 sm:px-6 lg:px-10 pb-6 lg:pb-10">
                 <div className="mx-auto w-full max-w-[1400px] bg-card rounded-[28px] lg:rounded-[40px] shadow-[0_30px_80px_-30px_hsl(var(--foreground)/0.15)] border border-border/60 overflow-hidden flex flex-col lg:flex-row min-h-[calc(100vh-7rem)]">
-                    {/* CONFIG PANEL */}
+
+                    {/* ─── CONFIG PANEL ─────────────────────────────────────── */}
                     <div className="w-full lg:w-[460px] xl:w-[520px] flex flex-col bg-card relative z-20 lg:border-r lg:border-border/60">
+
                         {/* Header */}
                         <div className="px-6 sm:px-8 pt-8 sm:pt-10 pb-5">
                             <button
@@ -956,34 +790,55 @@ export default function LaunchpadCreate() {
                                 <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
                                 Back to Launchpad
                             </button>
-                            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">Collection Setup</h1>
+                            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">New Collection</h1>
+                            <p className="text-sm text-muted-foreground mt-1">Deploy with Metaplex Core on {currentChain.name}</p>
                         </div>
 
-                        {/* Numbered step pills */}
+                        {/* ─── 3-Step Indicator ─────────────────────────────── */}
                         <div className="px-6 sm:px-8 mb-6">
-                            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-1 px-1">
+                            <div className="flex items-center gap-0">
                                 {STEPS.map((step, idx) => {
                                     const active = currentStep === step.id;
                                     const completed = currentStep > step.id;
                                     return (
-                                        <button
-                                            key={step.id}
-                                            onClick={() => completed && setCurrentStep(step.id)}
-                                            className={cn(
-                                                "shrink-0 px-4 py-2 rounded-2xl text-[11px] font-bold whitespace-nowrap transition-all",
-                                                active && "bg-primary text-primary-foreground shadow-lg shadow-primary/25 px-5",
-                                                !active && completed && "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 cursor-pointer",
-                                                !active && !completed && "bg-muted/60 text-muted-foreground/60"
+                                        <React.Fragment key={step.id}>
+                                            <button
+                                                onClick={() => completed && setCurrentStep(step.id)}
+                                                className={cn(
+                                                    "flex items-center gap-2.5 transition-all",
+                                                    completed && "cursor-pointer",
+                                                    !active && !completed && "cursor-default"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all shrink-0",
+                                                    active && "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-110",
+                                                    completed && "bg-primary/15 text-primary border border-primary/30",
+                                                    !active && !completed && "bg-muted text-muted-foreground/50"
+                                                )}>
+                                                    {completed ? <Check className="w-4 h-4" /> : idx + 1}
+                                                </div>
+                                                <div className={cn(
+                                                    "hidden sm:block",
+                                                    !active && "opacity-50"
+                                                )}>
+                                                    <p className={cn("text-xs font-bold leading-none", active && "text-primary")}>{step.title}</p>
+                                                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{step.description}</p>
+                                                </div>
+                                            </button>
+                                            {idx < STEPS.length - 1 && (
+                                                <div className={cn(
+                                                    "flex-1 h-px mx-3 transition-colors",
+                                                    completed ? "bg-primary/40" : "bg-border"
+                                                )} />
                                             )}
-                                        >
-                                            {String(idx + 1).padStart(2, '0')} {step.title}
-                                        </button>
+                                        </React.Fragment>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        {/* Form Content */}
+                        {/* ─── Form Content ────────────────────────────────── */}
                         <div className="flex-1 overflow-y-auto px-6 sm:px-8 pb-40 scroll-smooth">
                             <AnimatePresence initial={false} custom={direction} mode="wait">
                                 <motion.div
@@ -996,15 +851,58 @@ export default function LaunchpadCreate() {
                                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                     className="space-y-8"
                                 >
-                                    {currentStep === 0 && !is1of1 && !isMusic && <ModeSelector mode={mode as "basic" | "advanced"} onModeChange={setMode} />}
-                                    {((is1of1 && currentStep === 0) || (isMusic && currentStep === 0) || (!is1of1 && !isMusic && currentStep === 1)) && (
-                                        <div className="space-y-6">
-                                            <div className="space-y-4">
+                                    {/* ═══ STEP 0: Collection Info ═══════════════════ */}
+                                    {currentStep === 0 && (
+                                        <div className="space-y-7">
+
+                                            {/* Collection Type Selector */}
+                                            <div className="space-y-3">
+                                                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Collection Type</Label>
+                                                <div className="grid grid-cols-1 gap-2.5">
+                                                    {COLLECTION_TYPE_OPTIONS.filter(o => o.id !== 'music' || selectedChain === 'solana').map((option) => {
+                                                        const Icon = option.icon;
+                                                        const selected = collectionType === option.id;
+                                                        return (
+                                                            <button
+                                                                key={option.id}
+                                                                onClick={() => setCollectionType(option.id)}
+                                                                className={cn(
+                                                                    "flex items-center gap-4 p-4 rounded-2xl text-left transition-all border",
+                                                                    selected
+                                                                        ? "border-primary bg-primary/8 shadow-sm shadow-primary/10"
+                                                                        : "border-border hover:border-primary/30 hover:bg-muted/40"
+                                                                )}
+                                                            >
+                                                                <div className={cn(
+                                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                                                                    selected ? "bg-primary/20" : "bg-muted"
+                                                                )}>
+                                                                    <Icon className={cn("w-5 h-5", selected ? "text-primary" : "text-muted-foreground")} />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className={cn("text-sm font-bold", selected && "text-primary")}>{option.label}</p>
+                                                                    <p className="text-[11px] text-muted-foreground leading-relaxed">{option.description}</p>
+                                                                </div>
+                                                                {selected && (
+                                                                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                                                        <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                                                                    </div>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            <Separator className="opacity-30" />
+
+                                            {/* Cover Image */}
+                                            <div className="space-y-3">
                                                 <Label>Cover Image</Label>
-                                                <div className="border-2 border-dashed border-border rounded-3xl p-8 hover:border-primary/50 hover:bg-primary/5 text-center cursor-pointer relative transition-all bg-muted/30">
+                                                <div className="border-2 border-dashed border-border rounded-3xl p-6 hover:border-primary/50 hover:bg-primary/5 text-center cursor-pointer relative transition-all bg-muted/30">
                                                     <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleCoverUpload} />
-                                                    {coverImage ? <img src={coverImage} className="max-h-48 mx-auto rounded-2xl" alt="Cover" /> : (
-                                                        <div className="flex flex-col items-center gap-2 py-4">
+                                                    {coverImage ? <img src={coverImage} className="max-h-40 mx-auto rounded-2xl" alt="Cover" /> : (
+                                                        <div className="flex flex-col items-center gap-2 py-3">
                                                             <div className="w-10 h-10 bg-card rounded-full shadow-sm flex items-center justify-center">
                                                                 <ImageIcon className="w-5 h-5 text-primary" />
                                                             </div>
@@ -1012,139 +910,200 @@ export default function LaunchpadCreate() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="flex flex-wrap justify-center gap-2 mt-1">
-                                                    <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20">2000px+ Recommended</Badge>
-                                                    <Badge variant="outline" className="text-[10px] bg-muted opacity-60">Max 100MB</Badge>
-                                                </div>
                                             </div>
-                                            <div className="space-y-3"><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
+
+                                            {/* Name + Symbol */}
+                                            <div className="space-y-3"><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="My Collection" /></div>
                                             <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-3"><Label>Symbol</Label><Input value={symbol} onChange={e => setSymbol(e.target.value)} /></div>
+                                                <div className="space-y-3"><Label>Symbol</Label><Input value={symbol} onChange={e => setSymbol(e.target.value)} placeholder="MYC" /></div>
                                                 <div className="space-y-3"><Label>Royalty %</Label><Input type="number" value={royaltyPercent} onChange={e => setRoyaltyPercent(Number(e.target.value))} /></div>
                                             </div>
-                                            <div className="space-y-3"><Label>Description</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} /></div>
+                                            <div className="space-y-3"><Label>Description</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell the story of your collection..." rows={3} /></div>
 
                                             {/* Dynamic NFT Toggle */}
                                             <div className="p-1 bg-muted rounded-3xl">
-                                                <div className="bg-card p-5 rounded-[20px] shadow-sm flex items-center justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center shrink-0">
-                                                            <Sparkles className="w-5 h-5 text-primary-foreground" />
+                                                <div className="bg-card p-4 rounded-[20px] shadow-sm flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center shrink-0">
+                                                            <Sparkles className="w-4 h-4 text-primary-foreground" />
                                                         </div>
                                                         <div>
                                                             <h4 className="font-bold text-foreground text-sm">Dynamic NFT</h4>
-                                                            <p className="text-[11px] text-muted-foreground">Enable post-mint metadata updates</p>
+                                                            <p className="text-[10px] text-muted-foreground">Enable post-mint metadata updates</p>
                                                         </div>
                                                     </div>
                                                     <Switch checked={isDynamic} onCheckedChange={setIsDynamic} />
                                                 </div>
-                                                {isDynamic && (
-                                                    <div className="flex items-start gap-2 p-3 pt-2">
-                                                        <Info className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-                                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                                            Mutable URI via <code className="bg-primary/10 px-1 rounded text-[9px]">gateway.irys.xyz/mutable/</code> — only the creator wallet can push updates.
-                                                        </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ═══ STEP 1: Upload Assets ═════════════════════ */}
+                                    {currentStep === 1 && (
+                                        <div className="space-y-6">
+
+                                            {/* 1-of-1 Artworks */}
+                                            {is1of1 && (
+                                                <>
+                                                    <ArtworkUploader artworks={artworks} onArtworksChange={setArtworks} collectionType="one_of_one" creatorId={address || 'anonymous'} chainSymbol={chainSymbol} />
+                                                    {artworks.length > 0 && (
+                                                        <EditionTierManager artworks={artworks} configs={editionConfigs} onConfigsChange={setEditionConfigs} chainSymbol={chainSymbol} />
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {/* Music Tracks */}
+                                            {isMusic && (
+                                                <MusicArtworkUploader tracks={tracks} onTracksChange={setTracks} />
+                                            )}
+
+                                            {/* Generative — Basic or Layer Mode */}
+                                            {collectionType === 'generative' && (
+                                                <>
+                                                    {/* Layer mode toggle */}
+                                                    <div className="p-1 bg-muted rounded-3xl">
+                                                        <div className="bg-card p-4 rounded-[20px] shadow-sm flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 bg-accent/15 rounded-2xl flex items-center justify-center shrink-0">
+                                                                    <Layers className="w-4 h-4 text-accent" />
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="font-bold text-foreground text-sm">Layer-Based Generation</h4>
+                                                                    <p className="text-[10px] text-muted-foreground">Import trait layers to generate combinations</p>
+                                                                </div>
+                                                            </div>
+                                                            <Switch checked={useLayerMode} onCheckedChange={setUseLayerMode} />
+                                                        </div>
                                                     </div>
+
+                                                    {useLayerMode ? (
+                                                        <div className="space-y-6">
+                                                            <LayerManager layers={layers} onLayersChange={setLayers} />
+
+                                                            {layers.length > 0 && (
+                                                                <>
+                                                                    <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
+                                                                    <div className="border-t border-border/50 pt-6">
+                                                                        <TraitRulesManager layers={layers} rules={rules} onRulesChange={setRules} />
+                                                                    </div>
+                                                                    <Separator className="opacity-30" />
+                                                                    <div className="space-y-4">
+                                                                        <div className="space-y-2">
+                                                                            <Label>Target Supply</Label>
+                                                                            <Input type="number" value={targetSupply} onChange={e => setTargetSupply(Number(e.target.value))} />
+                                                                        </div>
+                                                                        <Button onClick={handleGenerate} disabled={isGenerating} className="w-full h-12 rounded-2xl">
+                                                                            {isGenerating ? `Generating ${generationProgress.current}/${generationProgress.total}` : "Generate NFTs"}
+                                                                        </Button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <FolderUploader onAssetsLoaded={handleAssetsLoaded} />
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* ═══ STEP 2: Review & Launch ════════════════════ */}
+                                    {currentStep === 2 && (
+                                        <div className="space-y-6">
+
+                                            {/* Summary Card */}
+                                            <div className="p-5 rounded-3xl bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/15">
+                                                <h3 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                                                    <Shield className="w-4 h-4" />
+                                                    Collection Summary
+                                                </h3>
+                                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                                    <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Name</p>
+                                                        <p className="font-bold truncate">{name || '—'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Symbol</p>
+                                                        <p className="font-bold">{symbol || '—'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Items</p>
+                                                        <p className="font-bold">{assetCount}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Type</p>
+                                                        <p className="font-bold capitalize">{collectionType === '1of1' ? '1-of-1' : collectionType}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Royalty</p>
+                                                        <p className="font-bold">{royaltyPercent}%</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Chain</p>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <ChainIcon chain={selectedChain} className="w-3.5 h-3.5" />
+                                                            <p className="font-bold">{currentChain.name}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {isDynamic && (
+                                                    <Badge className="mt-3 bg-primary/10 text-primary border-primary/20 text-[10px]">
+                                                        <Sparkles className="w-3 h-3 mr-1" />
+                                                        Dynamic NFT Enabled
+                                                    </Badge>
                                                 )}
                                             </div>
-                                        </div>
-                                    )}
-                                    {is1of1 && currentStep === 1 && <ArtworkUploader artworks={artworks} onArtworksChange={setArtworks} collectionType="one_of_one" creatorId={address || 'anonymous'} chainSymbol={chainSymbol} />}
-                                    {is1of1 && currentStep === 2 && (
-                                        <EditionTierManager
-                                            artworks={artworks}
-                                            configs={editionConfigs}
-                                            onConfigsChange={setEditionConfigs}
-                                            chainSymbol={chainSymbol}
-                                        />
-                                    )}
-                                    {!is1of1 && !isMusic && currentStep === 2 && (mode === "basic" ? <FolderUploader onAssetsLoaded={handleAssetsLoaded} /> : <LayerManager layers={layers} onLayersChange={setLayers} />)}
-                                    {!is1of1 && mode === "advanced" && currentStep === 3 && (
-                                        <div className="space-y-8">
-                                            <TraitRarityEditor layers={layers} onLayersChange={setLayers} />
-                                            <div className="border-t border-border/50 pt-8 mt-8">
-                                                <TraitRulesManager layers={layers} rules={rules} onRulesChange={setRules} />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {!is1of1 && mode === "advanced" && currentStep === 4 && (
-                                        <div className="space-y-6 text-center py-10">
-                                            <h3 className="text-xl font-bold">Generation</h3>
-                                            <div className="space-y-4">
-                                                <div className="space-y-2">
-                                                    <Label>Target Supply</Label>
-                                                    <Input type="number" value={targetSupply} onChange={e => setTargetSupply(Number(e.target.value))} />
-                                                </div>
 
-                                                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 text-left space-y-2">
-                                                    <div className="flex items-center gap-2 text-primary text-sm font-bold">
-                                                        <Info className="w-4 h-4" />
-                                                        Resolution Info
+                                            {/* Advanced Settings Accordion */}
+                                            <div className="rounded-3xl border border-border/60 overflow-hidden">
+                                                <button
+                                                    onClick={() => setShowAdvancedSettings(v => !v)}
+                                                    className="w-full flex items-center justify-between p-5 hover:bg-muted/30 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <Settings className="w-4 h-4 text-muted-foreground" />
+                                                        <span className="text-sm font-bold">Mint Settings</span>
+                                                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">Optional</Badge>
                                                     </div>
-                                                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                                        Generated assets inherit the resolution of your source layers. Standard aspect ratios (1:1, 4:5, 3:4, 16:9, etc.) are fully supported.
-                                                    </p>
-                                                </div>
+                                                    <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", showAdvancedSettings && "rotate-180")} />
+                                                </button>
+                                                <AnimatePresence>
+                                                    {showAdvancedSettings && (
+                                                        <motion.div
+                                                            initial={{ height: 0, opacity: 0 }}
+                                                            animate={{ height: "auto", opacity: 1 }}
+                                                            exit={{ height: 0, opacity: 0 }}
+                                                            transition={{ duration: 0.2 }}
+                                                            className="overflow-hidden"
+                                                        >
+                                                            <div className="p-5 pt-0 space-y-6 border-t border-border/40">
+                                                                <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
+                                                                <Separator />
+                                                                <div className="space-y-3">
+                                                                    <Label>Treasury Wallet</Label>
+                                                                    <Input value={treasuryWallet} onChange={e => setTreasuryWallet(e.target.value)} placeholder="0x... / Address" />
+                                                                    <p className="text-[10px] text-muted-foreground">Leave blank to use your connected wallet</p>
+                                                                </div>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </div>
 
-                                            <Button onClick={handleGenerate} disabled={isGenerating} className="w-full h-12 rounded-2xl">
-                                                {isGenerating ? `Generating ${generationProgress.current}/${generationProgress.total}` : "Generate NFTs"}
-                                            </Button>
-                                        </div>
-                                    )}
-                                    {isMusic && currentStep === 1 && <MusicArtworkUploader tracks={tracks} onTracksChange={setTracks} />}
-                                    {isMusic && currentStep === 2 && (
-                                        <div className="space-y-4">
-                                            <div className="p-4 rounded-2xl bg-muted/30 border border-border">
-                                                <h3 className="font-bold mb-1">Track Customization</h3>
-                                                <p className="text-xs text-muted-foreground">Adjust metadata for your tracks.</p>
-                                            </div>
-                                            <div className="space-y-3">
-                                                {tracks.map((track, i) => (
-                                                    <div key={track.id} className="flex items-center gap-4 p-3 border rounded-xl bg-card">
-                                                        <img src={track.coverPreview} className="w-10 h-10 rounded-lg object-cover" />
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium truncate">{track.metadata.name || `Track ${i + 1}`}</p>
-                                                            <p className="text-[10px] text-muted-foreground truncate">{track.metadata.artist || 'No artist'}</p>
-                                                        </div>
-                                                        <Badge variant="outline" className="text-[10px]">
-                                                            {track.metadata.genre || 'No genre'}
-                                                        </Badge>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {((is1of1 && currentStep === 3) || (isMusic && currentStep === 3) || (!is1of1 && !isMusic && (mode === "basic" ? currentStep === 3 : currentStep === 5))) && (
-                                        <div className="space-y-6">
-                                            <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
-                                            <Separator />
-                                            <div className="space-y-3">
-                                                <Label>Treasury Wallet</Label>
-                                                <Input value={treasuryWallet} onChange={e => setTreasuryWallet(e.target.value)} placeholder="0x... / Address" />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {((is1of1 && currentStep === 4) || (isMusic && currentStep === 4) || (!is1of1 && !isMusic && (mode === "basic" ? currentStep === 4 : currentStep === 6))) && (
-                                        <div className="space-y-6 text-center py-10">
-                                            <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center mx-auto">
-                                                <Rocket className="w-10 h-10 text-primary" />
-                                            </div>
-                                            <h2 className="text-2xl font-bold">Ready to Launch!</h2>
-                                            <LaunchpadTools config={launchpadConfig} theme={theme} />
-
+                                            {/* Resume banner */}
                                             {hasResumableUpload && !isDeploying && (
-                                                <div className="p-4 rounded-2xl border border-accent/30 bg-accent/5 space-y-3 text-left">
+                                                <div className="p-4 rounded-2xl border border-accent/30 bg-accent/5 space-y-2 text-left">
                                                     <div className="flex items-center gap-2">
                                                         <RotateCcw className="w-4 h-4 text-accent" />
                                                         <span className="text-sm font-semibold">Resume Previous Upload</span>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground">
-                                                        A previous upload was interrupted. Your progress has been saved — click Launch to resume.
+                                                        A previous upload was interrupted. Click Deploy to resume.
                                                     </p>
                                                 </div>
                                             )}
 
+                                            {/* Upload progress */}
                                             {isDeploying && uploadProgress && (
                                                 <div className="space-y-3 text-left">
                                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1158,24 +1117,25 @@ export default function LaunchpadCreate() {
                                                 </div>
                                             )}
 
-                                            <div className="space-y-4">
+                                            {/* Deploy button */}
+                                            <div className="space-y-4 pt-2">
                                                 {isDeploying ? (
                                                     <div className="flex gap-3">
-                                                        <Button disabled className="flex-1 h-16 text-xl font-bold rounded-2xl">
+                                                        <Button disabled className="flex-1 h-14 text-lg font-bold rounded-2xl">
                                                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                                             Deploying...
                                                         </Button>
-                                                        <Button variant="destructive" onClick={handleCancelUpload} className="h-16 px-6 rounded-2xl">
+                                                        <Button variant="destructive" onClick={handleCancelUpload} className="h-14 px-6 rounded-2xl">
                                                             <XCircle className="w-5 h-5 mr-1" />
                                                             Cancel
                                                         </Button>
                                                     </div>
                                                 ) : (
-                                                    <Button onClick={handleDeploy} className="w-full h-16 text-xl font-bold rounded-2xl">
+                                                    <Button onClick={handleDeploy} disabled={!canProceedFromStep(0) || !canProceedFromStep(1)} className="w-full h-14 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20">
                                                         {hasResumableUpload ? (
                                                             <><RotateCcw className="w-5 h-5 mr-2" /> Resume Upload</>
                                                         ) : (
-                                                            "Launch Collection"
+                                                            <><Rocket className="w-5 h-5 mr-2" /> Deploy Collection</>
                                                         )}
                                                     </Button>
                                                 )}
@@ -1190,7 +1150,7 @@ export default function LaunchpadCreate() {
                             </AnimatePresence>
                         </div>
 
-                        {/* Sticky Action Footer */}
+                        {/* ─── Sticky Action Footer ─────────────────────────── */}
                         <div className="absolute bottom-0 left-0 w-full p-5 sm:p-6 bg-card/95 backdrop-blur-xl border-t border-border/60 flex items-center gap-3">
                             <Button
                                 variant="outline"
@@ -1201,28 +1161,33 @@ export default function LaunchpadCreate() {
                             >
                                 <ArrowLeft className="w-5 h-5" />
                             </Button>
-                            <Button
-                                onClick={nextStep}
-                                disabled={currentStep === maxStep || isDeploying}
-                                className="flex-1 h-14 rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 group"
-                            >
-                                {currentStep === maxStep ? "Launch" : (
-                                    <>
-                                        Continue
-                                        <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
-                                    </>
-                                )}
-                            </Button>
+                            {currentStep < maxStep ? (
+                                <Button
+                                    onClick={nextStep}
+                                    disabled={!canProceedFromStep(currentStep) || isDeploying}
+                                    className="flex-1 h-14 rounded-2xl font-bold text-sm shadow-xl shadow-primary/20 group"
+                                >
+                                    Continue
+                                    <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={handleDeploy}
+                                    disabled={isDeploying || !canProceedFromStep(0) || !canProceedFromStep(1)}
+                                    className="flex-1 h-14 rounded-2xl font-bold text-sm shadow-xl shadow-primary/20"
+                                >
+                                    {isDeploying ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Deploying...</> : <><Rocket className="w-4 h-4 mr-2" /> Deploy Collection</>}
+                                </Button>
+                            )}
                         </div>
                     </div>
 
-                    {/* PREVIEW PANEL */}
+                    {/* ─── PREVIEW PANEL ────────────────────────────────────── */}
                     <div className="hidden lg:flex flex-1 bg-[hsl(160_30%_8%)] relative flex-col overflow-y-auto overflow-x-hidden p-8 lg:p-12">
                         {/* Ambient glows */}
                         <div className="absolute -top-20 -right-20 w-[500px] h-[500px] rounded-full bg-primary/15 blur-[120px] pointer-events-none" />
                         <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full bg-accent/15 blur-[100px] pointer-events-none" />
 
-                        {/* Preview header */}
                         <div className="relative z-10 flex justify-between items-center mb-8 max-w-xl mx-auto w-full">
                             <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -1242,7 +1207,7 @@ export default function LaunchpadCreate() {
                                     name={name || "Collection"}
                                     description={description}
                                     coverImage={coverImage}
-                                    itemsAvailable={is1of1 ? artworks.length : (mode === 'basic' ? folderAssets.length : targetSupply)}
+                                    itemsAvailable={assetCount}
                                     phases={phases}
                                     activePhaseIndex={0}
                                     selectedChain={selectedChain}
@@ -1259,13 +1224,13 @@ export default function LaunchpadCreate() {
                                     <div className="flex items-center justify-between px-2">
                                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Asset Batch</h3>
                                         <Badge variant="outline" className="text-[10px] border-white/10 bg-white/5 text-white/70">
-                                            {(mode === 'music' ? tracks.length : (is1of1 ? artworks.length : (mode === 'basic' ? folderAssets.length : generatedAssets.length)))} items
+                                            {assetCount} items
                                         </Badge>
                                     </div>
                                     <div className="p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-xl">
                                         <LazyPreviewGrid
-                                            items={mode === 'music' ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (mode === 'basic' ? folderAssets : generatedAssets))}
-                                            isMusic={mode === 'music'}
+                                            items={isMusic ? tracks.map(t => ({ preview: t.coverPreview })) : (is1of1 ? artworks : (useLayerMode ? generatedAssets : folderAssets))}
+                                            isMusic={isMusic}
                                         />
                                     </div>
                                 </motion.div>
@@ -1275,7 +1240,7 @@ export default function LaunchpadCreate() {
                 </div>
             </main>
 
-            {/* Deploy confirmation modal — shown after upload completes */}
+            {/* Deploy confirmation modal */}
             <CartCheckoutModal
                 open={deployCheckoutOpen}
                 onOpenChange={(v) => {

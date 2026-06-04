@@ -188,6 +188,7 @@ const AppContent = () => {
           <Route path="/profile-suspended" element={<ProfileSuspended />} />
           <Route path="/limited-edition" element={<ProtectedRoute><LimitedEditionMint /></ProtectedRoute>} />
           <Route path="/ready-trade" element={<ProtectedRoute><ReadyTrade /></ProtectedRoute>} />
+          <Route path="/launchpad/create/:chain" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreateCollectionPage /></Suspense></ProtectedRoute>} />
           <Route path="/launchpad/create/:chain/:type" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreateCollectionPage /></Suspense></ProtectedRoute>} />
           <Route path="/launchpad/art-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ArtGenerator /></Suspense></ProtectedRoute>} />
           <Route path="/creator/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreatorApply /></Suspense></ProtectedRoute>} />

@@ -1,46 +1,32 @@
 import {
-    Settings,
     Tags,
     FolderOpen,
-    Sparkles,
     Rocket,
-    Layers,
-    Wand2,
-    Palette,
-    Hash,
     Shield,
     Clock,
     Wallet
 } from "lucide-react";
 import { ChainLaunchpadConfig } from "./types";
 
+/**
+ * Unified 3-step flow for ALL collection types on Solana.
+ * The collection type (generative / 1-of-1 / music) is selected
+ * inline during Step 1 and drives which uploader renders in Step 2.
+ */
+const UNIFIED_STEPS = [
+    { id: 0, title: "Collection Info", icon: Tags, description: "Name, type & branding" },
+    { id: 1, title: "Upload Assets",   icon: FolderOpen, description: "Images, layers or audio" },
+    { id: 2, title: "Review & Launch",  icon: Rocket, description: "Preview & deploy" },
+];
+
 export const SOLANA_LAUNCHPAD_CONFIG: ChainLaunchpadConfig = {
     chain: 'solana',
     name: 'Solana',
     modes: {
-        basic: [
-            { id: 0, title: "Mode", icon: Settings, description: "Choose Mode" },
-            { id: 1, title: "Essentials", icon: Tags, description: "Name, Symbol & Story" },
-            { id: 2, title: "Assets", icon: FolderOpen, description: "Upload your Folder" },
-            { id: 3, title: "Mint Config", icon: Sparkles, description: "Pricing & Guards" },
-            { id: 4, title: "Launch", icon: Rocket, description: "Deploy Collection" },
-        ],
-        advanced: [
-            { id: 0, title: "Mode", icon: Settings, description: "Choose Mode" },
-            { id: 1, title: "Essentials", icon: Tags, description: "Name, Symbol & Story" },
-            { id: 2, title: "Layers", icon: Layers, description: "Import Trait Layers" },
-            { id: 3, title: "Rarity", icon: Sparkles, description: "Configure Rarity" },
-            { id: 4, title: "Generate", icon: Wand2, description: "Create Unique NFTs" },
-            { id: 5, title: "Mint Config", icon: Sparkles, description: "Pricing & Guards" },
-            { id: 6, title: "Launch", icon: Rocket, description: "Deploy Collection" },
-        ],
-        "1of1": [
-            { id: 0, title: "Essentials", icon: Tags, description: "Name & Story" },
-            { id: 1, title: "Artworks", icon: Palette, description: "Upload Pieces" },
-            { id: 2, title: "Editions", icon: Hash, description: "Set Editions" },
-            { id: 3, title: "Mint Config", icon: Sparkles, description: "Pricing & Guards" },
-            { id: 4, title: "Launch", icon: Rocket, description: "Deploy" },
-        ]
+        basic: UNIFIED_STEPS,
+        advanced: UNIFIED_STEPS,
+        "1of1": UNIFIED_STEPS,
+        music: UNIFIED_STEPS,
     },
     features: {
         allowlist: true,

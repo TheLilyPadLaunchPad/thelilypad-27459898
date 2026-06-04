@@ -15,7 +15,7 @@ import {
 import {
   Plus, Rocket, Clock, CheckCircle, Sparkles, Loader2, FileEdit, Trash2,
   Image as ImageIcon, LayoutGrid, Check, Pencil, Lock, AlertCircle, ArrowRight,
-  Layers, Zap, Globe, ChevronRight, Palette, Music, BarChart3, ShoppingCart,
+  Layers, Globe, ChevronRight, Palette, Music, BarChart3, ShoppingCart,
   TrendingUp, Repeat,
 } from "lucide-react";
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
@@ -60,7 +60,7 @@ const ALL_CHAIN_ENTRIES: ChainEntry[] = [
 ];
 const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES;
 
-// ── Collection type tiles ─────────────────────────────────────────────────────
+// ── Primary collection type cards ─────────────────────────────────────────────
 interface CollectionTypeTile {
   id: string;
   title: string;
@@ -71,63 +71,52 @@ interface CollectionTypeTile {
   chains: SupportedChain[];
 }
 
-const ALL_COLLECTION_TYPES: CollectionTypeTile[] = [
+const PRIMARY_TYPES: CollectionTypeTile[] = [
   {
     id: "generative",
-    title: "Generative Art",
-    description: "Layer-based procedural generation. Upload trait layers and generate thousands of unique combinations with custom rarity weights.",
+    title: "Generative / PFP Collection",
+    description: "Upload pre-made assets or import trait layers for procedural generation with custom rarity weights.",
     icon: Layers,
     highlight: true,
     chains: ["solana", "monad"],
     tag: "Most Popular",
   },
   {
-    id: "art-generator",
-    title: "Art Generator (ZIP)",
-    description: "The no-code art companion. Locally generate high-res assets with metadata and download as a ZIP for offline prep.",
-    icon: Palette,
-    highlight: true,
+    id: "1of1",
+    title: "1-of-1 Art",
+    description: "Upload individual artworks with unique metadata. Direct RAW minting to your wallet.",
+    icon: ImageIcon,
     chains: ["solana", "monad"],
-    tag: "No-Code",
   },
   {
     id: "music",
     title: "Music NFTs",
-    description: "Launch audio collectibles. Upload tracks + cover art, set metadata (genre, artist, BPM), and deploy a Candy Machine.",
+    description: "Launch audio collectibles with tracks, cover art, and rich metadata (genre, artist, BPM).",
     icon: Music,
     chains: ["solana"],
     tag: "Audio",
   },
+];
+
+const SECONDARY_TYPES: CollectionTypeTile[] = [
   {
-    id: "1of1",
-    title: "1-of-1 Art",
-    description: "Upload individual artworks, configure editions and tier pricing. Direct RAW minting or deploy as compressed NFTs.",
-    icon: ImageIcon,
+    id: "art-generator",
+    title: "Art Generator (ZIP)",
+    description: "No-code tool: generate high-res assets with metadata and download as a ZIP.",
+    icon: Palette,
     chains: ["solana", "monad"],
-    tag: "Art Only",
-  },
-  {
-    id: "rwa",
-    title: "Real World Assets",
-    description: "Tokenize physical items like real estate, watches, or collectibles. Direct RAW minting to keep assets fully controlled.",
-    icon: Globe,
-    chains: ["solana", "monad"],
-    tag: "RWA / Physical",
-    highlight: true,
+    tag: "No-Code",
   },
   {
     id: "hybrid-404",
     title: "MPL-Hybrid (404)",
-    description: "Create an escrow that lets holders swap between your fungible token and NFTs instantly. The ERC-404 equivalent on Solana.",
+    description: "Create an escrow to swap between fungible tokens and NFTs instantly.",
     icon: Repeat,
     highlight: true,
     chains: ["solana"],
     tag: "MPL-Hybrid",
   },
 ];
-
-const COLLECTION_TYPES: CollectionTypeTile[] = ALL_COLLECTION_TYPES;
-
 
 // ── Filter tabs ───────────────────────────────────────────────────────────────
 const FILTER_TABS = [
@@ -142,7 +131,6 @@ const FILTER_TABS = [
 const DRAFT_PREFIX = 'lilypad_draft_';
 const DRAFT_TYPES = ['generative', 'music', 'advanced', 'basic', '1of1'];
 
-/** Find the most recent draft for a given chain across all type keys */
 function findLatestDraft(chain: string): { key: string; type: string; data: any } | null {
   let best: { key: string; type: string; data: any; ts: number } | null = null;
   for (const type of DRAFT_TYPES) {
@@ -204,7 +192,7 @@ export default function Launchpad() {
     if (localDraft) {
       navigate(`/launchpad/create/${selectedChain}/${localDraft.type || 'generative'}`);
     } else {
-      navigate(`/launchpad/create/${selectedChain}/generative`);
+      navigate(`/launchpad/create/${selectedChain}`);
     }
   };
 
@@ -235,16 +223,16 @@ export default function Launchpad() {
         localStorage.removeItem('collection-draft');
       }
     }
-    // Load latest draft for current chain
     setLocalDraft(findLatestDraft(selectedChain));
   }, [selectedChain]);
 
   const filteredCollections = getFilteredCollections(activeTab);
 
-  const getProgress = (step: number) => Math.round(((step + 1) / 5) * 100);
+  const getProgress = (step: number) => Math.round(((step + 1) / 3) * 100);
 
   // Tiles for the selected chain
-  const chainTiles = COLLECTION_TYPES.filter((t) => t.chains.includes(selectedChain));
+  const primaryTiles = PRIMARY_TYPES.filter((t) => t.chains.includes(selectedChain));
+  const secondaryTiles = SECONDARY_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
     if (tile.id === "hybrid-404") {
@@ -255,7 +243,7 @@ export default function Launchpad() {
       navigate(`/launchpad/art-generator`);
       return;
     }
-    // Navigate to the new creation page
+    // Navigate to the unified creation page — type is picked inline
     navigate(`/launchpad/create/${selectedChain}/${tile.id}`);
   };
 
@@ -273,7 +261,7 @@ export default function Launchpad() {
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Lily Launchpad</h1>
               <MetaplexBadge variant="inline" />
             </div>
-            <p className="text-muted-foreground mt-0.5">Launch your NFT collection on Solana or Monad — guided wizard, no friction.</p>
+            <p className="text-muted-foreground mt-0.5">Launch your NFT collection on Solana or Monad — 3-step wizard, no friction.</p>
           </div>
         </div>
 
@@ -310,18 +298,15 @@ export default function Launchpad() {
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-3">Blockchain</p>
             {CHAIN_ENTRIES.map((entry) => {
               const active = selectedChain === entry.id;
-              const disabled = false; // All chains are live
               return (
                 <button
                   key={entry.id}
-                  disabled={disabled}
-                  onClick={() => !disabled && handleChainChange(entry.id)}
+                  onClick={() => handleChainChange(entry.id)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-3 rounded-lg border text-left transition-all duration-150",
                     active
                       ? "border-primary/60 bg-primary/8 shadow-sm"
                       : "border-border hover:border-border/80 hover:bg-muted/50",
-                    disabled && "opacity-40 cursor-not-allowed"
                   )}
                 >
                   <ChainIcon chain={entry.id} className="w-5 h-5 shrink-0" />
@@ -383,7 +368,7 @@ export default function Launchpad() {
                   </div>
                   <Button
                     size="default"
-                    onClick={() => navigate(`/launchpad/create/${selectedChain}/generative`)}
+                    onClick={() => navigate(`/launchpad/create/${selectedChain}`)}
                     className="gap-2 shadow-sm"
                   >
                     <Plus className="w-4 h-4" />
@@ -391,7 +376,7 @@ export default function Launchpad() {
                   </Button>
                 </div>
 
-                {/* ── Collection type tiles ──────────────────────────────────── */}
+                {/* ── Primary collection type cards ──────────────────────────── */}
                 <AnimatePresence mode="wait">
                   <motion.section
                     key={selectedChain}
@@ -400,19 +385,17 @@ export default function Launchpad() {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Collection Types</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {chainTiles.map((tile) => {
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Start Building</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                      {primaryTiles.map((tile) => {
                         const Icon = tile.icon;
                         return (
                           <button
                             key={tile.id}
                             onClick={() => handleTileClick(tile)}
                             className={cn(
-                              "group relative text-left p-5 rounded-xl border transition-all duration-150",
-                              tile.highlight
-                                ? "border-primary/40 bg-primary/5 hover:border-primary/70 hover:bg-primary/8"
-                                : "border-border hover:border-border/80 hover:bg-muted/40"
+                              "group relative text-left p-6 rounded-2xl border transition-all duration-150",
+                              "border-primary/30 bg-gradient-to-br from-primary/5 to-transparent hover:border-primary/60 hover:from-primary/10 hover:shadow-lg hover:shadow-primary/5"
                             )}
                           >
                             {tile.tag && (
@@ -420,25 +403,47 @@ export default function Launchpad() {
                                 {tile.tag}
                               </Badge>
                             )}
-                            <div className={cn(
-                              "w-9 h-9 rounded-lg flex items-center justify-center mb-3",
-                              tile.highlight ? "bg-primary/15" : "bg-muted"
-                            )}>
-                              <Icon className={cn("w-5 h-5", tile.highlight ? "text-primary" : "text-muted-foreground")} />
+                            <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center mb-4">
+                              <Icon className="w-5.5 h-5.5 text-primary" />
                             </div>
-                            <p className="font-semibold text-sm mb-1">{tile.title}</p>
+                            <p className="font-bold text-sm mb-1.5">{tile.title}</p>
                             <p className="text-xs text-muted-foreground leading-relaxed">{tile.description}</p>
-                            <div className={cn(
-                              "flex items-center gap-1 mt-3 text-xs font-medium transition-colors",
-                              tile.highlight ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                            )}>
-                              <span>Start Building</span>
-                              <ChevronRight className="w-3.5 h-3.5" />
+                            <div className="flex items-center gap-1 mt-4 text-xs font-semibold text-primary transition-colors">
+                              <span>Create</span>
+                              <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                             </div>
                           </button>
                         );
                       })}
                     </div>
+
+                    {/* Secondary tools */}
+                    {secondaryTiles.length > 0 && (
+                      <>
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">More Tools</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {secondaryTiles.map((tile) => {
+                            const Icon = tile.icon;
+                            return (
+                              <button
+                                key={tile.id}
+                                onClick={() => handleTileClick(tile)}
+                                className="group flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/30 transition-all text-left"
+                              >
+                                <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                  <Icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-sm">{tile.title}</p>
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed">{tile.description}</p>
+                                </div>
+                                {tile.tag && <Badge variant="outline" className="text-[9px] h-4 px-1.5 shrink-0">{tile.tag}</Badge>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </motion.section>
                 </AnimatePresence>
 
@@ -453,7 +458,7 @@ export default function Launchpad() {
                         <p className="font-semibold text-sm">{localDraft.data.name || "Untitled Draft"}</p>
                         <p className="text-xs text-muted-foreground">
                           Saved {localDraft.data.savedAt ? formatDistanceToNow(new Date(localDraft.data.savedAt), { addSuffix: true }) : "recently"}
-                          · Step {(localDraft.data.currentStep ?? 0) + 1}
+                          · Step {Math.min((localDraft.data.currentStep ?? 0) + 1, 3)}
                         </p>
                         <div className="w-full bg-muted rounded-full h-1 mt-2">
                           <div className="bg-primary h-1 rounded-full" style={{ width: `${getProgress(localDraft.data.currentStep ?? 0)}%` }} />
@@ -529,7 +534,7 @@ export default function Launchpad() {
                             <Rocket className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                             <p className="font-medium mb-1">No collections yet</p>
                             <p className="text-sm text-muted-foreground mb-5">Be the first to launch!</p>
-                            <Button onClick={() => navigate(`/launchpad/create/${selectedChain}/generative`)} size="sm">
+                            <Button onClick={() => navigate(`/launchpad/create/${selectedChain}`)} size="sm">
                               <Plus className="w-4 h-4 mr-1.5" />
                               Create Collection
                             </Button>
@@ -539,7 +544,6 @@ export default function Launchpad() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                             {filteredCollections.map((collection) => {
                               const StatusIcon = statusIcons[collection.status as keyof typeof statusIcons] ?? Sparkles;
-                              // Robust owner check: Check ID (auth session) OR match wallet addresses directly
                               const isOwner = !!(
                                 (currentUserId && collection.creator_id === currentUserId) ||
                                 (address && collection.creator_address && collection.creator_address === address)
@@ -563,7 +567,6 @@ export default function Launchpad() {
                                       ? <img src={resolveToGateway(collection.image_url)} alt={collection.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                                       : <div className="w-full h-full flex items-center justify-center"><Rocket className="w-10 h-10 text-muted-foreground" /></div>
                                     }
-                                    {/* Badges overlay */}
                                     <div className="absolute top-2.5 right-2.5 flex gap-1.5 flex-wrap justify-end">
                                       <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-5 text-[10px]">
                                         <ChainIcon chain={selectedChain} className="w-2.5 h-2.5 mr-1" />
