@@ -52,7 +52,7 @@ export function usePublicProfile(identifier: string | undefined): PublicProfileD
           // 1. Try decentralized Arweave profile first if it looks like a wallet
           const arweaveProfile = await getDecentralizedProfile(identifier);
           if (arweaveProfile) {
-            data = arweaveProfile;
+            data = arweaveProfile as any;
           } else {
             // 2. Fallback to Supabase
             const walletResult = await supabase
@@ -61,16 +61,17 @@ export function usePublicProfile(identifier: string | undefined): PublicProfileD
               .eq('wallet_address', identifier)
               .maybeSingle();
 
-            data = walletResult.data;
+            data = walletResult.data as any;
             fetchError = walletResult.error;
           }
         } else if (data && data.wallet_address) {
           // Even if found in Supabase, try to refresh from Arweave for latest decentralized state
           const arweaveProfile = await getDecentralizedProfile(data.wallet_address);
           if (arweaveProfile) {
-            data = { ...data, ...arweaveProfile };
+            data = { ...data, ...arweaveProfile } as any;
           }
         }
+
 
         if (cancelled) return;
         if (fetchError) throw fetchError;

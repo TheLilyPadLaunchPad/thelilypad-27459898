@@ -52,7 +52,7 @@ export function ManageCollectionsModal({ open, onOpenChange, onSuccess }: Manage
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            setCollections(data || []);
+            setCollections((data || []) as unknown as Collection[]);
         } catch (err) {
             console.error('Error loading collections:', err);
             toast.error('Failed to load your collections');

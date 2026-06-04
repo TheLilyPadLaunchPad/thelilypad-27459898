@@ -19,6 +19,7 @@ import FrogLoader from "./components/FrogLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { PWAUpdateNotification } from "./components/PWAUpdateNotification";
 import { AdminToolbar } from "./components/admin/AdminToolbar";
+import { DevConsole } from "./components/admin/DevConsole";
 import { DeploymentDebugPanel } from "./components/launchpad/DeploymentDebugPanel";
 import { setupGlobalErrorHandlers } from "./lib/errorLogging";
 
@@ -205,6 +206,7 @@ const AppContent = () => {
       <DeploymentDebugPanel />
       {/* Only render AdminToolbar once fully authenticated to prevent flash */}
       {isAdmin && isFullyAuthenticated && <AdminToolbar />}
+      {isAdmin && isFullyAuthenticated && <DevConsole />}
     </BrowserRouter>
   );
 };

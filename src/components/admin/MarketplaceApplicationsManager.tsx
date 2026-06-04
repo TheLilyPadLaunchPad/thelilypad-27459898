@@ -19,7 +19,7 @@ interface MarketplaceApplication {
   symbol: string;
   image_url: string | null;
   description: string | null;
-  total_supply: number;
+  total_supply?: number | null;
   status: string;
   created_at: string;
   reviewed_at: string | null;
