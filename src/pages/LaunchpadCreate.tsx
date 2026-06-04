@@ -416,7 +416,9 @@ export default function LaunchpadCreate() {
         /** In-memory metadata captured during upload — avoids re-fetching from Arweave (5–30 min propagation). */
         builtMetadata?: any[];
         collectionMetadataUri?: string;
+        collectionImageUri?: string;
         revealPlaceholderUri?: string;
+
     }
     const [pendingOnChainDeploy, setPendingOnChainDeploy] = useState<PendingOnChainDeploy | null>(null);
     const [deployCheckoutOpen, setDeployCheckoutOpen] = useState(false);
