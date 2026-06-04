@@ -47,6 +47,24 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          id: string
+          is_mock_mode_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          is_mock_mode_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          is_mock_mode_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       banned_users: {
         Row: {
           banned_at: string
@@ -1617,6 +1635,89 @@ export type Database = {
           },
         ]
       }
+      mint_sessions: {
+        Row: {
+          asset_ids: Json | null
+          collection_address: string | null
+          created_at: string
+          creator_address: string
+          error_message: string | null
+          id: string
+          items_minted: number | null
+          items_requested: number | null
+          status: string
+          tree_address: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_ids?: Json | null
+          collection_address?: string | null
+          created_at?: string
+          creator_address: string
+          error_message?: string | null
+          id: string
+          items_minted?: number | null
+          items_requested?: number | null
+          status?: string
+          tree_address?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_ids?: Json | null
+          collection_address?: string | null
+          created_at?: string
+          creator_address?: string
+          error_message?: string | null
+          id?: string
+          items_minted?: number | null
+          items_requested?: number | null
+          status?: string
+          tree_address?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      mint_transactions: {
+        Row: {
+          batch_end: number | null
+          batch_start: number | null
+          created_at: string
+          id: string
+          session_id: string | null
+          status: string | null
+          tx_signature: string | null
+          tx_type: string | null
+        }
+        Insert: {
+          batch_end?: number | null
+          batch_start?: number | null
+          created_at?: string
+          id?: string
+          session_id?: string | null
+          status?: string | null
+          tx_signature?: string | null
+          tx_type?: string | null
+        }
+        Update: {
+          batch_end?: number | null
+          batch_start?: number | null
+          created_at?: string
+          id?: string
+          session_id?: string | null
+          status?: string | null
+          tx_signature?: string | null
+          tx_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mint_transactions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "mint_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       minted_nfts: {
         Row: {
           asset_id: string | null
@@ -2363,6 +2464,7 @@ export type Database = {
           file_url: string
           id: string
           item_id: string
+          metadata_uri: string | null
           name: string
         }
         Insert: {
@@ -2372,6 +2474,7 @@ export type Database = {
           file_url: string
           id?: string
           item_id: string
+          metadata_uri?: string | null
           name: string
         }
         Update: {
@@ -2381,6 +2484,7 @@ export type Database = {
           file_url?: string
           id?: string
           item_id?: string
+          metadata_uri?: string | null
           name?: string
         }
         Relationships: [
@@ -2630,6 +2734,7 @@ export type Database = {
           sticker_url: string | null
           user_id: string
           username: string
+          wallet_address: string | null
         }
         Insert: {
           created_at?: string
@@ -2642,6 +2747,7 @@ export type Database = {
           sticker_url?: string | null
           user_id: string
           username: string
+          wallet_address?: string | null
         }
         Update: {
           created_at?: string
@@ -2654,6 +2760,7 @@ export type Database = {
           sticker_url?: string | null
           user_id?: string
           username?: string
+          wallet_address?: string | null
         }
         Relationships: [
           {
