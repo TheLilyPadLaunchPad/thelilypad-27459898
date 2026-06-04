@@ -410,12 +410,15 @@ const RaffleManager = () => {
 
               <div className="space-y-2">
                 <Label>Required NFT Collection (Optional)</Label>
-                <Select value={requiredCollectionId} onValueChange={setRequiredCollectionId}>
+                <Select
+                  value={requiredCollectionId || "__none__"}
+                  onValueChange={(v) => setRequiredCollectionId(v === "__none__" ? "" : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="No requirement (open to all)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No requirement</SelectItem>
+                    <SelectItem value="__none__">No requirement</SelectItem>
                     {collections?.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
