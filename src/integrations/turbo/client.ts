@@ -12,12 +12,25 @@
  */
 
 import { TurboFactory, OnDemandFunding, type SolanaWalletAdapter } from '@ardrive/turbo-sdk/web';
+import { getSolanaRpcUrl, type NetworkType } from '@/config/solana';
 
 export type TurboTag = { name: string; value: string };
+
+/** Read the network the user has selected (mirrors WalletProvider's localStorage key). */
+function currentNetwork(): NetworkType {
+    if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('solanaNetwork');
+        if (stored === 'mainnet' || stored === 'devnet') return stored;
+        // Legacy value from older code
+        if (stored === 'testnet') return 'devnet';
+    }
+    return 'devnet';
+}
 
 interface CachedTurbo {
     client: any;
     address: string;
+    network: NetworkType;
 }
 
 let _cachedTurbo: CachedTurbo | null = null;
@@ -59,22 +72,30 @@ function buildSolanaAdapter(provider: any): SolanaWalletAdapter {
 
 /**
  * Get (or reuse) an authenticated Turbo client for the given wallet.
- * Cached per wallet address so a single launch flow only authenticates once.
+ * Cached per wallet address + network so a single launch flow only authenticates once.
  */
 export async function getTurboClient(solanaProvider: any): Promise<any> {
     const walletAdapter = buildSolanaAdapter(solanaProvider);
     const address = walletAdapter.publicKey.toString();
+    const network = currentNetwork();
 
-    if (_cachedTurbo && _cachedTurbo.address === address) {
+    if (_cachedTurbo && _cachedTurbo.address === address && _cachedTurbo.network === network) {
         return _cachedTurbo.client;
     }
+
+    // Resolve the app's current Solana RPC so Turbo uses the same endpoint
+    // for blockhash fetches and payment transactions.  Without this, the SDK
+    // defaults to api.mainnet-beta.solana.com which may be rate-limited (403)
+    // and is the wrong network when the app is on devnet.
+    const rpcUrl = getSolanaRpcUrl(network);
 
     const client = TurboFactory.authenticated({
         walletAdapter,
         token: 'solana',
+        gatewayUrl: rpcUrl,
     });
 
-    _cachedTurbo = { client, address };
+    _cachedTurbo = { client, address, network };
     return client;
 }
 
