@@ -13,7 +13,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { useCryptoPrice } from "@/hooks/useCryptoPrice";
 import { useWalletNFTs, NFT } from "@/hooks/useWalletNFTs";
 import { useNFTFloorPrices } from "@/hooks/useNFTFloorPrices";
-import { useHeliusTransactions } from "@/hooks/useHeliusTransactions";
+import { useHeliusTransactions, useParseHeliusTransaction } from "@/hooks/useHeliusTransactions";
 import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
 import { PublicBadgeShowcase } from "@/components/PublicBadgeShowcase";
@@ -71,7 +71,9 @@ export default function WalletProfile() {
   const [selectedNetwork, setSelectedNetwork] = useState("eth-mainnet");
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
-  const [historyType, setHistoryType] = useState<"app" | "chain">("app");
+  const [historyType, setHistoryType] = useState<"app" | "chain" | "lookup">("app");
+  const [txLookupInput, setTxLookupInput] = useState("");
+  const [activeTxSignature, setActiveTxSignature] = useState<string | null>(null);
 
   // Chain-config-driven display — covers SOL, MON and any future chain in CHAINS
   const chainCfg = CHAINS[chainType as SupportedChain] ?? CHAINS.solana;
@@ -144,6 +146,7 @@ export default function WalletProfile() {
 
   // Fetch real-time on-chain history from Helius
   const { data: onChainTxs = [], isLoading: heliusLoading, refetch: refetchHelius } = useHeliusTransactions();
+  const { data: lookupTx, isLoading: lookupLoading, refetch: refetchLookup } = useParseHeliusTransaction(activeTxSignature);
 
   // Fetch floor prices for portfolio value estimation
   const {
@@ -408,15 +411,23 @@ export default function WalletProfile() {
                     >
                       On-Chain
                     </Button>
+                    <Button
+                      variant={historyType === "lookup" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-7 text-[10px] px-2"
+                      onClick={() => setHistoryType("lookup")}
+                    >
+                      Lookup Tx
+                    </Button>
                   </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => historyType === "app" ? refetchTx() : refetchHelius()}
-                  disabled={txLoading || heliusLoading}
+                  onClick={() => historyType === "app" ? refetchTx() : historyType === "chain" ? refetchHelius() : refetchLookup()}
+                  disabled={txLoading || heliusLoading || lookupLoading}
                 >
-                  {txLoading || heliusLoading ? (
+                  {txLoading || heliusLoading || lookupLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <RefreshCw className="w-4 h-4" />
@@ -498,7 +509,7 @@ export default function WalletProfile() {
                       <p className="text-xs text-muted-foreground mt-1">Your NFT mint and transfer history will appear here</p>
                     </div>
                   )
-                ) : (
+                ) : historyType === "chain" ? (
                   // On-Chain Activity (Helius)
                   heliusLoading ? (
                     <div className="space-y-3">
@@ -556,6 +567,82 @@ export default function WalletProfile() {
                       <p className="text-xs text-muted-foreground mt-1">This wallet has no parsed transactions on devnet yet.</p>
                     </div>
                   )
+                ) : (
+                  // Transaction Lookup (Helius)
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter transaction signature to parse..."
+                        value={txLookupInput}
+                        onChange={(e) => setTxLookupInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && txLookupInput.trim()) {
+                            setActiveTxSignature(txLookupInput.trim());
+                          }
+                        }}
+                      />
+                      <Button 
+                        onClick={() => setActiveTxSignature(txLookupInput.trim())}
+                        disabled={!txLookupInput.trim() || lookupLoading}
+                      >
+                        {lookupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Lookup"}
+                      </Button>
+                    </div>
+                    
+                    {lookupLoading ? (
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <Skeleton className="h-4 w-64 mb-1.5" />
+                          <Skeleton className="h-3 w-48" />
+                        </div>
+                      </div>
+                    ) : activeTxSignature && !lookupTx ? (
+                       <div className="text-center py-8 text-muted-foreground">
+                         <Search className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                         <p className="text-sm">Transaction not found or could not be parsed.</p>
+                       </div>
+                    ) : lookupTx ? (
+                      <div className="flex items-start gap-4 p-4 rounded-xl bg-muted/50">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-1">
+                            <div className="text-[10px] font-bold">SOL</div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium leading-relaxed">
+                              {lookupTx.description || lookupTx.type.replace(/_/g, ' ')}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(lookupTx.timestamp * 1000).toLocaleString()}
+                              </span>
+                              <Badge variant="outline" className="text-[9px] uppercase h-4 px-1">
+                                {lookupTx.source || 'Solana'}
+                              </Badge>
+                            </div>
+                            <div className="mt-3 text-xs text-muted-foreground bg-background/50 p-2 rounded break-all">
+                              Signature: {lookupTx.signature}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <a
+                              href={getTxExplorer(lookupTx.signature)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 justify-end"
+                            >
+                              <span>Explorer</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                         <Search className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                         <p className="text-sm">Search for any Solana Devnet transaction signature.</p>
+                         <p className="text-xs mt-1">Uses Helius Enhanced API for human-readable parsing.</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
