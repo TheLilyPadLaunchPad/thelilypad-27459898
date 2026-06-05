@@ -157,8 +157,7 @@ Deno.serve(async (req) => {
     const { signature } = await builder.sendAndConfirm(umi, { send: { skipPreflight: true } });
     console.log("Transaction confirmed!", bs58.encode(signature));
 
-    // Update the database with the deployed addresses
-    const supabaseServiceRole = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // Update the database with the deployed addresses (using existing service role client)
     await supabaseServiceRole.from("collections").update({
       contract_address: collectionSigner.publicKey,
       status: "live",
