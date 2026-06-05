@@ -14,20 +14,27 @@ import type { Provider } from '@reown/appkit-adapter-solana/react';
 
 // Setup Reown AppKit Outside of React
 const solanaWeb3JsAdapter = new SolanaAdapter();
-const projectId = import.meta.env.VITE_REOWN_PROJECT_ID || 'b56e18d47c72ab683b10814fe9495694';
+const projectId = import.meta.env.VITE_REOWN_PROJECT_ID as string | undefined;
+
+if (!projectId) {
+  console.warn(
+    "[Reown] VITE_REOWN_PROJECT_ID is not set. The wallet modal is using a shared demo projectId — " +
+    "create your own at https://cloud.reown.com and set VITE_REOWN_PROJECT_ID before going live."
+  );
+}
 
 const metadata = {
-  name: 'LilyPad',
-  description: 'The Ultimate Solana Launchpad',
-  url: window.location.origin, // Dynamically get the origin
-  icons: ['https://avatars.githubusercontent.com/u/179229932']
+  name: 'The Lily Pad',
+  description: 'The Lily Pad — multi-chain NFT launchpad, marketplace, and streaming platform.',
+  url: typeof window !== 'undefined' ? window.location.origin : 'https://thelilypad.lovable.app',
+  icons: ['https://thelilypad.lovable.app/icon-512.png'],
 };
 
 createAppKit({
   adapters: [solanaWeb3JsAdapter],
   networks: [solana, solanaTestnet, solanaDevnet],
   metadata,
-  projectId,
+  projectId: projectId || 'b56e18d47c72ab683b10814fe9495694',
   features: {
     analytics: true,
     email: true,
