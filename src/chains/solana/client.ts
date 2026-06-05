@@ -3,7 +3,7 @@ import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-ad
 import { mplCore } from '@metaplex-foundation/mpl-core';
 import { mplCandyMachine as mplCoreCandyMachine } from '@metaplex-foundation/mpl-core-candy-machine';
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
-import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
+import { arweaveUploader } from '@/integrations/arweave/umiArweaveUploader';
 import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
 import { mplAgentIdentity } from '@metaplex-foundation/mpl-agent-registry';
 import { Umi } from '@metaplex-foundation/umi';
@@ -39,9 +39,7 @@ export async function createUmi(
         .use(mplToolbox())
         .use(mplBubblegum())
         .use(mplAgentIdentity())
-        .use(irysUploader({
-            address: network === 'mainnet' ? 'https://node1.irys.xyz' : 'https://devnet.irys.xyz',
-        }));
+        .use(arweaveUploader());
 
     // Attach wallet if provided
     if (wallet) {
