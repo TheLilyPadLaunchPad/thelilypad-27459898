@@ -60,6 +60,21 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing required parameters" }), { status: 400, headers: corsHeaders });
     }
 
+    // Ownership check — only the collection's creator can trigger a deploy for it.
+    const supabaseServiceRole = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: existingCollection, error: ownershipError } = await supabaseServiceRole
+      .from("collections")
+      .select("creator_id")
+      .eq("id", collectionId)
+      .maybeSingle();
+
+    if (ownershipError || !existingCollection) {
+      return new Response(JSON.stringify({ error: "Collection not found" }), { status: 404, headers: corsHeaders });
+    }
+    if (existingCollection.creator_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Forbidden: not the collection owner" }), { status: 403, headers: corsHeaders });
+    }
+
     console.log(`Starting backend deployment for collection: ${name} (${collectionId})`);
 
     // Initialize Umi with the backend payer
@@ -142,8 +157,7 @@ Deno.serve(async (req) => {
     const { signature } = await builder.sendAndConfirm(umi, { send: { skipPreflight: true } });
     console.log("Transaction confirmed!", bs58.encode(signature));
 
-    // Update the database with the deployed addresses
-    const supabaseServiceRole = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // Update the database with the deployed addresses (using existing service role client)
     await supabaseServiceRole.from("collections").update({
       contract_address: collectionSigner.publicKey,
       status: "live",

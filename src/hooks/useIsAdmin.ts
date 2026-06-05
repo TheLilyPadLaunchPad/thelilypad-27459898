@@ -2,26 +2,18 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@/providers/WalletProvider';
 
+/**
+ * Admin status is granted exclusively via the server-side `user_roles` table
+ * (role = 'admin'). The previous hardcoded ADMIN_WALLETS bypass was removed
+ * for security — admins must have a row in `user_roles`.
+ */
 export const useIsAdmin = () => {
   const { address, isConnected } = useWallet();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const ADMIN_WALLETS = [
-      'Cra8LAvpQAk3hx4By5STHp4xrq7HSAnZLk4Jwzv1wUAH',
-      '3xxV9tbTanfAqRTSZkiZKMGdVDb3KZrrPm3NCkU38Hty',
-    ];
-
     const checkAdminStatus = async () => {
-      // Fast path: wallet-based admin bypass
-      if (isConnected && address && ADMIN_WALLETS.includes(address)) {
-        setIsAdmin(true);
-        setLoading(false);
-        return;
-      }
-
-      // Server-side admin role check via Supabase user_roles table.
       try {
         const { data: { user } } = await supabase.auth.getUser();
 

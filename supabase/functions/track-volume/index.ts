@@ -103,8 +103,9 @@ Deno.serve(async (req) => {
 
       console.log(`Authenticated user ${userId} for action: ${action}`);
 
-      // For write operations, use the authenticated user's ID if not provided
-      if (data && !data.user_id) {
+      // For write operations, always overwrite user_id with the authenticated caller's ID
+      // to prevent spoofing volume credit to other users.
+      if (data) {
         data.user_id = userId;
       }
     }
