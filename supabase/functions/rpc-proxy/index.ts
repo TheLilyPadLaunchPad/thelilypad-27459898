@@ -380,7 +380,7 @@ serve(async (req) => {
   const bearer = authHeader.toLowerCase().startsWith('bearer ')
     ? authHeader.slice(7).trim()
     : '';
-  const hasValidKey = !!anonKey && (apikeyHeader === anonKey || bearer === anonKey || (!!bearer && bearer.length > 20));
+  const hasValidKey = !!anonKey && (apikeyHeader === anonKey || bearer === anonKey);
   if (!hasValidKey) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized: missing or invalid apikey' }),
