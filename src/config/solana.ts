@@ -169,9 +169,7 @@ export const initializeUmi = (network: NetworkType) => {
         .use(mplCore())
         .use(mplCoreCandyMachinePlugin())
         .use(mplToolbox())
-        .use(irysUploader({
-            address: network === 'mainnet' ? 'https://node1.irys.xyz' : 'https://devnet.irys.xyz',
-        }));
+        .use(arweaveUploader());
 
     return umi;
 };
