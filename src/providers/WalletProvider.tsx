@@ -1,14 +1,42 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { NetworkType, getSolanaRpcUrl } from "@/config/solana";
-import { waitForPhantomExtension } from "@/config/phantom";
 import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { useChain } from "./ChainProvider";
 import { setStoredChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 
+// Reown AppKit Imports
+import { createAppKit, useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
+import { SolanaAdapter } from '@reown/appkit-adapter-solana/react';
+import { solana, solanaTestnet, solanaDevnet } from '@reown/appkit/networks';
+import type { Provider } from '@reown/appkit-adapter-solana/react';
+
+// Setup Reown AppKit Outside of React
+const solanaWeb3JsAdapter = new SolanaAdapter();
+const projectId = import.meta.env.VITE_REOWN_PROJECT_ID || 'b56e18d47c72ab683b10814fe9495694';
+
+const metadata = {
+  name: 'LilyPad',
+  description: 'The Ultimate Solana Launchpad',
+  url: window.location.origin, // Dynamically get the origin
+  icons: ['https://avatars.githubusercontent.com/u/179229932']
+};
+
+createAppKit({
+  adapters: [solanaWeb3JsAdapter],
+  networks: [solana, solanaTestnet, solanaDevnet],
+  metadata,
+  projectId,
+  features: {
+    analytics: true,
+    email: true,
+    socials: ['google', 'x', 'discord', 'apple']
+  }
+});
+
 // Types
-export type WalletType = "phantom" | "solana";
+export type WalletType = "phantom" | "solana" | "reown";
 export type ChainType = "solana" | "monad";
 export type OAuthProvider = "google" | "apple";
 
@@ -47,57 +75,35 @@ export const useWallet = () => {
   return context;
 };
 
-const getSolanaProvider = () => {
-  if (typeof window !== "undefined") {
-    if ("phantom" in window && (window as any).phantom?.solana) {
-      return (window as any).phantom.solana;
-    }
-    if ("solana" in window) {
-      return (window as any).solana;
-    }
-    
-    // MOCK PROVIDER FOR AI SUBAGENT TESTING
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      console.warn("Using MOCK Solana Provider for Subagent Testing");
-      return {
-        isPhantom: true,
-        publicKey: new PublicKey("3xxV9tbTanfAqRTSZkiZKMGdVDb3KZrrPm3NCkU38Hty"), // Admin wallet
-        connect: async () => ({ publicKey: new PublicKey("3xxV9tbTanfAqRTSZkiZKMGdVDb3KZrrPm3NCkU38Hty") }),
-        disconnect: async () => {},
-        signTransaction: async (tx: any) => tx,
-        signAllTransactions: async (txs: any[]) => txs,
-        signMessage: async (msg: any) => msg,
-      };
-    }
-  }
-  return null;
-};
-
 const formatSolanaBalance = (lamports: number): string => {
   return (lamports / 1_000_000_000).toFixed(4);
 };
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { chain } = useChain();
+  
+  // Reown Hooks
+  const { address: reownAddress, isConnected: isReownConnected, status: reownStatus } = useAppKitAccount();
+  const { walletProvider: reownProvider } = useAppKitProvider<Provider>('solana');
+  const { open } = useAppKit();
+  const { disconnect: reownDisconnect } = useDisconnect();
 
   const [state, setState] = useState<WalletState>(() => {
-    const wasConnected = localStorage.getItem("walletConnected") === "true";
     return {
       address: null,
       isConnected: false,
-      isConnecting: wasConnected,
+      isConnecting: false,
       isTransactionPending: false,
       balance: null,
       network: ((localStorage.getItem("solanaNetwork") === "testnet" ? "devnet" : localStorage.getItem("solanaNetwork")) as NetworkType) || "mainnet",
-      walletType: (localStorage.getItem("walletType") as WalletType) || "phantom",
-      chainType: (localStorage.getItem("chainType") as ChainType) || "solana",
+      walletType: "reown",
+      chainType: "solana",
     };
   });
 
-  const [isPhantomAvailable, setIsPhantomAvailable] = useState(false);
-  const [discoveredWallets, setDiscoveredWallets] = useState<any[]>([]);
-
   const connection = useMemo(() => {
+    // We map Reown's network state to our custom connection object so existing RPC calls work
+    // By default, Reown is multichain, but LilyPad is primarily Solana right now.
     return new Connection(getSolanaRpcUrl(state.network), 'confirmed');
   }, [state.network]);
 
@@ -129,161 +135,60 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
-  // Connect Solana via injected provider (Phantom extension)
-  const connectSolanaLegacy = useCallback(async () => {
-    const provider = getSolanaProvider();
-    if (!provider) {
-      throw new Error("Solana wallet not found. Please install Phantom.");
-    }
-
-    setState(prev => ({ ...prev, isConnecting: true, walletType: "solana", chainType: "solana" }));
-
-    try {
-      const connectionPromise = provider.connect();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Phantom connection timed out")), 10000)
-      );
-
-      const response = await Promise.race([connectionPromise, timeoutPromise]) as any;
-      const address = response.publicKey.toString();
-      const balance = await fetchSolanaBalance(address);
-
-      await ensureSupabaseSession(address, 'solana');
-
-      setState(prev => ({
-        ...prev,
-        address,
-        isConnected: true,
-        isConnecting: false,
-        balance,
-        walletType: "phantom",
-        chainType: "solana",
-        authProvider: "injected",
-      }));
-
-      localStorage.setItem("walletConnected", "true");
-      localStorage.setItem("walletType", "phantom");
-      setStoredChain('solana');
-
-      toast.success("Wallet connected on Solana");
-    } catch (error: any) {
-      console.error("Solana connect error:", error);
-
-      const message = (error?.message || "").toString();
-      const code = error?.code;
-
-      const isUserRejected = code === 4001 || message.toLowerCase().includes("rejected");
-      const isInternalRpcError = code === -32603 || message.toLowerCase().includes("internal json-rpc");
-
-      if (isUserRejected) {
-        toast.error("Connection rejected");
-      } else if (isInternalRpcError) {
-        toast.error("Phantom returned an internal error. Please unlock Phantom, then try again.");
-      } else {
-        toast.error(message || "Failed to connect to Solana");
-      }
-
-      setState(prev => ({ ...prev, isConnecting: false }));
-      throw error;
-    }
-  }, [fetchSolanaBalance, ensureSupabaseSession]);
-
-  // Connect Monad wallet via Phantom (EVM address)
-  const connectMonad = useCallback(async (silent = false) => {
-    setState(prev => ({ ...prev, isConnecting: true, walletType: "phantom", chainType: "monad" }));
-
-    try {
-      const phantomEvm = (window as any).phantom?.ethereum;
-      if (phantomEvm) {
-        let accounts: string[];
-        if (silent) {
-          accounts = await phantomEvm.request({ method: 'eth_accounts' });
-        } else {
-          accounts = await phantomEvm.request({ method: 'eth_requestAccounts' });
-        }
-
-        const address = accounts[0];
-        if (!address) throw new Error('No EVM address returned from Phantom');
-
-        await ensureSupabaseSession(address, 'phantom-evm');
-
+  // Sync Reown State to our Internal App State
+  useEffect(() => {
+    const syncReown = async () => {
+      if (isReownConnected && reownAddress) {
+        const balance = await fetchSolanaBalance(reownAddress);
         setState(prev => ({
           ...prev,
-          address,
+          address: reownAddress,
           isConnected: true,
-          isConnecting: false,
-          balance: '0',
-          walletType: "phantom",
-          chainType: "monad",
-          authProvider: "injected",
+          balance,
+          walletType: "reown",
+          isConnecting: false
         }));
-
-        localStorage.setItem("walletConnected", "true");
-        localStorage.setItem("walletType", "phantom");
-        localStorage.setItem("chainType", "monad");
-        setStoredChain('monad');
-        toast.success("Phantom (Monad) wallet connected");
-        return;
+        await ensureSupabaseSession(reownAddress, 'reown');
+      } else {
+        setState(prev => ({
+          ...prev,
+          address: null,
+          isConnected: false,
+          balance: null,
+          isConnecting: reownStatus === 'connecting'
+        }));
       }
+    };
+    
+    syncReown();
+  }, [isReownConnected, reownAddress, reownStatus, fetchSolanaBalance, ensureSupabaseSession]);
 
-      throw new Error('Phantom EVM provider not found. Please install Phantom and enable EVM support.');
-    } catch (error: any) {
-      console.error("Monad connect error:", error);
-      setState(prev => ({ ...prev, isConnecting: false }));
-      const msg = error?.message || "Failed to connect Phantom for Monad";
-      toast.error(msg);
-      throw error;
-    }
-  }, [ensureSupabaseSession]);
-
-  // Main connect function
+  // Main connect function replaces legacy Phantom connect with Reown Modal
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
-    let targetWallet = _walletType;
-    let targetChain = _chainType;
-
-    if (!targetWallet && !targetChain) {
-      targetChain = (chain.id as ChainType) || "solana";
-      targetWallet = 'phantom';
-    } else if (targetWallet && !targetChain) {
-      targetChain = (chain.id === 'monad' ? 'monad' : 'solana');
-    } else if (!targetWallet && targetChain) {
-      targetWallet = 'phantom';
+    try {
+       await open();
+    } catch (error) {
+       console.error("Failed to open Reown AppKit:", error);
+       toast.error("Failed to open wallet connection modal");
     }
-
-    console.log(`Connecting to ${targetChain} using ${targetWallet} wallet`);
-
-    if (targetChain === 'monad') {
-      await connectMonad();
-      return;
-    }
-
-    // Default: Solana connection via injected provider
-    const injected = getSolanaProvider();
-    if (injected) {
-      try {
-        await connectSolanaLegacy();
-        return;
-      } catch (err: any) {
-        if (err?.code === 4001 || err?.message?.toLowerCase().includes("rejected")) return;
-        try {
-          await injected.disconnect?.();
-        } catch { /* noop */ }
-      }
-    }
-
-    toast.error("Phantom wallet not found. Please install it from phantom.app");
-  }, [chain.id, connectSolanaLegacy, connectMonad]);
+  }, [open]);
 
   const connectWithOAuth = useCallback(async (_provider: OAuthProvider) => {
-    toast.info("OAuth login requires the Phantom extension. Please install it from phantom.app");
-  }, []);
+    try {
+      // Reown handles OAuth natively inside the modal now
+      await open();
+    } catch (error) {
+      console.error("OAuth connection failed:", error);
+    }
+  }, [open]);
 
-  // Disconnect
   const disconnect = useCallback(async () => {
     try {
-      await getSolanaProvider()?.disconnect();
-    } catch { }
-
+      await reownDisconnect();
+    } catch (error) {
+      console.error("Disconnect error:", error);
+    }
+    
     setState(prev => ({
       ...prev,
       address: null,
@@ -291,17 +196,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isConnecting: false,
       balance: null,
       walletType: null,
-      chainType: "solana" as ChainType,
       authProvider: undefined,
     }));
 
-    localStorage.removeItem("walletConnected");
-    localStorage.removeItem("walletType");
-    localStorage.removeItem("chainType");
-    localStorage.removeItem("authProvider");
-
     toast.success("Wallet disconnected");
-  }, []);
+  }, [reownDisconnect]);
 
   const switchNetwork = useCallback(async (network: NetworkType) => {
     setState(prev => ({ ...prev, network }));
@@ -309,95 +208,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     toast.success(`Switched to ${network}`);
   }, []);
 
+  // Extremely important: This returns the Reown Solana Provider so existing Umi/Metaplex hooks don't break
   const getSolanaProviderCallback = useCallback(() => {
-    return getSolanaProvider();
-  }, []);
-
-  // Initialize and detect wallets
-  useEffect(() => {
-    const init = async () => {
-      const available = await waitForPhantomExtension(3000);
-      setIsPhantomAvailable(available);
-    };
-    init();
-  }, []);
-
-  // Auto-connect
-  useEffect(() => {
-    const wasConnected = localStorage.getItem("walletConnected") === "true";
-    if (!wasConnected) return;
-
-    const autoConnect = async () => {
-      setState(prev => ({ ...prev, isConnecting: true }));
-      try {
-        const storedWalletType = localStorage.getItem("walletType");
-        const storedChainType = localStorage.getItem("chainType");
-
-        await waitForPhantomExtension(2000);
-
-        // 1. Monad Re-connection
-        if (storedChainType === 'monad') {
-          const phantomEvm = (window as any).phantom?.ethereum;
-          if (phantomEvm) {
-            try {
-              const accounts = await phantomEvm.request({ method: 'eth_accounts' });
-              if (accounts?.[0]) {
-                await connectMonad(true);
-                return;
-              }
-            } catch (evmErr: any) {
-              // Phantom returns code 4001 when no EVM accounts are configured — expected, not an error
-              if (evmErr?.code === 4001) {
-                console.log('Auto-connect: No EVM accounts in Phantom (expected for Solana-only users).');
-              } else {
-                console.warn('Auto-connect: EVM account check failed:', evmErr);
-              }
-            }
-          }
-          // No EVM accounts available — fall through to clear walletConnected flag
-          throw new Error("No trusted EVM accounts");
-        }
-
-        // 2. Solana Re-connection (Phantom)
-        if (storedWalletType === "phantom" || storedWalletType === "solana") {
-          const provider = getSolanaProvider();
-          if (provider) {
-            try {
-              await provider.connect({ onlyIfTrusted: true });
-              await connectSolanaLegacy();
-              return;
-            } catch (e) {
-              console.log("Silent connect failed:", e);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Auto-connect failed:", e);
-        // Clear the flag so ProtectedRoute stops showing a loader
-        localStorage.removeItem("walletConnected");
-      } finally {
-        setState(prev => ({ ...prev, isConnecting: false }));
-      }
-    };
-
-    autoConnect();
-  }, [connectSolanaLegacy, connectMonad]);
-
-  // Chain-Wallet Compatibility Validation
-  useEffect(() => {
-    if (!state.isConnected || !state.address) return;
-
-    const isCompatible =
-      (chain.id === 'solana' && (state.walletType === 'phantom' || state.walletType === 'solana')) ||
-      (chain.id === 'monad' && state.walletType === 'phantom');
-
-    if (!isCompatible) {
-      toast.warning(`Wallet may not be compatible with ${chain.name}`, {
-        description: `Try using ${chain.walletLabels.connect.replace('Connect ', '')} for ${chain.name}`,
-        duration: 5000,
-      });
-    }
-  }, [chain.id, chain.name, chain.walletLabels.connect, state.isConnected, state.walletType, state.address]);
+    return reownProvider;
+  }, [reownProvider]);
 
   const setTransactionPending = useCallback((pending: boolean) => {
     setState(prev => ({ ...prev, isTransactionPending: pending }));
@@ -413,8 +227,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         switchNetwork,
         getSolanaProvider: getSolanaProviderCallback,
         setTransactionPending,
-        isPhantomAvailable,
-        discoveredWallets,
+        isPhantomAvailable: true, // Legacy flag, always true now via AppKit
+        discoveredWallets: [],
         connection,
       }}
     >
