@@ -107,7 +107,7 @@ function rewriteGateway(url: string, preferredGateway: string): string {
         /https?:\/\/cloudflare-ipfs\.com\/ipfs\//,
         /https?:\/\/dweb\.link\/ipfs\//,
         /https?:\/\/w3s\.link\/ipfs\//,
-        /https?:\/\/nftstorage\.link\/ipfs\//,
+        
     ];
 
     for (const pattern of legacyPatterns) {
