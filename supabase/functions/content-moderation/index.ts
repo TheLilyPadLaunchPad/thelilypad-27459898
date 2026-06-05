@@ -96,12 +96,11 @@ serve(async (req) => {
       const result: ModerationResult = {
         is_safe: false,
         score: 1.0,
-        reasons: [patternReason || "nsfw"],
-        details: { blocked_by: "pattern_match" },
-        blocked_pattern_match: patternMatch,
+        reasons: ["content_policy_violation"],
+        details: { blocked_by: "policy" },
       };
 
-      // Log to moderation queue
+      // Log to moderation queue (server-side only, includes the matched pattern for audit)
       if (userId) {
         await supabase.from("moderation_queue").insert({
           content_type,
@@ -113,12 +112,14 @@ serve(async (req) => {
           status: "auto_rejected",
           ai_score: 1.0,
           ai_reasons: [patternReason || "nsfw"],
-          ai_details: result.details,
+          ai_details: { blocked_by: "pattern_match", matched_pattern: patternMatch },
         });
       }
 
-      console.log(`[Moderation] Blocked by pattern: ${patternMatch}`);
+      console.log(`[Moderation] Blocked by pattern (server-side log only)`);
 
+      // Do NOT include blocked_pattern_match or the pattern in the response —
+      // exposing it would let callers enumerate the blocked patterns table.
       return new Response(
         JSON.stringify({ result, action: "blocked" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
