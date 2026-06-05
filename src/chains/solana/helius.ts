@@ -1,5 +1,3 @@
-import { HELIUS_DEVNET_URL, HELIUS_ADDRESS_HISTORY_URL } from "@/config/solana";
-
 /**
  * Helius Enhanced API Types
  */
@@ -44,47 +42,42 @@ export interface HeliusParsedTransaction {
 }
 
 /**
- * Helius Solana Utility
+ * All Helius Enhanced API calls go through the `helius-proxy` edge function
+ * so the Helius API key never ships to the browser.
  */
+const PROJECT_URL = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, "");
+const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const PROXY_URL = `${PROJECT_URL}/functions/v1/helius-proxy`;
 
-/**
- * Fetch human-readable transaction history for an address
- */
+const proxyHeaders = (): HeadersInit => ({
+    apikey: ANON_KEY,
+    Authorization: `Bearer ${ANON_KEY}`,
+});
+
 export async function getAddressTransactions(address: string): Promise<HeliusParsedTransaction[]> {
     try {
-        const response = await fetch(HELIUS_ADDRESS_HISTORY_URL(address));
-        if (!response.ok) {
-            throw new Error(`Helius API Error: ${response.status}`);
-        }
-        return await response.json();
+        const r = await fetch(
+            `${PROXY_URL}?action=address-history&address=${encodeURIComponent(address)}`,
+            { headers: proxyHeaders() },
+        );
+        if (!r.ok) throw new Error(`helius-proxy ${r.status}`);
+        return await r.json();
     } catch (error) {
         console.error("Failed to fetch Helius address history:", error);
         return [];
     }
 }
 
-/**
- * Parse specific transaction signatures
- */
 export async function parseTransactions(signatures: string[]): Promise<HeliusParsedTransaction[]> {
     if (signatures.length === 0) return [];
-    
     try {
-        const response = await fetch(HELIUS_DEVNET_URL, {
+        const r = await fetch(`${PROXY_URL}?action=parse-transactions`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                transactions: signatures,
-            }),
+            headers: { ...proxyHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ transactions: signatures }),
         });
-
-        if (!response.ok) {
-            throw new Error(`Helius API Error: ${response.status}`);
-        }
-
-        return await response.json();
+        if (!r.ok) throw new Error(`helius-proxy ${r.status}`);
+        return await r.json();
     } catch (error) {
         console.error("Failed to parse transactions via Helius:", error);
         return [];
