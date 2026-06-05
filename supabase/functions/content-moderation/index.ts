@@ -334,7 +334,6 @@ Be strict but fair. If content is borderline, lean towards flagging it for revie
       JSON.stringify({
         result: aiResult,
         action,
-        blocked_pattern: patternMatch,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
