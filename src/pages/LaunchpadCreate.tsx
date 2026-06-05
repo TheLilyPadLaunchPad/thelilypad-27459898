@@ -695,14 +695,27 @@ export default function LaunchpadCreate() {
         } catch (e: any) {
             console.error("Launch Error:", e);
             let errorMessage = e.message || "Launch failed";
-            if (errorMessage.toLowerCase().includes("fetch") || errorMessage.toLowerCase().includes("network error") || errorMessage.toLowerCase().includes("failed to fetch")) {
+            const lower = errorMessage.toLowerCase();
+            const isFetchErr = lower.includes("fetch") || lower.includes("network error") || lower.includes("failed to fetch");
+            const mentionsIrys = lower.includes("irys") || lower.includes("arweave") || lower.includes("turbo") || lower.includes("bundle") || lower.includes("upload");
+            const mentionsRpc = lower.includes("rpc") || lower.includes("blockhash") || lower.includes("simulate") || lower.includes("send transaction") || lower.includes("429");
+
+            let description: string | undefined;
+            if (isFetchErr && mentionsIrys && !mentionsRpc) {
+                errorMessage = "Arweave/Irys upload failed: the uploader endpoint is unreachable or rate-limited.";
+                description = "Tip: Retry in a moment. This is an asset-upload issue, not your Solana RPC.";
+            } else if (isFetchErr && mentionsRpc) {
                 errorMessage = "Network Connection Error: The Solana RPC is currently unstable or rate-limited.";
+                description = "Tip: Try switching to a different RPC (Helius) in the Wallet Connection settings (gear icon) for better stability on devnet.";
+            } else if (isFetchErr) {
+                errorMessage = `Network request failed: ${errorMessage}`;
+                description = "A network call failed. Check your connection and retry.";
             }
 
             toast.error(errorMessage, {
                 id: 'deploy',
                 duration: 8000,
-                description: "Tip: Try switching to a different RPC (Helius) in the Wallet Connection settings (gear icon) for better stability on devnet."
+                description,
             });
 
             const isOffline = (supabase as any).isOffline;
