@@ -196,6 +196,9 @@ creator_beta_applications      -- Added Feb 2026
 
 ## 6. Completed Work Log
 
+### Session: Jun 5, 2026
+- ✅ **Publish unblock** — removed corrupted `WalletProvider.backup.tsx` from `src/providers` so source scans/type checks no longer fail on an invalid backup file.
+
 ### Session: Feb 2026
 - ✅ Fixed IPFS image rendering (`ipfsToHttp()`) in marketplace + collection pages
 - ✅ Solana/Monad wallet connection debugging
