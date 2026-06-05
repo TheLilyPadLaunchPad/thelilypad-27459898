@@ -3368,6 +3368,7 @@ export type Database = {
           categories: string[] | null
           created_at: string | null
           display_name: string | null
+          id: string | null
           is_verified: boolean | null
           playlist_ids: string[] | null
           preferred_currency: string | null
@@ -3387,6 +3388,7 @@ export type Database = {
           categories?: string[] | null
           created_at?: string | null
           display_name?: string | null
+          id?: string | null
           is_verified?: boolean | null
           playlist_ids?: string[] | null
           preferred_currency?: string | null
@@ -3406,6 +3408,7 @@ export type Database = {
           categories?: string[] | null
           created_at?: string | null
           display_name?: string | null
+          id?: string | null
           is_verified?: boolean | null
           playlist_ids?: string[] | null
           preferred_currency?: string | null
