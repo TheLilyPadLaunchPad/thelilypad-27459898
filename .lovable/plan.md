@@ -1,63 +1,120 @@
-# Audit: Helius Devnet RPC + Reown Wallet
 
-## Findings
+# Migrate to fully native Arweave (user ArConnect wallets)
 
-### 1. Helius RPC (devnet) — ✅ correct, ⚠️ key exposed
-`src/config/solana.ts` line 8:
-```
-https://devnet.helius-rpc.com/?api-key=0c6d7147-...
-```
-This is the correct Helius devnet RPC host and format. It works for standard JSON‑RPC + DAS calls.
+Replace Irys end-to-end with raw `arweave-js`. Every user signs and pays for their own Arweave uploads using **ArConnect / Wander** (a browser extension). The platform pays for nothing and holds no Arweave keys.
 
-Issue: the API key is hardcoded in client source (publicly visible in the bundle). Anyone can scrape it and burn your Helius quota.
+## ⚠️ Trade-offs the user must accept
 
-### 2. Helius Enhanced API URLs — ❌ wrong host
-`src/config/solana.ts` lines 14–16:
-```
-https://api-devnet.helius-rpc.com/v0/transactions/?api-key=...
-https://api-devnet.helius-rpc.com/v0/addresses/{addr}/transactions/?api-key=...
-```
-`api-devnet.helius-rpc.com` does not exist. That's why `useHeliusTransactions` silently returns `[]` — the fetch throws and is caught.
+Before any code changes, the user should understand these are permanent consequences of this choice — they are not bugs to be fixed later:
 
-Correct Helius Enhanced API base is `https://api.helius.xyz/v0/...`. Devnet is selected via query param:
-```
-https://api.helius.xyz/v0/addresses/{addr}/transactions?api-key=KEY
-https://api.helius.xyz/v0/transactions?api-key=KEY
-```
-(Note: Helius Enhanced API has limited devnet coverage — parsed history may be sparse on devnet, but the endpoint at least responds instead of DNS‑failing.)
+- **New required wallet.** Every user who uploads anything (profile pic, NFT, chat message, sticker, shop item) must install **ArConnect** and fund it with AR tokens. Phantom alone is no longer enough.
+- **Users must buy AR.** No free tier. No devnet. Even a 1-byte test upload costs real AR. Users will need an exchange that lists AR (Binance, KuCoin, MEXC, Gate) — *not* available on Coinbase or most US-friendly exchanges.
+- **Candy Machine deploys become 2-step + slow.** Native Arweave needs ~2–20 min to make a URI retrievable. The current "upload → create CM" sequence will be split into "upload" → wait for confirmations → "create CM". Failed waits will require manual resume.
+- **Metaplex Umi tooling loses its uploader.** `@metaplex-foundation/umi-uploader-irys` is removed; we write a thin custom uploader that wraps `arweave-js`. This is unsupported territory — Metaplex docs/examples won't apply.
+- **Chat, profile sigs, and tiny writes become expensive.** Today these are sub-cent on Irys. Native Arweave has a per-tx minimum that makes high-frequency small writes uneconomical for end users. **Decentralized chat in particular may have to be disabled or moved off-Arweave.**
+- **Mobile = mostly broken.** ArConnect is desktop-extension only. Mobile users cannot upload until a WalletConnect-compatible Arweave wallet (e.g. Wander mobile) is wired in, which is out of scope.
 
-### 3. Reown AppKit — ⚠️ configured but using a demo/shared projectId
-`src/providers/WalletProvider.tsx`:
-- `projectId` falls back to a hardcoded value `b56e18d47c72ab683b10814fe9495694` when `VITE_REOWN_PROJECT_ID` is not set. If that's not your own Reown Cloud project, your modal will work but analytics/relay quota belongs to someone else and can be revoked at any time.
-- Networks `[solana, solanaTestnet, solanaDevnet]` — correct.
-- `SolanaAdapter()` from `@reown/appkit-adapter-solana/react` — correct.
-- Metadata + icon — generic GitHub avatar (180229932). Should be your LilyPad logo + your domain.
+If any of these are dealbreakers, stop and pick a different option.
 
-## Proposed Changes
+## Architecture
 
-### A. Fix Helius Enhanced API host (`src/config/solana.ts`)
-```ts
-const HELIUS_API_BASE = 'https://api.helius.xyz';
-export const HELIUS_DEVNET_URL =
-  `${HELIUS_API_BASE}/v0/transactions?api-key=${HELIUS_API_KEY}`;
-export const HELIUS_ADDRESS_HISTORY_URL = (address: string) =>
-  `${HELIUS_API_BASE}/v0/addresses/${address}/transactions?api-key=${HELIUS_API_KEY}`;
+```text
+        ┌────────────────────────┐
+        │  ArConnect (window.    │
+User →  │  arweaveWallet) holds  │
+        │  AR + signs tx         │
+        └───────────┬────────────┘
+                    │ sign(tx)
+                    ▼
+        ┌────────────────────────┐
+        │ src/integrations/      │
+        │ arweave/nativeClient   │  ← new, replaces irys/client.ts
+        │ (arweave-js)           │
+        └───────────┬────────────┘
+                    │ POST tx
+                    ▼
+        ┌────────────────────────┐
+        │ arweave.net gateway    │
+        └────────────────────────┘
 ```
 
-### B. Move Helius key to env
-- Read from `import.meta.env.VITE_HELIUS_API_KEY` with the current value as a dev‑only fallback.
-- Document `VITE_HELIUS_API_KEY` (devnet + mainnet) in README.
-- For production/server use, prefer routing parsed‑tx calls through the `rpc-proxy` edge function so the key is never shipped to the browser.
+No edge function involvement for uploads. Everything client-side, user-signed, user-paid.
 
-### C. Reown hardening (`src/providers/WalletProvider.tsx`)
-- Require `VITE_REOWN_PROJECT_ID`; if missing, log a clear warning and disable the modal instead of falling back to an unknown projectId.
-- Update `metadata.name`/`description`/`icons` to LilyPad branding and `url` to `https://thelilypad.lovable.app` (kept dynamic in preview is fine).
-- Keep `[solana, solanaTestnet, solanaDevnet]` as is.
+## Scope
 
-### D. Verification
-- Reload `/auth`, open the Reown modal, connect Phantom on Devnet.
-- Confirm `useHeliusTransactions` now returns 200 from `api.helius.xyz` in the network tab (empty array is fine on devnet; the previous DNS error should be gone).
-- Confirm RPC health indicator shows `devnet.helius-rpc.com` green.
+All Irys call sites get replaced. Based on grep, that's ~25 files:
+
+- Core integration: `src/integrations/irys/client.ts` (1,973 lines), `src/integrations/irys/graphql.ts`
+- Solana flows: `src/chains/solana/{client,metadata,bundleDeploy,cartCheckout}.ts`, `src/config/solana.ts`, `src/config/launchpad/solana.ts`
+- Hooks: `useSolanaLaunch`, `useShopMint`, `useDecentralizedChat`
+- Pages/components: `LaunchpadCreate`, `EditProfile`, `CollectionEditForm`, `ContractDeployModal`, `CreateOneOfOneModal`, `DeploymentDebugPanel`
+- Monad: `src/chains/monad/metadata.ts`
+- Misc: `src/lib/{payloadMapper,deployDebug,ipfs}.ts`
+
+## Phases
+
+### Phase 1 — New native Arweave client
+- Create `src/integrations/arweave/nativeClient.ts` exporting the same surface the rest of the app uses today from `irys/client.ts`:
+  - `uploadFile(file, tags)`, `uploadJson(obj, tags)`, `uploadBatch(items)`, `getPrice(bytes)`, `getBalance()`, `fund(amount)`
+- Under the hood: `arweave-js`, signing via `window.arweaveWallet` (ArConnect API: `connect`, `getActiveAddress`, `sign`, `dispatch`).
+- Add a `useArweaveWallet()` hook that detects ArConnect, prompts install if missing (link to chrome store / wander.app), and exposes connect/disconnect/balance.
+- Replace the existing `arweave/{profileClient,messagingClient,indexClient}.ts` internals to use the new native client.
+
+### Phase 2 — Custom Metaplex Umi uploader
+- Write `src/chains/solana/umiArweaveUploader.ts` implementing the Umi `UploaderInterface` (`upload`, `uploadJson`, `getUploadPrice`) backed by the native client.
+- Replace `umi.use(irysUploader(...))` with `umi.use(arweaveUploader(...))` in `src/chains/solana/client.ts`.
+- Update the Candy Machine deploy sequence (`bundleDeploy.ts`, `useSolanaLaunch.ts`) to:
+  1. Upload all assets + metadata via Arweave.
+  2. Poll each returned tx ID against `arweave.net/tx/<id>/status` until confirmed (status 200, >0 confirmations).
+  3. Only then create the Candy Machine.
+- Persist `arweave_tx_ids` on the collection draft so a stalled deploy can resume without re-paying.
+
+### Phase 3 — Call-site swaps
+- Mechanically replace every `import … from '@/integrations/irys/client'` with the new native client.
+- Update `EditProfile`, `CollectionEditForm`, `ContractDeployModal`, `CreateOneOfOneModal`, shop mint, raffles cart checkout, art generator, sticker manager.
+- Remove the `Irys Solana Shim` (Phantom `sendTransaction` mapping) — no longer relevant.
+- Keep the debug panel; rename "Irys" labels to "Arweave".
+
+### Phase 4 — Decentralized chat decision
+- `useDecentralizedChat` posts one Arweave tx per message. Economically dead under native Arweave.
+- Options (we pick one before shipping):
+  - Disable the feature and remove the UI entry point.
+  - Switch chat-only storage to Supabase Realtime (still works, just not on-chain).
+- Default: disable, with a feature flag so it can be re-enabled if a cheap path returns.
+
+### Phase 5 — Remove Irys
+- Delete `src/integrations/irys/`.
+- `bun remove @irys/sdk @irys/web-upload @irys/web-upload-solana @metaplex-foundation/umi-uploader-irys` (whichever are present).
+- Remove Irys URLs from `src/config/solana.ts` and any allowlists.
+- Update `mem://infrastructure/irys-solana-provider-compatibility` (delete) and other Irys-referencing memory notes to point at the new client.
+
+### Phase 6 — UX hardening
+- ArConnect detection banner ("Install ArConnect to upload"). Link to https://www.wander.app/.
+- AR balance display + warning when balance is below the cost of the pending upload.
+- Confirmation-wait UI for Candy Machine deploys ("Waiting for Arweave network to confirm metadata — this can take 2–20 minutes"). Include resume on reload.
+- Network errors now say "Arweave gateway unreachable" instead of generic "Network Error".
 
 ## Out of scope
-No changes to wallet connect flow, RLS, or edge functions beyond the env‑var wiring.
+
+- Mobile Arweave wallet support.
+- Server-side fallback if ArConnect is missing (would require a platform JWK, which contradicts the chosen direction).
+- Migrating already-uploaded Irys assets — existing URIs continue to resolve from arweave.net unchanged.
+- Monad path: `src/chains/monad/metadata.ts` only uses Irys for one optional metadata hop; it gets the same swap but no contract changes.
+
+## Risks
+
+- ArConnect adoption rate is low → upload conversion will drop sharply on day 1.
+- AR price volatility → users will sometimes see "insufficient AR" mid-deploy. Mitigation: pre-flight balance check.
+- Candy Machine creation timing out while waiting for Arweave confirmations → idempotent resume is required, not optional.
+- No Metaplex support if the custom Umi uploader breaks against a future `@metaplex-foundation/umi` release.
+
+## Deliverables
+
+- New `arweave/nativeClient.ts` + `useArweaveWallet` hook.
+- Custom Umi Arweave uploader.
+- All 25 call sites migrated.
+- Decentralized chat disabled (or moved off-chain).
+- Irys SDK and integration folder removed.
+- Updated memory notes.
+- New banners/UX for ArConnect install, AR balance, and confirmation waits.
+
