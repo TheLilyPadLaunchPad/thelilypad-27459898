@@ -44,8 +44,6 @@ Deno.serve(async (req) => {
       throw new Error(`Treasury private key not configured for network: ${network}`);
     }
 
-    // Parse the payload
-    const payload = await req.json();
     const { 
       collectionId, 
       name, 
@@ -56,7 +54,6 @@ Deno.serve(async (req) => {
       phases,
       baseUri,
       royaltyPercent = 5,
-      network = 'devnet'
     } = payload;
 
     if (!collectionId || !creatorAddress) {
