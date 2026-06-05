@@ -2,7 +2,7 @@ import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplCore } from '@metaplex-foundation/mpl-core';
 import { mplCandyMachine as mplCoreCandyMachinePlugin } from '@metaplex-foundation/mpl-core-candy-machine';
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
-import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
+import { arweaveUploader } from '@/integrations/arweave/umiArweaveUploader';
 // Helius Configuration
 // Prefer env var; fall back to legacy hardcoded dev key so existing previews keep working.
 // In production, set VITE_HELIUS_API_KEY (devnet) and VITE_HELIUS_MAINNET_API_KEY (mainnet).
