@@ -568,7 +568,7 @@ export async function uploadToArweave(
     // When Turbo is the active provider, bypass all Irys-specific init,
     // price/balance, and funding logic — Turbo handles this per-upload via
     // OnDemandFunding (pays directly from the user's Solana wallet).
-    if (USE_TURBO) {
+    if (shouldUseTurbo()) {
         const tags = [
             { name: "Content-Type", value: file.type || "application/octet-stream" },
             { name: "application-id", value: "The Lily Pad" },
@@ -1088,7 +1088,7 @@ export async function uploadBatchToArweave(
 
     // Only initialise the Irys client when we're actually going to use it.
     // Under Turbo, all uploads bypass Irys entirely.
-    const irys: any = USE_TURBO ? null : await getWebIrys(wallet, solanaProvider);
+    const irys: any = shouldUseTurbo() ? null : await getWebIrys(wallet, solanaProvider);
 
     // ── Phase 1: Pipelined Execution ─────────────────────────────────────
     const results: BatchUploadResult[] = new Array(items.length);
@@ -1106,7 +1106,7 @@ export async function uploadBatchToArweave(
         return sum + origSize + thumbSize + previewSize + 4096;
     }, 0);
 
-    if (!USE_TURBO && !skipFunding && totalEstimatedBytes > 0) {
+    if (!shouldUseTurbo() && !skipFunding && totalEstimatedBytes > 0) {
         onProgress?.(previousResults.length, items.length, "Estimating storage cost…");
         const price = await irys.getPrice(totalEstimatedBytes);
         const balance = await irys.getLoadedBalance();
@@ -1253,7 +1253,7 @@ export async function uploadBatchToArweave(
     // Manifest generation is Irys-specific (uses `irys.uploader.generateFolder`).
     // Callers consume individual item URIs as primary output; manifest is a
     // fallback. Safe to skip entirely under Turbo.
-    if (!USE_TURBO && finalResults.length > 0) {
+    if (!shouldUseTurbo() && finalResults.length > 0) {
         try {
             onProgress?.(finalResults.length, items.length, "Creating onchain folder manifest…");
             const map = new Map<string, string>();
@@ -1376,7 +1376,7 @@ export async function preFundIrysForBatch(
 ) {
     // When Turbo is active, pre-fund credits in a SINGLE wallet signature.
     // This replaces the old no-op that caused 130+ signMessage popups.
-    if (USE_TURBO) {
+    if (shouldUseTurbo()) {
         options?.onStatus?.('Pre-funding Turbo credits for entire batch (1 wallet signature)...');
         await preFundTurboForBatch(
             assets as (File | Blob | { size: number })[],
