@@ -3,17 +3,25 @@ import { mplCore } from '@metaplex-foundation/mpl-core';
 import { mplCandyMachine as mplCoreCandyMachinePlugin } from '@metaplex-foundation/mpl-core-candy-machine';
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import { irysUploader } from '@metaplex-foundation/umi-uploader-irys';
+// Helius Configuration
+// Prefer env var; fall back to legacy hardcoded dev key so existing previews keep working.
+// In production, set VITE_HELIUS_API_KEY (devnet) and VITE_HELIUS_MAINNET_API_KEY (mainnet).
+export const HELIUS_API_KEY =
+    (import.meta.env.VITE_HELIUS_API_KEY as string | undefined) ||
+    "0c6d7147-2cfe-4a0f-9a19-4dc723608121";
+
 // Solana RPC endpoints
 export const DEVNET_RPC_LIST = [
-    "https://devnet.helius-rpc.com/?api-key=0c6d7147-2cfe-4a0f-9a19-4dc723608121",
+    `https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`,
     "https://api.devnet.solana.com",
 ];
 
-// Helius Configuration
-export const HELIUS_API_KEY = "0c6d7147-2cfe-4a0f-9a19-4dc723608121";
-export const HELIUS_DEVNET_URL = `https://api-devnet.helius-rpc.com/v0/transactions/?api-key=${HELIUS_API_KEY}`;
+// Helius Enhanced API — correct host is api.helius.xyz (no devnet subdomain).
+const HELIUS_ENHANCED_BASE = "https://api.helius.xyz";
+export const HELIUS_DEVNET_URL = `${HELIUS_ENHANCED_BASE}/v0/transactions?api-key=${HELIUS_API_KEY}`;
 export const HELIUS_ADDRESS_HISTORY_URL = (address: string) =>
-    `https://api-devnet.helius-rpc.com/v0/addresses/${address}/transactions/?api-key=${HELIUS_API_KEY}`;
+    `${HELIUS_ENHANCED_BASE}/v0/addresses/${address}/transactions?api-key=${HELIUS_API_KEY}`;
+
 // Mainnet Helius key — set VITE_HELIUS_MAINNET_API_KEY in .env for premium mainnet RPC.
 export const HELIUS_MAINNET_API_KEY = import.meta.env.VITE_HELIUS_MAINNET_API_KEY as string | undefined;
 export const HELIUS_MAINNET_URL = HELIUS_MAINNET_API_KEY
