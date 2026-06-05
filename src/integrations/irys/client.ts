@@ -7,12 +7,34 @@ import { uploadBytesViaTurbo, preFundTurboForBatch } from "@/integrations/turbo/
 
 /**
  * Arweave uploader provider selector.
- * Defaults to "turbo" because the Irys node has had availability issues and
- * Turbo (ArDrive) bills the same user Solana wallet via OnDemandFunding.
- * Override with `VITE_ARWEAVE_UPLOADER=irys` to force the legacy Irys path.
+ *
+ * Turbo (ArDrive) only accepts MAINNET SOL for OnDemandFunding payments — it
+ * cannot verify devnet SOL transactions and fails with
+ * "Failed to submit fund transaction". So on devnet we MUST use the Irys
+ * devnet node (which accepts devnet SOL and offers free uploads under 100KB).
+ *
+ * Default behaviour:
+ *   • mainnet → Turbo (more reliable, better availability)
+ *   • devnet  → Irys (only path that works with devnet SOL)
+ *
+ * Override with `VITE_ARWEAVE_UPLOADER=irys` to force Irys everywhere,
+ * or `VITE_ARWEAVE_UPLOADER=turbo` to force Turbo (will fail on devnet).
  */
-const USE_TURBO =
-    ((import.meta as any).env?.VITE_ARWEAVE_UPLOADER ?? "turbo") !== "irys";
+function currentSolanaNetwork(): string {
+    if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('solanaNetwork');
+        if (stored === 'mainnet' || stored === 'devnet') return stored;
+    }
+    return 'devnet';
+}
+
+function shouldUseTurbo(): boolean {
+    const override = (import.meta as any).env?.VITE_ARWEAVE_UPLOADER;
+    if (override === 'irys') return false;
+    if (override === 'turbo') return true;
+    // Auto: only use Turbo on mainnet (it can't accept devnet SOL payments)
+    return currentSolanaNetwork() === 'mainnet';
+}
 
 /**
  * Unified upload primitive. Routes bytes to either Turbo or the Irys node
@@ -28,10 +50,21 @@ async function uploadBytes(
     solanaProvider: any,
     prefunded = false,
 ): Promise<{ id: string; url: string }> {
-    if (USE_TURBO) {
-        const url = await uploadBytesViaTurbo(bytes, tags, solanaProvider, prefunded);
-        const id = url.split("/").pop() || "";
-        return { id, url };
+    if (shouldUseTurbo()) {
+        try {
+            const url = await uploadBytesViaTurbo(bytes, tags, solanaProvider, prefunded);
+            const id = url.split("/").pop() || "";
+            return { id, url };
+        } catch (err: any) {
+            // Turbo funding failures on devnet are unrecoverable — fall through
+            // to Irys. On mainnet we re-throw so callers see the real error.
+            const msg = String(err?.message || '');
+            const isFundingFailure = msg.includes('Failed to submit fund transaction')
+                || msg.includes('topUpWithTokens')
+                || msg.includes('OnDemandFunding');
+            if (!isFundingFailure || currentSolanaNetwork() === 'mainnet') throw err;
+            console.warn('[Arweave] Turbo funding failed, falling back to Irys node:', msg);
+        }
     }
     const res = await irys.upload(bytes as any, { tags });
     return { id: res.id, url: `https://arweave.net/${res.id}` };
@@ -535,7 +568,7 @@ export async function uploadToArweave(
     // When Turbo is the active provider, bypass all Irys-specific init,
     // price/balance, and funding logic — Turbo handles this per-upload via
     // OnDemandFunding (pays directly from the user's Solana wallet).
-    if (USE_TURBO) {
+    if (shouldUseTurbo()) {
         const tags = [
             { name: "Content-Type", value: file.type || "application/octet-stream" },
             { name: "application-id", value: "The Lily Pad" },
@@ -1055,7 +1088,7 @@ export async function uploadBatchToArweave(
 
     // Only initialise the Irys client when we're actually going to use it.
     // Under Turbo, all uploads bypass Irys entirely.
-    const irys: any = USE_TURBO ? null : await getWebIrys(wallet, solanaProvider);
+    const irys: any = shouldUseTurbo() ? null : await getWebIrys(wallet, solanaProvider);
 
     // ── Phase 1: Pipelined Execution ─────────────────────────────────────
     const results: BatchUploadResult[] = new Array(items.length);
@@ -1073,7 +1106,7 @@ export async function uploadBatchToArweave(
         return sum + origSize + thumbSize + previewSize + 4096;
     }, 0);
 
-    if (!USE_TURBO && !skipFunding && totalEstimatedBytes > 0) {
+    if (!shouldUseTurbo() && !skipFunding && totalEstimatedBytes > 0) {
         onProgress?.(previousResults.length, items.length, "Estimating storage cost…");
         const price = await irys.getPrice(totalEstimatedBytes);
         const balance = await irys.getLoadedBalance();
@@ -1220,7 +1253,7 @@ export async function uploadBatchToArweave(
     // Manifest generation is Irys-specific (uses `irys.uploader.generateFolder`).
     // Callers consume individual item URIs as primary output; manifest is a
     // fallback. Safe to skip entirely under Turbo.
-    if (!USE_TURBO && finalResults.length > 0) {
+    if (!shouldUseTurbo() && finalResults.length > 0) {
         try {
             onProgress?.(finalResults.length, items.length, "Creating onchain folder manifest…");
             const map = new Map<string, string>();
@@ -1343,7 +1376,7 @@ export async function preFundIrysForBatch(
 ) {
     // When Turbo is active, pre-fund credits in a SINGLE wallet signature.
     // This replaces the old no-op that caused 130+ signMessage popups.
-    if (USE_TURBO) {
+    if (shouldUseTurbo()) {
         options?.onStatus?.('Pre-funding Turbo credits for entire batch (1 wallet signature)...');
         await preFundTurboForBatch(
             assets as (File | Blob | { size: number })[],
