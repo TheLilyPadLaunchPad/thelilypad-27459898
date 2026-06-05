@@ -157,9 +157,11 @@ const Following = () => {
           return (a.display_name || "").localeCompare(b.display_name || "");
         case "recent":
           // Most recently followed first
-          const dateA = a.followed_at ? new Date(a.followed_at).getTime() : 0;
-          const dateB = b.followed_at ? new Date(b.followed_at).getTime() : 0;
-          return dateB - dateA;
+          {
+            const dateA = a.followed_at ? new Date(a.followed_at).getTime() : 0;
+            const dateB = b.followed_at ? new Date(b.followed_at).getTime() : 0;
+            return dateB - dateA;
+          }
         default:
           return 0;
       }

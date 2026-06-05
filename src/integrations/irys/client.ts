@@ -545,7 +545,9 @@ export function loadUploadProgress(collectionKey: string): SavedUploadProgress |
 export function clearUploadProgress(collectionKey: string) {
     try {
         localStorage.removeItem(PROGRESS_KEY_PREFIX + collectionKey);
-    } catch {}
+    } catch {
+        // Ignore localStorage errors
+    }
 }
 
 // ── Single-file upload ───────────────────────────────────────────────────

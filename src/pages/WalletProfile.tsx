@@ -162,8 +162,8 @@ export default function WalletProfile() {
     return [...new Set(nfts.map(nft => nft.contractAddress))].length;
   }, [nfts]);
 
-  const handleNetworkChange = (network: string) => {
-    setSelectedNetwork(network);
+  const handleNetworkChange = (selectedNetworkParam: string) => {
+    setSelectedNetwork(selectedNetworkParam);
     // Reset filters when network changes
     setNftSearchQuery("");
     setSelectedCollections([]);

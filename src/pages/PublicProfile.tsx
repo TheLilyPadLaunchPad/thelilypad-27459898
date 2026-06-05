@@ -29,6 +29,8 @@ export default function PublicProfile() {
   const { identifier } = useParams<{ identifier: string }>();
   const { profile, linkedWallets, loading, error } = usePublicProfile(identifier);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
+  const { walletAddress } = useAuth();
+  const navigate = useNavigate();
 
   // Gather all wallet addresses for NFT fetching
   const allAddresses = useMemo(() => {
@@ -45,8 +47,6 @@ export default function PublicProfile() {
     profile && !(profile as any).is_private ? primaryAddress : null,
     'solana-mainnet'
   );
-
-  const navigate = useNavigate();
 
   // Fetch active stream
   const { data: liveStream } = useQuery({
@@ -130,7 +130,6 @@ export default function PublicProfile() {
     );
   }
 
-  const { walletAddress } = useAuth();
   const isOwnProfile = walletAddress && profile && (profile.wallet_address === walletAddress);
   const isPrivate = (profile as any).is_private;
 

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast, toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { addDays } from "date-fns";
 import { useSEO } from "@/hooks/useSEO";
@@ -233,12 +233,12 @@ export default function Dashboard() {
         .eq("streamer_id", user.id);
 
       // Fetch total earnings
-      const { data: earningsData } = await supabase
+      const { data: userEarningsData } = await supabase
         .from("earnings")
         .select("amount")
         .eq("user_id", user.id);
 
-      const totalEarnings = earningsData?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const totalEarnings = userEarningsData?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
       // Fetch total views from streams
       const { data: streamsData } = await supabase

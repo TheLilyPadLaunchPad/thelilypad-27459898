@@ -700,28 +700,28 @@ export default function LaunchpadCreate() {
             const mentionsIrys = lower.includes("irys") || lower.includes("arweave") || lower.includes("turbo") || lower.includes("bundle") || lower.includes("upload");
             const mentionsRpc = lower.includes("rpc") || lower.includes("blockhash") || lower.includes("simulate") || lower.includes("send transaction") || lower.includes("429");
 
-            let description: string | undefined;
+            let errorDescription: string | undefined;
             if (isFetchErr && mentionsIrys && !mentionsRpc) {
                 errorMessage = "Arweave/Irys upload failed: the uploader endpoint is unreachable or rate-limited.";
-                description = "Tip: Retry in a moment. This is an asset-upload issue, not your Solana RPC.";
+                errorDescription = "Tip: Retry in a moment. This is an asset-upload issue, not your Solana RPC.";
             } else if (isFetchErr && mentionsRpc) {
                 errorMessage = "Network Connection Error: The Solana RPC is currently unstable or rate-limited.";
-                description = "Tip: Try switching to a different RPC (Helius) in the Wallet Connection settings (gear icon) for better stability on devnet.";
+                errorDescription = "Tip: Try switching to a different RPC (Helius) in the Wallet Connection settings (gear icon) for better stability on devnet.";
             } else if (isFetchErr) {
                 errorMessage = `Network request failed: ${errorMessage}`;
-                description = "A network call failed. Check your connection and retry.";
+                errorDescription = "A network call failed. Check your connection and retry.";
             }
 
             toast.error(errorMessage, {
                 id: 'deploy',
                 duration: 8000,
-                description,
+                description: errorDescription,
             });
 
             const isOffline = (supabase as any).isOffline;
             if (collectionId && !isOffline) {
                 await supabase.from("collections")
-                    .update({ status: 'failed', description: `Launch failed: ${errorMessage}. ` + (description || '') })
+                    .update({ status: 'failed', description: `Launch failed: ${errorMessage}. ` + (errorDescription || '') })
                     .eq('id', collectionId);
             }
         } finally {

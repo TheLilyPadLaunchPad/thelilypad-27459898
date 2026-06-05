@@ -253,22 +253,22 @@ const ClipViewer = () => {
           filter: `clip_id=eq.${clipId}`,
         },
         async (payload) => {
-          const newComment = payload.new as CommentData;
+          const insertedComment = payload.new as CommentData;
           
           // Fetch profile for new comment
           const { data: profile } = await supabase
             .from("streamer_profiles")
             .select("display_name, avatar_url")
-            .eq("user_id", newComment.user_id)
+            .eq("user_id", insertedComment.user_id)
             .maybeSingle();
 
           const commentWithProfile: CommentData = {
-            ...newComment,
+            ...insertedComment,
             profile: profile || undefined,
             replies: [],
           };
 
-          if (newComment.parent_id) {
+          if (insertedComment.parent_id) {
             // It's a reply - need to refetch to rebuild thread structure
             // For simplicity, we'll trigger a refetch
             refetchComments();

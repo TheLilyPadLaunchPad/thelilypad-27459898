@@ -23,7 +23,9 @@ export function getErrorMessage(error: unknown): string {
     } else if (typeof anyErr.getLogs === 'function') {
       try {
         logs = anyErr.getLogs();
-      } catch {}
+      } catch {
+        // Ignore getLogs errors
+      }
     }
 
     if (logs && logs.length > 0) {

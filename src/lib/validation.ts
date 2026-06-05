@@ -66,7 +66,8 @@ export function sanitizeInput(input: string): string {
     let cleaned = input.replace(/\0/g, '');
 
     // Remove control characters except newline and tab
-    cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    // eslint-disable-next-line no-control-regex
+    cleaned = cleaned.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
 
     // Trim whitespace
     cleaned = cleaned.trim();
