@@ -33,13 +33,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: corsHeaders });
     }
 
-    const treasuryKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+    // Parse payload early so we can pick the correct treasury key per network
+    const payload = await req.json();
+    const network = payload.network || 'devnet';
+
+    const treasuryKey = network === 'devnet'
+      ? (Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY") || Deno.env.get("TREASURY_PRIVATE_KEY"))
+      : Deno.env.get("TREASURY_PRIVATE_KEY");
     if (!treasuryKey) {
-      throw new Error("TREASURY_PRIVATE_KEY is not configured on the server");
+      throw new Error(`Treasury private key not configured for network: ${network}`);
     }
 
-    // Parse the payload
-    const payload = await req.json();
     const { 
       collectionId, 
       name, 
@@ -50,7 +54,6 @@ Deno.serve(async (req) => {
       phases,
       baseUri,
       royaltyPercent = 5,
-      network = 'devnet'
     } = payload;
 
     if (!collectionId || !creatorAddress) {
