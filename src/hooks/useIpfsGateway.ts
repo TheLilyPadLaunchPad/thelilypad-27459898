@@ -8,7 +8,7 @@ const PROBE_CID = 'bafkreic7m6mscf6t6ypsx2pdr36p53rkmphvxuxy7ulx6lqpxqpcsh577i';
 // `localStorage.lilypad_ipfs_probe_local = "1"`. Default is OFF because:
 //   • In hosted preview/prod there is no local node, so the probe always
 //     fails (visible aborted request, 1s startup penalty).
-//   • The previous fallback target (nftstorage.link) has been deprecated.
+//   • We do not rely on any external pinning service fallback.
 const PROBE_LOCAL = typeof window !== 'undefined' &&
     window.localStorage?.getItem('lilypad_ipfs_probe_local') === '1';
 

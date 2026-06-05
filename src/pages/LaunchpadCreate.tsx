@@ -40,7 +40,7 @@ import { useWallet } from "@/providers/WalletProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useSolanaLaunch, LaunchpadPhase } from "@/hooks/useSolanaLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
-import { pinCollectionToIPFS } from "@/lib/nftStorageService";
+
 import { useIpfs } from "@/providers/IpfsProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";

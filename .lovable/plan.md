@@ -1,42 +1,19 @@
+## Goal
+Remove all NFT.Storage integration code, since uploads run through Irys/Arweave (paid by creators).
 
+## Changes
 
-# Audit & Fix: Remove All Remaining XRPL/XRP References
+1. **Delete `src/integrations/nftstorage/client.ts`** — entire NFT.Storage SDK wrapper (contains the hardcoded API token).
+2. **Delete `src/lib/nftStorageService.ts`** — high-level pinning helpers (`pinCollectionToIPFS`, etc.) that wrap the client. The ZIP download helpers in this file are not imported anywhere, so the whole file is safe to remove.
+3. **Edit `src/pages/LaunchpadCreate.tsx`** — remove the now-dangling `import { pinCollectionToIPFS } from "@/lib/nftStorageService";` (line 43). No call sites use it.
+4. **Edit `src/lib/ipfs.ts`** — drop the `nftstorage.link` entry from the IPFS gateway list (line 110) so we no longer rely on their gateway.
+5. **Edit `src/hooks/useIpfsGateway.ts`** — remove the stale comment referencing nftstorage.link (line 11).
+6. **Update `@security-memory`** — note that the hardcoded NFT.Storage token finding is resolved by removal of the integration.
 
-The previous cleanup missed ~29 files that still reference XRPL/XRP. The build fails because Vite tries to bundle the deleted `xrpl` package. Here is the full list of surgical fixes needed.
+## Verification
+- Re-run `rg` for `nftstorage|NFTStorage` to confirm no references remain.
+- Build passes (no broken imports).
 
-## Critical Build Blocker
-
-**`vite.config.ts`** — Remove the `"vendor-xrpl": ["xrpl"]` chunk from `manualChunks`, and remove "XRPL" from the PWA description string.
-
-## TypeScript Errors (8 files)
-
-| File | Fix |
-|------|-----|
-| `src/components/BuyNFTModal.tsx` | Remove the `else if (chainId === 'xrpl')` branch (lines 85-93) and the `xrplTransfer` reference |
-| `src/components/TransactionHistory.tsx` | Remove `xrpl` from chainSymbol ternary (line 35) and explorerUrl (line 105) |
-| `src/components/collection-detail/CollectionMintCard.tsx` | Remove `fundXRPLTestnetWallet` usage, `isXRPL` variable, and the testnet XRP faucet button block |
-| `src/components/collection-detail/utils.ts` | Remove `xrpl` case from chain detection (line 59) |
-| `src/components/launchpad/ChainGuard.tsx` | Remove `if (chainType === "xrpl") return "xrpl"` line |
-| `src/components/launchpad/MintButton.tsx` | Remove `xrpl` from `isMintingSupported` and the `chain === 'xrpl'` early return |
-| `src/components/raffles/RaffleEntryModal.tsx` | Remove `chain === 'xrpl'` payment branch and explorer URL case |
-| `src/components/shop/BundlePurchaseModal.tsx` | Fix `'mainnet-beta'` comparison — use `'mainnet'` instead |
-
-## Additional Cleanup (non-error but stale references)
-
-| File | Fix |
-|------|-----|
-| `src/components/LiveBuybackStats.tsx` | Remove `'xrpl'` from chain prop type and switch case |
-| `src/components/PortfolioValueChart.tsx` | Remove XRP from comment |
-| `src/hooks/useCreatorCurrency.ts` | Remove `"XRP"` from `CurrencyType` and `CURRENCY_META` |
-| `src/hooks/useDraftCollection.ts` | Remove `xrplTaxon` and `xrplTransferFee` fields |
-| `src/pages/Launchpad.tsx` | Remove `easy-xrp` and `xrpl-generator` route handlers, update subtitle text |
-| `src/pages/BuybackProgram.tsx` | Remove any XRPL references |
-| `src/integrations/irys/client.ts` | Remove "XRPL" from comment |
-
-## Summary
-
-- **29 files** still have XRPL references
-- **8 files** cause TypeScript build errors
-- **1 file** (`vite.config.ts`) causes the fatal "Could not resolve entry module xrpl" error
-- All fixes are deletions of dead code branches — no new logic needed
-
+## Out of scope
+- Irys/Arweave upload logic is unchanged.
+- ZIP collection-download flow: not used anywhere, removed with `nftStorageService.ts`. If you want to keep that feature, say so and I'll preserve the download helpers in a new file without the IPFS pinning code.
