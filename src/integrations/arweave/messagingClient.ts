@@ -65,15 +65,15 @@ export async function getDecentralizedMessages(
 
         const fetchPromises = results.map(async (edge) => {
             try {
-                // We use the gateway URL to fetch the actual JSON content
-                const url = `https://gateway.irys.xyz/${edge.node.id}`;
+                // Fetch the actual JSON content from the Arweave gateway
+                const url = `https://arweave.net/${edge.node.id}`;
                 const response = await fetch(url);
                 if (!response.ok) return null;
                 const data = await response.json();
                 return {
                     ...data,
                     id: edge.node.id, // The Arweave TX ID acts as the unique message ID
-                    timestamp: data.timestamp || new Date(edge.node.timestamp).toISOString()
+                    timestamp: data.timestamp || new Date(edge.node.receipt.timestamp).toISOString()
                 } as DecentralizedMessage;
             } catch (e) {
                 return null;
