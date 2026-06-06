@@ -84,9 +84,20 @@ export async function createCoreCollection(
     umi: Umi,
     params: SolanaCollectionParams
 ): Promise<SolanaCollectionResult> {
-    const collectionSigner = generateSigner(umi);
-
-    console.log("=== CREATING CORE COLLECTION ===");
+    let collectionSigner: Signer;
+    if (params.collectionKeypairSecret) {
+        // Decode base58 → 64-byte secret key, rebuild a Umi KeypairSigner.
+        // Lazy-import bs58 so non-vanity flows stay tree-shake friendly.
+        const bs58 = (await import('bs58')).default;
+        const secret = bs58.decode(params.collectionKeypairSecret);
+        const kp = umi.eddsa.createKeypairFromSecretKey(secret);
+        const { createSignerFromKeypair } = await import('@metaplex-foundation/umi');
+        collectionSigner = createSignerFromKeypair(umi, kp);
+        console.log('=== CREATING CORE COLLECTION (vanity) ===');
+    } else {
+        collectionSigner = generateSigner(umi);
+        console.log('=== CREATING CORE COLLECTION ===');
+    }
     console.log("🎯 Collection:", collectionSigner.publicKey.toString());
 
     // Create memo instruction
