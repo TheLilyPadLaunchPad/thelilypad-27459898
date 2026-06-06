@@ -25,7 +25,7 @@ interface FeeCalculatorProps {
 
 type GasScenario = "low" | "average" | "high";
 
-const PLATFORM_FEE_PERCENT = 2.5;
+const PLATFORM_FEE_PERCENT = 2.0;
 const BASE_GAS_LIMIT = 150000;
 const PER_NFT_GAS = 50000;
 
