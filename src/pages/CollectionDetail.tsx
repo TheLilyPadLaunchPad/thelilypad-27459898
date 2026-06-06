@@ -11,6 +11,7 @@ import { RevealManager } from "@/components/launchpad/RevealManager";
 import { NFTGallery } from "@/components/NFTGallery";
 import { PhaseConfigManager } from "@/components/launchpad/PhaseConfigManager";
 import { CandyMachineManager } from "@/components/launchpad/CandyMachineManager";
+import { CloseAndReclaimCard } from "@/components/launchpad/CloseAndReclaimCard";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
 import { RevealHistory } from "@/components/RevealHistory";
@@ -261,6 +262,18 @@ export default function CollectionDetail() {
                   itemsAvailable={totalSupply}
                   isCreator={!!isCreator}
                   onRefresh={fetchCollection}
+                />
+                <CloseAndReclaimCard
+                  collectionId={collection.id}
+                  chain={collectionChain}
+                  candyMachineAddress={(collection as any).candy_machine_address}
+                  candyGuardAddress={(collection as any).candy_guard_address}
+                  minted={liveSupply}
+                  totalSupply={totalSupply}
+                  mintEndDate={(collection as any).mint_end_date}
+                  closedAt={(collection as any).closed_at}
+                  isCreator={!!isCreator}
+                  onClosed={fetchCollection}
                 />
               </>
             )}

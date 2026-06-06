@@ -25,7 +25,7 @@ import { isValidIPFSCID } from "@/config/nftFactory";
 import { supabase } from "@/integrations/supabase/client";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
-import { uploadMetadataToArweave } from "@/integrations/arweave/legacyClient";
+import { uploadCollectionMetadata, hasArweaveWallet } from "@/lib/metadataUpload";
 
 interface ContractDeployModalProps {
   open: boolean;
@@ -123,7 +123,6 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       if (chainId === 'solana') {
         toast.loading("Preparing collection metadata...", { id: 'deploying' });
 
-        // Upload minimal metadata to Arweave first
         const metadata = {
           name: collection.name,
           symbol: collection.symbol,
@@ -138,16 +137,29 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
           }
         };
 
-        const arweaveUri = await uploadMetadataToArweave(
-          metadata,
-          { address, chainType: 'solana', network }
-        );
+        let metadataUri = "";
+        try {
+          const uploaded = await uploadCollectionMetadata(metadata, {
+            collectionId: collection.id,
+          });
+          metadataUri = uploaded.url;
+          if (uploaded.provider === "supabase") {
+            toast.info(
+              "Uploaded metadata via Lily Pad storage (install Wander for permanent Arweave storage).",
+              { id: 'deploying-info', duration: 4000 },
+            );
+          }
+        } catch (uploadErr: any) {
+          throw new Error(
+            `Metadata upload failed: ${uploadErr?.message || "unknown error"}`,
+          );
+        }
 
         toast.loading("Deploying Metaplex Core Collection...", { id: 'deploying' });
         const result = await solanaLaunch.deploySolanaCollection({
           name: collection.name,
           symbol: collection.symbol,
-          uri: arweaveUri,
+          uri: metadataUri,
           sellerFeeBasisPoints: Math.round(collection.royalty_percent * 100),
           creators: [{ address: address || '', share: 100 }]
         });
@@ -176,9 +188,11 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       }
     } catch (error: any) {
       console.error("Deployment error:", error);
-      toast.error("Deployment failed", { 
-        description: error.message || "An unexpected error occurred during deployment",
-        id: 'deploying'
+      const rawMsg = error?.message || error?.toString?.() || "An unexpected error occurred during deployment";
+      toast.error("Deployment failed", {
+        description: rawMsg.length > 240 ? rawMsg.slice(0, 240) + "…" : rawMsg,
+        id: 'deploying',
+        duration: 8000,
       });
     } finally {
       setIsDeploying(false);
@@ -271,7 +285,27 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                       }
                     </p>
                     {chainId === 'solana' && (
-                      <MetaplexBadge variant="inline" />
+                      <>
+                        <div className="rounded-md border border-primary/20 bg-background/40 p-2 text-xs space-y-1">
+                          <p className="font-medium text-foreground">Deploy cost = Solana rent only</p>
+                          <p className="text-muted-foreground">
+                            You pay the network rent to create the Candy Machine accounts. Minters pay the mint price.
+                            After <span className="font-medium">sellout</span> or your <span className="font-medium">mint end date</span>,
+                            you can <span className="font-medium">close the Candy Machine</span> and reclaim the rent SOL.
+                          </p>
+                        </div>
+                        {!hasArweaveWallet() && (
+                          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] text-muted-foreground">
+                            No Arweave wallet detected — metadata will be stored on Lily Pad storage.
+                            Install <span className="font-medium">Wander</span> for permanent Arweave storage.
+                          </div>
+                        )}
+                        <div className="rounded-md border border-dashed border-border bg-muted/40 p-2 text-[11px] text-muted-foreground">
+                          <span className="font-medium text-foreground">Pay mint in L3AP</span> · coming soon —
+                          opts your collection into the buyback program and waives the launchpad deploy fee.
+                        </div>
+                        <MetaplexBadge variant="inline" />
+                      </>
                     )}
                   </div>
                 </div>
