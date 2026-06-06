@@ -164,16 +164,6 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
           creators: [{ address: address || '', share: 100 }]
         });
         contractAddress = result.address;
-
-        toast.loading("Deploying Metaplex Core Collection...", { id: 'deploying' });
-        const result = await solanaLaunch.deploySolanaCollection({
-          name: collection.name,
-          symbol: collection.symbol,
-          uri: arweaveUri,
-          sellerFeeBasisPoints: Math.round(collection.royalty_percent * 100),
-          creators: [{ address: address || '', share: 100 }]
-        });
-        contractAddress = result.address;
       } else if (chainId === 'monad') {
         toast.loading("Deploying Monad ERC-721 Collection...", { id: 'deploying' });
         const result = await monadLaunch.createCollection({
