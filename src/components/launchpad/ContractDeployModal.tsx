@@ -25,7 +25,7 @@ import { isValidIPFSCID } from "@/config/nftFactory";
 import { supabase } from "@/integrations/supabase/client";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
-import { uploadMetadataToArweave } from "@/integrations/arweave/legacyClient";
+import { uploadCollectionMetadata, hasArweaveWallet } from "@/lib/metadataUpload";
 
 interface ContractDeployModalProps {
   open: boolean;
