@@ -178,16 +178,17 @@ Deno.serve(async (req) => {
       collection_mint_address: collectionSigner.publicKey,
     }).eq("id", collectionId);
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return jsonResponse({
+      success: true,
       collectionAddress: collectionSigner.publicKey,
       candyMachineAddress: candyMachineAddress || null,
       candyGuardAddress: candyGuardAddress || null,
-      signature: bs58.encode(signature)
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      signature: bs58.encode(signature),
+    });
 
   } catch (error: any) {
     console.error("Backend deployment error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return jsonResponse({ error: error?.message || "Unknown error" }, 500);
   }
+
 });
