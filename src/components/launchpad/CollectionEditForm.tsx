@@ -53,7 +53,7 @@ import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { GenerationPreview } from "./GenerationPreview";
 import { ArtworkUploader, ArtworkItem } from "./ArtworkUploader";
-import { uploadToArweave } from "@/integrations/irys/client";
+import { uploadToArweave } from "@/integrations/arweave/legacyClient";
 import { useWallet } from "@/providers/WalletProvider";
 
 interface Phase {

@@ -55,7 +55,7 @@ import { cn, dataUrlToBlob } from "@/lib/utils";
 import { bundleAssetsAsZip, GeneratedNFT } from "@/lib/assetBundler";
 import { getDbChainValue } from "@/config/chains";
 import { getLaunchpadConfig, CollectionMode } from "@/config/launchpad";
-import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata, loadUploadProgress, clearUploadProgress, preFundIrysForBatch } from "@/integrations/irys/client";
+import { uploadToArweave, uploadMetadataToArweave, uploadBatchToArweave, BatchUploadItem, mutateNFTMetadata, loadUploadProgress, clearUploadProgress, preFundIrysForBatch } from "@/integrations/arweave/legacyClient";
 import { getErrorMessage } from "@/lib/errorUtils";
 import { Progress } from "@/components/ui/progress";
 import { LaunchpadTools } from "@/components/launchpad/LaunchpadTools";

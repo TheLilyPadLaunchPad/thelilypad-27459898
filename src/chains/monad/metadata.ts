@@ -5,7 +5,7 @@
  * Arweave storage. No more mocks — all uploads go through the real pipeline.
  */
 
-import { uploadToArweave, uploadMetadataToArweave } from '@/integrations/irys/client';
+import { uploadToArweave, uploadMetadataToArweave } from '@/integrations/arweave/legacyClient';
 
 export interface ERC721Attribute {
     trait_type: string;
