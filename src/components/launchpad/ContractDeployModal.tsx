@@ -285,7 +285,27 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                       }
                     </p>
                     {chainId === 'solana' && (
-                      <MetaplexBadge variant="inline" />
+                      <>
+                        <div className="rounded-md border border-primary/20 bg-background/40 p-2 text-xs space-y-1">
+                          <p className="font-medium text-foreground">Deploy cost = Solana rent only</p>
+                          <p className="text-muted-foreground">
+                            You pay the network rent to create the Candy Machine accounts. Minters pay the mint price.
+                            After <span className="font-medium">sellout</span> or your <span className="font-medium">mint end date</span>,
+                            you can <span className="font-medium">close the Candy Machine</span> and reclaim the rent SOL.
+                          </p>
+                        </div>
+                        {!hasArweaveWallet() && (
+                          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] text-muted-foreground">
+                            No Arweave wallet detected — metadata will be stored on Lily Pad storage.
+                            Install <span className="font-medium">Wander</span> for permanent Arweave storage.
+                          </div>
+                        )}
+                        <div className="rounded-md border border-dashed border-border bg-muted/40 p-2 text-[11px] text-muted-foreground">
+                          <span className="font-medium text-foreground">Pay mint in L3AP</span> · coming soon —
+                          opts your collection into the buyback program and waives the launchpad deploy fee.
+                        </div>
+                        <MetaplexBadge variant="inline" />
+                      </>
                     )}
                   </div>
                 </div>
