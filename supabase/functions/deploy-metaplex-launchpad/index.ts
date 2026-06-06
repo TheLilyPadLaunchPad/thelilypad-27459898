@@ -3,7 +3,7 @@ import { createUmi } from "https://esm.sh/@metaplex-foundation/umi-bundle-defaul
 import { keypairIdentity, publicKey, some, none, dateTime, sol } from "https://esm.sh/@metaplex-foundation/umi@0.9.2";
 import { createCollection, ruleSet } from "https://esm.sh/@metaplex-foundation/mpl-core@1.1.1";
 import { createCandyMachine, createCandyGuard, wrap, findCandyGuardPda } from "https://esm.sh/@metaplex-foundation/mpl-core-candy-machine@0.3.0";
-import { setComputeUnitLimit, setComputeUnitPrice } from "https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4";
+// compute budget plugins removed — they are tx builders, not umi plugins
 import bs58 from "https://esm.sh/bs58@6.0.0";
 
 
@@ -92,8 +92,8 @@ Deno.serve(async (req) => {
 
     // Initialize Umi with the backend payer
     const rpcUrl = network === 'mainnet' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com';
-    const umi = createUmi(rpcUrl).use(setComputeUnitLimit({ units: 800_000 })).use(setComputeUnitPrice({ microLamports: 100_000 }));
-    
+    const umi = createUmi(rpcUrl);
+
     const secretKey = bs58.decode(treasuryKey);
     const keypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
     umi.use(keypairIdentity(keypair));
