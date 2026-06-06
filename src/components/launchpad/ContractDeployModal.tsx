@@ -188,9 +188,11 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       }
     } catch (error: any) {
       console.error("Deployment error:", error);
-      toast.error("Deployment failed", { 
-        description: error.message || "An unexpected error occurred during deployment",
-        id: 'deploying'
+      const rawMsg = error?.message || error?.toString?.() || "An unexpected error occurred during deployment";
+      toast.error("Deployment failed", {
+        description: rawMsg.length > 240 ? rawMsg.slice(0, 240) + "…" : rawMsg,
+        id: 'deploying',
+        duration: 8000,
       });
     } finally {
       setIsDeploying(false);
