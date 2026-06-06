@@ -266,11 +266,16 @@ export default function CollectionDetail() {
                   candyMachineAddress={(collection as any).candy_machine_address || collection.contract_address}
                   candyGuardAddress={(collection as any).candy_guard_address || undefined}
                   collectionAddress={(collection as any).collection_mint_address || collection.contract_address}
+                  collectionId={collection.id}
+                  collectionName={collection.name}
+                  artworks={Array.isArray((collection as any).artworks_metadata) ? (collection as any).artworks_metadata : null}
+                  itemsLoaded={Number((collection as any).items_loaded ?? 0)}
                   manifestRoot={(collection as any).manifest_root || undefined}
                   itemsAvailable={totalSupply}
                   isCreator={!!isCreator}
                   onRefresh={fetchCollection}
                 />
+
                 <CloseAndReclaimCard
                   collectionId={collection.id}
                   chain={collectionChain}
