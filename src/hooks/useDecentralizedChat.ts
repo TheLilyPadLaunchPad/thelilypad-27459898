@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@/providers/WalletProvider';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { DECENTRALIZED_CHAT_ENABLED } from '@/config/featureFlags';
 import {
     getDecentralizedMessages,
     sendDecentralizedMessage,
@@ -33,8 +34,12 @@ export const useDecentralizedChat = (contextId: string) => {
                     .order('created_at', { ascending: true })
                     .limit(50);
 
-                // Fetch from Arweave (Decentralized Archive)
-                const arweaveMsgs = await getDecentralizedMessages(contextId, 50);
+                // Fetch from Arweave (Decentralized Archive) — gated by feature flag.
+                // Under native Arweave, per-message L1 txs are uneconomical, so the
+                // on-chain archive is disabled by default. Supabase remains the source of truth.
+                const arweaveMsgs = DECENTRALIZED_CHAT_ENABLED
+                    ? await getDecentralizedMessages(contextId, 50)
+                    : [];
 
                 // Merge and deduplicate
                 // Note: We use message content + timestamp as a proxy for deduplication 
@@ -156,18 +161,19 @@ export const useDecentralizedChat = (contextId: string) => {
                 setMessages(prev => prev.map(m => m.id === tempId ? { ...newMsg, id: sbData.id, is_syncing: false } : m));
             }
 
-            // B. Send to Arweave (Background Persistence)
-            // Note: This requires a second signature if not using a pre-funded bundler
-            // but Irys allows anonymous-ish or session-based bundler sponsorship if configured.
-            // For now, we sign with the wallet.
-            await sendDecentralizedMessage({
-                context_id: contextId,
-                sender_address: address,
-                sender_name: displayName,
-                content,
-                message_type: type as any,
-                ...stickerMeta
-            }, { address, network });
+            // B. Send to Arweave (Background Persistence) — gated.
+            // Native Arweave requires a wallet signature + AR payment per message,
+            // so this is disabled unless the feature flag is explicitly enabled.
+            if (DECENTRALIZED_CHAT_ENABLED) {
+                await sendDecentralizedMessage({
+                    context_id: contextId,
+                    sender_address: address,
+                    sender_name: displayName,
+                    content,
+                    message_type: type as any,
+                    ...stickerMeta
+                }, { address, network });
+            }
 
         } catch (e) {
             console.warn("Message delivery failed:", e);
