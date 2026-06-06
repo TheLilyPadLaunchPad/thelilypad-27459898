@@ -26,6 +26,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { uploadCollectionMetadata, hasArweaveWallet } from "@/lib/metadataUpload";
+import { runGrinderInWorker } from "@/lib/vanity/runGrinder";
+
+const VANITY_BRAND = "L3AP";
+const VANITY_TIMEOUT_MS = 60_000;
 
 interface ContractDeployModalProps {
   open: boolean;
@@ -56,6 +60,9 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
   const [ipfsCID, setIpfsCID] = React.useState("");
   const [isSavingCID, setIsSavingCID] = React.useState(false);
   const [isDeploying, setIsDeploying] = React.useState(false);
+  const [vanityProgress, setVanityProgress] = React.useState<number | null>(null);
+  const vanityHandleRef = React.useRef<{ cancel: () => void } | null>(null);
+  const skipVanityRef = React.useRef(false);
 
   const solanaLaunch = useSolanaLaunch();
   const monadLaunch = useMonadLaunch();
@@ -155,15 +162,65 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
           );
         }
 
+        // Grind a vanity keypair so the collection address ends in "L3AP".
+        // Creators can hit "Skip" to fall back to a random address.
+        let collectionKeypairSecret: string | undefined;
+        let vanitySkipped = false;
+        skipVanityRef.current = false;
+        setVanityProgress(0);
+        toast.loading(`Branding collection address with …${VANITY_BRAND}`, { id: 'deploying' });
+        try {
+          const handle = runGrinderInWorker({
+            match: VANITY_BRAND,
+            position: 'suffix',
+            timeoutMs: VANITY_TIMEOUT_MS,
+            onProgress: (n) => {
+              if (skipVanityRef.current) return;
+              setVanityProgress(n);
+            },
+          });
+          vanityHandleRef.current = handle;
+          const result = await handle.promise;
+          collectionKeypairSecret = result.secretKey;
+          console.log(`Vanity ready in ${result.attempts.toLocaleString()} attempts: ${result.publicKey}`);
+        } catch (vErr: any) {
+          if (skipVanityRef.current || vErr?.timeout) {
+            vanitySkipped = true;
+            toast.info(
+              skipVanityRef.current ? 'Skipped vanity — using a random address.' : 'Vanity grind timed out — using a random address.',
+              { duration: 4000 },
+            );
+          } else {
+            throw vErr;
+          }
+        } finally {
+          vanityHandleRef.current = null;
+          setVanityProgress(null);
+        }
+
         toast.loading("Deploying Metaplex Core Collection...", { id: 'deploying' });
         const result = await solanaLaunch.deploySolanaCollection({
           name: collection.name,
           symbol: collection.symbol,
           uri: metadataUri,
           sellerFeeBasisPoints: Math.round(collection.royalty_percent * 100),
-          creators: [{ address: address || '', share: 100 }]
+          creators: [{ address: address || '', share: 100 }],
+          collectionKeypairSecret,
         });
         contractAddress = result.address;
+
+        // Persist vanity audit fields (best-effort, ignore errors).
+        try {
+          await supabase
+            .from('collections')
+            .update({
+              vanity_suffix: vanitySkipped ? null : VANITY_BRAND,
+              vanity_skipped: vanitySkipped,
+            } as any)
+            .eq('id', collection.id);
+        } catch (auditErr) {
+          console.warn('Vanity audit update failed (non-fatal):', auditErr);
+        }
       } else if (chainId === 'monad') {
         toast.loading("Deploying Monad ERC-721 Collection...", { id: 'deploying' });
         const result = await monadLaunch.createCollection({
