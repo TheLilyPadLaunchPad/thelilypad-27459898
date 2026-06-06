@@ -1,20 +1,33 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Loader2, Upload, AlertTriangle, FileJson, Trash2, Wand2 } from "lucide-react";
 import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { uploadCollectionMetadata } from '@/lib/metadataUpload';
 import { RevealCandyMachinePanel } from './RevealCandyMachinePanel';
+
+interface ArtworkMeta {
+    id?: string;
+    name?: string;
+    imageUrl?: string;
+    description?: string;
+}
 
 interface CandyMachineManagerProps {
     candyMachineAddress: string;
     candyGuardAddress?: string;
     collectionAddress?: string;
+    collectionId?: string;
+    collectionName?: string;
+    artworks?: ArtworkMeta[] | null;
+    itemsLoaded?: number;
     manifestRoot?: string;
     itemsAvailable?: number;
     isCreator: boolean;
@@ -25,6 +38,10 @@ export function CandyMachineManager({
     candyMachineAddress,
     candyGuardAddress,
     collectionAddress = '',
+    collectionId,
+    collectionName,
+    artworks,
+    itemsLoaded = 0,
     manifestRoot,
     itemsAvailable = 0,
     isCreator,
@@ -38,6 +55,11 @@ export function CandyMachineManager({
 
     const [itemsJson, setItemsJson] = useState("");
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isAutoSyncing, setIsAutoSyncing] = useState(false);
+    const [syncProgress, setSyncProgress] = useState<string | null>(null);
+
+    const missingItems = Math.max(0, itemsAvailable - itemsLoaded);
+    const canAutoSync = !!collectionId && Array.isArray(artworks) && artworks.length > 0;
 
     // Handler for inserting items (Stage 1 & 4 of Best Practices)
     const handleInsertItems = async () => {
@@ -59,12 +81,66 @@ export function CandyMachineManager({
             }
 
             await insertItemsToCandyMachine(candyMachineAddress, items);
+            await persistItemsLoaded(items.length);
             setItemsJson("");
             onRefresh();
         } catch (e) {
             toast.error("Failed to parse JSON.");
         }
     };
+
+    const persistItemsLoaded = async (count: number) => {
+        if (!collectionId) return;
+        try {
+            await supabase
+                .from('collections')
+                .update({ items_loaded: count })
+                .eq('id', collectionId);
+        } catch (e) {
+            console.warn('[CandyMachineManager] failed to persist items_loaded', e);
+        }
+    };
+
+    const handleAutoSync = async () => {
+        if (!canAutoSync || !artworks) return;
+        setIsAutoSyncing(true);
+        setSyncProgress(null);
+        try {
+            const items: { name: string; uri: string }[] = [];
+            for (let i = 0; i < artworks.length; i++) {
+                const a = artworks[i];
+                setSyncProgress(`Uploading metadata ${i + 1}/${artworks.length}…`);
+                const nftName = a.name || `${collectionName || 'Item'} #${i + 1}`;
+                const metadata = {
+                    name: nftName,
+                    description: a.description || '',
+                    image: a.imageUrl || '',
+                    attributes: [],
+                    properties: {
+                        files: a.imageUrl ? [{ uri: a.imageUrl, type: 'image/png' }] : [],
+                        category: 'image',
+                    },
+                };
+                const uploaded = await uploadCollectionMetadata(metadata, {
+                    collectionId,
+                    filename: `${collectionId}-item-${i}.json`,
+                });
+                items.push({ name: nftName, uri: uploaded.url });
+            }
+            setSyncProgress(`Inserting ${items.length} items on-chain…`);
+            await insertItemsToCandyMachine(candyMachineAddress, items);
+            await persistItemsLoaded(items.length);
+            toast.success(`Synced ${items.length} items to the Candy Machine.`);
+            onRefresh();
+        } catch (e: any) {
+            console.error('[CandyMachineManager] auto-sync failed', e);
+            toast.error(e?.message || 'Auto-sync failed');
+        } finally {
+            setIsAutoSyncing(false);
+            setSyncProgress(null);
+        }
+    };
+
 
     // Handler for deleting CM (Lifecycle Management)
     const handleDeleteCM = async () => {
@@ -97,11 +173,48 @@ export function CandyMachineManager({
                     </TabsList>
 
                     <TabsContent value="items" className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm">
+                                <span className="text-muted-foreground">Items loaded on-chain:</span>{' '}
+                                <Badge variant={itemsLoaded >= itemsAvailable && itemsAvailable > 0 ? 'default' : 'destructive'}>
+                                    {itemsLoaded} / {itemsAvailable}
+                                </Badge>
+                            </div>
+                            {missingItems > 0 && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-500/40">
+                                    {missingItems} missing
+                                </Badge>
+                            )}
+                        </div>
+
+                        {canAutoSync && missingItems > 0 && (
+                            <Alert>
+                                <Wand2 className="h-4 w-4" />
+                                <AlertTitle>Auto-sync from collection artworks</AlertTitle>
+                                <AlertDescription className="space-y-3">
+                                    <p className="text-xs">
+                                        Uploads per-NFT metadata for each of your {artworks!.length} artworks and writes them into the Candy Machine. Mints will be blocked until this completes.
+                                    </p>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleAutoSync}
+                                        disabled={isAutoSyncing || isLoading}
+                                    >
+                                        {isAutoSyncing ? (
+                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{syncProgress || 'Syncing…'}</>
+                                        ) : (
+                                            <><Wand2 className="mr-2 h-4 w-4" />Auto-sync {artworks!.length} items</>
+                                        )}
+                                    </Button>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+
                         <Alert>
                             <FileJson className="h-4 w-4" />
-                            <AlertTitle>JSON Format</AlertTitle>
+                            <AlertTitle>Manual insert (advanced)</AlertTitle>
                             <AlertDescription>
-                                <code>[{"{"} "name": "Item #1", "uri": "https://..." {"}"}, ...]</code>
+                                <code className="text-[11px]">[{"{"} "name": "Item #1", "uri": "https://..." {"}"}, ...]</code>
                             </AlertDescription>
                         </Alert>
                         <div className="space-y-2">
@@ -110,16 +223,17 @@ export function CandyMachineManager({
                                 placeholder='[{"name": "Item 1", "uri": "https://..."}]'
                                 value={itemsJson}
                                 onChange={(e) => setItemsJson(e.target.value)}
-                                rows={10}
+                                rows={8}
                                 className="font-mono text-xs"
                             />
                         </div>
-                        <Button onClick={handleInsertItems} disabled={isLoading || !itemsJson}>
+                        <Button onClick={handleInsertItems} disabled={isLoading || !itemsJson} variant="outline">
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             <Upload className="mr-2 h-4 w-4" />
                             Insert Items
                         </Button>
                     </TabsContent>
+
 
                     <TabsContent value="reveal" className="space-y-4">
                         <RevealCandyMachinePanel

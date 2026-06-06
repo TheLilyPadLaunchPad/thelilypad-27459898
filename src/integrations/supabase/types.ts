@@ -610,6 +610,7 @@ export type Database = {
           image_url: string | null
           ipfs_base_cid: string | null
           is_revealed: boolean
+          items_loaded: number
           layers_metadata: Json | null
           manifest_root: string | null
           media_type: string | null
@@ -653,6 +654,7 @@ export type Database = {
           image_url?: string | null
           ipfs_base_cid?: string | null
           is_revealed?: boolean
+          items_loaded?: number
           layers_metadata?: Json | null
           manifest_root?: string | null
           media_type?: string | null
@@ -696,6 +698,7 @@ export type Database = {
           image_url?: string | null
           ipfs_base_cid?: string | null
           is_revealed?: boolean
+          items_loaded?: number
           layers_metadata?: Json | null
           manifest_root?: string | null
           media_type?: string | null

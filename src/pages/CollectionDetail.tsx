@@ -179,6 +179,19 @@ export default function CollectionDetail() {
           </div>
         )}
 
+        {/* Empty Candy Machine warning (creator only) */}
+        {isCreator && (collection as any).candy_machine_address && totalSupply > 0 && Number((collection as any).items_loaded ?? 0) < totalSupply && (
+          <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+            <p className="font-semibold text-amber-700 dark:text-amber-400">
+              ⚠️ Candy Machine has {Number((collection as any).items_loaded ?? 0)} / {totalSupply} items loaded
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Your collection was deployed but the per-NFT items haven't been written on-chain yet. Mints will fail until items are loaded. Scroll down to <span className="font-medium">Candy Machine Manager → Insert Items → Auto-sync</span> to fix it in one click.
+            </p>
+          </div>
+        )}
+
+
         {/* Intro/Mint Prelaunch Section */}
         {collection && (
           <LaunchpadMintSection
@@ -266,11 +279,16 @@ export default function CollectionDetail() {
                   candyMachineAddress={(collection as any).candy_machine_address || collection.contract_address}
                   candyGuardAddress={(collection as any).candy_guard_address || undefined}
                   collectionAddress={(collection as any).collection_mint_address || collection.contract_address}
+                  collectionId={collection.id}
+                  collectionName={collection.name}
+                  artworks={Array.isArray((collection as any).artworks_metadata) ? (collection as any).artworks_metadata : null}
+                  itemsLoaded={Number((collection as any).items_loaded ?? 0)}
                   manifestRoot={(collection as any).manifest_root || undefined}
                   itemsAvailable={totalSupply}
                   isCreator={!!isCreator}
                   onRefresh={fetchCollection}
                 />
+
                 <CloseAndReclaimCard
                   collectionId={collection.id}
                   chain={collectionChain}
