@@ -1,57 +1,66 @@
-# Vanity Address Plan: L3AP Token + Collection Suffix
+# L3AP Token Mint — Wiring Plan
 
-Generate Solana keypairs whose base58 public keys carry the `L3AP` brand mark — at the **start** for the platform's L3AP SPL token mint, and at the **end** for every collection address minted through the launchpad.
+The vanity secret is already stored as `L3AP_MINT_SECRET_KEY`. This plan creates a one-shot admin-only edge function that consumes that secret to mint the L3AP SPL token on Solana, then updates the frontend config with the resulting mint address.
 
-## 1. Shared vanity grinder
+## 1. Edge function: `mint-l3ap-token`
 
-Create `src/lib/vanity/grindKeypair.ts` (browser-safe, uses `@solana/web3.js` `Keypair.generate()` in a loop) and a Node twin at `scripts/vanity/grind.ts` for offline grinding of the L3AP token mint.
+New file: `supabase/functions/mint-l3ap-token/index.ts`
 
-API:
-```ts
-grindKeypair({ match: 'L3AP', position: 'prefix' | 'suffix', caseSensitive?: boolean, timeoutMs?: number, onProgress?: (n) => void })
-  → { keypair, attempts, elapsedMs }
+- Admin-gated: validate caller JWT, then check `has_role(uid, 'admin')`. Reject otherwise.
+- Idempotency: read `public.platform_tokens` (new tiny table) for `symbol = 'L3AP'`. If a row with a `mint_address` exists, return it instead of re-minting.
+- Load `L3AP_MINT_SECRET_KEY` (base58), decode to a Solana `Keypair`, derive its public key, and assert the address starts with `L3AP`. If not, fail loudly.
+- Load `DEVNET_TREASURY_PRIVATE_KEY` as the fee payer + mint authority (matches existing convention used elsewhere in the project).
+- Build a Umi instance pointing at the current cluster (devnet by default; accept `?network=mainnet` query for the admin call), inject both signers.
+- Call `createFungible` from `@metaplex-foundation/mpl-token-metadata` with:
+  - `mint`: vanity keypair signer
+  - `name: "The Lily Pad Token"`, `symbol: "L3AP"`, `decimals: 6`, `sellerFeeBasisPoints: 0`
+  - `uri: ""` for now (metadata JSON can be added later)
+- Optionally mint an `initialSupply` (default 1_000_000_000) to the treasury wallet using `mintV1`.
+- On success, upsert into `platform_tokens` and return `{ mint, signature, network }`.
+
+CORS, Zod validation on the request body (`{ network?: 'devnet'|'mainnet', initialSupply?: number }`), structured error responses.
+
+## 2. Database: `platform_tokens` table (migration)
+
+```text
+platform_tokens
+  symbol         text primary key      -- 'L3AP', 'SOL', …
+  name           text
+  mint_address   text not null
+  decimals       int  not null
+  network        text not null          -- 'devnet' | 'mainnet'
+  created_at / updated_at
 ```
 
-Notes:
-- Base58 alphabet excludes `0`, `O`, `I`, `l`. `L3AP` is all valid ✅.
-- Expected attempts: ~58⁴ ≈ **11.3M** per match. Suffix grinding is the same cost as prefix.
-- Browser grind runs in a **Web Worker** (`src/lib/vanity/vanity.worker.ts`) so the UI stays responsive; report progress every 50k attempts.
-- Hard cap default 60s in-browser; surface a "Keep grinding / Use random address" choice if it times out.
+- `GRANT SELECT` to `anon, authenticated` (public read — addresses are public).
+- `GRANT ALL` to `service_role`.
+- RLS enabled; SELECT policy = `true`; no client write policies (edge function uses service role).
 
-## 2. L3AP token mint (one-time, prefix `L3AP…`)
+## 3. Admin UI trigger
 
-- Offline script `scripts/vanity/grind-l3ap-mint.ts` grinds a `L3AP`-prefixed keypair, prints pubkey + base58 secret, and writes nothing to disk by default.
-- Operator stores the secret in the `L3AP_MINT_SECRET_KEY` Supabase secret (runtime) and pastes the pubkey into `src/config/tokens.ts` replacing the current placeholder `L3APxxxx…`.
-- New edge function `mint-l3ap-token` consumes the secret once, calls `createSplToken` (already in `src/chains/solana/splToken.ts`) passing the vanity keypair as `mintSigner`, mints initial supply to the platform treasury, then the secret is rotated/deleted.
-- `tokens.ts` flips `isPlaceholder: false` once the real address is in place.
+Add a small card to `src/pages/admin/AdminDashboard.tsx`:
+- "Mint L3AP token" button → calls `supabase.functions.invoke('mint-l3ap-token', { body: { network } })`.
+- Network selector (devnet/mainnet).
+- Shows the returned mint address + tx signature, with copy buttons and a "Save to config/tokens.ts" reminder.
+- Disabled if `platform_tokens` already has an L3AP row for that network (with an override checkbox guarded behind a confirm dialog).
 
-## 3. Collection vanity suffix `…L3AP` at deploy time
+## 4. Config wiring
 
-Touch only the Solana deploy path; Monad is untouched.
+Update `src/config/tokens.ts`:
+- Remove the `isPlaceholder` flag once the address is filled in.
+- Add a small helper `getL3apMintAddress()` that first checks a cached value, otherwise falls back to a one-time fetch from `platform_tokens` (cached in memory + localStorage).
+- Keep the hard-coded `mintAddress` field as the canonical value the admin pastes in after the mint succeeds (so the bundle never depends on a network call to render).
 
-Frontend (`src/components/launchpad/ContractDeployModal.tsx`):
-- Before calling `deploy-metaplex-launchpad`, run the Web Worker grinder for a `suffix=L3AP` keypair.
-- Show a small progress UI ("Branding your collection address… 1.2M/11M tries") with a Skip button that falls back to a random address and records `vanity_skipped=true`.
-- On success, send `{ collectionKeypairSecret: base58 }` in the deploy payload.
+## 5. Out of scope (follow-ups)
 
-Edge function (`supabase/functions/deploy-metaplex-launchpad/index.ts`):
-- Accept optional `collectionKeypairSecret`. If present, build the collection signer via `umi.eddsa.createKeypairFromSecretKey(bs58.decode(secret))` instead of `generateKeypair()`. Validate the resulting pubkey actually ends in `L3AP` server-side; reject otherwise.
-- Existing CM/Guard signers stay random (no branding requirement).
+- L3AP-as-mint-currency option in the launchpad creation form.
+- Buyback tier engine (0.01% → 0.50% based on 5 milestone markers).
+- Metadata JSON upload to Arweave for the token (currently empty `uri`).
+- Rotating / deleting the `L3AP_MINT_SECRET_KEY` after a successful mainnet mint (manual step — surfaced as a UI reminder).
 
-Database: add `vanity_suffix text` and `vanity_skipped boolean default false` to `collections` so we can audit branded vs. non-branded launches.
+## Technical notes / risks
 
-## 4. UX surface
-
-- `src/pages/LaunchpadCreate.tsx` deploy step: short note "Your collection address will end in **L3AP** — our on-chain signature."
-- `CollectionDetail` header: when `contract_address` ends in `L3AP`, render a small "🪷 L3AP-verified address" badge.
-
-## Out of scope
-- Grinding longer brands (e.g. `L3APAD`) — exponentially more expensive.
-- GPU grinders / `solana-keygen grind` wrappers.
-- Vanity for Candy Machine / Candy Guard PDAs (PDAs aren't grindable the same way).
-- L3AP buyback tier engine (still deferred from previous turn).
-
-## Technical risks
-- **Secret handling**: the collection secret is generated client-side and POSTed once to the edge function for signing. It is never stored after the deploy tx is confirmed. Document this in the function header.
-- **Browser CPU**: ~11M base58 checks ≈ 10–40s on a modern laptop in a worker; mobile may need the Skip path.
-- **Determinism**: validate the suffix server-side so a malicious client can't smuggle in an unbranded keypair.
+- The Umi signer for the vanity mint must be created via `createSignerFromKeypair` from the decoded `Keypair`, not `generateSigner`, otherwise we lose the L3AP prefix.
+- `createFungible` requires the mint signer to sign the tx; the treasury keypair pays fees and becomes mint/freeze authority.
+- We pin the function to `verify_jwt = true` (default) and check the admin role server-side; never trust the client.
+- If `DEVNET_TREASURY_PRIVATE_KEY` is not funded on mainnet, the mainnet call will fail with "insufficient lamports" — surface that error verbatim to the admin UI.

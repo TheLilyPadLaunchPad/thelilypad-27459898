@@ -7,6 +7,7 @@ import { useAdminActions } from "@/hooks/useAdminActions";
 import { AuditLogEntry } from "@/admin/adminTypes";
 import { AdminGate } from "@/components/admin/AdminGate";
 import FrogLoader from "@/components/FrogLoader";
+import { MintL3apTokenCard } from "@/components/admin/MintL3apTokenCard";
 
 export default function AdminDashboard() {
     const [recentActions, setRecentActions] = useState<AuditLogEntry[]>([]);
@@ -72,6 +73,10 @@ export default function AdminDashboard() {
                             </p>
                         </CardContent>
                     </Card>
+                </div>
+
+                <div className="mt-8">
+                    <MintL3apTokenCard />
                 </div>
 
                 <Card className="mt-8">

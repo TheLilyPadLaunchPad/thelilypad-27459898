@@ -2226,6 +2226,39 @@ export type Database = {
           },
         ]
       }
+      platform_tokens: {
+        Row: {
+          created_at: string
+          decimals: number
+          mint_address: string
+          name: string
+          network: string
+          signature: string | null
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decimals?: number
+          mint_address: string
+          name: string
+          network: string
+          signature?: string | null
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decimals?: number
+          mint_address?: string
+          name?: string
+          network?: string
+          signature?: string | null
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       playlist_tracks: {
         Row: {
           added_at: string | null
