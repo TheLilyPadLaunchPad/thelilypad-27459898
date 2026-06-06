@@ -1,76 +1,57 @@
-## Goals
+# Vanity Address Plan: L3AP Token + Collection Suffix
 
-1. Fix the "Arweave/metadata upload fails" error blocking generated-collection deploys.
-2. Make the creator-funded model explicit: the creator pays **only Solana rent** for the Candy Machine / Core Collection accounts at deploy time. Minters pay the mint price. After **sellout or mint end date**, the creator can **close the Candy Machine** to reclaim the rent SOL (and any leftover prefunded lamports).
-3. Defer L3AP-token discount + buyback-tier benefits (separate follow-up). Add a stub note in code so we don't break the future wiring.
+Generate Solana keypairs whose base58 public keys carry the `L3AP` brand mark — at the **start** for the platform's L3AP SPL token mint, and at the **end** for every collection address minted through the launchpad.
 
----
+## 1. Shared vanity grinder
 
-## 1. Why deploy is failing
+Create `src/lib/vanity/grindKeypair.ts` (browser-safe, uses `@solana/web3.js` `Keypair.generate()` in a loop) and a Node twin at `scripts/vanity/grind.ts` for offline grinding of the L3AP token mint.
 
-`ContractDeployModal.handleDeploy` calls `uploadMetadataToArweave` from `src/integrations/arweave/legacyClient.ts`, which routes to `nativeClient.uploadBytes`. That requires `window.arweaveWallet` (ArConnect / Wander). When the creator only has Phantom installed, the upload throws before deploy ever starts — surfaced as the "fetch failed" error.
+API:
+```ts
+grindKeypair({ match: 'L3AP', position: 'prefix' | 'suffix', caseSensitive?: boolean, timeoutMs?: number, onProgress?: (n) => void })
+  → { keypair, attempts, elapsedMs }
+```
 
-Two-part fix:
+Notes:
+- Base58 alphabet excludes `0`, `O`, `I`, `l`. `L3AP` is all valid ✅.
+- Expected attempts: ~58⁴ ≈ **11.3M** per match. Suffix grinding is the same cost as prefix.
+- Browser grind runs in a **Web Worker** (`src/lib/vanity/vanity.worker.ts`) so the UI stays responsive; report progress every 50k attempts.
+- Hard cap default 60s in-browser; surface a "Keep grinding / Use random address" choice if it times out.
 
-- **Pre-check**: detect missing Arweave wallet before kicking off deploy. If absent, fall back to a **server-signed Arweave upload** via a new edge function `arweave-upload` that uses a project Arweave JWK (existing secret pattern). If the JWK secret isn't configured yet, fall back to **Supabase `collection-drafts` storage** + the existing IPFS pinning path for the metadata JSON, so deploy isn't blocked.
-- **Better errors**: wrap `uploadMetadataToArweave` in `ContractDeployModal` with try/catch that shows the actual upstream message (current `toast.error("Deployment failed")` swallows the Arweave failure).
+## 2. L3AP token mint (one-time, prefix `L3AP…`)
 
-Also confirms the recent edge-function fix (Umi `setComputeUnit*` removal) is in place — re-deploy `deploy-metaplex-launchpad` as part of this change to be safe.
+- Offline script `scripts/vanity/grind-l3ap-mint.ts` grinds a `L3AP`-prefixed keypair, prints pubkey + base58 secret, and writes nothing to disk by default.
+- Operator stores the secret in the `L3AP_MINT_SECRET_KEY` Supabase secret (runtime) and pastes the pubkey into `src/config/tokens.ts` replacing the current placeholder `L3APxxxx…`.
+- New edge function `mint-l3ap-token` consumes the secret once, calls `createSplToken` (already in `src/chains/solana/splToken.ts`) passing the vanity keypair as `mintSigner`, mints initial supply to the platform treasury, then the secret is rotated/deleted.
+- `tokens.ts` flips `isPlaceholder: false` once the real address is in place.
 
----
+## 3. Collection vanity suffix `…L3AP` at deploy time
 
-## 2. Rent-only deploy + reclaim flow
+Touch only the Solana deploy path; Monad is untouched.
 
-### Deployment cost model
-- Creator wallet signs and pays **only** the SPL rent-exempt deposit for: Core Collection account, Candy Machine account, Candy Guard account, and config-lines buffer. No upfront mint prefund.
-- Minters pay `solPayment` (mint price) directly into the **creator's treasury** PDA at mint time (existing Candy Guard config — unchanged).
-- Platform 2% fee continues to be split via the existing `getPlatformFeeSplit` router.
+Frontend (`src/components/launchpad/ContractDeployModal.tsx`):
+- Before calling `deploy-metaplex-launchpad`, run the Web Worker grinder for a `suffix=L3AP` keypair.
+- Show a small progress UI ("Branding your collection address… 1.2M/11M tries") with a Skip button that falls back to a random address and records `vanity_skipped=true`.
+- On success, send `{ collectionKeypairSecret: base58 }` in the deploy payload.
 
-### Reclaim flow
-A new "Close & Reclaim" action becomes available on the collection management page when **either**:
-- `items_redeemed === items_available` (sellout), **or**
-- `mint_end_date` has passed.
+Edge function (`supabase/functions/deploy-metaplex-launchpad/index.ts`):
+- Accept optional `collectionKeypairSecret`. If present, build the collection signer via `umi.eddsa.createKeypairFromSecretKey(bs58.decode(secret))` instead of `generateKeypair()`. Validate the resulting pubkey actually ends in `L3AP` server-side; reject otherwise.
+- Existing CM/Guard signers stay random (no branding requirement).
 
-Action runs the Metaplex Core / Candy Machine `delete` (a.k.a. `withdraw`) instruction, which:
-- Closes the Candy Machine + Candy Guard accounts.
-- Returns the rent lamports to the creator wallet.
-- Marks the collection `status = 'closed'` in `collections` table.
+Database: add `vanity_suffix text` and `vanity_skipped boolean default false` to `collections` so we can audit branded vs. non-branded launches.
 
-UI guards: confirmation modal showing "X SOL rent will be returned to {wallet}", disabled state with countdown until eligible, and a clear note that closing is irreversible.
+## 4. UX surface
 
-### L3AP placeholder (deferred)
-- Add a disabled "Pay mint in L3AP (coming soon — earns buyback rewards)" radio on the deploy form.
-- Add a TODO marker referencing this conversation so the follow-up can wire: free deploy when L3AP selected, buyback enrollment, tier markers at every 5% mint-progress increasing the buyback share from 0.01% → 0.50%.
+- `src/pages/LaunchpadCreate.tsx` deploy step: short note "Your collection address will end in **L3AP** — our on-chain signature."
+- `CollectionDetail` header: when `contract_address` ends in `L3AP`, render a small "🪷 L3AP-verified address" badge.
 
----
+## Out of scope
+- Grinding longer brands (e.g. `L3APAD`) — exponentially more expensive.
+- GPU grinders / `solana-keygen grind` wrappers.
+- Vanity for Candy Machine / Candy Guard PDAs (PDAs aren't grindable the same way).
+- L3AP buyback tier engine (still deferred from previous turn).
 
-## Technical changes
-
-**Frontend**
-- `src/components/launchpad/ContractDeployModal.tsx` — pre-flight Arweave wallet check, surfaced error messages, fallback path selector.
-- `src/integrations/arweave/legacyClient.ts` (small) — export `hasArweaveWallet()` helper.
-- New `src/lib/metadataUpload.ts` — chooses Arweave (wallet) → edge function → Supabase storage in that order.
-- `src/pages/CollectionDetail.tsx` (or existing manage view) — add **Close & Reclaim** card with eligibility logic.
-- New `src/hooks/useCloseCandyMachine.ts` — wraps Umi `deleteCandyMachine` + `deleteCandyGuard`.
-- `src/pages/LaunchpadCreate.tsx` — copy update: "Deploy cost = Solana rent only (refundable on close)". Add disabled L3AP option.
-
-**Edge function**
-- New `supabase/functions/arweave-upload/index.ts` — accepts JSON or bytes, signs with project Arweave JWK (`ARWEAVE_JWK` secret — request via add_secret when implementing), returns `{ url, txId }`. CORS + Zod validation per house rules.
-- Re-deploy `deploy-metaplex-launchpad` to confirm prior Umi fix is live.
-
-**Database**
-- Migration to add `mint_end_date timestamptz` and `closed_at timestamptz` to `collections` if not already present, plus a `closed_tx_signature text`.
-
-**Out of scope (next round)**
-- L3AP buyback tier engine, milestone markers, mint-progress driven fee curve.
-- Monad equivalent of close & reclaim.
-- Refunds for partial mints.
-
----
-
-## Deliverables
-
-- Generated collections deploy successfully whether or not ArConnect is installed.
-- Creator sees an accurate "rent only" cost on the deploy screen.
-- After sellout or end date, the creator can close the Candy Machine and recover rent in one click.
-- L3AP option visible-but-disabled with a clear "coming soon" label, ready for the follow-up feature.
+## Technical risks
+- **Secret handling**: the collection secret is generated client-side and POSTed once to the edge function for signing. It is never stored after the deploy tx is confirmed. Document this in the function header.
+- **Browser CPU**: ~11M base58 checks ≈ 10–40s on a modern laptop in a worker; mobile may need the Skip path.
+- **Determinism**: validate the suffix server-side so a malicious client can't smuggle in an unbranded keypair.
