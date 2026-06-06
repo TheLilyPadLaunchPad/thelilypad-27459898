@@ -34,34 +34,42 @@ export const TREASURY_CONFIG = {
   
   // Fee percentages (in basis points, 100 = 1%)
   fees: {
-    // NFT Marketplace fees
+    // NFT Marketplace (primary direct sales / fixed-price)
     marketplace: {
-      platformFee: 250, // 2.5% platform fee on sales
+      platformFee: 200, // 2.0% platform fee on sales (unified)
       creatorRoyalty: 500, // 5% max creator royalty (configurable per collection)
     },
-    
+
+    // Secondary marketplace (resales) — same headline 2.0%
+    secondary: {
+      platformFee: 200, // 2.0%
+      premiumFee: 125,  // 1.25% for sales >= 0.3 SOL
+      buybackAllocation: 25, // 0.25%
+      teamAllocation: 25,    // 0.25%
+    },
+
     // Shop purchases (stickers, emotes, bundles)
     shop: {
       platformFee: 1000, // 10% platform fee on shop sales
       creatorShare: 9000, // 90% goes to creator
     },
-    
+
     // Raffles
     raffle: {
       platformFee: 500, // 5% platform fee on raffle entries
       prizePool: 9500, // 95% goes to prize pool
     },
-    
+
     // Blind boxes
     blindBox: {
       platformFee: 1000, // 10% platform fee
     },
-    
+
     // Tips/donations
     tips: {
       platformFee: 0, // 0% fee on tips - 100% goes to creator
     },
-    
+
     // Launchpad/Minting fees (Undercutting LaunchMyNFT - they take 2.5% / 1.5% > 0.3 SOL)
     launchpad: {
       platformFee: 200, // 2.0% platform fee on mints
@@ -70,6 +78,7 @@ export const TREASURY_CONFIG = {
       teamAllocation: 25,    // 0.25% goes to team (at 2% total)
     },
   },
+
   
   // Minimum transaction amounts (in SOL)
   minimums: {
@@ -149,6 +158,62 @@ export function getLaunchpadFeeSplit(mintPrice: number): {
     total: mintPrice,
   };
 }
+
+// Generic platform fee split for any surface that uses the unified
+// Treasury / Team / Buyback distribution. Includes optional creator royalty
+// (for secondary sales) and computes seller net proceeds.
+export type PlatformFeeSurface = 'launchpad' | 'marketplace' | 'secondary';
+
+export function getPlatformFeeSplit(
+  amount: number,
+  surface: PlatformFeeSurface = 'launchpad',
+  royaltyBps: number = 0,
+): {
+  treasuryAmount: number;
+  teamAmount: number;
+  buybackAmount: number;
+  platformAmount: number;
+  royaltyAmount: number;
+  sellerAmount: number;   // for secondary surface
+  creatorAmount: number;  // for launchpad / primary marketplace
+  platformFeeBps: number;
+  total: number;
+} {
+  const cfg = TREASURY_CONFIG.fees[surface] as {
+    platformFee: number;
+    premiumFee?: number;
+    teamAllocation?: number;
+    buybackAllocation?: number;
+  };
+
+  const isPremium = (cfg.premiumFee !== undefined) && amount >= 0.3;
+  const platformFeeBps = isPremium ? (cfg.premiumFee as number) : cfg.platformFee;
+  const platformAmount = (amount * platformFeeBps) / 10000;
+
+  const teamBpsBase = cfg.teamAllocation ?? Math.round(cfg.platformFee * 0.125);
+  const buybackBpsBase = cfg.buybackAllocation ?? Math.round(cfg.platformFee * 0.125);
+  const scale = platformFeeBps / cfg.platformFee;
+  const teamAmount = (amount * teamBpsBase * scale) / 10000;
+  const buybackAmount = (amount * buybackBpsBase * scale) / 10000;
+  const treasuryAmount = platformAmount - teamAmount - buybackAmount;
+
+  const royaltyAmount = (amount * royaltyBps) / 10000;
+  const sellerAmount = amount - platformAmount - royaltyAmount;
+  const creatorAmount = amount - platformAmount;
+
+  return {
+    treasuryAmount,
+    teamAmount,
+    buybackAmount,
+    platformAmount,
+    royaltyAmount,
+    sellerAmount,
+    creatorAmount,
+    platformFeeBps,
+    total: amount,
+  };
+}
+
 
 // Validate minimum transaction amount
 export function validateMinimumAmount(

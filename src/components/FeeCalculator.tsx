@@ -25,7 +25,7 @@ interface FeeCalculatorProps {
 
 type GasScenario = "low" | "average" | "high";
 
-const PLATFORM_FEE_PERCENT = 2.5;
+const PLATFORM_FEE_PERCENT = 2.0;
 const BASE_GAS_LIMIT = 150000;
 const PER_NFT_GAS = 50000;
 
@@ -263,7 +263,7 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground flex items-center gap-1">
               <Percent className="w-3 h-3" />
-              Platform Fee (2.5%)
+              Platform Fee (2.0%)
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="w-3 h-3 cursor-help" />

@@ -64,18 +64,18 @@ const FeesAndPricing: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center p-4 rounded-lg bg-muted/30">
                   <div>
-                    <p className="font-medium">Seller Fee</p>
-                    <p className="text-sm text-muted-foreground">Applied on each mint from the seller</p>
+                    <p className="font-medium">Launchpad Mint Fee</p>
+                    <p className="text-sm text-muted-foreground">On primary mints (1.25% for mints ≥ 0.3 SOL)</p>
                   </div>
-                  <Badge variant="secondary" className="text-lg px-3 py-1">2.5%</Badge>
+                  <Badge variant="secondary" className="text-lg px-3 py-1">2.0%</Badge>
                 </div>
 
                 <div className="flex justify-between items-center p-4 rounded-lg bg-muted/30">
                   <div>
                     <p className="font-medium">Marketplace Fee</p>
-                    <p className="text-sm text-muted-foreground">On secondary sales</p>
+                    <p className="text-sm text-muted-foreground">On secondary sales (creator royalty paid on top)</p>
                   </div>
-                  <Badge variant="secondary" className="text-lg px-3 py-1">2.5%</Badge>
+                  <Badge variant="secondary" className="text-lg px-3 py-1">2.0%</Badge>
                 </div>
 
                 <div className="flex justify-between items-center p-4 rounded-lg bg-muted/30">
@@ -85,7 +85,30 @@ const FeesAndPricing: React.FC = () => {
                   </div>
                   <Badge variant="outline" className="text-lg px-3 py-1 text-primary">Free</Badge>
                 </div>
+
+                {/* Internal split */}
+                <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 space-y-2">
+                  <p className="font-medium text-sm">How the 2.0% is split</p>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="rounded bg-background p-2">
+                      <div className="text-muted-foreground">Treasury</div>
+                      <div className="font-semibold">1.50%</div>
+                    </div>
+                    <div className="rounded bg-background p-2">
+                      <div className="text-muted-foreground">Team</div>
+                      <div className="font-semibold">0.25%</div>
+                    </div>
+                    <div className="rounded bg-background p-2">
+                      <div className="text-muted-foreground">Buyback</div>
+                      <div className="font-semibold">0.25%</div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Buyback funds are used to repurchase Lily Pad assets benefiting holders. Treasury funds platform operations and Arweave storage.
+                  </p>
+                </div>
               </CardContent>
+
             </Card>
 
             {/* Creator Royalties */}
@@ -204,8 +227,8 @@ const FeesAndPricing: React.FC = () => {
                     <span>0.5000 SOL</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">+ Platform Fee (2.5%):</span>
-                    <span>0.0125 SOL</span>
+                    <span className="text-muted-foreground">+ Platform Fee (2.0%):</span>
+                    <span>0.0100 SOL</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">+ Gas Fee (est.):</span>
@@ -214,7 +237,11 @@ const FeesAndPricing: React.FC = () => {
                   <Separator />
                   <div className="flex justify-between font-bold">
                     <span>Total:</span>
-                    <span className="text-primary">~0.5127 SOL</span>
+                    <span className="text-primary">~0.5102 SOL</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                    <span>Creator receives:</span>
+                    <span>0.4900 SOL</span>
                   </div>
                 </div>
               </CardContent>
@@ -233,9 +260,10 @@ const FeesAndPricing: React.FC = () => {
                   <AccordionItem value="who-pays">
                     <AccordionTrigger>Who pays the platform fee?</AccordionTrigger>
                     <AccordionContent>
-                      The platform fee is deducted from the seller's proceeds. For mints, this comes from the collection creator's revenue. For secondary sales, this comes from the seller's sale amount.
+                      The platform fee is deducted from the seller's proceeds. For mints, this comes from the collection creator's revenue. For secondary sales, this comes from the seller's sale amount, after the original creator's royalty is paid.
                     </AccordionContent>
                   </AccordionItem>
+
 
                   <AccordionItem value="waive-fee">
                     <AccordionTrigger>Can creators waive the platform fee?</AccordionTrigger>
@@ -254,7 +282,7 @@ const FeesAndPricing: React.FC = () => {
                   <AccordionItem value="hidden-fees">
                     <AccordionTrigger>Are there any hidden fees?</AccordionTrigger>
                     <AccordionContent>
-                      No. We believe in full transparency. The only fees are the platform fee (2.5%), creator royalties (set by each collection, 0-10%), and blockchain gas fees (paid to network validators).
+                      No. We believe in full transparency. The only fees are the platform fee (2.0%, split 1.5% Treasury / 0.25% Team / 0.25% Buyback), creator royalties (set by each collection, 0–10%), and blockchain gas fees (paid to network validators).
                     </AccordionContent>
                   </AccordionItem>
 

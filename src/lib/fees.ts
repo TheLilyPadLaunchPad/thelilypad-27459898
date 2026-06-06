@@ -87,24 +87,57 @@ export function getFeeDetails(priceSol: number, feeBps: number = PLATFORM_FEE_BP
 }
 
 /**
- * Get fee breakdown for different transaction types
+ * Get fee breakdown for different transaction types.
+ * Returns the headline fee + the internal 3-way Treasury/Team/Buyback split.
  */
 export function getFeeBreakdown(
-    amount: number, 
+    amount: number,
     type: keyof typeof TREASURY_CONFIG.fees
 ) {
-    const feeConfig = TREASURY_CONFIG.fees[type];
-    
-    // Special handling for tiered launchpad fees
-    if (type === 'launchpad') {
-        const isPremium = amount >= 0.3;
-        const feeBps = isPremium ? (feeConfig as any).premiumFee : (feeConfig as any).platformFee;
-        return getFeeDetails(amount, feeBps);
-    }
-    
-    const feeBps = 'platformFee' in feeConfig ? feeConfig.platformFee : 0;
-    return getFeeDetails(amount, feeBps);
+    const feeConfig = TREASURY_CONFIG.fees[type] as any;
+
+    // Tiered surfaces (launchpad / secondary)
+    const isTiered = 'premiumFee' in feeConfig;
+    const feeBps = isTiered && amount >= 0.3 ? feeConfig.premiumFee : feeConfig.platformFee ?? 0;
+
+    const base = getFeeDetails(amount, feeBps);
+
+    // Internal split (only meaningful for surfaces that publish allocations)
+    const teamBpsBase = feeConfig.teamAllocation ?? Math.round((feeConfig.platformFee ?? 0) * 0.125);
+    const buybackBpsBase = feeConfig.buybackAllocation ?? Math.round((feeConfig.platformFee ?? 0) * 0.125);
+    const scale = feeConfig.platformFee ? feeBps / feeConfig.platformFee : 1;
+    const teamFee = (amount * teamBpsBase * scale) / 10000;
+    const buybackFee = (amount * buybackBpsBase * scale) / 10000;
+    const treasuryFee = base.fee - teamFee - buybackFee;
+
+    return {
+        ...base,
+        treasuryFee,
+        teamFee,
+        buybackFee,
+        treasuryBps: Math.max(0, feeBps - teamBpsBase * scale - buybackBpsBase * scale),
+        teamBps: teamBpsBase * scale,
+        buybackBps: buybackBpsBase * scale,
+    };
 }
+
+/**
+ * Secondary sale breakdown including creator royalty enforcement.
+ * Buyer pays `price`. Returns the platform 3-way split, the royalty paid to
+ * the original creator, and the seller's net proceeds.
+ */
+export function getSecondarySaleBreakdown(price: number, royaltyBps: number = 0) {
+    const fb = getFeeBreakdown(price, 'secondary');
+    const royalty = (price * royaltyBps) / 10000;
+    const sellerNet = price - fb.fee - royalty;
+    return {
+        ...fb,
+        royalty,
+        royaltyBps,
+        sellerNet,
+    };
+}
+
 
 /**
  * Validate minimum transaction amount
