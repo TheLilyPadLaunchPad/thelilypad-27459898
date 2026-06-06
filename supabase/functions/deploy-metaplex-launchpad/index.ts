@@ -1,10 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createUmi } from "npm:@metaplex-foundation/umi-bundle-defaults";
-import { keypairIdentity, publicKey, some, none, dateTime, sol } from "npm:@metaplex-foundation/umi";
-import { createCollection, ruleSet } from "npm:@metaplex-foundation/mpl-core";
-import { createCandyMachine, createCandyGuard, wrap, findCandyGuardPda } from "npm:@metaplex-foundation/mpl-core-candy-machine";
-import { setComputeUnitLimit, setComputeUnitPrice } from "npm:@metaplex-foundation/mpl-toolbox";
+import { createUmi } from "https://esm.sh/@metaplex-foundation/umi-bundle-defaults@0.9.2";
+import { keypairIdentity, publicKey, some, none, dateTime, sol } from "https://esm.sh/@metaplex-foundation/umi@0.9.2";
+import { createCollection, ruleSet } from "https://esm.sh/@metaplex-foundation/mpl-core@1.1.1";
+import { createCandyMachine, createCandyGuard, wrap, findCandyGuardPda } from "https://esm.sh/@metaplex-foundation/mpl-core-candy-machine@0.3.0";
+import { setComputeUnitLimit, setComputeUnitPrice } from "https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4";
 import bs58 from "https://esm.sh/bs58@6.0.0";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
