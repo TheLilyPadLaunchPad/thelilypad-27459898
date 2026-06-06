@@ -38,6 +38,10 @@ export function CandyMachineManager({
     candyMachineAddress,
     candyGuardAddress,
     collectionAddress = '',
+    collectionId,
+    collectionName,
+    artworks,
+    itemsLoaded = 0,
     manifestRoot,
     itemsAvailable = 0,
     isCreator,
@@ -51,6 +55,11 @@ export function CandyMachineManager({
 
     const [itemsJson, setItemsJson] = useState("");
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isAutoSyncing, setIsAutoSyncing] = useState(false);
+    const [syncProgress, setSyncProgress] = useState<string | null>(null);
+
+    const missingItems = Math.max(0, itemsAvailable - itemsLoaded);
+    const canAutoSync = !!collectionId && Array.isArray(artworks) && artworks.length > 0;
 
     // Handler for inserting items (Stage 1 & 4 of Best Practices)
     const handleInsertItems = async () => {
@@ -72,12 +81,66 @@ export function CandyMachineManager({
             }
 
             await insertItemsToCandyMachine(candyMachineAddress, items);
+            await persistItemsLoaded(items.length);
             setItemsJson("");
             onRefresh();
         } catch (e) {
             toast.error("Failed to parse JSON.");
         }
     };
+
+    const persistItemsLoaded = async (count: number) => {
+        if (!collectionId) return;
+        try {
+            await supabase
+                .from('collections')
+                .update({ items_loaded: count })
+                .eq('id', collectionId);
+        } catch (e) {
+            console.warn('[CandyMachineManager] failed to persist items_loaded', e);
+        }
+    };
+
+    const handleAutoSync = async () => {
+        if (!canAutoSync || !artworks) return;
+        setIsAutoSyncing(true);
+        setSyncProgress(null);
+        try {
+            const items: { name: string; uri: string }[] = [];
+            for (let i = 0; i < artworks.length; i++) {
+                const a = artworks[i];
+                setSyncProgress(`Uploading metadata ${i + 1}/${artworks.length}…`);
+                const nftName = a.name || `${collectionName || 'Item'} #${i + 1}`;
+                const metadata = {
+                    name: nftName,
+                    description: a.description || '',
+                    image: a.imageUrl || '',
+                    attributes: [],
+                    properties: {
+                        files: a.imageUrl ? [{ uri: a.imageUrl, type: 'image/png' }] : [],
+                        category: 'image',
+                    },
+                };
+                const uploaded = await uploadCollectionMetadata(metadata, {
+                    collectionId,
+                    filename: `${collectionId}-item-${i}.json`,
+                });
+                items.push({ name: nftName, uri: uploaded.url });
+            }
+            setSyncProgress(`Inserting ${items.length} items on-chain…`);
+            await insertItemsToCandyMachine(candyMachineAddress, items);
+            await persistItemsLoaded(items.length);
+            toast.success(`Synced ${items.length} items to the Candy Machine.`);
+            onRefresh();
+        } catch (e: any) {
+            console.error('[CandyMachineManager] auto-sync failed', e);
+            toast.error(e?.message || 'Auto-sync failed');
+        } finally {
+            setIsAutoSyncing(false);
+            setSyncProgress(null);
+        }
+    };
+
 
     // Handler for deleting CM (Lifecycle Management)
     const handleDeleteCM = async () => {
