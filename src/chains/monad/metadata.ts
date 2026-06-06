@@ -1,9 +1,10 @@
 /**
- * Monad NFT Metadata — Real Irys uploads for EVM-compatible ERC-721 JSON
+ * Monad NFT Metadata — Native Arweave uploads for ERC-721 JSON
  *
- * Uses the shared Irys client (src/integrations/irys/client.ts) for permanent
- * Arweave storage. No more mocks — all uploads go through the real pipeline.
+ * Uses the shared Arweave client (src/integrations/arweave/legacyClient.ts)
+ * for permanent storage. Uploads are signed by the user's ArConnect wallet.
  */
+
 
 import { uploadToArweave, uploadMetadataToArweave } from '@/integrations/arweave/legacyClient';
 
