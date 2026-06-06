@@ -596,6 +596,8 @@ export type Database = {
           candy_guard_address: string | null
           candy_machine_address: string | null
           chain: string
+          closed_at: string | null
+          closed_tx_signature: string | null
           collection_mint_address: string | null
           collection_type: string
           contract_address: string | null
@@ -611,6 +613,7 @@ export type Database = {
           layers_metadata: Json | null
           manifest_root: string | null
           media_type: string | null
+          mint_end_date: string | null
           minted: number
           name: string
           phases: Json
@@ -634,6 +637,8 @@ export type Database = {
           candy_guard_address?: string | null
           candy_machine_address?: string | null
           chain?: string
+          closed_at?: string | null
+          closed_tx_signature?: string | null
           collection_mint_address?: string | null
           collection_type?: string
           contract_address?: string | null
@@ -649,6 +654,7 @@ export type Database = {
           layers_metadata?: Json | null
           manifest_root?: string | null
           media_type?: string | null
+          mint_end_date?: string | null
           minted?: number
           name: string
           phases?: Json
@@ -672,6 +678,8 @@ export type Database = {
           candy_guard_address?: string | null
           candy_machine_address?: string | null
           chain?: string
+          closed_at?: string | null
+          closed_tx_signature?: string | null
           collection_mint_address?: string | null
           collection_type?: string
           contract_address?: string | null
@@ -687,6 +695,7 @@ export type Database = {
           layers_metadata?: Json | null
           manifest_root?: string | null
           media_type?: string | null
+          mint_end_date?: string | null
           minted?: number
           name?: string
           phases?: Json
