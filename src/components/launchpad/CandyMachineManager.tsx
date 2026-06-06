@@ -1,20 +1,33 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Loader2, Upload, AlertTriangle, FileJson, Trash2, Wand2 } from "lucide-react";
 import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { uploadCollectionMetadata } from '@/lib/metadataUpload';
 import { RevealCandyMachinePanel } from './RevealCandyMachinePanel';
+
+interface ArtworkMeta {
+    id?: string;
+    name?: string;
+    imageUrl?: string;
+    description?: string;
+}
 
 interface CandyMachineManagerProps {
     candyMachineAddress: string;
     candyGuardAddress?: string;
     collectionAddress?: string;
+    collectionId?: string;
+    collectionName?: string;
+    artworks?: ArtworkMeta[] | null;
+    itemsLoaded?: number;
     manifestRoot?: string;
     itemsAvailable?: number;
     isCreator: boolean;
