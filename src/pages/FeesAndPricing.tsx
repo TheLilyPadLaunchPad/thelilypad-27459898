@@ -282,7 +282,7 @@ const FeesAndPricing: React.FC = () => {
                   <AccordionItem value="hidden-fees">
                     <AccordionTrigger>Are there any hidden fees?</AccordionTrigger>
                     <AccordionContent>
-                      No. We believe in full transparency. The only fees are the platform fee (2.5%), creator royalties (set by each collection, 0-10%), and blockchain gas fees (paid to network validators).
+                      No. We believe in full transparency. The only fees are the platform fee (2.0%, split 1.5% Treasury / 0.25% Team / 0.25% Buyback), creator royalties (set by each collection, 0–10%), and blockchain gas fees (paid to network validators).
                     </AccordionContent>
                   </AccordionItem>
 
