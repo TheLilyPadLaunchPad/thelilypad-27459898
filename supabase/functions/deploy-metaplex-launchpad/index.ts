@@ -67,11 +67,14 @@ Deno.serve(async (req) => {
       baseUri,
       royaltyPercent = 5,
       items,
+      collectionSecretKey,
+      collectionPublicKey,
     } = payload;
 
     if (!collectionId || !creatorAddress) {
       return jsonResponse({ error: "Missing required parameters" }, 400);
     }
+
 
     // Ownership check — only the collection's creator can trigger a deploy for it.
     const supabaseServiceRole = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -101,9 +104,29 @@ Deno.serve(async (req) => {
 
     const frontendCreatorPubkey = publicKey(creatorAddress);
 
-    // 1. Create the Core Collection
-    const collectionSigner = umi.eddsa.generateKeypair();
+    // 1. Create the Core Collection — use a pre-ground vanity keypair if provided
+    //    (so the on-chain collection address ends in our brand suffix, e.g. "L3AP").
+    let collectionSigner;
+    if (collectionSecretKey) {
+      try {
+        const secret = bs58.decode(collectionSecretKey);
+        if (secret.length !== 64) throw new Error(`invalid length ${secret.length}`);
+        collectionSigner = umi.eddsa.createKeypairFromSecretKey(secret);
+        if (collectionPublicKey && collectionSigner.publicKey !== collectionPublicKey) {
+          return jsonResponse({ error: "collectionPublicKey does not match supplied secret key" }, 400);
+        }
+        if (!String(collectionSigner.publicKey).endsWith("L3AP")) {
+          return jsonResponse({ error: "vanity collection address must end with L3AP" }, 400);
+        }
+        console.log("[vanity] using supplied L3AP keypair:", collectionSigner.publicKey);
+      } catch (e: any) {
+        return jsonResponse({ error: `Invalid collectionSecretKey: ${e?.message || e}` }, 400);
+      }
+    } else {
+      collectionSigner = umi.eddsa.generateKeypair();
+    }
     console.log("Collection Address:", collectionSigner.publicKey);
+
 
     let builder = createCollection(umi, {
       collection: collectionSigner,
