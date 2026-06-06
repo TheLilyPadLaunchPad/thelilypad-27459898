@@ -227,8 +227,8 @@ const FeesAndPricing: React.FC = () => {
                     <span>0.5000 SOL</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">+ Platform Fee (2.5%):</span>
-                    <span>0.0125 SOL</span>
+                    <span className="text-muted-foreground">+ Platform Fee (2.0%):</span>
+                    <span>0.0100 SOL</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">+ Gas Fee (est.):</span>
@@ -237,7 +237,11 @@ const FeesAndPricing: React.FC = () => {
                   <Separator />
                   <div className="flex justify-between font-bold">
                     <span>Total:</span>
-                    <span className="text-primary">~0.5127 SOL</span>
+                    <span className="text-primary">~0.5102 SOL</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                    <span>Creator receives:</span>
+                    <span>0.4900 SOL</span>
                   </div>
                 </div>
               </CardContent>
@@ -256,9 +260,10 @@ const FeesAndPricing: React.FC = () => {
                   <AccordionItem value="who-pays">
                     <AccordionTrigger>Who pays the platform fee?</AccordionTrigger>
                     <AccordionContent>
-                      The platform fee is deducted from the seller's proceeds. For mints, this comes from the collection creator's revenue. For secondary sales, this comes from the seller's sale amount.
+                      The platform fee is deducted from the seller's proceeds. For mints, this comes from the collection creator's revenue. For secondary sales, this comes from the seller's sale amount, after the original creator's royalty is paid.
                     </AccordionContent>
                   </AccordionItem>
+
 
                   <AccordionItem value="waive-fee">
                     <AccordionTrigger>Can creators waive the platform fee?</AccordionTrigger>
