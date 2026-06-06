@@ -1,0 +1,1 @@
+ALTER TABLE public.collections ADD COLUMN IF NOT EXISTS items_loaded INTEGER NOT NULL DEFAULT 0;
