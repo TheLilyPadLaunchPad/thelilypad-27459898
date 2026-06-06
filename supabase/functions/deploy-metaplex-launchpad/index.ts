@@ -92,8 +92,8 @@ Deno.serve(async (req) => {
 
     // Initialize Umi with the backend payer
     const rpcUrl = network === 'mainnet' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com';
-    const umi = createUmi(rpcUrl).use(setComputeUnitLimit({ units: 800_000 })).use(setComputeUnitPrice({ microLamports: 100_000 }));
-    
+    const umi = createUmi(rpcUrl);
+
     const secretKey = bs58.decode(treasuryKey);
     const keypair = umi.eddsa.createKeypairFromSecretKey(secretKey);
     umi.use(keypairIdentity(keypair));
