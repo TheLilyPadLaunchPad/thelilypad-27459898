@@ -263,7 +263,7 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground flex items-center gap-1">
               <Percent className="w-3 h-3" />
-              Platform Fee (2.5%)
+              Platform Fee (2.0%)
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="w-3 h-3 cursor-help" />
