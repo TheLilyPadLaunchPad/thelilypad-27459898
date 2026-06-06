@@ -11,6 +11,7 @@ import { RevealManager } from "@/components/launchpad/RevealManager";
 import { NFTGallery } from "@/components/NFTGallery";
 import { PhaseConfigManager } from "@/components/launchpad/PhaseConfigManager";
 import { CandyMachineManager } from "@/components/launchpad/CandyMachineManager";
+import { CloseAndReclaimCard } from "@/components/launchpad/CloseAndReclaimCard";
 import { ContractDeployModal } from "@/components/launchpad/ContractDeployModal";
 import { ContractAllowlistManager } from "@/components/launchpad/ContractAllowlistManager";
 import { RevealHistory } from "@/components/RevealHistory";
