@@ -171,6 +171,14 @@ export default function CollectionDetail() {
       />
 
       <main className="container mx-auto px-4 relative z-10 pb-20">
+        {/* L3AP-branded address badge */}
+        {collection?.contract_address?.endsWith('L3AP') && (
+          <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            🪷 L3AP-verified address
+            <span className="font-mono text-[10px] opacity-70">…L3AP</span>
+          </div>
+        )}
+
         {/* Intro/Mint Prelaunch Section */}
         {collection && (
           <LaunchpadMintSection

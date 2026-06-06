@@ -69,6 +69,7 @@
     "arweave": "^1.15.7",
     "bigint-buffer": "1.1.5",
     "browser-image-compression": "^2.0.2",
+    "bs58": "^6.0.0",
     "buffer": "^6.0.3",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",

@@ -17,6 +17,13 @@ export interface SolanaCollectionParams {
      * fails with error 6049 `CollectionMustHaveBubblegumPlugin`.
      */
     withBubblegumV2?: boolean;
+    /**
+     * Optional pre-generated keypair (base58 secret key) to use as the
+     * Collection account. Used by the vanity grinder to produce branded
+     * addresses (e.g. ending in "L3AP"). When omitted a random signer is
+     * generated.
+     */
+    collectionKeypairSecret?: string;
 }
 
 export interface SolanaCollectionResult {
