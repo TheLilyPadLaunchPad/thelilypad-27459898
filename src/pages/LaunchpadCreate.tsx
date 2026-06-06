@@ -1110,7 +1110,44 @@ export default function LaunchpadCreate() {
                                                 </div>
                                             )}
 
+                                            {/* Fees & Payout summary */}
+                                            {(() => {
+                                                const mintPriceSol = Number(phases?.[0]?.price ?? 0);
+                                                const fb = getFeeBreakdown(mintPriceSol || 0, 'launchpad');
+                                                const treasury = PLATFORM_WALLETS.solana.treasury;
+                                                const shortTreasury = `${treasury.slice(0, 4)}…${treasury.slice(-4)}`;
+                                                return (
+                                                    <div className="rounded-2xl border border-border/60 bg-card/60 p-4 space-y-2 text-sm">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-semibold">Fees & Payout (per mint)</span>
+                                                            <Badge variant="outline" className="text-[10px]">
+                                                                {(fb.bps / 100).toFixed(2)}% platform fee
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-muted-foreground">
+                                                            <span>Mint price</span>
+                                                            <span className="font-mono">{mintPriceSol > 0 ? `${mintPriceSol} ${chainSymbol}` : 'Free'}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-muted-foreground">
+                                                            <span>Platform fee</span>
+                                                            <span className="font-mono">{mintPriceSol > 0 ? `${fb.fee.toFixed(6)} ${chainSymbol}` : '—'}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-medium">Creator receives</span>
+                                                            <span className="font-mono font-semibold text-primary">
+                                                                {mintPriceSol > 0 ? `${fb.net.toFixed(6)} ${chainSymbol}` : `0 ${chainSymbol}`}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/40">
+                                                            <span>Treasury</span>
+                                                            <span className="font-mono" title={treasury}>{shortTreasury}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+
                                             {/* Deploy button */}
+
                                             <div className="space-y-4 pt-2">
                                                 {isDeploying ? (
                                                     <div className="flex gap-3">
