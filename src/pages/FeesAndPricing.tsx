@@ -64,18 +64,18 @@ const FeesAndPricing: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center p-4 rounded-lg bg-muted/30">
                   <div>
-                    <p className="font-medium">Seller Fee</p>
-                    <p className="text-sm text-muted-foreground">Applied on each mint from the seller</p>
+                    <p className="font-medium">Launchpad Mint Fee</p>
+                    <p className="text-sm text-muted-foreground">On primary mints (1.25% for mints ≥ 0.3 SOL)</p>
                   </div>
-                  <Badge variant="secondary" className="text-lg px-3 py-1">2.5%</Badge>
+                  <Badge variant="secondary" className="text-lg px-3 py-1">2.0%</Badge>
                 </div>
 
                 <div className="flex justify-between items-center p-4 rounded-lg bg-muted/30">
                   <div>
                     <p className="font-medium">Marketplace Fee</p>
-                    <p className="text-sm text-muted-foreground">On secondary sales</p>
+                    <p className="text-sm text-muted-foreground">On secondary sales (creator royalty paid on top)</p>
                   </div>
-                  <Badge variant="secondary" className="text-lg px-3 py-1">2.5%</Badge>
+                  <Badge variant="secondary" className="text-lg px-3 py-1">2.0%</Badge>
                 </div>
 
                 <div className="flex justify-between items-center p-4 rounded-lg bg-muted/30">
@@ -85,7 +85,30 @@ const FeesAndPricing: React.FC = () => {
                   </div>
                   <Badge variant="outline" className="text-lg px-3 py-1 text-primary">Free</Badge>
                 </div>
+
+                {/* Internal split */}
+                <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 space-y-2">
+                  <p className="font-medium text-sm">How the 2.0% is split</p>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="rounded bg-background p-2">
+                      <div className="text-muted-foreground">Treasury</div>
+                      <div className="font-semibold">1.50%</div>
+                    </div>
+                    <div className="rounded bg-background p-2">
+                      <div className="text-muted-foreground">Team</div>
+                      <div className="font-semibold">0.25%</div>
+                    </div>
+                    <div className="rounded bg-background p-2">
+                      <div className="text-muted-foreground">Buyback</div>
+                      <div className="font-semibold">0.25%</div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Buyback funds are used to repurchase Lily Pad assets benefiting holders. Treasury funds platform operations and Arweave storage.
+                  </p>
+                </div>
               </CardContent>
+
             </Card>
 
             {/* Creator Royalties */}
