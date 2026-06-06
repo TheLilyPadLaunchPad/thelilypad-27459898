@@ -1,25 +1,36 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createUmi } from "npm:@metaplex-foundation/umi-bundle-defaults";
-import { keypairIdentity, publicKey, some, none, dateTime, sol } from "npm:@metaplex-foundation/umi";
-import { createCollection, ruleSet } from "npm:@metaplex-foundation/mpl-core";
-import { createCandyMachine, createCandyGuard, wrap, findCandyGuardPda } from "npm:@metaplex-foundation/mpl-core-candy-machine";
-import { setComputeUnitLimit, setComputeUnitPrice } from "npm:@metaplex-foundation/mpl-toolbox";
-import bs58 from "npm:bs58";
+import { createUmi } from "https://esm.sh/@metaplex-foundation/umi-bundle-defaults@0.9.2";
+import { keypairIdentity, publicKey, some, none, dateTime, sol } from "https://esm.sh/@metaplex-foundation/umi@0.9.2";
+import { createCollection, ruleSet } from "https://esm.sh/@metaplex-foundation/mpl-core@1.1.1";
+import { createCandyMachine, createCandyGuard, wrap, findCandyGuardPda } from "https://esm.sh/@metaplex-foundation/mpl-core-candy-machine@0.3.0";
+import { setComputeUnitLimit, setComputeUnitPrice } from "https://esm.sh/@metaplex-foundation/mpl-toolbox@0.9.4";
+import bs58 from "https://esm.sh/bs58@6.0.0";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+}
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  console.log(`[deploy-metaplex-launchpad] ${req.method} request received`);
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -30,12 +41,13 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: corsHeaders });
+      return jsonResponse({ error: "Invalid token" }, 401);
     }
 
     // Parse payload early so we can pick the correct treasury key per network
     const payload = await req.json();
     const network = payload.network || 'devnet';
+    console.log(`[deploy-metaplex-launchpad] invoked`, { network, collectionId: payload?.collectionId, userId: user.id });
 
     const treasuryKey = network === 'devnet'
       ? (Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY") || Deno.env.get("TREASURY_PRIVATE_KEY"))
@@ -57,7 +69,7 @@ Deno.serve(async (req) => {
     } = payload;
 
     if (!collectionId || !creatorAddress) {
-      return new Response(JSON.stringify({ error: "Missing required parameters" }), { status: 400, headers: corsHeaders });
+      return jsonResponse({ error: "Missing required parameters" }, 400);
     }
 
     // Ownership check — only the collection's creator can trigger a deploy for it.
@@ -69,13 +81,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (ownershipError || !existingCollection) {
-      return new Response(JSON.stringify({ error: "Collection not found" }), { status: 404, headers: corsHeaders });
+      return jsonResponse({ error: "Collection not found" }, 404);
     }
     if (existingCollection.creator_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Forbidden: not the collection owner" }), { status: 403, headers: corsHeaders });
+      return jsonResponse({ error: "Forbidden: not the collection owner" }, 403);
     }
 
     console.log(`Starting backend deployment for collection: ${name} (${collectionId})`);
+
 
     // Initialize Umi with the backend payer
     const rpcUrl = network === 'mainnet' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com';
@@ -166,16 +179,17 @@ Deno.serve(async (req) => {
       collection_mint_address: collectionSigner.publicKey,
     }).eq("id", collectionId);
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return jsonResponse({
+      success: true,
       collectionAddress: collectionSigner.publicKey,
       candyMachineAddress: candyMachineAddress || null,
       candyGuardAddress: candyGuardAddress || null,
-      signature: bs58.encode(signature)
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      signature: bs58.encode(signature),
+    });
 
   } catch (error: any) {
     console.error("Backend deployment error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return jsonResponse({ error: error?.message || "Unknown error" }, 500);
   }
+
 });
