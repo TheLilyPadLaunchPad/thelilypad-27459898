@@ -630,6 +630,8 @@ export type Database = {
           trait_rules: Json | null
           unrevealed_image_url: string | null
           updated_at: string
+          vanity_skipped: boolean
+          vanity_suffix: string | null
         }
         Insert: {
           artworks_metadata?: Json | null
@@ -671,6 +673,8 @@ export type Database = {
           trait_rules?: Json | null
           unrevealed_image_url?: string | null
           updated_at?: string
+          vanity_skipped?: boolean
+          vanity_suffix?: string | null
         }
         Update: {
           artworks_metadata?: Json | null
@@ -712,6 +716,8 @@ export type Database = {
           trait_rules?: Json | null
           unrevealed_image_url?: string | null
           updated_at?: string
+          vanity_skipped?: boolean
+          vanity_suffix?: string | null
         }
         Relationships: []
       }
