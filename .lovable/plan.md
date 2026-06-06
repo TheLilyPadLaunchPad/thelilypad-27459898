@@ -1,51 +1,60 @@
-# Fix: Candy Machine deployed but empty (itemsLoaded = 0)
+# Make every launched collection address end in `L3AP`
 
-The deploy edge function creates the Collection + Candy Machine + Guard, but never writes per-item config lines into the CM. Result: `itemsAvailable = N`, `itemsLoaded = 0`, mints fail. The detail page also doesn't surface this state.
+Like pump.fun's `…pump` suffix, every NFT collection (PFP, 1-of-1, music) launched on The Lily Pad will have its on-chain Core Collection address end with our brand suffix `L3AP`. This will be visible on Solscan, wallets, marketplaces — anywhere the collection address is shown.
 
-## What to change
+## What changes
 
-### 1. Server-side: insert items during deploy
-**File:** `supabase/functions/deploy-metaplex-launchpad/index.ts`
+### 1. Deploy flow grinds a vanity keypair before signing
+- `src/components/launchpad/ContractDeployModal.tsx`
+  - Before invoking `deploy-metaplex-launchpad`, run the existing `runGrinderInWorker({ match: "L3AP", position: "suffix", timeoutMs: 120_000 })` from `src/lib/vanity/runGrinder.ts`.
+  - Show a small progress UI: "Grinding vanity address …L3AP (X attempts, Ys)" with a Cancel button. Expected: ~11M attempts, ~10–60s in a Web Worker.
+  - On success, pass `{ collectionSecretKey, collectionPublicKey }` in the edge-function payload.
+  - On timeout/cancel, offer two choices: **Retry grind** or **Skip vanity (use random address)** so deploys are never permanently blocked.
 
-After the `createCandyMachine` + `wrap` builder sends successfully, run a second pass that:
-- Accepts a new `items: { name: string; uri: string }[]` field in the payload (length must equal `itemsAvailable`).
-- Chunks items into batches of 10.
-- For each batch, builds an `addConfigLines` tx (from `@metaplex-foundation/mpl-core-candy-machine`) with `index` = running offset and `configLines` = batch, then `sendAndConfirm` with `skipPreflight: true`.
-- Tracks `itemsLoaded` and returns it in the response.
-- On partial failure (e.g. batch 3 of 5 fails), still updates the collection row with whatever was loaded and returns a `partial: true` flag plus the failed offset so the client can resume.
+### 2. Edge function uses the supplied keypair instead of generating one
+- `supabase/functions/deploy-metaplex-launchpad/index.ts`
+  - Accept optional `collectionSecretKey` (base58, 64 bytes) in the payload.
+  - Validate: decodes to 64 bytes, public key matches `collectionPublicKey`, public key ends with `L3AP`.
+  - Use it as `collectionSigner` via `umi.eddsa.createKeypairFromSecretKey(...)` instead of `umi.eddsa.generateKeypair()`.
+  - If validation fails → 400 (don't silently fall back, the user explicitly opted in).
+  - If field is absent → keep existing random behavior (back-compat for older clients / scripts).
+  - The Candy Machine and Candy Guard keypairs stay random — only the **Collection address** (the user-visible "contract address") gets the suffix.
 
-If `items` is omitted (back-compat), skip the insert pass and return `itemsLoaded: 0` with a warning — the UI repair flow (below) handles legacy rows.
+### 3. UI surfaces the brand suffix everywhere we already show the address
+The L3AP badge code already exists on `CollectionDetail` (`contract_address?.endsWith('L3AP')`). Roll the same badge into:
+- `CollectionCard` / launchpad grid tiles (small `…L3AP` chip)
+- `CollectionHero` address copy button (tooltip: "Verified L3AP brand address")
+- Marketplace listing cards
 
-### 2. Client-side: send items in the deploy payload
-**File:** `src/components/launchpad/ContractDeployModal.tsx` (and any other caller of `deploy-metaplex-launchpad`)
+No DB migration needed — we read the suffix directly off `collections.contract_address`.
 
-Before invoking the function:
-- For each artwork in the collection, upload its per-NFT metadata JSON via `uploadCollectionMetadata` (already handles Arweave + Supabase fallback).
-- Build `items = artworks.map((a, i) => ({ name: \`${name} #${i + 1}\`, uri: metadataUrl }))`.
-- Pass `items` in the payload alongside the existing fields.
-- Show a progress toast: "Uploading metadata (3/8)…", "Inserting items (batch 1/1)…".
+## Technical details
 
-### 3. DB: persist load state
-**Migration:** add `items_loaded INTEGER DEFAULT 0` to `collections`. Update at the end of deploy and after any repair run.
+**Why client-side grind?**
+- Keeps the secret key on the user's machine until the moment of deploy; the edge function uses it once to sign the create-collection tx and discards it.
+- Avoids burning treasury CPU on the edge-function worker (Deno isolates are CPU-capped and `L3AP` grinds would frequently hit the wall-clock limit).
+- We already shipped `src/lib/vanity/{grindKeypair,runGrinder,vanity.worker}.ts` — this just wires them in.
 
-### 4. UI: surface "loaded vs available" + repair button
-**File:** `src/pages/CollectionDetail.tsx`
+**Difficulty math**
+- Base58 alphabet (excludes `0OIl`), `L3AP` is 4 chars → ~58⁴ ≈ 11.3M attempts. Modern laptops do ~200–500k/s in a worker → median ~30s. We default `timeoutMs` to 120s with a Cancel/Skip escape hatch.
 
-- Fetch CM on-chain state (use existing `fetchCandyMachine` helper or read `items_loaded` from DB).
-- If `items_loaded < total_supply` AND user is the creator, render a yellow `Alert`: "Your Candy Machine has 0/8 items loaded. Mints will fail until you insert items." with a "Repair: insert missing items" button.
-- The button reuses the existing `CandyMachineManager` "Insert Items" tab logic but auto-populates the JSON from `artworks_metadata` + uploads any missing metadata first.
+**Security**
+- Edge function re-derives the public key from the supplied secret key and rejects if it doesn't match `collectionPublicKey` or doesn't end in `L3AP`. This prevents a malicious client from convincing the server to sign for an unrelated/spoofed address.
+- Secret key is never logged or persisted — used only to construct the Umi signer in-memory for that one tx.
+- Ownership check (`creator_id === user.id`) already exists and is unchanged.
 
-### 5. Block mint UI when empty
-**File:** `src/pages/CollectionDetail.tsx` mint button
+**Back-compat**
+- `scripts/vanity/grind.ts` keeps working for ops-side pre-grinding.
+- Collections deployed before this change keep their random addresses; the badge simply won't show on them. No backfill is attempted (we can't change a Solana account's address after the fact).
 
-Disable the Mint button with tooltip "Collection not fully loaded — contact creator" when `items_loaded === 0` or `items_loaded < itemsAvailable` and the active phase would draw past `items_loaded`.
+**Out of scope**
+- Vanity suffix on Candy Machine / Candy Guard addresses (low visibility, would 3× the grind cost).
+- Monad / EVM collections — different address derivation (CREATE2). Can be a follow-up using a CREATE2 salt grinder if you want `…1eap` style.
+- Per-NFT mint addresses — those are minted by buyers, not us, so we can't vanity-grind them.
 
-## Technical notes
-- `addConfigLines` from `mpl-core-candy-machine` is the correct call (not the legacy `mpl-candy-machine` import).
-- CM `configLineSettings.uriLength` is currently `200` when `baseUri` is empty — Arweave URLs (~50 chars) and Supabase public URLs (~150 chars) both fit. Verify before insert; if any URI exceeds `uriLength`, fail fast with a clear error.
-- The treasury wallet is the CM authority, so the edge function (already signing with `DEVNET_TREASURY_PRIVATE_KEY`) can run `addConfigLines` without the creator wallet.
-- Idempotency: query `itemsLoaded` on-chain before insert; only insert from `itemsLoaded` onward. Safe to re-run.
-- Out of scope: changing config-line layout (prefixUri optimization), Bubblegum/cNFT path, mainnet treasury funding.
-
-## Verification
-After deploy, the function response should include `itemsLoaded === itemsAvailable`. The detail page should drop the warning alert, and a test mint on devnet should succeed.
+## Files touched
+- `src/components/launchpad/ContractDeployModal.tsx` — add grind step + progress UI
+- `supabase/functions/deploy-metaplex-launchpad/index.ts` — accept & validate `collectionSecretKey`
+- `src/components/launchpad/CollectionCard.tsx` (or equivalent grid tile) — add `…L3AP` chip
+- `src/components/collection-detail/CollectionHero.tsx` — tooltip on address copy
+- `src/components/MarketplaceCard.tsx` (if it shows the collection address) — chip
