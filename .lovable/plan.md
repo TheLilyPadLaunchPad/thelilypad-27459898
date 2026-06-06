@@ -1,66 +1,51 @@
-# L3AP Token Mint — Wiring Plan
+# Fix: Candy Machine deployed but empty (itemsLoaded = 0)
 
-The vanity secret is already stored as `L3AP_MINT_SECRET_KEY`. This plan creates a one-shot admin-only edge function that consumes that secret to mint the L3AP SPL token on Solana, then updates the frontend config with the resulting mint address.
+The deploy edge function creates the Collection + Candy Machine + Guard, but never writes per-item config lines into the CM. Result: `itemsAvailable = N`, `itemsLoaded = 0`, mints fail. The detail page also doesn't surface this state.
 
-## 1. Edge function: `mint-l3ap-token`
+## What to change
 
-New file: `supabase/functions/mint-l3ap-token/index.ts`
+### 1. Server-side: insert items during deploy
+**File:** `supabase/functions/deploy-metaplex-launchpad/index.ts`
 
-- Admin-gated: validate caller JWT, then check `has_role(uid, 'admin')`. Reject otherwise.
-- Idempotency: read `public.platform_tokens` (new tiny table) for `symbol = 'L3AP'`. If a row with a `mint_address` exists, return it instead of re-minting.
-- Load `L3AP_MINT_SECRET_KEY` (base58), decode to a Solana `Keypair`, derive its public key, and assert the address starts with `L3AP`. If not, fail loudly.
-- Load `DEVNET_TREASURY_PRIVATE_KEY` as the fee payer + mint authority (matches existing convention used elsewhere in the project).
-- Build a Umi instance pointing at the current cluster (devnet by default; accept `?network=mainnet` query for the admin call), inject both signers.
-- Call `createFungible` from `@metaplex-foundation/mpl-token-metadata` with:
-  - `mint`: vanity keypair signer
-  - `name: "The Lily Pad Token"`, `symbol: "L3AP"`, `decimals: 6`, `sellerFeeBasisPoints: 0`
-  - `uri: ""` for now (metadata JSON can be added later)
-- Optionally mint an `initialSupply` (default 1_000_000_000) to the treasury wallet using `mintV1`.
-- On success, upsert into `platform_tokens` and return `{ mint, signature, network }`.
+After the `createCandyMachine` + `wrap` builder sends successfully, run a second pass that:
+- Accepts a new `items: { name: string; uri: string }[]` field in the payload (length must equal `itemsAvailable`).
+- Chunks items into batches of 10.
+- For each batch, builds an `addConfigLines` tx (from `@metaplex-foundation/mpl-core-candy-machine`) with `index` = running offset and `configLines` = batch, then `sendAndConfirm` with `skipPreflight: true`.
+- Tracks `itemsLoaded` and returns it in the response.
+- On partial failure (e.g. batch 3 of 5 fails), still updates the collection row with whatever was loaded and returns a `partial: true` flag plus the failed offset so the client can resume.
 
-CORS, Zod validation on the request body (`{ network?: 'devnet'|'mainnet', initialSupply?: number }`), structured error responses.
+If `items` is omitted (back-compat), skip the insert pass and return `itemsLoaded: 0` with a warning — the UI repair flow (below) handles legacy rows.
 
-## 2. Database: `platform_tokens` table (migration)
+### 2. Client-side: send items in the deploy payload
+**File:** `src/components/launchpad/ContractDeployModal.tsx` (and any other caller of `deploy-metaplex-launchpad`)
 
-```text
-platform_tokens
-  symbol         text primary key      -- 'L3AP', 'SOL', …
-  name           text
-  mint_address   text not null
-  decimals       int  not null
-  network        text not null          -- 'devnet' | 'mainnet'
-  created_at / updated_at
-```
+Before invoking the function:
+- For each artwork in the collection, upload its per-NFT metadata JSON via `uploadCollectionMetadata` (already handles Arweave + Supabase fallback).
+- Build `items = artworks.map((a, i) => ({ name: \`${name} #${i + 1}\`, uri: metadataUrl }))`.
+- Pass `items` in the payload alongside the existing fields.
+- Show a progress toast: "Uploading metadata (3/8)…", "Inserting items (batch 1/1)…".
 
-- `GRANT SELECT` to `anon, authenticated` (public read — addresses are public).
-- `GRANT ALL` to `service_role`.
-- RLS enabled; SELECT policy = `true`; no client write policies (edge function uses service role).
+### 3. DB: persist load state
+**Migration:** add `items_loaded INTEGER DEFAULT 0` to `collections`. Update at the end of deploy and after any repair run.
 
-## 3. Admin UI trigger
+### 4. UI: surface "loaded vs available" + repair button
+**File:** `src/pages/CollectionDetail.tsx`
 
-Add a small card to `src/pages/admin/AdminDashboard.tsx`:
-- "Mint L3AP token" button → calls `supabase.functions.invoke('mint-l3ap-token', { body: { network } })`.
-- Network selector (devnet/mainnet).
-- Shows the returned mint address + tx signature, with copy buttons and a "Save to config/tokens.ts" reminder.
-- Disabled if `platform_tokens` already has an L3AP row for that network (with an override checkbox guarded behind a confirm dialog).
+- Fetch CM on-chain state (use existing `fetchCandyMachine` helper or read `items_loaded` from DB).
+- If `items_loaded < total_supply` AND user is the creator, render a yellow `Alert`: "Your Candy Machine has 0/8 items loaded. Mints will fail until you insert items." with a "Repair: insert missing items" button.
+- The button reuses the existing `CandyMachineManager` "Insert Items" tab logic but auto-populates the JSON from `artworks_metadata` + uploads any missing metadata first.
 
-## 4. Config wiring
+### 5. Block mint UI when empty
+**File:** `src/pages/CollectionDetail.tsx` mint button
 
-Update `src/config/tokens.ts`:
-- Remove the `isPlaceholder` flag once the address is filled in.
-- Add a small helper `getL3apMintAddress()` that first checks a cached value, otherwise falls back to a one-time fetch from `platform_tokens` (cached in memory + localStorage).
-- Keep the hard-coded `mintAddress` field as the canonical value the admin pastes in after the mint succeeds (so the bundle never depends on a network call to render).
+Disable the Mint button with tooltip "Collection not fully loaded — contact creator" when `items_loaded === 0` or `items_loaded < itemsAvailable` and the active phase would draw past `items_loaded`.
 
-## 5. Out of scope (follow-ups)
+## Technical notes
+- `addConfigLines` from `mpl-core-candy-machine` is the correct call (not the legacy `mpl-candy-machine` import).
+- CM `configLineSettings.uriLength` is currently `200` when `baseUri` is empty — Arweave URLs (~50 chars) and Supabase public URLs (~150 chars) both fit. Verify before insert; if any URI exceeds `uriLength`, fail fast with a clear error.
+- The treasury wallet is the CM authority, so the edge function (already signing with `DEVNET_TREASURY_PRIVATE_KEY`) can run `addConfigLines` without the creator wallet.
+- Idempotency: query `itemsLoaded` on-chain before insert; only insert from `itemsLoaded` onward. Safe to re-run.
+- Out of scope: changing config-line layout (prefixUri optimization), Bubblegum/cNFT path, mainnet treasury funding.
 
-- L3AP-as-mint-currency option in the launchpad creation form.
-- Buyback tier engine (0.01% → 0.50% based on 5 milestone markers).
-- Metadata JSON upload to Arweave for the token (currently empty `uri`).
-- Rotating / deleting the `L3AP_MINT_SECRET_KEY` after a successful mainnet mint (manual step — surfaced as a UI reminder).
-
-## Technical notes / risks
-
-- The Umi signer for the vanity mint must be created via `createSignerFromKeypair` from the decoded `Keypair`, not `generateSigner`, otherwise we lose the L3AP prefix.
-- `createFungible` requires the mint signer to sign the tx; the treasury keypair pays fees and becomes mint/freeze authority.
-- We pin the function to `verify_jwt = true` (default) and check the admin role server-side; never trust the client.
-- If `DEVNET_TREASURY_PRIVATE_KEY` is not funded on mainnet, the mainnet call will fail with "insufficient lamports" — surface that error verbatim to the admin UI.
+## Verification
+After deploy, the function response should include `itemsLoaded === itemsAvailable`. The detail page should drop the warning alert, and a test mint on devnet should succeed.
