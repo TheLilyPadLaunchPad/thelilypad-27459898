@@ -59,7 +59,7 @@ export function initReownAppKit(): AppKit {
     networks: [monadMainnet, monadTestnet, solana],
     defaultNetwork: monadMainnet,
     projectId: REOWN_PROJECT_ID,
-    metadata: { ...REOWN_APP_METADATA },
+    metadata: { ...REOWN_APP_METADATA, icons: [...REOWN_APP_METADATA.icons] },
     features: {
       analytics: true,
       email: false,
