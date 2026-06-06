@@ -1,108 +1,76 @@
-# Fee Breakdown Solution — 2% Platform Standard
+## Goals
 
-A single, consistent fee model that the Launchpad Treasury collects across every monetization surface on The Lily Pad. The headline rate is **2.0%** of the gross transaction (1.25% on premium mints ≥ 0.3 SOL to undercut competitors), split internally between Treasury operations, Team, and Buyback Pool.
+1. Fix the "Arweave/metadata upload fails" error blocking generated-collection deploys.
+2. Make the creator-funded model explicit: the creator pays **only Solana rent** for the Candy Machine / Core Collection accounts at deploy time. Minters pay the mint price. After **sellout or mint end date**, the creator can **close the Candy Machine** to reclaim the rent SOL (and any leftover prefunded lamports).
+3. Defer L3AP-token discount + buyback-tier benefits (separate follow-up). Add a stub note in code so we don't break the future wiring.
 
-## 1. Master Fee Rule
+---
 
-| Surface | Platform Fee | Premium Tier (≥0.3 SOL) | Creator Royalty | Notes |
-|---|---|---|---|---|
-| Launchpad Primary Mint | **2.0%** | 1.25% | n/a (first sale) | Charged on mint price |
-| Direct Marketplace Sale (1-of-1, fixed) | **2.0%** | 1.25% | 0–10% (collection-defined) | Charged on sale price |
-| Secondary Marketplace (resale) | **2.0%** | 1.25% | 0–10% enforced | Royalty paid to original creator |
-| Auction settlement | **2.0%** | 1.25% | 0–10% enforced | Same split as marketplace |
+## 1. Why deploy is failing
 
-All percentages are basis points (bps) in code: `200 bps = 2.0%`, `125 bps = 1.25%`.
+`ContractDeployModal.handleDeploy` calls `uploadMetadataToArweave` from `src/integrations/arweave/legacyClient.ts`, which routes to `nativeClient.uploadBytes`. That requires `window.arweaveWallet` (ArConnect / Wander). When the creator only has Phantom installed, the upload throws before deploy ever starts — surfaced as the "fetch failed" error.
 
-## 2. Internal Split of the 2.0% Platform Fee
+Two-part fix:
 
-The 2.0% is not a single bucket — it is split at settlement into three on-chain destinations:
+- **Pre-check**: detect missing Arweave wallet before kicking off deploy. If absent, fall back to a **server-signed Arweave upload** via a new edge function `arweave-upload` that uses a project Arweave JWK (existing secret pattern). If the JWK secret isn't configured yet, fall back to **Supabase `collection-drafts` storage** + the existing IPFS pinning path for the metadata JSON, so deploy isn't blocked.
+- **Better errors**: wrap `uploadMetadataToArweave` in `ContractDeployModal` with try/catch that shows the actual upstream message (current `toast.error("Deployment failed")` swallows the Arweave failure).
 
-```text
-2.00% Platform Fee
- ├── 1.50%  → Treasury  (PLATFORM_WALLETS.solana.treasury)
- ├── 0.25%  → Team      (PLATFORM_WALLETS.solana.team)
- └── 0.25%  → Buyback   (PLATFORM_WALLETS.solana.buybackPool)
-```
+Also confirms the recent edge-function fix (Umi `setComputeUnit*` removal) is in place — re-deploy `deploy-metaplex-launchpad` as part of this change to be safe.
 
-For premium tier (1.25%) the same proportions scale down:
-```text
-1.25% Platform Fee
- ├── 0.9375% → Treasury
- ├── 0.1563% → Team
- └── 0.1563% → Buyback
-```
+---
 
-This already exists in `src/config/treasury.ts → getLaunchpadFeeSplit()`; the plan generalizes it to all transaction types.
+## 2. Rent-only deploy + reclaim flow
 
-## 3. Per-Surface Settlement Flow
+### Deployment cost model
+- Creator wallet signs and pays **only** the SPL rent-exempt deposit for: Core Collection account, Candy Machine account, Candy Guard account, and config-lines buffer. No upfront mint prefund.
+- Minters pay `solPayment` (mint price) directly into the **creator's treasury** PDA at mint time (existing Candy Guard config — unchanged).
+- Platform 2% fee continues to be split via the existing `getPlatformFeeSplit` router.
 
-### A. Launchpad Primary Mint (mint price = P)
-```text
-Buyer pays P
- → Creator        receives  P × 0.98
- → Treasury       receives  P × 0.015
- → Team           receives  P × 0.0025
- → Buyback Pool   receives  P × 0.0025
-```
-On-chain: Metaplex Candy Machine `solPayment` guard splits to multiple destinations via a pre-mint transfer instruction OR via a router program. Simplest path: add three `solPayment` guards in a guard group with split destinations, OR pre-bundle a SystemProgram transfer in the same tx.
+### Reclaim flow
+A new "Close & Reclaim" action becomes available on the collection management page when **either**:
+- `items_redeemed === items_available` (sellout), **or**
+- `mint_end_date` has passed.
 
-### B. Direct Primary Marketplace Sale (creator-listed 1-of-1)
-Same math as mint — no royalty yet because it's the first sale.
+Action runs the Metaplex Core / Candy Machine `delete` (a.k.a. `withdraw`) instruction, which:
+- Closes the Candy Machine + Candy Guard accounts.
+- Returns the rent lamports to the creator wallet.
+- Marks the collection `status = 'closed'` in `collections` table.
 
-### C. Secondary Marketplace Sale (price = P, royalty = R%)
-```text
-Buyer pays P
- → Original Creator  receives  P × R%             (royalty, enforced)
- → Seller            receives  P × (1 − 0.02 − R%)
- → Treasury          receives  P × 0.015
- → Team              receives  P × 0.0025
- → Buyback Pool      receives  P × 0.0025
-```
-Example at P = 1 SOL, R = 5%:
-- Creator royalty: 0.05 SOL
-- Platform: 0.02 SOL (0.015 / 0.0025 / 0.0025)
-- Seller net: 0.93 SOL
+UI guards: confirmation modal showing "X SOL rent will be returned to {wallet}", disabled state with countdown until eligible, and a clear note that closing is irreversible.
 
-## 4. Code Surface Changes
+### L3AP placeholder (deferred)
+- Add a disabled "Pay mint in L3AP (coming soon — earns buyback rewards)" radio on the deploy form.
+- Add a TODO marker referencing this conversation so the follow-up can wire: free deploy when L3AP selected, buyback enrollment, tier markers at every 5% mint-progress increasing the buyback share from 0.01% → 0.50%.
 
-### `src/config/treasury.ts`
-- Promote `getLaunchpadFeeSplit` to a generic `getPlatformFeeSplit(amount, surface)` that returns `{ treasury, team, buyback, creator, royalty, seller }`.
-- Add a `secondary` surface entry under `fees` mirroring `launchpad` (200 / 125 bps tiered).
-- Update `marketplace.platformFee` from `250` → `200` so all surfaces match the 2.0% headline.
+---
 
-### `src/lib/fees.ts`
-- Extend `getFeeBreakdown` to surface the 3-way internal split (treasury / team / buyback) — currently only returns a single `fee` number.
-- Add `getSecondarySaleBreakdown(price, royaltyBps)` for resale UI.
+## Technical changes
 
-### `src/pages/LaunchpadCreate.tsx`
-- Replace the existing flat "2.0% Platform Fee" card with the new 3-line breakdown (Treasury 1.5% / Team 0.25% / Buyback 0.25%) and the creator net line — uses the new helper.
+**Frontend**
+- `src/components/launchpad/ContractDeployModal.tsx` — pre-flight Arweave wallet check, surfaced error messages, fallback path selector.
+- `src/integrations/arweave/legacyClient.ts` (small) — export `hasArweaveWallet()` helper.
+- New `src/lib/metadataUpload.ts` — chooses Arweave (wallet) → edge function → Supabase storage in that order.
+- `src/pages/CollectionDetail.tsx` (or existing manage view) — add **Close & Reclaim** card with eligibility logic.
+- New `src/hooks/useCloseCandyMachine.ts` — wraps Umi `deleteCandyMachine` + `deleteCandyGuard`.
+- `src/pages/LaunchpadCreate.tsx` — copy update: "Deploy cost = Solana rent only (refundable on close)". Add disabled L3AP option.
 
-### `src/pages/CollectionDetail.tsx` + Marketplace listing/buy components
-- Show the same breakdown card before "Buy" / "List" actions so sellers see net proceeds and buyers see where fees go.
+**Edge function**
+- New `supabase/functions/arweave-upload/index.ts` — accepts JSON or bytes, signs with project Arweave JWK (`ARWEAVE_JWK` secret — request via add_secret when implementing), returns `{ url, txId }`. CORS + Zod validation per house rules.
+- Re-deploy `deploy-metaplex-launchpad` to confirm prior Umi fix is live.
 
-### `src/pages/FeesAndPricing.tsx`
-- Document the unified table from section 1 as the public-facing policy page.
+**Database**
+- Migration to add `mint_end_date timestamptz` and `closed_at timestamptz` to `collections` if not already present, plus a `closed_tx_signature text`.
 
-### On-chain settlement
-- **Solana mint**: in `supabase/functions/deploy-metaplex-launchpad/index.ts`, configure `solPayment` to a router PDA OR pre-append SystemProgram transfers for the 3 platform destinations. (Pure `solPayment` to a single destination cannot split — we either use a guard group with multiple `solPayment` entries or do the split in a wrapping client-side tx.)
-- **Marketplace (`contracts/LilyPadMarketplace.sol`)**: change `marketplaceFeePercent` from `250` → `200`, replace single `withdrawFees` recipient with three immutable addresses (`treasury`, `team`, `buyback`) and split inside `buyItem` at sale time. Add royalty payout via ERC-2981 lookup before seller payout.
-- **Monad equivalent**: same change in the Monad factory/marketplace contract path under `src/chains/monad/`.
+**Out of scope (next round)**
+- L3AP buyback tier engine, milestone markers, mint-progress driven fee curve.
+- Monad equivalent of close & reclaim.
+- Refunds for partial mints.
 
-## 5. Validation & Edge Cases
-- Lamport-precise math via existing `BigInt` helpers in `src/lib/fees.ts` — no floating point in settlement.
-- Rounding remainder (≤ 2 lamports) routed to Treasury.
-- Enforce `royaltyBps + 200 ≤ 10000` at collection creation.
-- Minimum sale price stays at `0.001 SOL` (already in `TREASURY_CONFIG.minimums`).
+---
 
-## 6. Out of Scope (call out, don't build now)
-- Token-gated fee discounts (e.g. Lily Pad NFT holders).
-- Cross-chain fee parity beyond Solana + Monad.
-- Automated buyback execution from buyback pool (already covered by `executeBuyback`).
+## Deliverables
 
-## 7. Deliverables Checklist
-1. Updated `treasury.ts` config + generic split helper.
-2. Updated `fees.ts` with surface-aware breakdown.
-3. UI breakdown cards on LaunchpadCreate, CollectionDetail, Marketplace buy/list.
-4. Updated `FeesAndPricing.tsx` policy page.
-5. Marketplace contract update (Solidity + Solana settlement).
-6. Edge function update for split-destination mint settlement.
+- Generated collections deploy successfully whether or not ArConnect is installed.
+- Creator sees an accurate "rent only" cost on the deploy screen.
+- After sellout or end date, the creator can close the Candy Machine and recover rent in one click.
+- L3AP option visible-but-disabled with a clear "coming soon" label, ready for the follow-up feature.
