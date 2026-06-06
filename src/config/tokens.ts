@@ -17,6 +17,9 @@ export const SUPPORTED_PAYMENT_TOKENS: Record<string, TokenConfig> = {
     L3AP: {
         symbol: 'L3AP',
         name: 'The Lily Pad Token',
+        // Vanity-grind a real mint address with `npx tsx scripts/vanity/grind.ts
+        // --match L3AP --position prefix`, then paste the public key here and
+        // store the secret in the L3AP_MINT_SECRET_KEY Cloud secret.
         mintAddress: 'L3APxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', // Placeholder
         decimals: 6,
         isPlaceholder: true,
