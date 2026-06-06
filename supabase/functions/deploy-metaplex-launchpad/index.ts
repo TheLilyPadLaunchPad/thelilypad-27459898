@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
       phases,
       baseUri,
       royaltyPercent = 5,
+      items,
     } = payload;
 
     if (!collectionId || !creatorAddress) {
