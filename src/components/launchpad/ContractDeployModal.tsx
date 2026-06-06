@@ -123,7 +123,6 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       if (chainId === 'solana') {
         toast.loading("Preparing collection metadata...", { id: 'deploying' });
 
-        // Upload minimal metadata to Arweave first
         const metadata = {
           name: collection.name,
           symbol: collection.symbol,
@@ -138,10 +137,33 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
           }
         };
 
-        const arweaveUri = await uploadMetadataToArweave(
-          metadata,
-          { address, chainType: 'solana', network }
-        );
+        let metadataUri = "";
+        try {
+          const uploaded = await uploadCollectionMetadata(metadata, {
+            collectionId: collection.id,
+          });
+          metadataUri = uploaded.url;
+          if (uploaded.provider === "supabase") {
+            toast.info(
+              "Uploaded metadata via Lily Pad storage (install Wander for permanent Arweave storage).",
+              { id: 'deploying-info', duration: 4000 },
+            );
+          }
+        } catch (uploadErr: any) {
+          throw new Error(
+            `Metadata upload failed: ${uploadErr?.message || "unknown error"}`,
+          );
+        }
+
+        toast.loading("Deploying Metaplex Core Collection...", { id: 'deploying' });
+        const result = await solanaLaunch.deploySolanaCollection({
+          name: collection.name,
+          symbol: collection.symbol,
+          uri: metadataUri,
+          sellerFeeBasisPoints: Math.round(collection.royalty_percent * 100),
+          creators: [{ address: address || '', share: 100 }]
+        });
+        contractAddress = result.address;
 
         toast.loading("Deploying Metaplex Core Collection...", { id: 'deploying' });
         const result = await solanaLaunch.deploySolanaCollection({
