@@ -355,9 +355,38 @@ export default function LaunchpadCreate() {
             let collectionMintForReveal: string | null = null;
             setDeployCheckoutProgress({ label: "Deploying collection...", completed: 1, total: 3 });
 
+            // Grind a vanity keypair so the on-chain collection address ends in "L3AP"
+            // (our brand suffix, like pump.fun's "…pump"). Skips silently on timeout.
+            let vanitySecret: string | undefined;
+            let vanityPublic: string | undefined;
+            if (selectedChain === 'solana') {
+                try {
+                    setDeployCheckoutProgress({ label: "Branding collection address …L3AP", completed: 1, total: 3 });
+                    const { runGrinderInWorker } = await import("@/lib/vanity/runGrinder");
+                    const handle = runGrinderInWorker({
+                        match: "L3AP",
+                        position: "suffix",
+                        timeoutMs: 90_000,
+                        onProgress: (n) => {
+                            if (n % 200_000 === 0) {
+                                setDeployCheckoutProgress({ label: `Branding …L3AP · ${n.toLocaleString()} attempts`, completed: 1, total: 3 });
+                            }
+                        },
+                    });
+                    const result = await handle.promise;
+                    vanitySecret = result.secretKey;
+                    vanityPublic = result.publicKey;
+                    console.log(`[vanity] L3AP ready: ${result.publicKey} (${result.attempts.toLocaleString()} attempts, ${result.elapsedMs}ms)`);
+                } catch (vErr: any) {
+                    console.warn("[vanity] skipped — using random address:", vErr?.message || vErr);
+                    toast.info("Vanity grind timed out — deploying with a random address.", { duration: 4000 });
+                }
+            }
+
             if (selectedChain === 'solana') {
                 if (!is1of1) {
                     setDeployCheckoutProgress({ label: "Deploying collection via backend...", completed: 1, total: 3 });
+
                     
                     const result = await solanaLaunch.deployViaBackend({
                         collectionId,
