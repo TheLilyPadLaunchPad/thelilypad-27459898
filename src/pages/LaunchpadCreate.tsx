@@ -398,8 +398,11 @@ export default function LaunchpadCreate() {
                         phases,
                         baseUri: primaryArweaveUri,
                         royaltyPercent,
-                        network: network as string
+                        network: network as string,
+                        collectionSecretKey: vanitySecret,
+                        collectionPublicKey: vanityPublic,
                     });
+
 
                     deployedAddress = result.collectionAddress;
                     collectionMintForReveal = result.collectionAddress;
@@ -421,8 +424,11 @@ export default function LaunchpadCreate() {
                         phases: [],
                         baseUri: primaryArweaveUri,
                         royaltyPercent,
-                        network: network as string
+                        network: network as string,
+                        collectionSecretKey: vanitySecret,
+                        collectionPublicKey: vanityPublic,
                     });
+
                     
                     deployedAddress = result.collectionAddress;
                     collectionMintForReveal = result.collectionAddress;
