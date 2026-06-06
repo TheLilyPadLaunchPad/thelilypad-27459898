@@ -284,24 +284,49 @@ export async function waitForConfirmation(
 
 // ────────────────────────────── Downloads ────────────────────────────────
 
+export class ArweaveGatewayError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = "ArweaveGatewayError";
+  }
+}
+
+async function fetchFromGateway(txId: string): Promise<Response> {
+  let res: Response;
+  try {
+    res = await fetch(getArweaveUrl(txId));
+  } catch (e) {
+    throw new ArweaveGatewayError(
+      `Arweave gateway unreachable while fetching ${txId}. Check your internet connection or try again in a moment.`,
+      e
+    );
+  }
+  if (res.status === 404) {
+    throw new ArweaveGatewayError(
+      `Arweave tx ${txId} is not yet retrievable (404). Base L1 uploads take 2–20 minutes to propagate — call waitForConfirmation() before fetching.`
+    );
+  }
+  if (!res.ok) {
+    throw new ArweaveGatewayError(
+      `Arweave gateway returned ${res.status} for ${txId}.`
+    );
+  }
+  return res;
+}
+
 /** Fetch a tx's raw bytes via the public gateway. */
 export async function downloadBlob(txId: string): Promise<Blob> {
-  const res = await fetch(getArweaveUrl(txId));
-  if (!res.ok) {
-    throw new Error(`Arweave download failed (${res.status}): ${txId}`);
-  }
+  const res = await fetchFromGateway(txId);
   return res.blob();
 }
 
 /** Convenience: fetch a tx and JSON-parse it. */
 export async function downloadJson<T = unknown>(txId: string): Promise<T> {
-  const res = await fetch(getArweaveUrl(txId));
-  if (!res.ok) {
-    throw new Error(`Arweave JSON fetch failed (${res.status}): ${txId}`);
-  }
+  const res = await fetchFromGateway(txId);
   return (await res.json()) as T;
 }
 
 // Re-export the low-level `arweave-js` instance for callers that need
 // advanced features (GraphQL search, raw tx inspection, etc.).
 export { arweave };
+
