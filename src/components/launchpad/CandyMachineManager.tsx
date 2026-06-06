@@ -173,11 +173,48 @@ export function CandyMachineManager({
                     </TabsList>
 
                     <TabsContent value="items" className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="text-sm">
+                                <span className="text-muted-foreground">Items loaded on-chain:</span>{' '}
+                                <Badge variant={itemsLoaded >= itemsAvailable && itemsAvailable > 0 ? 'default' : 'destructive'}>
+                                    {itemsLoaded} / {itemsAvailable}
+                                </Badge>
+                            </div>
+                            {missingItems > 0 && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-500/40">
+                                    {missingItems} missing
+                                </Badge>
+                            )}
+                        </div>
+
+                        {canAutoSync && missingItems > 0 && (
+                            <Alert>
+                                <Wand2 className="h-4 w-4" />
+                                <AlertTitle>Auto-sync from collection artworks</AlertTitle>
+                                <AlertDescription className="space-y-3">
+                                    <p className="text-xs">
+                                        Uploads per-NFT metadata for each of your {artworks!.length} artworks and writes them into the Candy Machine. Mints will be blocked until this completes.
+                                    </p>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleAutoSync}
+                                        disabled={isAutoSyncing || isLoading}
+                                    >
+                                        {isAutoSyncing ? (
+                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{syncProgress || 'Syncing…'}</>
+                                        ) : (
+                                            <><Wand2 className="mr-2 h-4 w-4" />Auto-sync {artworks!.length} items</>
+                                        )}
+                                    </Button>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+
                         <Alert>
                             <FileJson className="h-4 w-4" />
-                            <AlertTitle>JSON Format</AlertTitle>
+                            <AlertTitle>Manual insert (advanced)</AlertTitle>
                             <AlertDescription>
-                                <code>[{"{"} "name": "Item #1", "uri": "https://..." {"}"}, ...]</code>
+                                <code className="text-[11px]">[{"{"} "name": "Item #1", "uri": "https://..." {"}"}, ...]</code>
                             </AlertDescription>
                         </Alert>
                         <div className="space-y-2">
@@ -186,16 +223,17 @@ export function CandyMachineManager({
                                 placeholder='[{"name": "Item 1", "uri": "https://..."}]'
                                 value={itemsJson}
                                 onChange={(e) => setItemsJson(e.target.value)}
-                                rows={10}
+                                rows={8}
                                 className="font-mono text-xs"
                             />
                         </div>
-                        <Button onClick={handleInsertItems} disabled={isLoading || !itemsJson}>
+                        <Button onClick={handleInsertItems} disabled={isLoading || !itemsJson} variant="outline">
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             <Upload className="mr-2 h-4 w-4" />
                             Insert Items
                         </Button>
                     </TabsContent>
+
 
                     <TabsContent value="reveal" className="space-y-4">
                         <RevealCandyMachinePanel
