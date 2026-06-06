@@ -1021,24 +1021,29 @@ export const useSolanaLaunch = () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Must be logged in to deploy via backend");
 
-            const response = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/deploy-metaplex-launchpad`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`
-                    },
-                    body: JSON.stringify(params)
-                }
+            // Use the Supabase SDK transport (avoids the Lovable preview fetch-proxy
+            // "Failed to fetch" issue that happens with raw fetch to /functions/v1).
+            const { data, error: fnError } = await supabase.functions.invoke(
+                'deploy-metaplex-launchpad',
+                { body: params }
             );
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || "Backend deployment failed");
+            if (fnError) {
+                // FunctionsHttpError exposes the server JSON via fnError.context
+                let serverMsg = fnError.message;
+                try {
+                    const ctx: any = (fnError as any).context;
+                    if (ctx && typeof ctx.json === 'function') {
+                        const j = await ctx.json();
+                        if (j?.error) serverMsg = j.error;
+                    } else if (ctx?.error) {
+                        serverMsg = ctx.error;
+                    }
+                } catch { /* ignore */ }
+                throw new Error(serverMsg || 'Backend deployment failed');
             }
 
-            const data = await response.json();
+            if (data?.error) throw new Error(data.error);
             return data;
         } catch (err: any) {
             console.error("Backend deploy error:", err);
@@ -1048,6 +1053,7 @@ export const useSolanaLaunch = () => {
             setIsLoading(false);
         }
     }, []);
+
     return {
         isLoading,
         error,
