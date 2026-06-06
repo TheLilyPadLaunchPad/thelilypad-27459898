@@ -48,8 +48,8 @@ import { validateAssets, AssetFile } from "@/utils/assetValidator";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { SupportedChain, CHAINS } from "@/config/chains";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
-import { getFeeBreakdown } from "@/lib/fees";
-import { PLATFORM_WALLETS } from "@/config/treasury";
+import { FeeBreakdownCard } from "@/components/FeeBreakdownCard";
+
 
 import { useChain } from "@/providers/ChainProvider";
 import { useChainTheme } from "@/hooks/useChainTheme";
