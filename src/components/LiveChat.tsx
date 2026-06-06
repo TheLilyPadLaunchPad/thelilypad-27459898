@@ -182,11 +182,7 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
                             <span title="Permanently Stored on Arweave">
                               <ShieldCheck className="h-3 w-3 text-primary opacity-60" />
                             </span>
-                          ) : (
-                            <span title="Synced via Edge">
-                              <Globe className="h-3 w-3 text-muted-foreground opacity-40" />
-                            </span>
-                          )}
+                          ) : null}
                           <span className="text-[10px] text-muted-foreground flex-shrink-0">
                             {formatDistanceToNow(new Date(msg.timestamp), { addSuffix: true })}
                           </span>
