@@ -171,6 +171,41 @@ Deno.serve(async (req) => {
     const { signature } = await builder.sendAndConfirm(umi, { send: { skipPreflight: true } });
     console.log("Transaction confirmed!", bs58.encode(signature));
 
+    // Insert config lines (items) into the Candy Machine, if provided
+    let itemsLoaded = 0;
+    let insertError: string | null = null;
+    if (candyMachineAddress && Array.isArray(items) && items.length > 0) {
+      try {
+        const cmPubkey = publicKey(candyMachineAddress);
+        const validated = items
+          .filter((it: any) => it && typeof it.name === 'string' && typeof it.uri === 'string')
+          .map((it: any) => ({ name: String(it.name).slice(0, 32), uri: String(it.uri).slice(0, 200) }));
+
+        if (validated.length !== items.length) {
+          console.warn(`[insert] ${items.length - validated.length} items dropped due to invalid shape`);
+        }
+
+        const BATCH = 10;
+        for (let i = 0; i < validated.length; i += BATCH) {
+          const batch = validated.slice(i, i + BATCH);
+          console.log(`[insert] batch ${i / BATCH + 1} @ index ${i} (${batch.length} items)`);
+          await addConfigLines(umi, {
+            candyMachine: cmPubkey,
+            index: i,
+            configLines: batch,
+          })
+            .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+            .add(setComputeUnitLimit(umi, { units: 800_000 }))
+            .sendAndConfirm(umi, { send: { skipPreflight: false }, confirm: { commitment: 'confirmed' } });
+          itemsLoaded = i + batch.length;
+        }
+        console.log(`[insert] Done. ${itemsLoaded}/${validated.length} loaded.`);
+      } catch (e: any) {
+        insertError = e?.message || String(e);
+        console.error("[insert] failed:", insertError);
+      }
+    }
+
     // Update the database with the deployed addresses (using existing service role client)
     await supabaseServiceRole.from("collections").update({
       contract_address: collectionSigner.publicKey,
@@ -178,6 +213,7 @@ Deno.serve(async (req) => {
       candy_machine_address: candyMachineAddress || null,
       candy_guard_address: candyGuardAddress || null,
       collection_mint_address: collectionSigner.publicKey,
+      items_loaded: itemsLoaded,
     }).eq("id", collectionId);
 
     return jsonResponse({
@@ -186,6 +222,10 @@ Deno.serve(async (req) => {
       candyMachineAddress: candyMachineAddress || null,
       candyGuardAddress: candyGuardAddress || null,
       signature: bs58.encode(signature),
+      itemsLoaded,
+      itemsAvailable: itemsAvailable || 0,
+      partial: !!insertError || (itemsAvailable && itemsLoaded < itemsAvailable),
+      insertError,
     });
 
   } catch (error: any) {
