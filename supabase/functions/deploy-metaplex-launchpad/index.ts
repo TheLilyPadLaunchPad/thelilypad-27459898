@@ -24,10 +24,12 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  console.log(`[deploy-metaplex-launchpad] ${req.method} request received`);
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -38,12 +40,13 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: corsHeaders });
+      return jsonResponse({ error: "Invalid token" }, 401);
     }
 
     // Parse payload early so we can pick the correct treasury key per network
     const payload = await req.json();
     const network = payload.network || 'devnet';
+    console.log(`[deploy-metaplex-launchpad] invoked`, { network, collectionId: payload?.collectionId, userId: user.id });
 
     const treasuryKey = network === 'devnet'
       ? (Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY") || Deno.env.get("TREASURY_PRIVATE_KEY"))
@@ -65,7 +68,7 @@ Deno.serve(async (req) => {
     } = payload;
 
     if (!collectionId || !creatorAddress) {
-      return new Response(JSON.stringify({ error: "Missing required parameters" }), { status: 400, headers: corsHeaders });
+      return jsonResponse({ error: "Missing required parameters" }, 400);
     }
 
     // Ownership check — only the collection's creator can trigger a deploy for it.
@@ -77,13 +80,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (ownershipError || !existingCollection) {
-      return new Response(JSON.stringify({ error: "Collection not found" }), { status: 404, headers: corsHeaders });
+      return jsonResponse({ error: "Collection not found" }, 404);
     }
     if (existingCollection.creator_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Forbidden: not the collection owner" }), { status: 403, headers: corsHeaders });
+      return jsonResponse({ error: "Forbidden: not the collection owner" }, 403);
     }
 
     console.log(`Starting backend deployment for collection: ${name} (${collectionId})`);
+
 
     // Initialize Umi with the backend payer
     const rpcUrl = network === 'mainnet' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com';
