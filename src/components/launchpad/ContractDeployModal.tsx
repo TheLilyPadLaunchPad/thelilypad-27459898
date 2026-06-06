@@ -357,6 +357,11 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                             Install <span className="font-medium">Wander</span> for permanent Arweave storage.
                           </div>
                         )}
+                        <div className="rounded-md border border-primary/20 bg-primary/5 p-2 text-[11px] text-muted-foreground">
+                          <span className="font-medium text-foreground">Branded address</span> — your collection address
+                          will end in <span className="font-mono font-semibold text-primary">…{VANITY_BRAND}</span>,
+                          our on-chain signature. Grinding takes a few seconds before deploy.
+                        </div>
                         <div className="rounded-md border border-dashed border-border bg-muted/40 p-2 text-[11px] text-muted-foreground">
                           <span className="font-medium text-foreground">Pay mint in L3AP</span> · coming soon —
                           opts your collection into the buyback program and waives the launchpad deploy fee.
@@ -380,7 +385,7 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                 {isDeploying ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Deploying...
+                    {vanityProgress !== null ? `Branding …${VANITY_BRAND}` : 'Deploying...'}
                   </>
                 ) : (
                   <>
@@ -389,6 +394,23 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
                   </>
                 )}
               </Button>
+              {vanityProgress !== null && (
+                <div className="space-y-1 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Grinding vanity address · {vanityProgress.toLocaleString()} attempts
+                  </p>
+                  <button
+                    type="button"
+                    className="text-[11px] underline text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      skipVanityRef.current = true;
+                      vanityHandleRef.current?.cancel();
+                    }}
+                  >
+                    Skip — use a random address
+                  </button>
+                </div>
+              )}
               <p className="text-[10px] text-center text-muted-foreground uppercase tracking-wider">
                 This will trigger a wallet transaction
               </p>
