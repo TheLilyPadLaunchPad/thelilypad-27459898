@@ -1014,7 +1014,10 @@ export const useSolanaLaunch = () => {
         baseUri?: string;
         royaltyPercent?: number;
         network?: string;
+        collectionSecretKey?: string;
+        collectionPublicKey?: string;
     }) => {
+
         setIsLoading(true);
         setError(null);
         try {
