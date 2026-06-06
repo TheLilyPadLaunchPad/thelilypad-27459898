@@ -3,7 +3,7 @@
  *
  * This file used to be the full Irys SDK client (~2k lines). It is now a
  * thin wrapper over `src/integrations/arweave/nativeClient.ts` so existing
- * call sites that import from `@/integrations/irys/client` keep working
+ * call sites that import from `@/integrations/arweave/legacyClient` keep working
  * during/after the native-Arweave migration.
  *
  * Behavioural differences from the old Irys client (silently applied):

@@ -2,7 +2,7 @@ import {
     uploadMetadataToArweave,
     getIrysMutableUrl,
     queryIrysByTags
-} from "@/integrations/irys/client";
+} from "@/integrations/arweave/legacyClient";
 
 /**
  * Decentralized Message Structure

@@ -14,7 +14,7 @@ import { getErrorMessage } from "@/lib/errorUtils";
 import { cn } from "@/lib/utils";
 import { type SupportedChain, getDbChainValue } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadBatchToArweave, BatchUploadItem, uploadToArweave, preFundIrysForBatch } from "@/integrations/irys/client";
+import { uploadBatchToArweave, BatchUploadItem, uploadToArweave, preFundIrysForBatch } from "@/integrations/arweave/legacyClient";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
