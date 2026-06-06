@@ -4,7 +4,7 @@ import { keypairIdentity, publicKey, some, none, dateTime, sol } from "npm:@meta
 import { createCollection, ruleSet } from "npm:@metaplex-foundation/mpl-core";
 import { createCandyMachine, createCandyGuard, wrap, findCandyGuardPda } from "npm:@metaplex-foundation/mpl-core-candy-machine";
 import { setComputeUnitLimit, setComputeUnitPrice } from "npm:@metaplex-foundation/mpl-toolbox";
-import bs58 from "npm:bs58";
+import bs58 from "https://esm.sh/bs58@6.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
