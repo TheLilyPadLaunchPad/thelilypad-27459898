@@ -1,42 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://thelilypad.app/</loc>
+    <loc>https://thelilypad.lovable.app/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://thelilypad.app/streamers</loc>
+    <loc>https://thelilypad.lovable.app/streamers</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://thelilypad.app/streams</loc>
+    <loc>https://thelilypad.lovable.app/streams</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://thelilypad.app/launchpad</loc>
+    <loc>https://thelilypad.lovable.app/launchpad</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://thelilypad.app/auth</loc>
+    <loc>https://thelilypad.lovable.app/auth</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://thelilypad.app/dashboard</loc>
+    <loc>https://thelilypad.lovable.app/auth/callback</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.1</priority>
+  </url>
+  <url>
+    <loc>https://thelilypad.lovable.app/profile-setup</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://thelilypad.lovable.app/wallet</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://thelilypad.lovable.app/earnings</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://thelilypad.lovable.app/donor-profile</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://thelilypad.lovable.app/dashboard</loc>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://thelilypad.app/go-live</loc>
+    <loc>https://thelilypad.lovable.app/go-live</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://thelilypad.app/following</loc>
+    <loc>https://thelilypad.lovable.app/following</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
