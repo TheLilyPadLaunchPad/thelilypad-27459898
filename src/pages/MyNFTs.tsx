@@ -10,11 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { ListNFTModal } from "@/components/ListNFTModal";
+import { ListOnchainNFTModal, type OnchainNFTLite } from "@/components/ListOnchainNFTModal";
+import { CreateAuctionModal } from "@/components/CreateAuctionModal";
 import { CreateRaffleForNFT } from "@/components/raffles/CreateRaffleForNFT";
 import { BurnNFTModal } from "@/components/BurnNFTModal";
 import { ViewOffersModal } from "@/components/ViewOffersModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
+import { useCollectionStatsSolana } from "@/hooks/useCollectionStatsSolana";
 import { ipfsToHttp, resolveNftImageUrl } from "@/lib/ipfs";
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +45,9 @@ import {
   Ticket,
   Globe,
   Flame,
-  MessageSquare
+  MessageSquare,
+  Gavel,
+  TrendingUp
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
