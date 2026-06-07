@@ -1,60 +1,59 @@
-# Make every launched collection address end in `L3AP`
+# Drop ArConnect, restore Irys (Solana-paid Arweave)
 
-Like pump.fun's `…pump` suffix, every NFT collection (PFP, 1-of-1, music) launched on The Lily Pad will have its on-chain Core Collection address end with our brand suffix `L3AP`. This will be visible on Solscan, wallets, marketplaces — anywhere the collection address is shown.
+Phantom-only flow: users sign and pay for Arweave uploads in SOL through the Irys network node. No second wallet, no AR token, still permanent storage. Existing Arweave-deployed collections stay untouched.
 
-## What changes
+## Why this works
+- Irys exposes a Solana funding path: the user funds an Irys node with SOL via a normal Solana tx (signed by Phantom/Solflare/etc.), then signs upload receipts with the same Solana keypair.
+- Candy Machine just stores the resulting `https://arweave.net/<id>` URI — it doesn't care who paid.
+- Files <100 KiB are free on Irys (no funding tx needed), which covers most JSON metadata.
 
-### 1. Deploy flow grinds a vanity keypair before signing
-- `src/components/launchpad/ContractDeployModal.tsx`
-  - Before invoking `deploy-metaplex-launchpad`, run the existing `runGrinderInWorker({ match: "L3AP", position: "suffix", timeoutMs: 120_000 })` from `src/lib/vanity/runGrinder.ts`.
-  - Show a small progress UI: "Grinding vanity address …L3AP (X attempts, Ys)" with a Cancel button. Expected: ~11M attempts, ~10–60s in a Web Worker.
-  - On success, pass `{ collectionSecretKey, collectionPublicKey }` in the edge-function payload.
-  - On timeout/cancel, offer two choices: **Retry grind** or **Skip vanity (use random address)** so deploys are never permanently blocked.
+## Scope of changes
 
-### 2. Edge function uses the supplied keypair instead of generating one
-- `supabase/functions/deploy-metaplex-launchpad/index.ts`
-  - Accept optional `collectionSecretKey` (base58, 64 bytes) in the payload.
-  - Validate: decodes to 64 bytes, public key matches `collectionPublicKey`, public key ends with `L3AP`.
-  - Use it as `collectionSigner` via `umi.eddsa.createKeypairFromSecretKey(...)` instead of `umi.eddsa.generateKeypair()`.
-  - If validation fails → 400 (don't silently fall back, the user explicitly opted in).
-  - If field is absent → keep existing random behavior (back-compat for older clients / scripts).
-  - The Candy Machine and Candy Guard keypairs stay random — only the **Collection address** (the user-visible "contract address") gets the suffix.
+### 1. Add Irys uploader (Solana adapter)
+- New `src/integrations/irys/solanaClient.ts` wrapping `@irys/web-upload` + `@irys/web-upload-solana`.
+- Wallet adapter sourced from the existing Solana wallet (`window.phantom.solana` / WalletProvider) — no ArConnect import anywhere.
+- Public API mirrors the current `nativeClient.ts` so callers don't change much: `uploadBytes`, `uploadJson`, `uploadBlob`, `getBalance`, `fund`, `getUploadPriceSol`.
+- Auto-fund logic: before an upload, compare price vs. node balance; if short, send a single SOL funding tx (with our standard `TheLilyPad:v1:irys-fund` memo) and wait for Irys to credit it.
 
-### 3. UI surfaces the brand suffix everywhere we already show the address
-The L3AP badge code already exists on `CollectionDetail` (`contract_address?.endsWith('L3AP')`). Roll the same badge into:
-- `CollectionCard` / launchpad grid tiles (small `…L3AP` chip)
-- `CollectionHero` address copy button (tooltip: "Verified L3AP brand address")
-- Marketplace listing cards
+### 2. Rewire upload callers to the new client
+Files importing `@/integrations/arweave/nativeClient` or `useArweaveWallet`:
+- `src/integrations/arweave/umiArweaveUploader.ts` → swap to Irys Solana client.
+- `src/lib/metadataUpload.ts` → drop the ArConnect branch; use Irys for permanent path, keep Supabase `ipfs` bucket only as an explicit "draft / non-permanent" fallback.
+- Any Candy Machine per-item upload path in `LaunchpadCreate` / `bundleDeploy.ts` / `assetBundler.ts` → same swap.
+- Remove `useArweaveWallet` usages from UI (connect buttons, status pills, balance displays).
 
-No DB migration needed — we read the suffix directly off `collections.contract_address`.
+### 3. Remove ArConnect surface area
+- Delete `src/integrations/arweave/nativeClient.ts`, `src/hooks/useArweaveWallet.ts`, `src/types/arconnect.d.ts`.
+- Remove the `arweave` npm dep (only used by nativeClient).
+- Remove any "Connect Arweave wallet" UI, install-Wander prompts, and AR-balance checks.
+- Keep `src/integrations/arweave/graphql.ts` / read-only helpers — those only hit the public gateway, no wallet needed.
 
-## Technical details
+### 4. Edge function (`deploy-metaplex-launchpad`)
+No change to the deploy function itself — it already accepts a `uri` and per-item `uri` values. The switch is purely on the client upload side. (We previously added `mplCore/mplCandyMachine/mplToolbox` plugins; those stay.)
 
-**Why client-side grind?**
-- Keeps the secret key on the user's machine until the moment of deploy; the edge function uses it once to sign the create-collection tx and discards it.
-- Avoids burning treasury CPU on the edge-function worker (Deno isolates are CPU-capped and `L3AP` grinds would frequently hit the wall-clock limit).
-- We already shipped `src/lib/vanity/{grindKeypair,runGrinder,vanity.worker}.ts` — this just wires them in.
+### 5. UX in `LaunchpadCreate`
+- Replace the "Connect ArConnect + fund with AR" step with a single cost preview: "Permanent storage: ~X SOL via Irys (paid from your connected Solana wallet)."
+- One Phantom approval for the funding tx (only if needed), then uploads stream in the background.
+- Clear error if Phantom is not connected.
 
-**Difficulty math**
-- Base58 alphabet (excludes `0OIl`), `L3AP` is 4 chars → ~58⁴ ≈ 11.3M attempts. Modern laptops do ~200–500k/s in a worker → median ~30s. We default `timeoutMs` to 120s with a Cancel/Skip escape hatch.
+### 6. Memory + docs
+- Update `mem://infrastructure/irys-solana-provider-compatibility` from "Irys removed" to "Irys restored, Solana-funded, Phantom-only."
+- Update core memory line about ArConnect/Wander.
+- Update `docs/nft-launchpad.md` storage section.
 
-**Security**
-- Edge function re-derives the public key from the supplied secret key and rejects if it doesn't match `collectionPublicKey` or doesn't end in `L3AP`. This prevents a malicious client from convincing the server to sign for an unrelated/spoofed address.
-- Secret key is never logged or persisted — used only to construct the Umi signer in-memory for that one tx.
-- Ownership check (`creator_id === user.id`) already exists and is unchanged.
+## What we are NOT doing
+- Not touching collections already deployed with ArConnect-uploaded Arweave URIs (per your answer).
+- Not changing Monad flow.
+- Not changing Candy Machine on-chain layout or guards.
+- Not adding a Supabase-storage fallback for permanent NFT assets — Irys is the only permanent path.
 
-**Back-compat**
-- `scripts/vanity/grind.ts` keeps working for ops-side pre-grinding.
-- Collections deployed before this change keep their random addresses; the badge simply won't show on them. No backfill is attempted (we can't change a Solana account's address after the fact).
+## Risk / open items
+- The previous "Irys removed" decision was driven by Phantom signer incompatibility. The fix is to use `@irys/web-upload-solana` (current package), which adapts the Solana wallet signature flow correctly — confirmed working with Phantom in current Irys docs. If we hit signature issues again, fallback is to sign funding txs manually with `@solana/web3.js` and only use Irys SDK for the upload receipts.
+- Irys mainnet endpoint: `https://node1.irys.xyz` (Solana mainnet); devnet uses `https://devnet.irys.xyz` with Solana devnet. Network selection follows the existing `network` toggle.
 
-**Out of scope**
-- Vanity suffix on Candy Machine / Candy Guard addresses (low visibility, would 3× the grind cost).
-- Monad / EVM collections — different address derivation (CREATE2). Can be a follow-up using a CREATE2 salt grinder if you want `…1eap` style.
-- Per-NFT mint addresses — those are minted by buyers, not us, so we can't vanity-grind them.
-
-## Files touched
-- `src/components/launchpad/ContractDeployModal.tsx` — add grind step + progress UI
-- `supabase/functions/deploy-metaplex-launchpad/index.ts` — accept & validate `collectionSecretKey`
-- `src/components/launchpad/CollectionCard.tsx` (or equivalent grid tile) — add `…L3AP` chip
-- `src/components/collection-detail/CollectionHero.tsx` — tooltip on address copy
-- `src/components/MarketplaceCard.tsx` (if it shows the collection address) — chip
+## Files touched (approx.)
+- add: `src/integrations/irys/solanaClient.ts`
+- edit: `src/integrations/arweave/umiArweaveUploader.ts`, `src/lib/metadataUpload.ts`, `src/lib/assetBundler.ts`, `src/chains/solana/bundleDeploy.ts`, `src/pages/LaunchpadCreate.tsx`, `src/components/launchpad/*` (any AR wallet UI)
+- delete: `src/integrations/arweave/nativeClient.ts`, `src/hooks/useArweaveWallet.ts`, `src/types/arconnect.d.ts`
+- deps: `+ @irys/web-upload @irys/web-upload-solana`, `- arweave`
+- memory: update Irys + core lines
