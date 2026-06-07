@@ -1205,15 +1205,102 @@ export default function MyNFTs() {
                   )}
 
                   <div className="flex flex-col gap-2 pt-2">
-                    {/* On-chain-only info badge */}
-                    {selectedNft.source === 'onchain' && (
-                      <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                        <Globe className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                        <span className="text-xs text-blue-400">
-                          This NFT was found on-chain in your wallet
-                        </span>
-                      </div>
-                    )}
+                    {/* On-chain-only info badge + floor/volume */}
+                    {selectedNft.source === 'onchain' && (() => {
+                      const mint = selectedNft.onChainAddress || '';
+                      const ocStat = onchainStats.get(mint);
+                      return (
+                        <div className="flex flex-col gap-1 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                            <span className="text-xs text-blue-400">
+                              On-chain NFT in your wallet
+                            </span>
+                          </div>
+                          {ocStat && (ocStat.floorPrice != null || ocStat.volume24h != null) && (
+                            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                              <div>
+                                <p className="text-muted-foreground">Floor</p>
+                                <p className="font-semibold">
+                                  {ocStat.floorPrice != null
+                                    ? `${ocStat.floorPrice.toFixed(3)} ${chainSymbol}`
+                                    : '—'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">24h volume</p>
+                                <p className="font-semibold">
+                                  {ocStat.volume24h != null
+                                    ? `${ocStat.volume24h.toFixed(2)} ${chainSymbol}`
+                                    : '—'}
+                                </p>
+                              </div>
+                              <p className="col-span-2 text-[10px] text-muted-foreground">
+                                Source: Magic Eden
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* List & Auction for on-chain NFTs */}
+                    {selectedNft.source === 'onchain' && (() => {
+                      const mint = selectedNft.onChainAddress || '';
+                      const isListed = onchainListedAssets.has(mint);
+                      const isAuctioned = onchainAuctionedAssets.has(mint);
+                      const lite: OnchainNFTLite = {
+                        assetAddress: mint,
+                        name: selectedNft.name,
+                        imageUrl: selectedNft.image_url,
+                        collectionName: selectedNft.collection?.name ?? null,
+                        collectionAddress: selectedNft.collection?.contract_address ?? null,
+                      };
+                      return (
+                        <>
+                          {!isListed && !isAuctioned && (
+                            <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  setSelectedNft(null);
+                                  setOnchainListNft(lite);
+                                }}
+                              >
+                                <Tag className="w-4 h-4 mr-2" />
+                                List on Marketplace
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  setSelectedNft(null);
+                                  setAuctionNft(lite);
+                                }}
+                              >
+                                <Gavel className="w-4 h-4 mr-2" />
+                                Start Auction
+                              </Button>
+                            </>
+                          )}
+                          {isListed && (
+                            <Badge variant="secondary" className="w-full justify-center py-2">
+                              Listed on marketplace
+                            </Badge>
+                          )}
+                          {isAuctioned && (
+                            <Badge variant="secondary" className="w-full justify-center py-2">
+                              Auction in progress
+                            </Badge>
+                          )}
+                        </>
+                      );
+                    })()}
+
+
 
                     {/* List for Sale Button — only for DB-backed NFTs */}
                     {selectedNft.source !== 'onchain' && (
