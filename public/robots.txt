@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://thelilypad.app/sitemap.xml
+Sitemap: https://thelilypad.lovable.app/sitemap.xml
