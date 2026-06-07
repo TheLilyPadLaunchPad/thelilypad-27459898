@@ -631,7 +631,7 @@ export default function MyNFTs() {
 
         {/* Portfolio Stats */}
         {!isLoading && nfts.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
@@ -670,16 +670,35 @@ export default function MyNFTs() {
                       {portfolioValue > 0 ? `${portfolioValue.toFixed(2)} ${chainSymbol}` : "—"}
                     </p>
                     {portfolioValue > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Based on floor prices
-                      </p>
+                      <p className="text-xs text-muted-foreground">Sum of floor prices</p>
                     )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <TrendingUp className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">24h Holdings Volume</p>
+                    <p className="text-2xl font-bold">
+                      {onchainVolume24h != null
+                        ? `${onchainVolume24h.toFixed(2)} ${chainSymbol}`
+                        : "—"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Across collections you hold (Magic Eden)
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         )}
+
 
         {/* Portfolio Value Chart */}
         {!isLoading && nfts.length > 0 && (
