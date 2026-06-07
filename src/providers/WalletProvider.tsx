@@ -155,6 +155,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           walletType: "reown",
           isConnecting: false
         }));
+        try { localStorage.setItem("walletConnected", "true"); } catch {}
         await ensureSupabaseSession(reownAddress, 'reown');
       } else {
         setState(prev => ({
@@ -164,6 +165,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           balance: null,
           isConnecting: reownStatus === 'connecting'
         }));
+        if (reownStatus !== 'connecting' && reownStatus !== 'reconnecting') {
+          try { localStorage.removeItem("walletConnected"); } catch {}
+        }
       }
     };
     
