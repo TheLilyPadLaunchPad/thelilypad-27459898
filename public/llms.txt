@@ -1,0 +1,17 @@
+# The Lily Pad
+
+> All-in-one NFT launchpad, marketplace, and live streaming platform for creators on Solana and Monad. Mint collections, stream live, accept SOL tips, and grow a community.
+
+The Lily Pad (also called Lily Launchpad) lets creators launch NFT collections with advanced trait rules, candy guards, allowlists, and rarity tiers, then sell and trade them in the built-in marketplace. Streamers can go live, take crypto tips, and reward holders.
+
+## Pages
+
+- [Home](/): Overview of the platform, featured collections, and live streams.
+- [Marketplace](/marketplace): Browse NFT collections, listings, and sticker packs across Solana and Monad.
+- [Live Streams](/streams): Watch live creator streams, mint events, and community broadcasts.
+- [Streamers](/streamers): Discover creators and follow your favorites.
+- [Launchpad](/launchpad): Launch a new NFT collection with traits, rarity, and candy-guard mint phases.
+
+## Optional
+
+- [Apply as a Streamer](/streamer/apply): Application page for new creators.

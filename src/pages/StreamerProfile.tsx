@@ -125,7 +125,21 @@ const StreamerProfile = () => {
 
   useSEO({
     title: profile?.display_name ? `${profile.display_name} | The Lily Pad` : "Streamer Profile | The Lily Pad",
-    description: profile?.bio || "View streamer profile, clips, NFT collections, and schedule. Follow and support your favorite creators on The Lily Pad."
+    description: profile?.bio || "View streamer profile, clips, NFT collections, and schedule. Follow and support your favorite creators on The Lily Pad.",
+    ogType: "profile",
+    structuredData: profile
+      ? {
+          "@context": "https://schema.org",
+          "@type": "ProfilePage",
+          mainEntity: {
+            "@type": "Person",
+            name: profile.display_name || "Creator",
+            description: profile.bio || undefined,
+            image: profile.avatar_url || undefined,
+            url: typeof window !== "undefined" ? window.location.href : undefined,
+          },
+        }
+      : undefined,
   });
 
   useEffect(() => {

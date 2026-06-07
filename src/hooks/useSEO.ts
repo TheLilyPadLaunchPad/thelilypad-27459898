@@ -18,7 +18,7 @@ interface SEOProps {
   ogType?: string;
 }
 
-const SITE_URL = 'https://thelilypad.io';
+const SITE_URL = 'https://thelilypad.lovable.app';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 /** Set or create a meta tag. Returns cleanup function. */

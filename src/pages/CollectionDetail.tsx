@@ -90,7 +90,19 @@ export default function CollectionDetail() {
 
   useSEO({
     title: collection?.name ? `${collection.name} | The Lily Pad` : "NFT Collection | The Lily Pad",
-    description: collection?.description || "Mint NFTs from this collection on The Lily Pad. View phases, pricing, and mint progress."
+    description: collection?.description || "Mint NFTs from this collection on The Lily Pad. View phases, pricing, and mint progress.",
+    ogType: "product",
+    structuredData: collection
+      ? {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: collection.name,
+          description: collection.description || `Mint ${collection.name} on The Lily Pad.`,
+          image: collection.image_url || collection.banner_url || undefined,
+          brand: { "@type": "Brand", name: "The Lily Pad" },
+          url: typeof window !== "undefined" ? window.location.href : undefined,
+        }
+      : undefined,
   });
 
   if (isLoading) {

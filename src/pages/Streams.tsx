@@ -143,6 +143,8 @@ const Streams: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       
+      <h1 className="sr-only">Live Creator Streams on The Lily Pad</h1>
+
       {/* Hero / Featured Stream */}
       <section className="pt-24 pb-8 px-6">
         <div className="container mx-auto">

@@ -125,7 +125,7 @@ export default function Marketplace() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <PageHeader
             logo={<LilyPadLogo size={56} />}
-            title="Lily Marketplace"
+            title="Lily Marketplace — Discover NFTs and Sticker Packs"
             subtitle={`Browse collections and digital assets on ${chainLabel}`}
           />
           <CollectionApplicationModal />
@@ -139,6 +139,8 @@ export default function Marketplace() {
             { id: 'monad' as ChainFilter, label: 'Monad', icon: <span>◈</span> },
           ] as { id: ChainFilter; label: string; icon: React.ReactNode }[]).map((tab) => (
             <button
+              aria-label={`Filter marketplace by ${tab.label}`}
+              aria-pressed={selectedChain === tab.id}
               key={tab.id}
               onClick={() => setSelectedChain(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedChain === tab.id
