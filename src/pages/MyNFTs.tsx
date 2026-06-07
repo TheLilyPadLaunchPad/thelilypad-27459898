@@ -102,6 +102,8 @@ interface CollectionStats {
   image_url: string | null;
   count: number;
   floorPrice: number | null;
+  volume24h?: number | null;
+  source?: 'lilypad' | 'magiceden' | 'none';
 }
 
 export default function MyNFTs() {
@@ -135,6 +137,12 @@ export default function MyNFTs() {
   const [listingsMap, setListingsMap] = useState<Map<string, { id: string; price: number }>>(new Map());
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // New: on-chain listing / auction modals + state
+  const [onchainListNft, setOnchainListNft] = useState<OnchainNFTLite | null>(null);
+  const [auctionNft, setAuctionNft] = useState<OnchainNFTLite | null>(null);
+  const [onchainListedAssets, setOnchainListedAssets] = useState<Set<string>>(new Set());
+  const [onchainAuctionedAssets, setOnchainAuctionedAssets] = useState<Set<string>>(new Set());
 
   useSEO({
     title: "My NFTs | The Lily Pad",
