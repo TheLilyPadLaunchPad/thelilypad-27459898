@@ -120,6 +120,17 @@ export default function MyNFTs() {
     refresh: refreshOnChain,
   } = useWalletNFTs(address, solanaNetwork);
 
+  // Floor + 24h volume from Magic Eden public API (Solana mainnet)
+  const isSolanaMainnet = network === 'solana-mainnet' || network === 'mainnet';
+  const onChainMints = useMemo(
+    () => onChainNfts.map(n => n.tokenId).filter(Boolean).slice(0, 25),
+    [onChainNfts]
+  );
+  const { stats: onchainStats } = useCollectionStatsSolana(
+    onChainMints,
+    isSolanaMainnet && onChainMints.length > 0
+  );
+
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null);
