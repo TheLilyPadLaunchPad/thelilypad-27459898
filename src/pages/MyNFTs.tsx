@@ -1538,6 +1538,38 @@ export default function MyNFTs() {
           fetchNFTs();
         }}
       />
+
+      {/* On-chain NFT listing modal */}
+      <ListOnchainNFTModal
+        open={!!onchainListNft}
+        onOpenChange={(open) => !open && setOnchainListNft(null)}
+        nft={onchainListNft}
+        onSuccess={() => {
+          if (onchainListNft) {
+            setOnchainListedAssets(prev => {
+              const next = new Set(prev);
+              next.add(onchainListNft.assetAddress);
+              return next;
+            });
+          }
+        }}
+      />
+
+      {/* On-chain NFT auction modal */}
+      <CreateAuctionModal
+        open={!!auctionNft}
+        onOpenChange={(open) => !open && setAuctionNft(null)}
+        nft={auctionNft}
+        onSuccess={() => {
+          if (auctionNft) {
+            setOnchainAuctionedAssets(prev => {
+              const next = new Set(prev);
+              next.add(auctionNft.assetAddress);
+              return next;
+            });
+          }
+        }}
+      />
     </div>
   );
 }
