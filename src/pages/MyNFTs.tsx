@@ -963,9 +963,21 @@ export default function MyNFTs() {
                         <p className="text-white font-medium text-sm truncate">
                           {nft.name || `${nft.collection?.name} #${nft.token_id}`}
                         </p>
-                        <p className="text-white/70 text-xs">
+                        <p className="text-white/70 text-xs truncate">
                           {nft.collection?.name}
                         </p>
+                        {(() => {
+                          const mint = nft.onChainAddress || '';
+                          const ocStat = nft.source === 'onchain' ? onchainStats.get(mint) : null;
+                          if (ocStat?.floorPrice != null) {
+                            return (
+                              <p className="text-white/80 text-[10px] mt-0.5">
+                                Floor {ocStat.floorPrice.toFixed(2)} {chainSymbol}
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                   );
