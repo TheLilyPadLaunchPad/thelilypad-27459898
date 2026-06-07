@@ -2175,6 +2175,188 @@ export type Database = {
         }
         Relationships: []
       }
+      onchain_nft_auction_bids: {
+        Row: {
+          amount: number
+          auction_id: string
+          bidder_address: string
+          bidder_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          amount: number
+          auction_id: string
+          bidder_address: string
+          bidder_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          amount?: number
+          auction_id?: string
+          bidder_address?: string
+          bidder_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onchain_nft_auction_bids_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "onchain_nft_auctions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onchain_nft_auctions: {
+        Row: {
+          asset_address: string
+          chain: string
+          collection_address: string | null
+          collection_name: string | null
+          created_at: string
+          currency: string
+          ends_at: string
+          highest_bid: number | null
+          highest_bidder_address: string | null
+          highest_bidder_id: string | null
+          id: string
+          image_url: string | null
+          min_bid_increment: number
+          name: string | null
+          reserve_price: number
+          seller_address: string
+          seller_id: string
+          settled_at: string | null
+          starts_at: string
+          status: string
+          tx_hash: string | null
+          updated_at: string
+          winner_address: string | null
+          winner_id: string | null
+        }
+        Insert: {
+          asset_address: string
+          chain?: string
+          collection_address?: string | null
+          collection_name?: string | null
+          created_at?: string
+          currency?: string
+          ends_at: string
+          highest_bid?: number | null
+          highest_bidder_address?: string | null
+          highest_bidder_id?: string | null
+          id?: string
+          image_url?: string | null
+          min_bid_increment?: number
+          name?: string | null
+          reserve_price: number
+          seller_address: string
+          seller_id: string
+          settled_at?: string | null
+          starts_at?: string
+          status?: string
+          tx_hash?: string | null
+          updated_at?: string
+          winner_address?: string | null
+          winner_id?: string | null
+        }
+        Update: {
+          asset_address?: string
+          chain?: string
+          collection_address?: string | null
+          collection_name?: string | null
+          created_at?: string
+          currency?: string
+          ends_at?: string
+          highest_bid?: number | null
+          highest_bidder_address?: string | null
+          highest_bidder_id?: string | null
+          id?: string
+          image_url?: string | null
+          min_bid_increment?: number
+          name?: string | null
+          reserve_price?: number
+          seller_address?: string
+          seller_id?: string
+          settled_at?: string | null
+          starts_at?: string
+          status?: string
+          tx_hash?: string | null
+          updated_at?: string
+          winner_address?: string | null
+          winner_id?: string | null
+        }
+        Relationships: []
+      }
+      onchain_nft_listings: {
+        Row: {
+          asset_address: string
+          buyer_address: string | null
+          buyer_id: string | null
+          chain: string
+          collection_address: string | null
+          collection_name: string | null
+          created_at: string
+          currency: string
+          expires_at: string | null
+          id: string
+          image_url: string | null
+          name: string | null
+          price: number
+          seller_address: string
+          seller_id: string
+          sold_at: string | null
+          status: string
+          tx_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_address: string
+          buyer_address?: string | null
+          buyer_id?: string | null
+          chain?: string
+          collection_address?: string | null
+          collection_name?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string | null
+          price: number
+          seller_address: string
+          seller_id: string
+          sold_at?: string | null
+          status?: string
+          tx_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_address?: string
+          buyer_address?: string | null
+          buyer_id?: string | null
+          chain?: string
+          collection_address?: string | null
+          collection_name?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string | null
+          price?: number
+          seller_address?: string
+          seller_id?: string
+          sold_at?: string | null
+          status?: string
+          tx_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       platform_fees: {
         Row: {
           chain: string

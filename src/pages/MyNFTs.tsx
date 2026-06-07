@@ -10,11 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { ListNFTModal } from "@/components/ListNFTModal";
+import { ListOnchainNFTModal, type OnchainNFTLite } from "@/components/ListOnchainNFTModal";
+import { CreateAuctionModal } from "@/components/CreateAuctionModal";
 import { CreateRaffleForNFT } from "@/components/raffles/CreateRaffleForNFT";
 import { BurnNFTModal } from "@/components/BurnNFTModal";
 import { ViewOffersModal } from "@/components/ViewOffersModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
+import { useCollectionStatsSolana } from "@/hooks/useCollectionStatsSolana";
 import { ipfsToHttp, resolveNftImageUrl } from "@/lib/ipfs";
 import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +45,9 @@ import {
   Ticket,
   Globe,
   Flame,
-  MessageSquare
+  MessageSquare,
+  Gavel,
+  TrendingUp
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
@@ -97,6 +102,8 @@ interface CollectionStats {
   image_url: string | null;
   count: number;
   floorPrice: number | null;
+  volume24h?: number | null;
+  source?: 'lilypad' | 'magiceden' | 'none';
 }
 
 export default function MyNFTs() {
@@ -112,6 +119,17 @@ export default function MyNFTs() {
     isLoading: onChainLoading,
     refresh: refreshOnChain,
   } = useWalletNFTs(address, solanaNetwork);
+
+  // Floor + 24h volume from Magic Eden public API (Solana mainnet)
+  const isSolanaMainnet = String(network) === 'solana-mainnet' || String(network) === 'mainnet';
+  const onChainMints = useMemo(
+    () => onChainNfts.map(n => n.tokenId).filter(Boolean).slice(0, 25),
+    [onChainNfts]
+  );
+  const { stats: onchainStats } = useCollectionStatsSolana(
+    onChainMints,
+    isSolanaMainnet && onChainMints.length > 0
+  );
 
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -130,6 +148,12 @@ export default function MyNFTs() {
   const [listingsMap, setListingsMap] = useState<Map<string, { id: string; price: number }>>(new Map());
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // New: on-chain listing / auction modals + state
+  const [onchainListNft, setOnchainListNft] = useState<OnchainNFTLite | null>(null);
+  const [auctionNft, setAuctionNft] = useState<OnchainNFTLite | null>(null);
+  const [onchainListedAssets, setOnchainListedAssets] = useState<Set<string>>(new Set());
+  const [onchainAuctionedAssets, setOnchainAuctionedAssets] = useState<Set<string>>(new Set());
 
   useSEO({
     title: "My NFTs | The Lily Pad",
@@ -328,13 +352,48 @@ export default function MyNFTs() {
     fetchNFTs();
   }, [address, currentUserId, onChainNfts]);
 
-  // Calculate portfolio value based on floor prices
-  const portfolioValue = collectionStats.reduce((total, collection) => {
-    if (collection.floorPrice !== null) {
-      return total + (collection.floorPrice * collection.count);
-    }
-    return total;
-  }, 0);
+  // Fetch the user's own on-chain listings & auctions so we can show their state
+  useEffect(() => {
+    if (!currentUserId) return;
+    (async () => {
+      const [{ data: listings }, { data: auctions }] = await Promise.all([
+        supabase
+          .from('onchain_nft_listings')
+          .select('asset_address')
+          .eq('seller_id', currentUserId)
+          .eq('status', 'active'),
+        supabase
+          .from('onchain_nft_auctions')
+          .select('asset_address')
+          .eq('seller_id', currentUserId)
+          .eq('status', 'active'),
+      ]);
+      setOnchainListedAssets(new Set((listings ?? []).map((l: any) => l.asset_address)));
+      setOnchainAuctionedAssets(new Set((auctions ?? []).map((a: any) => a.asset_address)));
+    })();
+  }, [currentUserId, onChainNfts]);
+
+  // Calculate portfolio value: DB collection floors × counts, plus on-chain ME floors
+  const portfolioValue = useMemo(() => {
+    const dbValue = collectionStats.reduce((total, collection) => (
+      collection.floorPrice !== null ? total + (collection.floorPrice * collection.count) : total
+    ), 0);
+
+    // On-chain holdings: sum ME floor per mint (since ME stats are keyed by mint)
+    let ocValue = 0;
+    onchainStats.forEach((s) => {
+      if (s.floorPrice != null) ocValue += s.floorPrice;
+    });
+    return dbValue + ocValue;
+  }, [collectionStats, onchainStats]);
+
+  // Aggregate on-chain 24h volume (sum across the user's held collections)
+  const onchainVolume24h = useMemo(() => {
+    let v = 0; let any = false;
+    onchainStats.forEach((s) => { if (s.volume24h != null) { v += s.volume24h; any = true; } });
+    return any ? v : null;
+  }, [onchainStats]);
+
 
   // Real-time subscription for listing updates
   useEffect(() => {
@@ -572,7 +631,7 @@ export default function MyNFTs() {
 
         {/* Portfolio Stats */}
         {!isLoading && nfts.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
@@ -611,16 +670,35 @@ export default function MyNFTs() {
                       {portfolioValue > 0 ? `${portfolioValue.toFixed(2)} ${chainSymbol}` : "—"}
                     </p>
                     {portfolioValue > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Based on floor prices
-                      </p>
+                      <p className="text-xs text-muted-foreground">Sum of floor prices</p>
                     )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <TrendingUp className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">24h Holdings Volume</p>
+                    <p className="text-2xl font-bold">
+                      {onchainVolume24h != null
+                        ? `${onchainVolume24h.toFixed(2)} ${chainSymbol}`
+                        : "—"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Across collections you hold (Magic Eden)
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         )}
+
 
         {/* Portfolio Value Chart */}
         {!isLoading && nfts.length > 0 && (
@@ -885,9 +963,21 @@ export default function MyNFTs() {
                         <p className="text-white font-medium text-sm truncate">
                           {nft.name || `${nft.collection?.name} #${nft.token_id}`}
                         </p>
-                        <p className="text-white/70 text-xs">
+                        <p className="text-white/70 text-xs truncate">
                           {nft.collection?.name}
                         </p>
+                        {(() => {
+                          const mint = nft.onChainAddress || '';
+                          const ocStat = nft.source === 'onchain' ? onchainStats.get(mint) : null;
+                          if (ocStat?.floorPrice != null) {
+                            return (
+                              <p className="text-white/80 text-[10px] mt-0.5">
+                                Floor {ocStat.floorPrice.toFixed(2)} {chainSymbol}
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                   );
@@ -1127,15 +1217,102 @@ export default function MyNFTs() {
                   )}
 
                   <div className="flex flex-col gap-2 pt-2">
-                    {/* On-chain-only info badge */}
-                    {selectedNft.source === 'onchain' && (
-                      <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                        <Globe className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                        <span className="text-xs text-blue-400">
-                          This NFT was found on-chain in your wallet
-                        </span>
-                      </div>
-                    )}
+                    {/* On-chain-only info badge + floor/volume */}
+                    {selectedNft.source === 'onchain' && (() => {
+                      const mint = selectedNft.onChainAddress || '';
+                      const ocStat = onchainStats.get(mint);
+                      return (
+                        <div className="flex flex-col gap-1 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                            <span className="text-xs text-blue-400">
+                              On-chain NFT in your wallet
+                            </span>
+                          </div>
+                          {ocStat && (ocStat.floorPrice != null || ocStat.volume24h != null) && (
+                            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                              <div>
+                                <p className="text-muted-foreground">Floor</p>
+                                <p className="font-semibold">
+                                  {ocStat.floorPrice != null
+                                    ? `${ocStat.floorPrice.toFixed(3)} ${chainSymbol}`
+                                    : '—'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">24h volume</p>
+                                <p className="font-semibold">
+                                  {ocStat.volume24h != null
+                                    ? `${ocStat.volume24h.toFixed(2)} ${chainSymbol}`
+                                    : '—'}
+                                </p>
+                              </div>
+                              <p className="col-span-2 text-[10px] text-muted-foreground">
+                                Source: Magic Eden
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* List & Auction for on-chain NFTs */}
+                    {selectedNft.source === 'onchain' && (() => {
+                      const mint = selectedNft.onChainAddress || '';
+                      const isListed = onchainListedAssets.has(mint);
+                      const isAuctioned = onchainAuctionedAssets.has(mint);
+                      const lite: OnchainNFTLite = {
+                        assetAddress: mint,
+                        name: selectedNft.name,
+                        imageUrl: selectedNft.image_url,
+                        collectionName: selectedNft.collection?.name ?? null,
+                        collectionAddress: selectedNft.collection?.contract_address ?? null,
+                      };
+                      return (
+                        <>
+                          {!isListed && !isAuctioned && (
+                            <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  setSelectedNft(null);
+                                  setOnchainListNft(lite);
+                                }}
+                              >
+                                <Tag className="w-4 h-4 mr-2" />
+                                List on Marketplace
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  setSelectedNft(null);
+                                  setAuctionNft(lite);
+                                }}
+                              >
+                                <Gavel className="w-4 h-4 mr-2" />
+                                Start Auction
+                              </Button>
+                            </>
+                          )}
+                          {isListed && (
+                            <Badge variant="secondary" className="w-full justify-center py-2">
+                              Listed on marketplace
+                            </Badge>
+                          )}
+                          {isAuctioned && (
+                            <Badge variant="secondary" className="w-full justify-center py-2">
+                              Auction in progress
+                            </Badge>
+                          )}
+                        </>
+                      );
+                    })()}
+
+
 
                     {/* List for Sale Button — only for DB-backed NFTs */}
                     {selectedNft.source !== 'onchain' && (
@@ -1371,6 +1548,38 @@ export default function MyNFTs() {
         } : null}
         onAnyChange={() => {
           fetchNFTs();
+        }}
+      />
+
+      {/* On-chain NFT listing modal */}
+      <ListOnchainNFTModal
+        open={!!onchainListNft}
+        onOpenChange={(open) => !open && setOnchainListNft(null)}
+        nft={onchainListNft}
+        onSuccess={() => {
+          if (onchainListNft) {
+            setOnchainListedAssets(prev => {
+              const next = new Set(prev);
+              next.add(onchainListNft.assetAddress);
+              return next;
+            });
+          }
+        }}
+      />
+
+      {/* On-chain NFT auction modal */}
+      <CreateAuctionModal
+        open={!!auctionNft}
+        onOpenChange={(open) => !open && setAuctionNft(null)}
+        nft={auctionNft}
+        onSuccess={() => {
+          if (auctionNft) {
+            setOnchainAuctionedAssets(prev => {
+              const next = new Set(prev);
+              next.add(auctionNft.assetAddress);
+              return next;
+            });
+          }
         }}
       />
     </div>
