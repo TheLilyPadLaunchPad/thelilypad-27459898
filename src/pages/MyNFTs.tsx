@@ -121,7 +121,7 @@ export default function MyNFTs() {
   } = useWalletNFTs(address, solanaNetwork);
 
   // Floor + 24h volume from Magic Eden public API (Solana mainnet)
-  const isSolanaMainnet = network === 'solana-mainnet' || network === 'mainnet';
+  const isSolanaMainnet = String(network) === 'solana-mainnet' || String(network) === 'mainnet';
   const onChainMints = useMemo(
     () => onChainNfts.map(n => n.tokenId).filter(Boolean).slice(0, 25),
     [onChainNfts]
