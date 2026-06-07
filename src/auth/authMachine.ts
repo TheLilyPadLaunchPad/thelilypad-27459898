@@ -12,6 +12,8 @@ export function authReducer(
     switch (state) {
         case "DISCONNECTED":
             if (event.type === "CONNECT_WALLET") return "CONNECTING_WALLET";
+            // Allow direct connect (e.g. Reown auto-reconnect skips the connecting phase)
+            if (event.type === "WALLET_CONNECTED") return "WALLET_CONNECTED";
             return state;
 
         case "CONNECTING_WALLET":
