@@ -352,13 +352,48 @@ export default function MyNFTs() {
     fetchNFTs();
   }, [address, currentUserId, onChainNfts]);
 
-  // Calculate portfolio value based on floor prices
-  const portfolioValue = collectionStats.reduce((total, collection) => {
-    if (collection.floorPrice !== null) {
-      return total + (collection.floorPrice * collection.count);
-    }
-    return total;
-  }, 0);
+  // Fetch the user's own on-chain listings & auctions so we can show their state
+  useEffect(() => {
+    if (!currentUserId) return;
+    (async () => {
+      const [{ data: listings }, { data: auctions }] = await Promise.all([
+        supabase
+          .from('onchain_nft_listings')
+          .select('asset_address')
+          .eq('seller_id', currentUserId)
+          .eq('status', 'active'),
+        supabase
+          .from('onchain_nft_auctions')
+          .select('asset_address')
+          .eq('seller_id', currentUserId)
+          .eq('status', 'active'),
+      ]);
+      setOnchainListedAssets(new Set((listings ?? []).map((l: any) => l.asset_address)));
+      setOnchainAuctionedAssets(new Set((auctions ?? []).map((a: any) => a.asset_address)));
+    })();
+  }, [currentUserId, onChainNfts]);
+
+  // Calculate portfolio value: DB collection floors × counts, plus on-chain ME floors
+  const portfolioValue = useMemo(() => {
+    const dbValue = collectionStats.reduce((total, collection) => (
+      collection.floorPrice !== null ? total + (collection.floorPrice * collection.count) : total
+    ), 0);
+
+    // On-chain holdings: sum ME floor per mint (since ME stats are keyed by mint)
+    let ocValue = 0;
+    onchainStats.forEach((s) => {
+      if (s.floorPrice != null) ocValue += s.floorPrice;
+    });
+    return dbValue + ocValue;
+  }, [collectionStats, onchainStats]);
+
+  // Aggregate on-chain 24h volume (sum across the user's held collections)
+  const onchainVolume24h = useMemo(() => {
+    let v = 0; let any = false;
+    onchainStats.forEach((s) => { if (s.volume24h != null) { v += s.volume24h; any = true; } });
+    return any ? v : null;
+  }, [onchainStats]);
+
 
   // Real-time subscription for listing updates
   useEffect(() => {
