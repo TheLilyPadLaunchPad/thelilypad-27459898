@@ -1,19 +1,21 @@
 /**
  * Metadata upload helper used by Launchpad deploys.
  *
- * Tries Arweave first (when ArConnect/Wander is installed). If the user
- * doesn't have an Arweave wallet, falls back to uploading the JSON to the
- * public Supabase `ipfs` bucket so deploy is never blocked.
+ * Tries Arweave (via Irys, paid in SOL by the connected Solana wallet)
+ * first. If no Solana wallet is detected, falls back to uploading the JSON
+ * to the public Supabase `ipfs` bucket so deploy is never blocked.
  *
  * Returns a public HTTPS URL that Metaplex Core / Candy Machine can fetch.
  */
 import { supabase } from "@/integrations/supabase/client";
 import { uploadMetadataToArweave } from "@/integrations/arweave/legacyClient";
+import { isArweaveWalletAvailable } from "@/integrations/arweave/nativeClient";
 
 const FALLBACK_BUCKET = "ipfs";
 
+/** True when a Solana wallet (Phantom etc.) is available to fund Irys uploads. */
 export function hasArweaveWallet(): boolean {
-    return typeof window !== "undefined" && !!(window as any).arweaveWallet;
+    return isArweaveWalletAvailable();
 }
 
 export interface MetadataUploadResult {
