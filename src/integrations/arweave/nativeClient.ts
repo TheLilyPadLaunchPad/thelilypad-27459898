@@ -1,28 +1,31 @@
 /**
- * Native Arweave client (no bundler).
+ * Arweave client — Solana-funded via Irys.
  *
- * Replaces `@/integrations/irys/client` for upload + read paths. Every upload
- * is a real Arweave transaction signed by the user's ArConnect / Wander
- * browser extension and paid for in AR tokens by the user. The platform holds
- * no Arweave keys and pays for nothing.
+ * Phantom (and other Solana wallets) sign and pay for permanent Arweave
+ * uploads in SOL through the Irys network node. No second wallet, no AR
+ * token, no ArConnect/Wander required.
  *
- * ⚠️ Hard differences from the old Irys client:
- *   • No platform pre-funding. `fund()` / `getBalance()` operate on the
- *     user's AR balance, not a bundler node balance.
- *   • No free devnet. Every upload costs real AR.
- *   • Confirmations take 2-20 minutes — callers that need a URI to be
- *     resolvable (e.g. Candy Machine create) MUST call
- *     `waitForConfirmation(txId)` before proceeding.
- *   • Sub-100KB uploads should use `dispatch()` (bundled by the wallet,
- *     near-instant). Larger uploads go through `sign()` + `post()`.
- *   • All EVM/Irys-testnet helpers from the old client are gone.
+ * The public surface intentionally mirrors the previous ArConnect-based
+ * `nativeClient` so all existing callers (Candy Machine deploys,
+ * uploadMetadataToArweave, profile/messaging clients, etc.) keep working
+ * unchanged. AR-denominated names are preserved for compatibility but the
+ * underlying funding currency is SOL.
  *
- * Public surface kept intentionally small so callers depend on stable
- * primitives rather than implementation details.
+ *  • `uploadBytes / uploadJson / uploadBlob`  → Irys upload paid in SOL
+ *  • `isArweaveWalletAvailable / ensureArweaveWalletConnected`
+ *                                              → Solana wallet (Phantom)
+ *  • `getArBalance`                            → Irys node balance (SOL)
+ *  • `getUploadPriceAr`                        → upload price (SOL)
+ *  • `waitForConfirmation`                     → Irys returns instantly-
+ *                                                retrievable gateway URLs,
+ *                                                so this is a fast no-op
+ *                                                that just hits the gateway
+ *                                                once to confirm.
  */
 
 import Arweave from "arweave";
-import type Transaction from "arweave/web/lib/transaction";
+import { WebUploader } from "@irys/web-upload";
+import { WebSolana } from "@irys/web-upload-solana";
 
 // ───────────────────────────── Configuration ─────────────────────────────
 
@@ -45,71 +48,130 @@ export function getArweaveUrl(txId: string): string {
 export class ArweaveWalletMissingError extends Error {
   constructor() {
     super(
-      "Arweave wallet not detected. Install Wander (https://www.wander.app/) " +
-        "or ArConnect to upload."
+      "Solana wallet not detected. Install Phantom (https://phantom.app/) " +
+        "or another Solana wallet to upload."
     );
     this.name = "ArweaveWalletMissingError";
   }
 }
 
-const REQUIRED_PERMISSIONS = [
-  "ACCESS_ADDRESS",
-  "ACCESS_PUBLIC_KEY",
-  "SIGN_TRANSACTION",
-  "DISPATCH",
-  "SIGNATURE",
-] as const;
-
-function getWallet() {
-  if (typeof window === "undefined" || !window.arweaveWallet) {
-    throw new ArweaveWalletMissingError();
-  }
-  return window.arweaveWallet;
+interface SolanaWalletProvider {
+  isConnected?: boolean;
+  publicKey?: { toString(): string } | null;
+  connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString(): string } }>;
+  disconnect?: () => Promise<void>;
+  signTransaction: (tx: unknown) => Promise<unknown>;
+  signAllTransactions?: (txs: unknown[]) => Promise<unknown[]>;
+  signMessage?: (msg: Uint8Array) => Promise<{ signature: Uint8Array } | Uint8Array>;
 }
 
-/** True if the ArConnect/Wander extension is installed in this browser. */
+function getSolanaProvider(): SolanaWalletProvider {
+  if (typeof window === "undefined") throw new ArweaveWalletMissingError();
+  const w = window as any;
+  const provider: SolanaWalletProvider | undefined =
+    w.phantom?.solana || w.solana;
+  if (!provider) throw new ArweaveWalletMissingError();
+  return provider;
+}
+
+/** True if a Solana wallet provider is detected in this browser. */
 export function isArweaveWalletAvailable(): boolean {
-  return typeof window !== "undefined" && !!window.arweaveWallet;
+  if (typeof window === "undefined") return false;
+  const w = window as any;
+  return !!(w.phantom?.solana || w.solana);
 }
 
 /**
- * Request the permissions we need. Safe to call multiple times — ArConnect
- * silently no-ops if all requested permissions are already granted.
+ * Ensure the Solana wallet is connected (used by Irys to sign upload
+ * receipts and fund the node). Returns the connected public key.
  */
 export async function ensureArweaveWalletConnected(): Promise<string> {
-  const wallet = getWallet();
-  const granted = await wallet.getPermissions().catch(() => [] as string[]);
-  const missing = REQUIRED_PERMISSIONS.filter((p) => !granted.includes(p));
-  if (missing.length > 0) {
-    await wallet.connect(REQUIRED_PERMISSIONS as unknown as any, {
-      name: "The Lily Pad",
-    });
+  const provider = getSolanaProvider();
+  if (provider.isConnected && provider.publicKey) {
+    return provider.publicKey.toString();
   }
-  return wallet.getActiveAddress();
+  const res = await provider.connect();
+  return res.publicKey.toString();
 }
 
-/** Disconnect the active wallet session. */
+/**
+ * Compat no-op. We never want to silently disconnect the user's Solana
+ * wallet from inside an Arweave helper — that would break the rest of the
+ * app. Callers that truly want to disconnect should use the WalletProvider.
+ */
 export async function disconnectArweaveWallet(): Promise<void> {
-  if (!isArweaveWalletAvailable()) return;
-  await window.arweaveWallet!.disconnect();
+  /* no-op */
+}
+
+// ────────────────────────────── Irys uploader ───────────────────────────
+
+// Use Solana mainnet endpoint by default; Irys also accepts a devnet
+// configuration but the gateway URL is identical, so callers don't care.
+const IRYS_NODE = "https://node1.irys.xyz";
+
+let cachedUploader: any = null;
+let cachedFor: string | null = null;
+
+async function getIrysUploader() {
+  const provider = getSolanaProvider();
+  await ensureArweaveWalletConnected();
+  const pk = provider.publicKey?.toString() ?? null;
+  if (cachedUploader && cachedFor === pk) return cachedUploader;
+
+  const rpcUrl =
+    (typeof window !== "undefined" &&
+      (window as any).__SOLANA_RPC_URL__) ||
+    "https://api.mainnet-beta.solana.com";
+
+  // @irys/web-upload-solana adapts a browser Solana provider (signTransaction)
+  // into Irys's signer. Funding is paid from the connected SOL wallet.
+  const uploader = await WebUploader(WebSolana)
+    .withProvider(provider as any)
+    .withRpc(rpcUrl);
+  cachedUploader = uploader;
+  cachedFor = pk;
+  return uploader;
+}
+
+async function ensureFundedFor(bytes: number) {
+  const uploader = await getIrysUploader();
+  // Sub-100KiB uploads on Irys are free.
+  if (bytes < 100 * 1024) return uploader;
+  const price = await uploader.getPrice(bytes);
+  const balance = await uploader.getLoadedBalance();
+  if (balance.lt(price)) {
+    const needed = price.minus(balance).multipliedBy(1.1).integerValue();
+    await uploader.fund(needed);
+  }
+  return uploader;
 }
 
 // ────────────────────────────── Balance / price ──────────────────────────
 
-/** User's AR balance, in AR (not winston). */
-export async function getArBalance(address?: string): Promise<number> {
-  const addr = address ?? (await ensureArweaveWalletConnected());
-  const winston = await arweave.wallets.getBalance(addr);
-  return Number(arweave.ar.winstonToAr(winston));
+/**
+ * User's funded balance on the Irys node, returned in SOL. (Name kept as
+ * `getArBalance` for back-compat with existing callers.)
+ */
+export async function getArBalance(_address?: string): Promise<number> {
+  try {
+    const uploader = await getIrysUploader();
+    const atomic = await uploader.getLoadedBalance();
+    // Token returns atomic units — convert to standard SOL.
+    return Number(uploader.utils.fromAtomic(atomic));
+  } catch {
+    return 0;
+  }
 }
 
 /**
- * Cost in AR to upload `bytes` of data right now. Equivalent to the price
- * the gateway will charge when the tx is posted.
+ * Cost in SOL to upload `bytes` of data right now via Irys. (Name kept as
+ * `getUploadPriceAr` for back-compat.)
  */
 export async function getUploadPriceAr(bytes: number): Promise<number> {
-  const winston = await arweave.transactions.getPrice(bytes);
-  return Number(arweave.ar.winstonToAr(winston));
+  if (bytes < 100 * 1024) return 0;
+  const uploader = await getIrysUploader();
+  const atomic = await uploader.getPrice(bytes);
+  return Number(uploader.utils.fromAtomic(atomic));
 }
 
 // ─────────────────────────────── Uploads ─────────────────────────────────
@@ -122,66 +184,37 @@ export interface ArweaveTag {
 export interface ArweaveUploadResult {
   id: string;
   url: string;
-  /** "BUNDLED" via wallet dispatch (instant) or "BASE" L1 (slow). */
+  /** "BUNDLED" — all Irys uploads are bundled and instantly retrievable. */
   type: "BUNDLED" | "BASE";
-  /** Bytes uploaded — useful for cost accounting. */
   bytes: number;
 }
 
-/**
- * Size threshold below which we prefer wallet `dispatch` (bundled). The
- * wallet bundler handles the AR payment internally and the tx is near-
- * instantly retrievable. Above this we fall back to a base L1 tx that the
- * caller MUST wait on with `waitForConfirmation`.
- */
-const DISPATCH_BYTE_LIMIT = 95 * 1024; // ArConnect caps dispatch at ~100 KiB.
-
-async function buildTransaction(
-  data: Uint8Array,
-  contentType: string | undefined,
-  tags: ArweaveTag[]
-): Promise<Transaction> {
-  const tx = await arweave.createTransaction({ data });
-  if (contentType) tx.addTag("Content-Type", contentType);
-  for (const t of tags) tx.addTag(t.name, t.value);
-  return tx;
+function buildTags(contentType: string | undefined, tags: ArweaveTag[]) {
+  const out: ArweaveTag[] = [...tags];
+  if (contentType && !out.some((t) => t.name === "Content-Type")) {
+    out.push({ name: "Content-Type", value: contentType });
+  }
+  return out;
 }
 
 /**
- * Upload arbitrary bytes. Uses wallet `dispatch` for small payloads
- * (≤~95 KiB) and a base L1 tx otherwise.
- *
- * For base L1 txs the returned URL will 404 until the network confirms —
- * call `waitForConfirmation(id)` before pointing on-chain references at it.
+ * Upload arbitrary bytes via Irys, signed and paid for by the connected
+ * Solana wallet. URI returned is immediately retrievable from
+ * arweave.net/<id>.
  */
 export async function uploadBytes(
   data: Uint8Array,
   opts: { contentType?: string; tags?: ArweaveTag[] } = {}
 ): Promise<ArweaveUploadResult> {
-  const wallet = getWallet();
-  await ensureArweaveWalletConnected();
-  const tags = opts.tags ?? [];
-  const tx = await buildTransaction(data, opts.contentType, tags);
-
-  if (data.byteLength <= DISPATCH_BYTE_LIMIT) {
-    const res = await wallet.dispatch(tx);
-    return {
-      id: res.id,
-      url: getArweaveUrl(res.id),
-      type: res.type ?? "BUNDLED",
-      bytes: data.byteLength,
-    };
-  }
-
-  await wallet.sign(tx);
-  const uploader = await arweave.transactions.getUploader(tx);
-  while (!uploader.isComplete) {
-    await uploader.uploadChunk();
-  }
+  const uploader = await ensureFundedFor(data.byteLength);
+  const tags = buildTags(opts.contentType, opts.tags ?? []);
+  // Irys SDK accepts Buffer; in browser, Uint8Array works via the bundled polyfill.
+  const buf = Buffer.from(data);
+  const res = await uploader.upload(buf, { tags });
   return {
-    id: tx.id,
-    url: getArweaveUrl(tx.id),
-    type: "BASE",
+    id: res.id,
+    url: getArweaveUrl(res.id),
+    type: "BUNDLED",
     bytes: data.byteLength,
   };
 }
@@ -220,62 +253,49 @@ export interface ConfirmationStatus {
   blockHeight?: number;
 }
 
-/** One-shot status check. Returns `confirmed: false` for pending / unknown. */
+/**
+ * One-shot status check. Irys URIs are retrievable instantly, so we treat
+ * any 200 from the gateway as confirmed.
+ */
 export async function getConfirmationStatus(
   txId: string
 ): Promise<ConfirmationStatus> {
   try {
-    const res = await arweave.transactions.getStatus(txId);
-    if (res.status !== 200 || !res.confirmed) {
-      return { confirmed: false, numberOfConfirmations: 0 };
-    }
-    return {
-      confirmed: true,
-      numberOfConfirmations: res.confirmed.number_of_confirmations,
-      blockHeight: res.confirmed.block_height,
-    };
+    const res = await fetch(getArweaveUrl(txId), { method: "HEAD" });
+    if (res.ok) return { confirmed: true, numberOfConfirmations: 1 };
+    return { confirmed: false, numberOfConfirmations: 0 };
   } catch {
     return { confirmed: false, numberOfConfirmations: 0 };
   }
 }
 
 export interface WaitForConfirmationOptions {
-  /** Confirmations required before we treat the tx as durable. Default 1. */
   minConfirmations?: number;
-  /** Total time budget in ms. Default 25 minutes. */
   timeoutMs?: number;
-  /** Poll interval in ms. Default 15 seconds. */
   pollIntervalMs?: number;
-  /** Called every poll with progress info — useful for UI spinners. */
   onPoll?: (status: ConfirmationStatus, elapsedMs: number) => void;
 }
 
 /**
- * Poll the gateway until a tx is confirmed. Throws on timeout. Used by the
- * Candy Machine deploy path before creating the on-chain machine.
+ * Polling helper kept for API compat. Since Irys bundles are retrievable
+ * immediately, this almost always resolves on the first poll.
  */
 export async function waitForConfirmation(
   txId: string,
   options: WaitForConfirmationOptions = {}
 ): Promise<ConfirmationStatus> {
-  const minConfirmations = options.minConfirmations ?? 1;
-  const timeoutMs = options.timeoutMs ?? 25 * 60 * 1000;
-  const pollIntervalMs = options.pollIntervalMs ?? 15_000;
+  const timeoutMs = options.timeoutMs ?? 2 * 60 * 1000;
+  const pollIntervalMs = options.pollIntervalMs ?? 3_000;
   const startedAt = Date.now();
-
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const status = await getConfirmationStatus(txId);
     const elapsed = Date.now() - startedAt;
     options.onPoll?.(status, elapsed);
-    if (status.confirmed && status.numberOfConfirmations >= minConfirmations) {
-      return status;
-    }
+    if (status.confirmed) return status;
     if (elapsed >= timeoutMs) {
       throw new Error(
-        `Arweave tx ${txId} not confirmed after ${Math.round(
-          elapsed / 1000
-        )}s (have ${status.numberOfConfirmations}/${minConfirmations}).`
+        `Arweave tx ${txId} not retrievable after ${Math.round(elapsed / 1000)}s.`
       );
     }
     await new Promise((r) => setTimeout(r, pollIntervalMs));
@@ -297,14 +317,12 @@ async function fetchFromGateway(txId: string): Promise<Response> {
     res = await fetch(getArweaveUrl(txId));
   } catch (e) {
     throw new ArweaveGatewayError(
-      `Arweave gateway unreachable while fetching ${txId}. Check your internet connection or try again in a moment.`,
+      `Arweave gateway unreachable while fetching ${txId}.`,
       e
     );
   }
   if (res.status === 404) {
-    throw new ArweaveGatewayError(
-      `Arweave tx ${txId} is not yet retrievable (404). Base L1 uploads take 2–20 minutes to propagate — call waitForConfirmation() before fetching.`
-    );
+    throw new ArweaveGatewayError(`Arweave tx ${txId} not found (404).`);
   }
   if (!res.ok) {
     throw new ArweaveGatewayError(
@@ -326,7 +344,4 @@ export async function downloadJson<T = unknown>(txId: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-// Re-export the low-level `arweave-js` instance for callers that need
-// advanced features (GraphQL search, raw tx inspection, etc.).
 export { arweave };
-
