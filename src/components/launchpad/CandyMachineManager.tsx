@@ -26,6 +26,7 @@ interface CandyMachineManagerProps {
     collectionAddress?: string;
     collectionId?: string;
     collectionName?: string;
+    collectionWebsite?: string;
     artworks?: ArtworkMeta[] | null;
     itemsLoaded?: number;
     manifestRoot?: string;
@@ -40,6 +41,7 @@ export function CandyMachineManager({
     collectionAddress = '',
     collectionId,
     collectionName,
+    collectionWebsite,
     artworks,
     itemsLoaded = 0,
     manifestRoot,
