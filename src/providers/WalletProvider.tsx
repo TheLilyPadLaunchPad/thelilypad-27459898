@@ -7,7 +7,7 @@ import { setStoredChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 
 // Reown AppKit Imports
-import { createAppKit, useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
+import { createAppKit, useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
 import { SolanaAdapter } from '@reown/appkit-adapter-solana/react';
 import { solana, solanaTestnet, solanaDevnet } from '@reown/appkit/networks';
 import type { Provider } from '@reown/appkit-adapter-solana/react';
@@ -92,6 +92,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Reown Hooks
   const { address: reownAddress, isConnected: isReownConnected, status: reownStatus } = useAppKitAccount();
   const { walletProvider: reownProvider } = useAppKitProvider<Provider>('solana');
+  const { caipNetwork, switchNetwork: reownSwitchNetwork } = useAppKitNetwork();
   const { open } = useAppKit();
   const { disconnect: reownDisconnect } = useDisconnect();
 
@@ -174,6 +175,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     syncReown();
   }, [isReownConnected, reownAddress, reownStatus, fetchSolanaBalance, ensureSupabaseSession]);
 
+  // Sync Reown's selected network (mainnet / devnet / testnet) into our internal state
+  useEffect(() => {
+    if (!caipNetwork) return;
+    const id = String((caipNetwork as any).id ?? '').toLowerCase();
+    const name = String((caipNetwork as any).name ?? '').toLowerCase();
+    let next: NetworkType | null = null;
+    if (id.includes('devnet') || name.includes('devnet')) next = 'devnet';
+    else if (id.includes('testnet') || name.includes('testnet')) next = 'devnet';
+    else if (name === 'solana' || id.includes('mainnet') || id.includes('5eykt4')) next = 'mainnet';
+    if (next) {
+      const target = next;
+      setState(prev => prev.network === target ? prev : { ...prev, network: target });
+      try { localStorage.setItem('solanaNetwork', target); } catch {}
+    }
+  }, [caipNetwork]);
+
   // Main connect function replaces legacy Phantom connect with Reown Modal
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
     try {
@@ -214,10 +231,16 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [reownDisconnect]);
 
   const switchNetwork = useCallback(async (network: NetworkType) => {
+    try {
+      const target = network === 'mainnet' ? solana : network === 'testnet' ? solanaTestnet : solanaDevnet;
+      await reownSwitchNetwork(target);
+    } catch (e) {
+      console.error('Reown switchNetwork failed:', e);
+    }
     setState(prev => ({ ...prev, network }));
     localStorage.setItem("solanaNetwork", network);
     toast.success(`Switched to ${network}`);
-  }, []);
+  }, [reownSwitchNetwork]);
 
   // Extremely important: This returns the Reown Solana Provider so existing Umi/Metaplex hooks don't break
   const getSolanaProviderCallback = useCallback(() => {

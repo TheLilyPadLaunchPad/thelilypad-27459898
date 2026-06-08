@@ -35,7 +35,7 @@ const isSolanaNetwork = (network: string) =>
 const getNetworkType = (network: string): NetworkType => {
   if (network === "solana-mainnet" || network === "mainnet") return "mainnet";
   if (network === "solana-devnet" || network === "devnet") return "devnet";
-  return "devnet"; // Default fallback
+  return "mainnet"; // Default fallback — prefer mainnet for unknown values
 };
 
 export function useWalletNFTs(
