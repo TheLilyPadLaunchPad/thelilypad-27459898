@@ -10,7 +10,43 @@
 import { supabase } from "@/integrations/supabase/client";
 import { uploadMetadataToArweave } from "@/integrations/arweave/legacyClient";
 import { isArweaveWalletAvailable } from "@/integrations/arweave/nativeClient";
-import { pinJson, isDevnet } from "@/integrations/pinata/client";
+import { pinJson, pinDirectory, isDevnet } from "@/integrations/pinata/client";
+
+/**
+ * Pin per-item metadata JSONs as a single IPFS directory.
+ * Returns `{ manifestRoot, items }` ready for the deploy-metaplex-launchpad
+ * edge function's hidden-settings flow:
+ *   `${manifestRoot}/0.json`, `${manifestRoot}/1.json`, …
+ *
+ * Mirrors the Arweave path-manifest pattern from scripts/deploy-cm.ts.
+ */
+export interface DevnetManifestResult {
+  manifestRoot: string; // e.g. https://gateway.pinata.cloud/ipfs/<CID>
+  cid: string;
+  items: Array<{ name: string; uri: string }>;
+}
+
+export async function prepareDevnetManifest(
+  metadataArray: Array<Record<string, any>>,
+  collectionName = "collection",
+): Promise<DevnetManifestResult> {
+  if (!metadataArray.length) {
+    throw new Error("prepareDevnetManifest: metadataArray is empty");
+  }
+  const files = metadataArray.map((m, i) => ({
+    name: `${i}.json`,
+    content: m,
+    contentType: "application/json",
+  }));
+  const { cid, url } = await pinDirectory(files, `${collectionName}-manifest`);
+  const manifestRoot = url.replace(/\/+$/, "");
+  const items = metadataArray.map((m, i) => ({
+    name: String(m?.name || `${collectionName} #${i}`).slice(0, 32),
+    uri: `${manifestRoot}/${i}.json`,
+  }));
+  return { manifestRoot, cid, items };
+}
+
 
 const FALLBACK_BUCKET = "ipfs";
 
