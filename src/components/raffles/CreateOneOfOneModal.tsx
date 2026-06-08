@@ -179,13 +179,19 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                             );
                         }
                         // Standard image NFT
-                        return {
+                        const extraFiles: { uri: string; type: string }[] = [];
+                        if (thumbUri && thumbUri !== arweaveImageUri) {
+                            extraFiles.push({ uri: thumbUri, type: 'image/png' });
+                        }
+                        if (previewUri && previewUri !== arweaveImageUri) {
+                            extraFiles.push({ uri: previewUri, type: 'image/png' });
+                        }
+                        return buildMetaplexMetadata({
                             name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
                             description,
                             image: arweaveImageUri,
-                            ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                            ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {})
-                        };
+                            extraFiles,
+                        });
                     }
                 }
             ];
