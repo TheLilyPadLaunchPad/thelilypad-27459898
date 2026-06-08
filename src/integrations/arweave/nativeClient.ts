@@ -117,11 +117,8 @@ async function getIrysUploader() {
   const provider = getSolanaProvider();
   await ensureArweaveWalletConnected();
   const pk = provider.publicKey?.toString() ?? null;
-  if (cachedUploader && cachedFor === pk) return cachedUploader;
 
-  // Resolve a healthy RPC URL: explicit override > user-preferred (per network) > best public.
-  // Public api.mainnet-beta.solana.com frequently returns 403 to browsers, which breaks
-  // Irys funding (getLatestBlockhash). Routing through the user's selected RPC fixes it.
+  // Resolve network from localStorage (set by WalletProvider).
   let network: NetworkType = "mainnet";
   if (typeof window !== "undefined") {
     const saved = localStorage.getItem("solanaNetwork");
@@ -129,6 +126,14 @@ async function getIrysUploader() {
       network = saved as NetworkType;
     }
   }
+
+  // Cache key includes network so toggling devnet/mainnet rebuilds the uploader.
+  const cacheKey = `${pk}:${network}`;
+  if (cachedUploader && cachedFor === cacheKey) return cachedUploader;
+
+  // Resolve a healthy RPC URL: explicit override > user-preferred (per network) > best public.
+  // Public api.mainnet-beta.solana.com frequently returns 403 to browsers, which breaks
+  // Irys funding (getLatestBlockhash). Routing through Helius / the user's selected RPC fixes it.
   const rpcUrl =
     (typeof window !== "undefined" &&
       (window as any).__SOLANA_RPC_URL__) ||
@@ -136,11 +141,15 @@ async function getIrysUploader() {
 
   // @irys/web-upload-solana adapts a browser Solana provider (signTransaction)
   // into Irys's signer. Funding is paid from the connected SOL wallet.
-  const uploader = await WebUploader(WebSolana)
-    .withProvider(provider as any)
-    .withRpc(rpcUrl);
+  // For devnet/testnet, switch Irys to its devnet node which accepts devnet SOL —
+  // otherwise the uploader tries to fund the mainnet node from a devnet wallet and fails.
+  let builder = WebUploader(WebSolana).withProvider(provider as any);
+  if (network !== "mainnet") {
+    builder = builder.devnet();
+  }
+  const uploader = await builder.withRpc(rpcUrl);
   cachedUploader = uploader;
-  cachedFor = pk;
+  cachedFor = cacheKey;
   return uploader;
 }
 
