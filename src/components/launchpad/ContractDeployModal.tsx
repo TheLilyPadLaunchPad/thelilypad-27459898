@@ -43,6 +43,9 @@ interface ContractDeployModalProps {
     royalty_percent: number;
     creator_address: string;
     chain?: string;
+    image_url?: string | null;
+    description?: string | null;
+    social_website?: string | null;
   };
   onDeploySuccess: (contractAddress: string) => void;
 }
