@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
 
     // Umi
     phase = "umi";
-    const rpcUrl = network === "mainnet"
+    const rpcUrl = effectiveNetwork === "mainnet"
       ? "https://api.mainnet-beta.solana.com"
       : "https://api.devnet.solana.com";
     const umi = createUmi(rpcUrl).use(mplCore()).use(mplCandyMachine()).use(mplToolbox());
