@@ -1016,7 +1016,9 @@ export const useSolanaLaunch = () => {
         network?: string;
         collectionSecretKey?: string;
         collectionPublicKey?: string;
+        items?: Array<{ name: string; uri: string }>;
     }) => {
+
 
         setIsLoading(true);
         setError(null);

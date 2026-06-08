@@ -388,7 +388,13 @@ export default function LaunchpadCreate() {
                 if (!is1of1) {
                     setDeployCheckoutProgress({ label: "Deploying collection via backend...", completed: 1, total: 3 });
 
-                    
+                    // Build per-item config lines so the Candy Machine has actual items
+                    // to mint (otherwise mintV1 fails with "not enough items").
+                    const cmItems = itemLinks.map((item, i) => ({
+                        name: String(builtMetadata?.[i]?.name || `${name} #${i + 1}`).slice(0, 32),
+                        uri: item.arweaveUri,
+                    }));
+
                     const result = await solanaLaunch.deployViaBackend({
                         collectionId,
                         name,
@@ -402,7 +408,9 @@ export default function LaunchpadCreate() {
                         network: network as string,
                         collectionSecretKey: vanitySecret,
                         collectionPublicKey: vanityPublic,
+                        items: cmItems,
                     });
+
 
 
                     deployedAddress = result.collectionAddress;
