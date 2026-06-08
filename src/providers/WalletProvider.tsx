@@ -92,6 +92,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Reown Hooks
   const { address: reownAddress, isConnected: isReownConnected, status: reownStatus } = useAppKitAccount();
   const { walletProvider: reownProvider } = useAppKitProvider<Provider>('solana');
+  const { caipNetwork, switchNetwork: reownSwitchNetwork } = useAppKitNetwork();
   const { open } = useAppKit();
   const { disconnect: reownDisconnect } = useDisconnect();
 
