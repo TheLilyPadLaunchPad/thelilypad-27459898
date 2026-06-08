@@ -1017,6 +1017,16 @@ export const useSolanaLaunch = () => {
         collectionSecretKey?: string;
         collectionPublicKey?: string;
         items?: Array<{ name: string; uri: string }>;
+        /** Full Metaplex Core plugin selection (royalties, permanent delegates, etc). */
+        collectionPlugins?: { plugins: Record<string, { enabled: boolean; config?: Record<string, any> }> };
+        /** Always-applied Candy Guard set (raw JSON, edge function builds Metaplex payload). */
+        defaultGuards?: Record<string, { enabled: boolean; [k: string]: any }>;
+        /** Optional per-phase Candy Guard groups. */
+        guardGroups?: Array<{ label: string; guards: Record<string, { enabled: boolean; [k: string]: any }> }>;
+        /** Blind-box hidden settings; if omitted and collectionType === 'blind_box' the edge function fills it in. */
+        hiddenSettings?: { name: string; uri: string; hash?: number[] };
+        /** Collection type — drives auto hidden settings. */
+        collectionType?: 'generative' | '1of1' | 'music' | 'blind_box';
     }) => {
 
 
