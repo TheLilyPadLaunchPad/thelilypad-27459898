@@ -58,6 +58,24 @@ export async function pinFile(file: File | Blob, name?: string): Promise<PinResu
   return { cid: data.cid, url: ipfsUrl(data.cid) };
 }
 
+/**
+ * Pin multiple files sequentially with a progress callback. Each file gets
+ * its own CID (not bundled). Used for per-asset image uploads on devnet.
+ */
+export async function pinFiles(
+  files: Array<File | Blob>,
+  onProgress?: (completed: number, total: number, status: string) => void,
+): Promise<PinResult[]> {
+  const out: PinResult[] = [];
+  for (let i = 0; i < files.length; i++) {
+    onProgress?.(i, files.length, `Pinning image ${i + 1}/${files.length} to IPFS…`);
+    const r = await pinFile(files[i]);
+    out.push(r);
+  }
+  onProgress?.(files.length, files.length, `Pinned ${files.length} images to IPFS`);
+  return out;
+}
+
 export interface PinDirectoryFile {
   /** Filename inside the directory, e.g. "0.json", "0.png". */
   name: string;

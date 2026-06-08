@@ -1,89 +1,74 @@
-## Goal
+# Fix broken devnet launchpad deploy
 
-Devnet deploys via `deploy-metaplex-launchpad` are crashing with no useful trace. Per the Metaplex skill (`references/cli-candy-machine.md`, `references/sdk-core.md`, `references/cli-troubleshooting.md`) and our own canonical reference at `scripts/deploy-cm.ts`, the correct shape for a Core Candy Machine drop is the **one-bundle / hidden-settings** flow with a **single Arweave (or IPFS) directory manifest**. The current edge function instead:
+## What's actually wrong
 
-- Uses `esm.sh` for every Metaplex package (incompatible with edge-runtime's lockfile + slow cold starts; matches the documented "Edge Function Deploy Errors" failure mode).
-- Calls `addConfigLines` in a loop inside the edge function for non-blind collections (the very pattern the canonical script eliminates).
-- Builds `hiddenSettings` only for `blind_box`, so generative/1-of-1/music drops still take the slow path.
-- Has no Pinata path for devnet — it tries to use Irys-funded Arweave URIs that the client built with the user's wallet, but those uploads can silently 0-byte when funded on devnet.
-- Returns `error.message || "Unknown error"` with no structured cause, which is why the runtime error report is empty.
+1. `src/pages/LaunchpadCreate.tsx` → `handleDeploy` always uses Arweave/Irys:
+   - `preFundIrysForBatch(...)`
+   - `uploadBatchToArweave(...)` for all item images + metadata
+   - `uploadToArweave(coverFile, ...)` and `uploadMetadataToArweave(...)` for the collection
+   On devnet, Irys/Arweave is intermittently unreachable from the preview → the console shows `Network Error` retries on images 121–123, then the sandbox restarts and the tester sees a "page refresh."
+2. The `collections` row is inserted *before* uploads finish, so a mid-flight reload leaves a zombie `upcoming` collection and no resumable state for the user.
+3. The Pinata routing we built (`prepareDevnetManifest`, `pinFile`, `pinJson`) is wired into `metadataUpload.ts` only — `handleDeploy` never calls it.
 
-The fix is a clean restructure of the edge function to match `scripts/deploy-cm.ts` exactly, plus making Pinata the devnet storage backend for **both** asset images and metadata (today it only handles metadata).
+## Fix
 
-## Plan
+### 1. Devnet upload path (Pinata)
+In `src/pages/LaunchpadCreate.tsx` `handleDeploy`, branch on `isDevnet()` from `@/integrations/pinata/client`:
 
-### 1. Rewrite `supabase/functions/deploy-metaplex-launchpad/index.ts` to mirror `scripts/deploy-cm.ts`
+- Skip `preFundIrysForBatch` entirely on devnet (no SOL needed for Pinata).
+- For each asset:
+  - `pinFile(asset.file, asset.name)` → image CID/URL
+  - build the per-item metadata via the existing `buildMetaplexMetadata` / `buildMusicNftMetadata` using the Pinata image URL
+- Bundle all per-item JSONs with `prepareDevnetManifest(builtMetadata, name)` → returns `{ manifestRoot, items }`, giving a single `${manifestRoot}/$ID$.json` URI template for hidden settings.
+- For the collection cover + collection metadata:
+  - `pinFile(coverFile)` → `collectionImageUri`
+  - `pinJson({ name, symbol, description, image })` → `collectionMetadataUri`
+  - `pinJson({ name: "Unrevealed…", … })` → `revealPlaceholderUri`
+- Music: also route `track.audioFile` through `pinFile` instead of `uploadToArweave` when on devnet (keep Arweave tags only on mainnet, since IPFS doesn't carry UDL tags).
 
-Always use the one-bundle / hidden-settings flow regardless of collection type:
+Mainnet flow stays exactly as it is today.
 
-1. Validate auth + ownership (keep current logic).
-2. Bootstrap Umi with `npm:` specifiers (not `esm.sh`) — switch to:
-   - `npm:@metaplex-foundation/umi-bundle-defaults`
-   - `npm:@metaplex-foundation/umi`
-   - `npm:@metaplex-foundation/mpl-core`
-   - `npm:@metaplex-foundation/mpl-core-candy-machine`
-   - `npm:@metaplex-foundation/mpl-toolbox`
-   - `npm:bs58`
-   This eliminates the documented esm.sh / `deno.lock` crash class.
-3. Expect the client to provide already-uploaded `items: [{ name, imageUri?, uri }]` plus a `manifestRoot` (or compute it server-side from the supplied per-item URIs).
-4. Compute SHA-256 `itemsHash` over `i:name:uri` exactly as the reference script does.
-5. Single tx builder:
-   - `createCollection` with `Royalties` (+ any extra Core plugins from `collectionPlugins`).
-   - `createCandyMachine` with `hiddenSettings: { name, uri: <manifestRoot>/$ID$.json, hash }` — **never** `configLineSettings`, **never** `addConfigLines`.
-   - `createCandyGuard` + `wrap`.
-6. Send once with `sendAndConfirm`, return `{ collectionAddress, candyMachineAddress, candyGuardAddress, signature, itemsHashHex, manifestRoot }`.
-7. Structured error handling: catch and return `{ error, stack, phase }` so blank-screen reports actually contain a cause; log `console.error(JSON.stringify(...))` so it shows in edge logs.
-
-### 2. Extend Pinata client to upload images for devnet
-
-`src/integrations/pinata/client.ts` already has `pinFile`. Wire it into the deploy flow:
-
-- Add `uploadAssetImage(file)` helper in `src/lib/metadataUpload.ts` that uses Pinata on devnet, Irys on mainnet, Supabase as fallback (same 3-tier pattern already used for metadata).
-- In `useSolanaLaunch.deployViaBackend`, when `network === 'devnet'`, upload all images via Pinata, then build per-item metadata JSONs, pin each via Pinata, and assemble a **directory manifest JSON** that the edge function uses as the hidden-settings prefix URI.
-- Mainnet path is unchanged (Irys directory manifest already implemented in `uploadJsonManifest`).
-
-### 3. Standardize the client → edge-function contract
-
-Update `deployViaBackend` (and `LaunchpadCreate` callers) so the edge function only ever receives:
+Add a small helper near the top of `handleDeploy`:
 
 ```ts
-{
-  collectionId, name, symbol, creatorAddress, royaltyPercent,
-  network: 'devnet' | 'mainnet',
-  collectionUri,            // already uploaded
-  manifestRoot,             // e.g. https://gateway.pinata.cloud/ipfs/<CID>
-  placeholderName,          // e.g. "Lily #"
-  itemsAvailable,
-  items: [{ name, uri }],   // used only for hash, never inserted
-  collectionPlugins, defaultGuards, guardGroups,
-  collectionSecretKey?, collectionPublicKey?,
-}
+const devnet = isDevnet();
+const uploadImage   = devnet ? pinataUploadImage   : arweaveUploadImage;
+const uploadJson    = devnet ? pinataUploadJson    : arweaveUploadJson;
+const uploadBundle  = devnet ? pinataUploadBundle  : arweaveUploadBundle;
 ```
 
-Remove `baseUri`, `hiddenSettings`, `collectionType` branching, the legacy `phases[0].price` fallback, and the `items` insert path. The edge function becomes a thin wrapper around the reference script.
+…so the rest of the function stays linear and the two providers are interchangeable.
 
-### 4. Delete dead code paths
+### 2. Don't insert the `collections` row until uploads succeed
+Move the `supabase.from("collections").insert(...)` block to **after** the asset/metadata uploads complete (right before `setPendingOnChainDeploy`). That way a failed upload no longer leaves a zombie row. Keep the existing cleanup-on-failure code as a safety net for the on-chain step.
 
-- Drop the `addConfigLines` loop and `setComputeUnitPrice`/`setComputeUnitLimit` batching from the edge function.
-- Drop `collectionType === 'blind_box'` branching — all collections deploy via hidden settings now.
-- Keep `deployHiddenCollection` (already aligned with this model) as the client-signed alternative; mark `deployViaBackend` as its backend twin.
+### 3. Reload guard during deploy
+Add a `beforeunload` listener that's active while `isDeploying === true`:
 
-### 5. Verification
+```ts
+useEffect(() => {
+  if (!isDeploying) return;
+  const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+  window.addEventListener("beforeunload", h);
+  return () => window.removeEventListener("beforeunload", h);
+}, [isDeploying]);
+```
 
-- Deploy `deploy-metaplex-launchpad` + `pinata-upload`, tail `supabase functions logs deploy-metaplex-launchpad` while running a devnet deploy from the UI.
-- Confirm the response includes a real `signature` and the explorer shows the collection + candy machine.
-- Confirm any failure now returns a structured `{ error, phase, stack }` instead of the empty runtime report.
+This stops the browser from silently dropping a long deploy when Vite HMR or the sandbox reconnects.
 
-### Files touched
+### 4. Toast copy
+Replace "Securing N items to Arweave…" / "Uploading collection banner/metadata to Arweave…" with provider-aware strings: `"Pinning N items to IPFS (devnet)…"` vs `"Securing N items to Arweave…"`. Same for `"Persistence secured on Arweave"`. Use `debugUpload('solana.pinata', …)` / `debugUri('solana.pinata', uri)` so the floating Debug panel shows the right scope.
 
-- Rewrite: `supabase/functions/deploy-metaplex-launchpad/index.ts` (+ `package.json` deps moved to `npm:` specifiers — actually drop `package.json` since we use Deno `npm:` imports).
-- Edit: `src/lib/metadataUpload.ts` (add `uploadAssetImage` + `uploadAssetMetadata` helpers that route through Pinata on devnet).
-- Edit: `src/hooks/useSolanaLaunch.ts` `deployViaBackend` payload + a small `prepareDevnetAssets` helper that builds the items/manifest from the user's images.
-- Edit: `src/pages/LaunchpadCreate.tsx` only at the point where it calls `deployViaBackend` (pass the new payload shape).
-- No DB / RLS changes.
+## Files to edit (build mode)
 
-### Technical notes
+- `src/pages/LaunchpadCreate.tsx` — branching upload path, deferred collection insert, reload guard, toast copy.
+- `src/integrations/pinata/client.ts` — add a tiny `pinFiles(files)` helper for batched image pinning with progress callback (re-uses existing `pinFile`).
+- `src/lib/metadataUpload.ts` — already exposes `prepareDevnetManifest`; no change.
 
-- The Core Candy Machine program ID `CMACYFENjoBMHzapRXyo1JZkVS6EtaDDzkjMrmQLvr4J` (from skill `Program IDs`) is the only one used.
-- Hidden-settings `hash` must be exactly 32 bytes; we use `crypto.subtle.digest("SHA-256", …)` and slice — same as the reference script.
-- Pinata returns a gateway URL like `https://gateway.pinata.cloud/ipfs/<CID>`. For the manifest pattern we store per-item JSONs as `<CID>/0.json` style by pinning a folder (use Pinata's "pin directory" via `pinFileToIPFS` with `wrapWithDirectory: true`). The edge function then uses `${manifestRoot}/$ID$.json` as the hidden URI exactly like the Arweave path manifest.
+No edge-function changes, no DB migration, no mainnet behavior change.
+
+## Out of scope
+
+- Cleaning up existing zombie `collections` rows from previous broken attempts.
+- Replacing Arweave on mainnet.
+- Changing the edge function `deploy-metaplex-launchpad` (it already accepts the manifest-root URI shape).
