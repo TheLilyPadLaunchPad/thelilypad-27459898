@@ -2,6 +2,7 @@ import { Zip, ZipPassThrough } from "fflate";
 import { toast } from "sonner";
 import { Layer, BlendMode } from "@/components/launchpad/LayerManager";
 import { TraitRule } from "@/components/launchpad/TraitRulesManager";
+import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 
 export interface GeneratedNFT {
     id: number;
