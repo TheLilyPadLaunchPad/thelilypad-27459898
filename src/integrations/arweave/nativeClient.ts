@@ -26,6 +26,7 @@
 import Arweave from "arweave";
 import { WebUploader } from "@irys/web-upload";
 import { WebSolana } from "@irys/web-upload-solana";
+import { getRpcUrl, type NetworkType } from "@/config/solana";
 
 // ───────────────────────────── Configuration ─────────────────────────────
 
