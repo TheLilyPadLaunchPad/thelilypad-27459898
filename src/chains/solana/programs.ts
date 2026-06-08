@@ -151,7 +151,7 @@ export async function createCoreCollection(
                     bytesCreatedOnChain: 0,
                     signers: [],
                 })
-                .add(setComputeUnitPrice(umi, { microLamports: 50_000 }));
+                .add(setComputeUnitPrice(umi, { microLamports: await getDynamicPriorityFee(umi, 'low') }));
 
             await builder.sendAndConfirm(umi, {
                 send: { skipPreflight: false },
