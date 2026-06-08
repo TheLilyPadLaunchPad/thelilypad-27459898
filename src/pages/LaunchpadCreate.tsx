@@ -598,12 +598,14 @@ export default function LaunchpadCreate() {
 
         const currentRpc = getRpcUrl(network as any);
         const rpcProvider = currentRpc.includes('helius') ? 'Helius (Premium)' : 'Solana (Default)';
+        const devnet = isDevnet();
+        const storageProvider = devnet ? 'Pinata IPFS (devnet)' : 'Arweave / Irys';
 
         try {
             toast.loading(
                 <div className="flex flex-col gap-0.5">
                     <span className="font-medium">Starting deployment flow...</span>
-                    <span className="text-[10px] opacity-70">Provider: {rpcProvider}</span>
+                    <span className="text-[10px] opacity-70">RPC: {rpcProvider} · Storage: {storageProvider}</span>
                 </div>,
                 { id: 'deploy' }
             );
@@ -617,30 +619,37 @@ export default function LaunchpadCreate() {
                     metadata: { name: art.name, description: art.description || description, attributes: art.attributes || [] }
                 }));
             } else if (isMusic) {
-                toast.loading("Uploading audio tracks to Arweave...", { id: 'deploy' });
+                toast.loading(devnet ? "Pinning audio tracks to IPFS…" : "Uploading audio tracks to Arweave...", { id: 'deploy' });
                 const audioUriMap: Record<number, string> = {};
                 for (let i = 0; i < tracks.length; i++) {
                     const track = tracks[i];
                     toast.loading(`Uploading audio ${i + 1}/${tracks.length}...`, { id: 'deploy' });
-                    const audioTags = [
-                        { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
-                        { name: "App-Name", value: "TheLilyPad" },
-                        { name: "Collection-Name", value: name },
-                        { name: "Track-Name", value: track.metadata.name || `Track ${i + 1}` },
-                        ...(track.metadata.artist ? [{ name: "Artist", value: track.metadata.artist }] : []),
-                        ...(track.metadata.genre ? [{ name: "Genre", value: track.metadata.genre }] : []),
-                        ...(track.metadata.bpm ? [{ name: "BPM", value: String(track.metadata.bpm) }] : []),
-                        ...(track.metadata.durationSeconds ? [{ name: "Duration", value: String(track.metadata.durationSeconds) }] : []),
-                        { name: "x-lilypad-music", value: "true" },
-                        { name: "License", value: "yRj4a5KMctX_uOmKWCFJIjmY8DeJcusVk6-HzLiM_t8" },
-                        { name: "License-Fee", value: "One-Time-0.1" },
-                        { name: "Commercial-Use", value: "Allowed" },
-                        { name: "Derivation", value: "Allowed-With-Credit" },
-                    ];
-                    const audioUri = await uploadToArweave(
-                        track.audioFile, { address, chainType: walletChain, network },
-                        false, undefined, undefined, audioTags, true, getSolanaProvider()
-                    );
+                    let audioUri: string;
+                    if (devnet) {
+                        const { url } = await pinFile(track.audioFile, `audio-${i}-${track.metadata.name || 'track'}`);
+                        audioUri = url;
+                        debugUri('solana.pinata', url, { kind: 'audio', index: i });
+                    } else {
+                        const audioTags = [
+                            { name: "Content-Type", value: track.audioFile.type || "audio/mpeg" },
+                            { name: "App-Name", value: "TheLilyPad" },
+                            { name: "Collection-Name", value: name },
+                            { name: "Track-Name", value: track.metadata.name || `Track ${i + 1}` },
+                            ...(track.metadata.artist ? [{ name: "Artist", value: track.metadata.artist }] : []),
+                            ...(track.metadata.genre ? [{ name: "Genre", value: track.metadata.genre }] : []),
+                            ...(track.metadata.bpm ? [{ name: "BPM", value: String(track.metadata.bpm) }] : []),
+                            ...(track.metadata.durationSeconds ? [{ name: "Duration", value: String(track.metadata.durationSeconds) }] : []),
+                            { name: "x-lilypad-music", value: "true" },
+                            { name: "License", value: "yRj4a5KMctX_uOmKWCFJIjmY8DeJcusVk6-HzLiM_t8" },
+                            { name: "License-Fee", value: "One-Time-0.1" },
+                            { name: "Commercial-Use", value: "Allowed" },
+                            { name: "Derivation", value: "Allowed-With-Credit" },
+                        ];
+                        audioUri = await uploadToArweave(
+                            track.audioFile, { address, chainType: walletChain, network },
+                            false, undefined, undefined, audioTags, true, getSolanaProvider()
+                        );
+                    }
                     audioUriMap[i] = audioUri;
                 }
                 assetsToUpload = tracks.map((track, i) => ({
@@ -664,18 +673,182 @@ export default function LaunchpadCreate() {
 
             if (assetsToUpload.length === 0) return toast.error("No assets ready for launch.");
 
-            // Pre-fund Irys
-            toast.loading("Calculating total storage cost...", { id: 'deploy' });
-            const allFilesToPayFor: (File | Blob)[] = [];
-            if (coverFile) allFilesToPayFor.push(coverFile);
-            assetsToUpload.forEach(asset => allFilesToPayFor.push(asset.file));
-            if (isMusic) tracks.forEach(t => allFilesToPayFor.push(t.audioFile));
+            // Pre-fund Irys (mainnet/Arweave only — Pinata needs no SOL)
+            if (!devnet) {
+                toast.loading("Calculating total storage cost...", { id: 'deploy' });
+                const allFilesToPayFor: (File | Blob)[] = [];
+                if (coverFile) allFilesToPayFor.push(coverFile);
+                assetsToUpload.forEach(asset => allFilesToPayFor.push(asset.file));
+                if (isMusic) tracks.forEach(t => allFilesToPayFor.push(t.audioFile));
 
-            await preFundIrysForBatch(allFilesToPayFor, { address, chainType: walletChain, network }, {
-                onStatus: (status) => toast.loading(status, { id: 'deploy' })
-            }, getSolanaProvider());
+                await preFundIrysForBatch(allFilesToPayFor, { address, chainType: walletChain, network }, {
+                    onStatus: (status) => toast.loading(status, { id: 'deploy' })
+                }, getSolanaProvider());
+            }
 
-            // DB entry
+            // Upload assets — devnet via Pinata, mainnet via Arweave/Irys
+            toast.loading(
+                devnet
+                    ? `Pinning ${assetsToUpload.length} items to IPFS…`
+                    : `Securing ${assetsToUpload.length} items to Arweave...`,
+                { id: 'deploy' }
+            );
+            const builtMetadata: any[] = new Array(assetsToUpload.length);
+            const itemLinks: Array<{
+                tokenID: string;
+                arweaveUri: string;
+                arweaveImageUri: string;
+                arweaveThumbUri?: string;
+                arweavePreviewUri?: string;
+            }> = [];
+            let manifestUri = '';
+
+            if (devnet) {
+                debugUpload('solana.pinata', `pinning ${assetsToUpload.length} images`);
+                const imageResults = await pinFiles(
+                    assetsToUpload.map(a => a.file),
+                    (completed, total, status) => {
+                        setUploadProgress({ completed, total, status });
+                        toast.loading(status, { id: 'deploy' });
+                    }
+                );
+                if (abortCtrl.signal.aborted) {
+                    setIsDeploying(false); setUploadAbortController(null);
+                    return;
+                }
+
+                assetsToUpload.forEach((asset, idx) => {
+                    const imgUrl = imageResults[idx].url;
+                    let m: any;
+                    if (isMusic && asset.metadata._audioUri) {
+                        const track = tracks[asset.metadata._trackIndex ?? idx];
+                        m = buildMusicNftMetadata(track, imgUrl, asset.metadata._audioUri, name);
+                    } else {
+                        const { name: metaName, description: metaDesc, attributes: metaAttrs, ...restMeta } = (asset.metadata ?? {}) as any;
+                        m = buildMetaplexMetadata({
+                            name: metaName ?? `${name} #${idx + 1}`,
+                            description: metaDesc ?? description,
+                            image: imgUrl,
+                            attributes: metaAttrs ?? [],
+                            extraFiles: [],
+                            collection: { name },
+                            extra: restMeta,
+                        });
+                    }
+                    builtMetadata[idx] = m;
+                });
+
+                toast.loading(`Bundling ${builtMetadata.length} metadata files into IPFS directory…`, { id: 'deploy' });
+                const manifest = await prepareDevnetManifest(builtMetadata, name);
+                manifestUri = manifest.manifestRoot;
+                debugUri('solana.pinata', manifest.manifestRoot, { cid: manifest.cid, items: manifest.items.length });
+
+                imageResults.forEach((img, idx) => {
+                    itemLinks.push({
+                        tokenID: String(idx),
+                        arweaveUri: manifest.items[idx].uri,
+                        arweaveImageUri: img.url,
+                    });
+                });
+            } else {
+                const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
+                    file: asset.file,
+                    buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
+                        let m: any;
+                        if (isMusic && asset.metadata._audioUri) {
+                            const track = tracks[asset.metadata._trackIndex ?? idx];
+                            m = buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
+                        } else {
+                            const { name: metaName, description: metaDesc, attributes: metaAttrs, ...restMeta } = (asset.metadata ?? {}) as any;
+                            const extraFiles: { uri: string; type: string }[] = [];
+                            if (thumbUri && thumbUri !== arweaveImageUri) extraFiles.push({ uri: thumbUri, type: 'image/png' });
+                            if (previewUri && previewUri !== arweaveImageUri) extraFiles.push({ uri: previewUri, type: 'image/png' });
+                            m = buildMetaplexMetadata({
+                                name: metaName ?? `${name} #${idx + 1}`,
+                                description: metaDesc ?? description,
+                                image: arweaveImageUri,
+                                attributes: metaAttrs ?? [],
+                                extraFiles,
+                                collection: { name },
+                                extra: restMeta,
+                            });
+                        }
+                        builtMetadata[idx] = m;
+                        return m;
+                    },
+                }));
+
+                const result = await uploadBatchToArweave(
+                    batchItems,
+                    { address, chainType: walletChain, network },
+                    (completed, total, status) => {
+                        setUploadProgress({ completed, total, status });
+                        toast.loading(status, { id: 'deploy' });
+                    },
+                    10, true,
+                    [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }],
+                    isDynamic, undefined, undefined,
+                    abortCtrl.signal, resumeKey || undefined, true, getSolanaProvider()
+                );
+
+                if (abortCtrl.signal.aborted) {
+                    setIsDeploying(false);
+                    setUploadAbortController(null);
+                    setHasResumableUpload(true);
+                    return;
+                }
+
+                if (resumeKey) clearUploadProgress(resumeKey);
+                setHasResumableUpload(false);
+
+                manifestUri = result.manifestUri || '';
+                result.items.forEach((r) => {
+                    itemLinks.push({
+                        tokenID: r.tokenId.toString(),
+                        arweaveUri: r.arweaveUri,
+                        arweaveImageUri: r.arweaveImageUri,
+                        arweaveThumbUri: r.arweaveThumbUri,
+                        arweavePreviewUri: r.arweavePreviewUri,
+                    });
+                });
+            }
+
+            toast.loading(devnet ? "Metadata pinned to IPFS." : "Persistence secured on Arweave...", { id: 'deploy' });
+            const primaryArweaveUri = manifestUri || (itemLinks.length > 0 ? itemLinks[0].arweaveUri : "");
+
+            // Upload collection metadata & reveal placeholder
+            let collectionMetadataUri = "";
+            let revealPlaceholderUri = "";
+            let collectionImageUri = "";
+
+            if (coverFile) {
+                toast.loading(devnet ? "Pinning collection banner/metadata to IPFS…" : "Uploading collection banner/metadata to Arweave...", { id: 'deploy' });
+                if (devnet) {
+                    const cover = await pinFile(coverFile, `${symbol}-cover`);
+                    collectionImageUri = cover.url;
+                    const cm = await pinJson({ name, symbol, description, image: collectionImageUri }, `${symbol}-collection.json`);
+                    collectionMetadataUri = cm.url;
+                    const rm = await pinJson({ name: `Unrevealed - ${name}`, description: "This item has not been revealed yet.", image: collectionImageUri }, `${symbol}-reveal.json`);
+                    revealPlaceholderUri = rm.url;
+                } else {
+                    collectionImageUri = await uploadToArweave(
+                        coverFile, { address, chainType: walletChain, network },
+                        false, undefined, undefined, [{ name: "Content-Type", value: coverFile.type }], true, getSolanaProvider()
+                    );
+                    const collectionMetadata = { name, symbol, description, image: collectionImageUri };
+                    collectionMetadataUri = await uploadMetadataToArweave(
+                        collectionMetadata, { address, chainType: walletChain, network },
+                        false, undefined, undefined, getSolanaProvider()
+                    );
+                    const revealMetadata = { name: `Unrevealed - ${name}`, description: "This item has not been revealed yet.", image: collectionImageUri };
+                    revealPlaceholderUri = await uploadMetadataToArweave(
+                        revealMetadata, { address, chainType: walletChain, network },
+                        false, undefined, undefined, getSolanaProvider()
+                    );
+                }
+            }
+
+            // DB entry — created only after uploads succeed, so a failed upload leaves no zombie row
             toast.loading("Establishing provenance...", { id: 'deploy' });
             const { data: { user } } = await supabase.auth.getUser();
             const { data: collection, error: collErr } = await supabase
@@ -689,102 +862,13 @@ export default function LaunchpadCreate() {
                     creator_address: address,
                     collection_type: isMusic ? 'music' : (is1of1 ? '1of1' : 'generative'),
                     media_type: isMusic ? 'audio' : 'image',
+                    image_url: collectionImageUri || null,
                 })
                 .select('id')
                 .single();
 
             if (collErr) throw collErr;
             collectionId = collection.id;
-
-            // Upload to Arweave
-            toast.loading(`Securing ${assetsToUpload.length} items to Arweave...`, { id: 'deploy' });
-            const builtMetadata: any[] = new Array(assetsToUpload.length);
-
-            const batchItems: BatchUploadItem[] = assetsToUpload.map((asset, idx) => ({
-                file: asset.file,
-                buildMetadata: (arweaveImageUri: string, thumbUri?: string, previewUri?: string) => {
-                    let m: any;
-                    if (isMusic && asset.metadata._audioUri) {
-                        const track = tracks[asset.metadata._trackIndex ?? idx];
-                        m = buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
-                    } else {
-                        const { name: metaName, description: metaDesc, attributes: metaAttrs, ...restMeta } = (asset.metadata ?? {}) as any;
-                        const extraFiles: { uri: string; type: string }[] = [];
-                        if (thumbUri && thumbUri !== arweaveImageUri) extraFiles.push({ uri: thumbUri, type: 'image/png' });
-                        if (previewUri && previewUri !== arweaveImageUri) extraFiles.push({ uri: previewUri, type: 'image/png' });
-                        m = buildMetaplexMetadata({
-                            name: metaName ?? `${name} #${idx + 1}`,
-                            description: metaDesc ?? description,
-                            image: arweaveImageUri,
-                            attributes: metaAttrs ?? [],
-                            extraFiles,
-                            collection: { name },
-                            extra: restMeta,
-                        });
-                    }
-                    builtMetadata[idx] = m;
-                    return m;
-                },
-            }));
-
-            const { items: uploadResults, manifestUri } = await uploadBatchToArweave(
-                batchItems,
-                { address, chainType: walletChain, network },
-                (completed, total, status) => {
-                    setUploadProgress({ completed, total, status });
-                    toast.loading(status, { id: 'deploy' });
-                },
-                10, true,
-                [{ name: "Collection-Name", value: name }, { name: "Collection-Symbol", value: symbol }],
-                isDynamic, undefined, undefined,
-                abortCtrl.signal, resumeKey || undefined, true, getSolanaProvider()
-            );
-
-            if (abortCtrl.signal.aborted) {
-                setIsDeploying(false);
-                setUploadAbortController(null);
-                setHasResumableUpload(true);
-                return;
-            }
-
-            if (resumeKey) clearUploadProgress(resumeKey);
-            setHasResumableUpload(false);
-
-            const itemLinks = uploadResults.map((r) => ({
-                tokenID: r.tokenId.toString(),
-                arweaveUri: r.arweaveUri,
-                arweaveImageUri: r.arweaveImageUri,
-                arweaveThumbUri: r.arweaveThumbUri,
-                arweavePreviewUri: r.arweavePreviewUri,
-            }));
-
-            toast.loading("Persistence secured on Arweave...", { id: 'deploy' });
-            const primaryArweaveUri = manifestUri || (itemLinks.length > 0 ? itemLinks[0].arweaveUri : "");
-
-            // Upload collection metadata & reveal placeholder
-            let collectionMetadataUri = "";
-            let revealPlaceholderUri = "";
-            let collectionImageUri = "";
-
-            if (coverFile) {
-                toast.loading("Uploading collection banner/metadata to Arweave...", { id: 'deploy' });
-                collectionImageUri = await uploadToArweave(
-                    coverFile, { address, chainType: walletChain, network },
-                    false, undefined, undefined, [{ name: "Content-Type", value: coverFile.type }], true, getSolanaProvider()
-                );
-
-                const collectionMetadata = { name, symbol, description, image: collectionImageUri };
-                collectionMetadataUri = await uploadMetadataToArweave(
-                    collectionMetadata, { address, chainType: walletChain, network },
-                    false, undefined, undefined, getSolanaProvider()
-                );
-
-                const revealMetadata = { name: `Unrevealed - ${name}`, description: "This item has not been revealed yet.", image: collectionImageUri };
-                revealPlaceholderUri = await uploadMetadataToArweave(
-                    revealMetadata, { address, chainType: walletChain, network },
-                    false, undefined, undefined, getSolanaProvider()
-                );
-            }
 
             // Show cost preview modal
             const isCompressed = !is1of1;
@@ -800,6 +884,7 @@ export default function LaunchpadCreate() {
             setIsDeploying(false);
             toast.dismiss('deploy');
             return;
+
 
         } catch (e: any) {
             console.error("Launch Error:", e);
