@@ -81,6 +81,42 @@ Deno.serve(async (req) => {
       return json({ cid, url: `${GATEWAY}${cid}`, size: data.PinSize });
     }
 
+    if (kind === "directory") {
+      // body.files: [{ name: "0.json", contentType: "application/json", base64: "..." }, ...]
+      const files = Array.isArray(body.files) ? body.files : null;
+      if (!files || files.length === 0) {
+        return json({ error: "Missing 'files' array" }, 400);
+      }
+      const form = new FormData();
+      const folder = (name || `dir-${Date.now()}`).replace(/[^a-zA-Z0-9_.-]/g, "_");
+      for (const f of files) {
+        const fname = String(f.name || "").replace(/^\/+/, "");
+        if (!fname) continue;
+        const ct = String(f.contentType || "application/octet-stream");
+        const b64 = String(f.base64 || "");
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const blob = new Blob([bytes], { type: ct });
+        // Pinata wraps when files share a top-level folder name
+        form.append("file", blob, `${folder}/${fname}`);
+      }
+      form.append("pinataOptions", JSON.stringify({ wrapWithDirectory: false }));
+      form.append("pinataMetadata", JSON.stringify({ name: folder }));
+
+      const res = await fetch(`${PINATA_BASE}/pinning/pinFileToIPFS`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${jwt}` },
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return json({ error: data?.error || "Pinata directory pin failed", details: data }, res.status);
+      }
+      const cid = data.IpfsHash;
+      return json({ cid, url: `${GATEWAY}${cid}`, size: data.PinSize, fileCount: files.length });
+    }
+
     return json({ error: `Unknown kind: ${kind}` }, 400);
   } catch (e: any) {
     console.error("[pinata-upload] error:", e?.message || e);

@@ -458,6 +458,10 @@ export default function LaunchpadCreate() {
                         collectionSecretKey: vanitySecret,
                         collectionPublicKey: vanityPublic,
                         items: cmItems,
+                        // Enables fixed-cost hidden-settings deploy on devnet
+                        // (edge function pins a Pinata directory + uses $ID$ template).
+                        itemsMetadata: Array.isArray(builtMetadata) ? builtMetadata : undefined,
+                        placeholderName: `${String(name).slice(0, 22)} #`,
                         ...sharedDeployPayload,
                     });
 
