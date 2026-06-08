@@ -62,23 +62,21 @@ export function buildAgentMetadata(baseUrl = 'https://thelilypad.app'): AgentMet
  * Build the Core-asset NFT metadata JSON (uploaded to Arweave as the `uri`).
  */
 export function buildAgentNftMetadata(): Record<string, unknown> {
-    return {
+    return buildMetaplexMetadata({
         name: AGENT_NAME,
         symbol: 'LILY',
         description: AGENT_DESCRIPTION,
-        image: '', // placeholder — can be updated later with a hosted image
-        external_url: 'https://thelilypad.app',
+        image: '',
+        externalUrl: 'https://thelilypad.app',
         attributes: [
             { trait_type: 'Agent Type', value: 'Backend Launchpad' },
             { trait_type: 'Chain', value: 'Solana' },
             { trait_type: 'Features', value: 'Collections, Candy Machine, Hidden Settings, Minting, Metadata, Marketplace, Buyback, Streaming' },
             { trait_type: 'SDK', value: '@metaplex-foundation/mpl-agent-registry' },
         ],
-        properties: {
-            category: 'agent',
-            creators: [],
-        },
-    };
+        category: 'agent',
+        creators: [],
+    });
 }
 
 // ---------------------------------------------------------------------------
