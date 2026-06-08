@@ -567,13 +567,21 @@ export async function createCoreCandyMachineHidden(
 
             // ── Build ONE combined transaction ──────────────────────────────
             // Instruction 1: Create Candy Machine with Hidden Settings
+            // Metaplex Core hidden settings supports `$ID$` / `$ID+1$`
+            // template variables in both `name` and `uri`. If the caller
+            // didn't include one in the name, append `#$ID+1$` so each
+            // minted NFT gets a unique name (e.g. "My Collection #1").
+            const templatedName = placeholderName.includes('$ID')
+                ? placeholderName
+                : `${placeholderName}#$ID+1$`;
+
             const cmBuilder = createCoreCandyMachineIx(umi, {
                 candyMachine,
                 collection: collectionMint,
                 collectionUpdateAuthority: umi.identity,
                 itemsAvailable: BigInt(clampU32(itemsAvailable)),
                 hiddenSettings: some({
-                    name: placeholderName,
+                    name: templatedName,
                     uri: placeholderUri,
                     hash: itemsHash,
                 }),

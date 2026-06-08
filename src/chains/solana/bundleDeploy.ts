@@ -320,7 +320,12 @@ export async function bundleCollectionDeploy(
     const [manifestUri] = await umi.uploader.upload([manifestFile]);
     const manifestRoot = (manifestUri.match(/([A-Za-z0-9_-]{43})/) ?? [, manifestUri])[1] as string;
     const manifestGateway = `https://arweave.net/${manifestRoot}`;
-    const placeholderUri  = `${manifestGateway}/0.json`;
+    // Metaplex Core hidden-settings template URI — `$ID$` is substituted
+    // with each minted item's index at mint time, so every NFT resolves
+    // to its own metadata + image automatically. Using a static `0.json`
+    // here makes every mint show item #0.
+    // https://www.metaplex.com/docs/smart-contracts/core-candy-machine/create
+    const placeholderUri  = `${manifestGateway}/$ID$.json`;
 
     debugUri('bundleDeploy', manifestUri, { manifestRoot, items: n });
 
