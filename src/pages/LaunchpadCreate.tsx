@@ -66,6 +66,7 @@ import { Switch } from "@/components/ui/switch";
 import { Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
+import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 import { getRpcUrl } from "@/config/solana";
 import { CartCheckoutModal, type CheckoutStatus } from "@/components/raffles/CartCheckoutModal";
 import type { CartCostEstimate } from "@/chains";
