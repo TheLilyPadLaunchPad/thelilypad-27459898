@@ -431,7 +431,7 @@ Deno.serve(async (req) => {
       manifestRoot: manifestRoot || null,
       partial: !!insertError || (itemsAvailable && itemsLoaded < itemsAvailable),
       insertError,
-      network,
+      network: effectiveNetwork,
       collectionType: collectionType || null,
     });
   } catch (error) {
