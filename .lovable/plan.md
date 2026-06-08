@@ -1,76 +1,72 @@
+# Full Metaplex Plugins + Candy Guards Integration
 
-# Standardize NFT Metadata to Metaplex Standard
-
-Make every metadata JSON the app emits match the canonical Metaplex shape you shared:
-
-```json
-{
-  "name": "...",
-  "description": "...",
-  "image": "...",
-  "animation_url": "...",        // when media present
-  "external_url": "...",         // collection website
-  "attributes": [{ "trait_type": "...", "value": "..." }],
-  "properties": {
-    "files": [{ "uri": "...", "type": "image/png", "cdn": true }],
-    "category": "image" | "video" | "audio" | "vr" | "html"
-  }
-}
-```
+Today the launchpad uses **1 Core plugin** (Royalties) and **2 guards** (botTax, solPayment). This plan exposes the full Metaplex Core plugin set and all ~20 Candy Guards as first‑class creator features, with per‑phase guard groups and automatic hidden settings.
 
 ## Scope
 
-Touch only metadata-construction code (no contract / RLS / UI changes beyond passing already-collected fields through to the builder).
+### Core Collection plugins (10)
+Royalties (existing), Attributes, VerifiedCreators, PermanentFreezeDelegate, PermanentTransferDelegate, PermanentBurnDelegate, ImmutableMetadata, AddBlocker, UpdateDelegate, Autograph.
 
-## Changes
+### Candy Guards (20)
+botTax, solPayment, tokenPayment, token2022Payment, startDate, endDate, mintLimit, redeemedAmount, addressGate, allowList, nftGate, nftBurn, nftPayment, tokenGate, tokenBurn, programGate, gatekeeper, thirdPartySigner, freezeSolPayment, freezeTokenPayment, edition, assetGate, assetBurn, assetPayment.
 
-### 1. New shared builder — `src/lib/metaplexMetadata.ts`
-- `buildMetaplexMetadata(input)` returning the canonical shape.
-- Helpers:
-  - `mimeToCategory(mime)` — `image/*`→`image`, `video/*`→`video`, `audio/*`→`audio`, `model/*` or `.glb`→`vr`, `text/html`→`html`.
-  - `inferMime(uri, fallback?)` — from extension (`.png|.jpg|.webp|.gif|.mp4|.webm|.mp3|.wav|.glb|.html`).
-  - `buildFiles({ image, animation, thumbnail, preview, extra }, opts)` — produces `properties.files[]` with `type` and optional `cdn: true` for CDN hosts (`watch.videodelivery.net`, `cloudflarestream.com`, `*.r2.dev`, `lovable.app`).
-- Always include `properties.category` (derived from primary media), `properties.files` (omit empty), and `external_url` when supplied.
+### Per‑phase guard groups
+Each launch phase (OG / WL / Public / custom) becomes a Candy Machine **guard group** with its own start/end/price/allowlist/limits.
 
-### 2. Update each builder to use the shared helper
+### Hidden settings
+Auto‑configured when the user picks **Generative / Blind Box** in Step 1. No extra UI.
 
-| File | Change |
-|---|---|
-| `src/lib/musicMetadata.ts` | Re-implement on top of helper; add `external_url` parameter; keep audio category and existing attrs. |
-| `src/lib/assetBundler.ts` `nftToStandardMetadata` | Add full `properties` + optional `external_url`; pass `baseImageUri` mime as `image/png`. |
-| `src/chains/solana/bundleDeploy.ts` | Replace inline object with helper call; thread `animation_url`/`external_url` from `template.extra`. |
-| `src/components/launchpad/CandyMachineManager.tsx` (auto-sync) | Use helper; infer mime from `imageUrl` instead of hardcoding `image/png`; pass `external_url` from collection. |
-| `src/components/launchpad/ContractDeployModal.tsx` | Use helper for collection meta; pass `collection.social_website` as `external_url`; include `properties.files` with cover image. |
-| `src/hooks/useShopMint.ts` (item + collection) | Use helper for both; infer mime from URL. |
-| `src/components/raffles/CreateOneOfOneModal.tsx` | Use helper; move `thumbUri` / `previewUri` into `properties.files` (drop non-standard top-level keys); derive category from animation/image. |
-| `src/pages/LaunchpadCreate.tsx` non-music path | Use helper; thread `social_website` and per-asset `animation_url` if present; route `thumbUri`/`previewUri` into `properties.files`. |
-| `src/integrations/arweave/legacyClient.ts` `uploadNFTToArweave` | Switch inline merge to helper; keep `extra` spread for caller overrides. |
-| `src/chains/solana/agent.ts` `buildAgentNftMetadata` | Use helper; keep `category: 'agent'` override via opts. |
+## Files
 
-### 3. Field propagation (no schema changes)
-- Thread `collection.social_website` → `external_url` through `ContractDeployModal`, `CandyMachineManager`, `LaunchpadCreate`, `useShopMint`.
-- Thread `animation_url` from existing per-asset upload results (audio for music, video for video 1-of-1s) where the code already has the URI but discards it.
+### New
+- `src/config/launchpad/candyGuards.ts` — registry of all guards (id, label, description, category, input schema, default value, payload builder).
+- `src/config/launchpad/corePlugins.ts` — registry of all Core collection plugins (same shape).
+- `src/components/launchpad/GuardConfigurator.tsx` — UI: category accordion → guard toggle → per‑guard config form.
+- `src/components/launchpad/CollectionPluginsPanel.tsx` — UI for collection‑level plugin toggles.
+- `src/components/launchpad/PhaseGuardGroups.tsx` — per‑phase guard group editor (wraps `GuardConfigurator`).
+- `src/chains/solana/guardPayload.ts` — pure functions: `buildGuardSet(config)` → Metaplex `DefaultGuardSetArgs`, `buildGuardGroups(phases)` → `groups[]`.
 
-### 4. Backwards compatibility
-- Helper outputs strict superset of current fields, so existing wallets/marketplaces keep working.
-- Keep `creators` array in `properties` where it already exists (collection deploys), passed through opts.
-- `seller_fee_basis_points`, `symbol`, `collection` top-level fields preserved when caller supplies them.
-
-## Out of scope
-
-- No DB migrations.
-- No changes to Candy Machine / Candy Guard config.
-- No changes to upload transport (Irys/Arweave stays as-is).
-- No UI design changes; only plumbing of already-collected fields.
-
-## Verification
-
-- `npx tsc --noEmit` clean.
-- Spot-check one of each path by logging the built JSON: music NFT, generative collection deploy, shop item, 1-of-1, agent NFT, ZIP export — confirm all match the target shape with correct `properties.category` and `properties.files[].type`.
+### Edited
+- `src/config/launchpad/types.ts` — extend `WLPhaseConfig` with `guards: GuardConfig`, add `CollectionPluginsConfig` to launch payload.
+- `src/pages/LaunchpadCreate.tsx` — wire new panels into Step 1/Review; pass guards/plugins/groups to `deployViaBackend`.
+- `src/hooks/useSolanaLaunch.ts` — extend `deployViaBackend` params with `collectionPlugins`, `guardGroups`, `defaultGuards`, `hiddenSettings`.
+- `supabase/functions/deploy-metaplex-launchpad/index.ts` — accept new payload; build `plugins[]` for `createCollection`; build `guards` + `groups[]` for `createCandyGuard`; auto‑emit `hiddenSettings` when `collectionType === 'blind_box'`.
+- `src/components/launchpad/PhaseConfigManager.tsx` — replace stub with real per‑phase guard editor entrypoint.
 
 ## Technical notes
 
-- `mimeToCategory` order matters: check `model/`/`.glb` before generic `application/octet-stream` fallback.
-- `cdn: true` is only set when host matches the CDN allowlist; everything else omits the flag (don't emit `cdn: false`).
-- For images uploaded to Arweave, omit `cdn` (Arweave is canonical, not a CDN mirror).
-- Preserve `?ext=…` suffix convention already used for Arweave URIs in music NFTs.
+### Guard registry shape (`candyGuards.ts`)
+```ts
+type GuardCategory = 'payment' | 'time' | 'limit' | 'gating' | 'advanced';
+type GuardDef = {
+  id: keyof DefaultGuardSetArgs;
+  label: string; description: string; category: GuardCategory;
+  fields: Array<{ key: string; type: 'number'|'address'|'date'|'csv'|'select'; label: string; required?: boolean }>;
+  build: (cfg: any, ctx: { creator: PublicKey }) => OptionOrNullable<any>;
+};
+```
+A single registry feeds both UI rendering and the edge function's payload builder (shared via `src/chains/solana/guardPayload.ts`).
+
+### Edge function changes
+- Replace hard‑coded `botTax`/`solPayment` block with `buildGuardSet(defaultGuards)` for the global set and `buildGuardGroups(phases)` for `groups`.
+- Add `if (hiddenSettings) builder = ...createCandyMachine({ hiddenSettings: some({...}), ... })` branch; skip `configLineSettings` in that branch.
+- Validate every address with `publicKey()` and clamp numeric lamports with `sol()`.
+
+### Hidden settings auto‑logic
+If `collectionType === 'blind_box'`:
+- `placeholderName = "<collectionName> #$ID+1$"`
+- `placeholderUri = "https://arweave.net/<manifestRoot>/$ID$.json"`
+- `hash = sha256(placeholderUri).slice(0,32)` (computed server‑side).
+
+### Per‑phase guard groups
+Candy Machine guard groups have a 32‑char label limit and require a `default` guard set. The default = the most permissive global config; each phase overrides `startDate`, `endDate`, `solPayment`, `allowList`, `mintLimit`, `addressGate`.
+
+## Out of scope (now)
+- Plugin/guard editing **after** deploy (these need separate update flows).
+- Monad — guards are Solana‑only; Monad UI shows "Not applicable".
+- Gatekeeper network selection beyond Civic default.
+
+## Validation
+- Zod schemas in `candyGuards.ts` for each guard's input form.
+- Edge function rejects guard payloads with unknown keys or invalid addresses (HTTP 400).
+- Manual devnet test: deploy a 3‑phase collection (OG free + WL token‑gated + Public solPayment) and confirm all guards enforced.
