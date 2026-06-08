@@ -173,6 +173,7 @@ export default function LaunchpadCreate() {
     // Config Data
     const [phases, setPhases] = useState<LaunchpadPhase[]>(defaultPhases);
     const [treasuryWallet, setTreasuryWallet] = useState("");
+    const [collectionPlugins, setCollectionPlugins] = useState<CollectionPluginsConfig>(defaultCollectionPluginsConfig());
 
     // Dynamic NFT
     const [isDynamic, setIsDynamic] = useState(false);
