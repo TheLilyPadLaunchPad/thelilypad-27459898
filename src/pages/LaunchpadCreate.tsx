@@ -27,6 +27,8 @@ import {
 import { toast } from "sonner";
 import { FolderUploader } from "@/components/launchpad/FolderUploader";
 import { GuardConfigurator } from "@/components/launchpad/GuardConfigurator";
+import { CollectionPluginsPanel } from "@/components/launchpad/CollectionPluginsPanel";
+import { defaultCollectionPluginsConfig, type CollectionPluginsConfig } from "@/config/launchpad/corePlugins";
 import { LaunchpadPreview } from "@/components/launchpad/LaunchpadPreview";
 import { LazyPreviewGrid } from "@/components/launchpad/LazyPreviewGrid";
 import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
