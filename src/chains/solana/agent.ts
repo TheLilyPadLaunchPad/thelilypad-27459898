@@ -18,6 +18,7 @@ import {
     type MintAgentResponse,
     type SvmNetwork,
 } from '@metaplex-foundation/mpl-agent-registry';
+import { buildMetaplexMetadata } from '@/lib/metaplexMetadata';
 
 // ---------------------------------------------------------------------------
 // Agent metadata generation
