@@ -114,16 +114,14 @@ export function CandyMachineManager({
                 const a = artworks[i];
                 setSyncProgress(`Uploading metadata ${i + 1}/${artworks.length}…`);
                 const nftName = a.name || `${collectionName || 'Item'} #${i + 1}`;
-                const metadata = {
+                const metadata = buildMetaplexMetadata({
                     name: nftName,
                     description: a.description || '',
                     image: a.imageUrl || '',
                     attributes: [],
-                    properties: {
-                        files: a.imageUrl ? [{ uri: a.imageUrl, type: 'image/png' }] : [],
-                        category: 'image',
-                    },
-                };
+                    externalUrl: collectionWebsite,
+                    ...(collectionName ? { collection: { name: collectionName } } : {}),
+                });
                 const uploaded = await uploadCollectionMetadata(metadata, {
                     collectionId,
                     filename: `${collectionId}-item-${i}.json`,
