@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { uploadCollectionMetadata, hasArweaveWallet } from "@/lib/metadataUpload";
+import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 import { runGrinderInWorker } from "@/lib/vanity/runGrinder";
 
 const VANITY_BRAND = "L3AP";
