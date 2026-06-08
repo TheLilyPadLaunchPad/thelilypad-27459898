@@ -1017,47 +1017,65 @@ export const useSolanaLaunch = () => {
         collectionSecretKey?: string;
         collectionPublicKey?: string;
         items?: Array<{ name: string; uri: string }>;
-        /** Full Metaplex Core plugin selection (royalties, permanent delegates, etc). */
+        /** Full per-item metadata JSON. If supplied on devnet, gets pinned as one
+         *  IPFS directory so the edge function can use hidden-settings (no addConfigLines). */
+        itemsMetadata?: Array<Record<string, any>>;
+        /** Pre-built manifest root (https://gateway.../ipfs/<CID>). Skip auto-build. */
+        manifestRoot?: string;
+        /** Placeholder name shown while NFTs are hidden (defaults to "<Name> #"). */
+        placeholderName?: string;
         collectionPlugins?: { plugins: Record<string, { enabled: boolean; config?: Record<string, any> }> };
-        /** Always-applied Candy Guard set (raw JSON, edge function builds Metaplex payload). */
         defaultGuards?: Record<string, { enabled: boolean; [k: string]: any }>;
-        /** Optional per-phase Candy Guard groups. */
         guardGroups?: Array<{ label: string; guards: Record<string, { enabled: boolean; [k: string]: any }> }>;
-        /** Blind-box hidden settings; if omitted and collectionType === 'blind_box' the edge function fills it in. */
         hiddenSettings?: { name: string; uri: string; hash?: number[] };
-        /** Collection type — drives auto hidden settings. */
         collectionType?: 'generative' | '1of1' | 'music' | 'blind_box';
     }) => {
-
-
         setIsLoading(true);
         setError(null);
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error("Must be logged in to deploy via backend");
 
-            // Use the Supabase SDK transport (avoids the Lovable preview fetch-proxy
-            // "Failed to fetch" issue that happens with raw fetch to /functions/v1).
+            // Auto-build a devnet manifest when possible. This switches the edge
+            // function onto the canonical hidden-settings / one-bundle deploy flow
+            // (mirrors scripts/deploy-cm.ts) so we never need addConfigLines.
+            const finalParams: any = { ...params };
+            const isDev = (params.network || 'devnet') === 'devnet';
+            if (!finalParams.manifestRoot && isDev && Array.isArray(params.itemsMetadata) && params.itemsMetadata.length > 0) {
+                try {
+                    const { prepareDevnetManifest } = await import('@/lib/metadataUpload');
+                    const manifest = await prepareDevnetManifest(params.itemsMetadata, params.name);
+                    finalParams.manifestRoot = manifest.manifestRoot;
+                    finalParams.items = manifest.items;
+                    finalParams.placeholderName = finalParams.placeholderName || `${String(params.name).slice(0, 22)} #`;
+                    debugUpload('solana.pinata', `prepared manifest cid=${manifest.cid} items=${manifest.items.length}`);
+                } catch (e: any) {
+                    console.warn('[deployViaBackend] Pinata manifest failed, falling back:', e?.message || e);
+                }
+            }
+
             const { data, error: fnError } = await supabase.functions.invoke(
                 'deploy-metaplex-launchpad',
-                { body: params }
+                { body: finalParams }
             );
 
             if (fnError) {
-                // FunctionsHttpError exposes the server JSON via fnError.context
                 let serverMsg = fnError.message;
+                let phase: string | undefined;
                 try {
                     const ctx: any = (fnError as any).context;
                     if (ctx && typeof ctx.json === 'function') {
                         const j = await ctx.json();
                         if (j?.error) serverMsg = j.error;
+                        if (j?.phase) phase = j.phase;
                     } else if (ctx?.error) {
                         serverMsg = ctx.error;
                     }
                 } catch { /* ignore */ }
-                throw new Error(serverMsg || 'Backend deployment failed');
+                throw new Error(phase ? `[${phase}] ${serverMsg}` : (serverMsg || 'Backend deployment failed'));
             }
 
+            if (data?.ok === false) throw new Error(`[${data.phase}] ${data.error}`);
             if (data?.error) throw new Error(data.error);
             return data;
         } catch (err: any) {
