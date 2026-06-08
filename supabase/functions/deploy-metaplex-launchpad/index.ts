@@ -242,16 +242,22 @@ Deno.serve(async (req) => {
     if (!existingCollection) return fail(phase, new Error("Collection not found"), 404);
     if (existingCollection.creator_id !== user.id) return fail(phase, new Error("Forbidden: not the collection owner"), 403);
 
-    // Treasury keypair
+    // Treasury keypair — if only the devnet key is configured, force network to devnet
+    // so we never try to broadcast on mainnet with a devnet-only treasury.
     phase = "treasury";
-    const treasuryKey = network === "devnet"
-      ? (Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY") || Deno.env.get("TREASURY_PRIVATE_KEY"))
-      : Deno.env.get("TREASURY_PRIVATE_KEY");
-    if (!treasuryKey) return fail(phase, new Error(`Treasury private key not configured for network: ${network}`), 500);
+    const devKey = Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY");
+    const mainKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+    let effectiveNetwork: "devnet" | "mainnet" = network;
+    if (effectiveNetwork === "mainnet" && !mainKey && devKey) {
+      console.warn("[treasury] no mainnet key configured; forcing network=devnet");
+      effectiveNetwork = "devnet";
+    }
+    const treasuryKey = effectiveNetwork === "devnet" ? (devKey || mainKey) : mainKey;
+    if (!treasuryKey) return fail(phase, new Error(`Treasury private key not configured for network: ${effectiveNetwork}`), 500);
 
     // Umi
     phase = "umi";
-    const rpcUrl = network === "mainnet"
+    const rpcUrl = effectiveNetwork === "mainnet"
       ? "https://api.mainnet-beta.solana.com"
       : "https://api.devnet.solana.com";
     const umi = createUmi(rpcUrl).use(mplCore()).use(mplCandyMachine()).use(mplToolbox());
@@ -425,7 +431,7 @@ Deno.serve(async (req) => {
       manifestRoot: manifestRoot || null,
       partial: !!insertError || (itemsAvailable && itemsLoaded < itemsAvailable),
       insertError,
-      network,
+      network: effectiveNetwork,
       collectionType: collectionType || null,
     });
   } catch (error) {
