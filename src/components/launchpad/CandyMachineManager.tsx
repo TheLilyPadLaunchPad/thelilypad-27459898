@@ -120,7 +120,7 @@ export function CandyMachineManager({
                     image: a.imageUrl || '',
                     attributes: [],
                     externalUrl: collectionWebsite,
-                    ...(collectionName ? { collection: { name: collectionName } } : {}),
+                    collection: collectionName ? { name: collectionName } : undefined,
                 });
                 const uploaded = await uploadCollectionMetadata(metadata, {
                     collectionId,
