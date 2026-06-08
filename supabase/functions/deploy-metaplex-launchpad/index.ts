@@ -166,10 +166,11 @@ Deno.serve(async (req) => {
         configLineSettings: some({
             prefixName: "",
             nameLength: 32,
-            prefixUri: baseUri || "",
-            uriLength: baseUri ? 50 : 200,
+            prefixUri: "",
+            uriLength: 200,
             isSequential: false,
         }),
+
       }));
 
       // Basic guards
