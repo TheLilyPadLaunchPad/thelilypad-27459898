@@ -119,10 +119,20 @@ async function getIrysUploader() {
   const pk = provider.publicKey?.toString() ?? null;
   if (cachedUploader && cachedFor === pk) return cachedUploader;
 
+  // Resolve a healthy RPC URL: explicit override > user-preferred (per network) > best public.
+  // Public api.mainnet-beta.solana.com frequently returns 403 to browsers, which breaks
+  // Irys funding (getLatestBlockhash). Routing through the user's selected RPC fixes it.
+  let network: NetworkType = "mainnet";
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("solanaNetwork");
+    if (saved === "devnet" || saved === "testnet" || saved === "mainnet") {
+      network = saved as NetworkType;
+    }
+  }
   const rpcUrl =
     (typeof window !== "undefined" &&
       (window as any).__SOLANA_RPC_URL__) ||
-    "https://api.mainnet-beta.solana.com";
+    getRpcUrl(network);
 
   // @irys/web-upload-solana adapts a browser Solana provider (signTransaction)
   // into Irys's signer. Funding is paid from the connected SOL wallet.
