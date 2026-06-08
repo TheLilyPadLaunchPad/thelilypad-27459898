@@ -597,7 +597,7 @@ export async function createCoreCandyMachineHidden(
                 .add(memoInstruction)
                 .add(guardBuilder)
                 .add(wrapBuilder)
-                .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+                .add(setComputeUnitPrice(umi, { microLamports: await getDynamicPriorityFee(umi, 'high') }))
                 .add(setComputeUnitLimit(umi, { units: 800_000 }));
 
             await combinedBuilder.sendAndConfirm(umi, {
