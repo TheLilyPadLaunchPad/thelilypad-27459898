@@ -18,6 +18,7 @@ import {
   uploadMetadataToArweave,
 } from '@/integrations/arweave/legacyClient';
 import { supabase } from '@/integrations/supabase/client';
+import { buildMetaplexMetadata } from '@/lib/metaplexMetadata';
 import { toast } from 'sonner';
 import {
   Connection,
