@@ -134,19 +134,14 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       if (chainId === 'solana') {
         toast.loading("Preparing collection metadata...", { id: 'deploying' });
 
-        const metadata = {
+        const metadata = buildMetaplexMetadata({
           name: collection.name,
           symbol: collection.symbol,
-          description: `Collection by ${collection.creator_address}`,
-          image: "", // Placeholder, can be updated later
-          properties: {
-            category: "image",
-            creators: [{
-              address: address,
-              share: 100
-            }]
-          }
-        };
+          description: collection.description || `Collection by ${collection.creator_address}`,
+          image: collection.image_url || "",
+          externalUrl: collection.social_website || undefined,
+          creators: [{ address: address!, share: 100, verified: false }],
+        });
 
         let metadataUri = "";
         try {
