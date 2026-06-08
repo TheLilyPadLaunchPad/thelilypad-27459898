@@ -18,6 +18,7 @@ import { uploadBatchToArweave, BatchUploadItem, uploadToArweave, preFundIrysForB
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
+import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 import { CartCheckoutModal, type CheckoutStatus } from "./CartCheckoutModal";
 import type { CartCostEstimate, CartItem } from "@/chains";
 
