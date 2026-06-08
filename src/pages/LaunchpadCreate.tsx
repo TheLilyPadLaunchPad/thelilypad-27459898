@@ -256,6 +256,18 @@ export default function LaunchpadCreate() {
         }
     }, [name, symbol]);
 
+    // Reload guard — prevent navigation/refresh wiping a mid-flight deploy
+    useEffect(() => {
+        if (!isDeploying) return;
+        const handler = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = "";
+            return "";
+        };
+        window.addEventListener("beforeunload", handler);
+        return () => window.removeEventListener("beforeunload", handler);
+    }, [isDeploying]);
+
     const handleCancelUpload = useCallback(() => {
         if (uploadAbortController) {
             uploadAbortController.abort();
