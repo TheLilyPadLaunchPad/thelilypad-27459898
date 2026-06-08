@@ -242,11 +242,14 @@ Deno.serve(async (req) => {
     if (!existingCollection) return fail(phase, new Error("Collection not found"), 404);
     if (existingCollection.creator_id !== user.id) return fail(phase, new Error("Forbidden: not the collection owner"), 403);
 
-    // Treasury keypair
+    // Treasury keypair — fall back across env names so a devnet-only key still works
     phase = "treasury";
-    const treasuryKey = network === "devnet"
-      ? (Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY") || Deno.env.get("TREASURY_PRIVATE_KEY"))
-      : Deno.env.get("TREASURY_PRIVATE_KEY");
+    const devKey = Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY");
+    const mainKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+    const treasuryKey = network === "devnet" ? (devKey || mainKey) : (mainKey || devKey);
+    if (!treasuryKey && network === "mainnet" && devKey) {
+      console.warn("[treasury] no mainnet key configured; falling back to devnet key");
+    }
     if (!treasuryKey) return fail(phase, new Error(`Treasury private key not configured for network: ${network}`), 500);
 
     // Umi
