@@ -75,12 +75,13 @@ export function buildStickerMetadata(
   packName: string,
   category: string,
   imageUri: string,
-  opts?: { description?: string; displayOrder?: number },
+  opts?: { description?: string; displayOrder?: number; externalUrl?: string },
 ) {
-  return {
+  return buildMetaplexMetadata({
     name: itemName,
     description: opts?.description || `${itemName} from the ${packName} pack`,
     image: imageUri,
+    externalUrl: opts?.externalUrl,
     attributes: [
       { trait_type: 'Pack', value: packName },
       { trait_type: 'Category', value: category },
@@ -89,13 +90,10 @@ export function buildStickerMetadata(
         ? [{ trait_type: 'Display Order', value: String(opts.displayOrder) }]
         : []),
     ],
-    properties: {
-      category: 'image',
-      files: [{ uri: imageUri, type: 'image/png' }],
-    },
     collection: { name: packName },
-  };
+  });
 }
+
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
