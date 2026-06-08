@@ -36,6 +36,7 @@ import {
     GuardGroupArgs as CoreGuardGroupArgs,
 } from '@metaplex-foundation/mpl-core-candy-machine';
 import { setComputeUnitPrice, setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox';
+import { getDynamicPriorityFee } from './priorityFee';
 import { SolanaCollectionParams, SolanaCollectionResult, CandyMachineItem } from './types';
 import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
 import { PLATFORM_WALLETS, getLaunchpadFeeSplit } from '@/config/treasury';
@@ -150,7 +151,7 @@ export async function createCoreCollection(
                     bytesCreatedOnChain: 0,
                     signers: [],
                 })
-                .add(setComputeUnitPrice(umi, { microLamports: 50_000 }));
+                .add(setComputeUnitPrice(umi, { microLamports: await getDynamicPriorityFee(umi, 'low') }));
 
             await builder.sendAndConfirm(umi, {
                 send: { skipPreflight: false },
@@ -596,7 +597,7 @@ export async function createCoreCandyMachineHidden(
                 .add(memoInstruction)
                 .add(guardBuilder)
                 .add(wrapBuilder)
-                .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+                .add(setComputeUnitPrice(umi, { microLamports: await getDynamicPriorityFee(umi, 'high') }))
                 .add(setComputeUnitLimit(umi, { units: 800_000 }));
 
             await combinedBuilder.sendAndConfirm(umi, {
@@ -702,7 +703,7 @@ export async function insertItemsToCandyMachine(
 
         // Use slightly higher priority for batch insertions to ensure they land during congestion
         await builder
-            .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+            .add(setComputeUnitPrice(umi, { microLamports: await getDynamicPriorityFee(umi, 'normal') }))
             .add(setComputeUnitLimit(umi, { units: 800_000 }))
             .sendAndConfirm(umi, {
                 send: { skipPreflight: false },
