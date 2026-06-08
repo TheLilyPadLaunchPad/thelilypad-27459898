@@ -19,6 +19,7 @@ import {
   TrendingUp, Repeat,
 } from "lucide-react";
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
+import { ImportCollectionModal } from "@/components/launchpad/ImportCollectionModal";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { MetaplexBadge, MetaplexHexIcon } from "@/components/MetaplexBadge";
@@ -366,14 +367,20 @@ export default function Launchpad() {
                       <p className="text-xs text-muted-foreground">{isTestnet ? "Testnet Mode" : "Mainnet"}</p>
                     </div>
                   </div>
-                  <Button
-                    size="default"
-                    onClick={() => navigate(`/launchpad/create/${selectedChain}`)}
-                    className="gap-2 shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Collection
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <ImportCollectionModal
+                      chain={selectedChain}
+                      onSuccess={() => collectionsQuery?.refetch?.()}
+                    />
+                    <Button
+                      size="default"
+                      onClick={() => navigate(`/launchpad/create/${selectedChain}`)}
+                      className="gap-2 shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      New Collection
+                    </Button>
+                  </div>
                 </div>
 
                 {/* ── Primary collection type cards ──────────────────────────── */}
