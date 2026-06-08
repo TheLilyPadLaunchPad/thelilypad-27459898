@@ -703,7 +703,7 @@ export async function insertItemsToCandyMachine(
 
         // Use slightly higher priority for batch insertions to ensure they land during congestion
         await builder
-            .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
+            .add(setComputeUnitPrice(umi, { microLamports: await getDynamicPriorityFee(umi, 'normal') }))
             .add(setComputeUnitLimit(umi, { units: 800_000 }))
             .sendAndConfirm(umi, {
                 send: { skipPreflight: false },
