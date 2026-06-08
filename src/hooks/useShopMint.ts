@@ -138,12 +138,12 @@ export function useShopMint() {
 
         // 2. Upload collection metadata JSON to Arweave
         toast.loading('Uploading collection metadata…', { id: 'deploy-pack' });
-        const collectionMeta = {
+        const collectionMeta = buildMetaplexMetadata({
           name: pack.name,
           description: `On-chain asset pack: ${pack.name}`,
           image: coverUri,
-          properties: { category: 'image', creators: [] },
-        };
+          creators: [],
+        });
         const metadataUri = await uploadMetadataToArweave(collectionMeta, {
           address,
           chainType: 'solana',
