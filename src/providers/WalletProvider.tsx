@@ -7,7 +7,7 @@ import { setStoredChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 
 // Reown AppKit Imports
-import { createAppKit, useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
+import { createAppKit, useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
 import { SolanaAdapter } from '@reown/appkit-adapter-solana/react';
 import { solana, solanaTestnet, solanaDevnet } from '@reown/appkit/networks';
 import type { Provider } from '@reown/appkit-adapter-solana/react';
