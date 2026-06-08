@@ -1047,6 +1047,21 @@ export default function LaunchpadCreate() {
                                     {currentStep === 2 && (
                                         <div className="space-y-6">
 
+                                            {/* Review & Deploy header */}
+                                            <div className="p-5 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-accent/5 to-transparent">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="shrink-0 w-10 h-10 rounded-2xl bg-primary/15 flex items-center justify-center">
+                                                        <Rocket className="w-5 h-5 text-primary" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h2 className="text-lg font-bold leading-tight">Review &amp; Deploy</h2>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            Your assets are uploaded. Confirm to deploy the collection and mint in a single checkout — no extra signing prompts for storage.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             {/* Summary Card */}
                                             <div className="p-5 rounded-3xl bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/15">
                                                 <h3 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
