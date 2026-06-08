@@ -388,11 +388,57 @@ export default function LaunchpadCreate() {
             }
 
             if (selectedChain === 'solana') {
+                // Convert phases → Candy Guard JSON payload (defaults + groups).
+                const phaseToGuards = (ph: LaunchpadPhase) => {
+                    const g: Record<string, any> = {};
+                    if (ph.payment?.type === 'token' && ph.payment.mint) {
+                        g.tokenPayment = {
+                            enabled: true,
+                            mint: ph.payment.mint,
+                            amount: ph.payment.amount,
+                            destinationAta: ph.payment.destination || address,
+                        };
+                    } else if ((ph.price || ph.payment?.amount || 0) > 0) {
+                        g.solPayment = {
+                            enabled: true,
+                            amount: ph.payment?.amount || ph.price,
+                            destination: ph.payment?.destination || address,
+                        };
+                    }
+                    if (ph.startTime) g.startDate = { enabled: true, date: new Date(ph.startTime).toISOString() };
+                    if (ph.endTime) g.endDate = { enabled: true, date: new Date(ph.endTime).toISOString() };
+                    if (ph.maxPerWallet && ph.maxPerWallet > 0) {
+                        const limitId = parseInt(String(ph.id).replace(/\D/g, '') || '1', 10) % 256 || 1;
+                        g.mintLimit = { enabled: true, id: limitId, limit: ph.maxPerWallet };
+                    }
+                    if (ph.merkleRoot) g.allowList = { enabled: true, merkleRoot: ph.merkleRoot };
+                    if (ph.nftGate?.collection) g.nftGate = { enabled: true, requiredCollection: ph.nftGate.collection };
+                    if (ph.gatekeeper) g.gatekeeper = { enabled: true, gatekeeperNetwork: ph.gatekeeper.network, expireOnUse: ph.gatekeeper.expireOnUse };
+                    if (ph.addressGate && ph.addressGate.length > 0) g.addressGate = { enabled: true, address: ph.addressGate[0] };
+                    return g;
+                };
+
+                const defaultGuards: Record<string, any> = {
+                    botTax: { enabled: true, lamports: 0.01, lastInstruction: true },
+                    ...phaseToGuards(phases[0] || defaultPhases[0]),
+                };
+                const guardGroups = phases.length > 1
+                    ? phases.map((ph) => ({
+                        label: String(ph.id).slice(0, 32),
+                        guards: phaseToGuards(ph),
+                    }))
+                    : undefined;
+
+                const isBlindBox = collectionType === 'generative' && pendingOnChainDeploy?.revealPlaceholderUri;
+                const sharedDeployPayload = {
+                    collectionPlugins,
+                    defaultGuards,
+                    guardGroups,
+                    collectionType: (isBlindBox ? 'blind_box' : collectionType) as any,
+                };
+
                 if (!is1of1) {
                     setDeployCheckoutProgress({ label: "Deploying collection via backend...", completed: 1, total: 3 });
-
-                    // Build per-item config lines so the Candy Machine has actual items
-                    // to mint (otherwise mintV1 fails with "not enough items").
                     const cmItems = itemLinks.map((item, i) => ({
                         name: String(builtMetadata?.[i]?.name || `${name} #${i + 1}`).slice(0, 32),
                         uri: item.arweaveUri,
@@ -412,36 +458,35 @@ export default function LaunchpadCreate() {
                         collectionSecretKey: vanitySecret,
                         collectionPublicKey: vanityPublic,
                         items: cmItems,
+                        ...sharedDeployPayload,
                     });
-
-
 
                     deployedAddress = result.collectionAddress;
                     collectionMintForReveal = result.collectionAddress;
                     candyMachineAddressForReveal = result.candyMachineAddress;
                     candyGuardAddressForReveal = result.candyGuardAddress;
-                    
+
                     setDeployCheckoutProgress({ label: "Candy Machine ready!", completed: 3, total: 3 });
                 } else {
-                    // For 1-of-1s, we still deploy the collection, then mint
                     setDeployCheckoutProgress({ label: "Deploying 1-of-1 collection via backend...", completed: 1, total: 3 });
-                    
+
                     const result = await solanaLaunch.deployViaBackend({
                         collectionId,
                         name,
                         symbol,
                         uri: collectionMetadataUri || primaryArweaveUri,
                         creatorAddress: address,
-                        itemsAvailable: 0, // No Candy Machine for 1-of-1s
+                        itemsAvailable: 0,
                         phases: [],
                         baseUri: primaryArweaveUri,
                         royaltyPercent,
                         network: network as string,
                         collectionSecretKey: vanitySecret,
                         collectionPublicKey: vanityPublic,
+                        collectionPlugins,
+                        collectionType: '1of1',
                     });
 
-                    
                     deployedAddress = result.collectionAddress;
                     collectionMintForReveal = result.collectionAddress;
 
