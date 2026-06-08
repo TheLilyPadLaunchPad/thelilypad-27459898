@@ -370,7 +370,7 @@ export default function Launchpad() {
                   <div className="flex items-center gap-2">
                     <ImportCollectionModal
                       chain={selectedChain}
-                      onSuccess={() => collectionsQuery?.refetch?.()}
+                      onSuccess={() => refetch()}
                     />
                     <Button
                       size="default"
