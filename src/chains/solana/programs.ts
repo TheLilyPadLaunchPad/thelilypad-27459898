@@ -36,6 +36,7 @@ import {
     GuardGroupArgs as CoreGuardGroupArgs,
 } from '@metaplex-foundation/mpl-core-candy-machine';
 import { setComputeUnitPrice, setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox';
+import { getDynamicPriorityFee } from './priorityFee';
 import { SolanaCollectionParams, SolanaCollectionResult, CandyMachineItem } from './types';
 import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
 import { PLATFORM_WALLETS, getLaunchpadFeeSplit } from '@/config/treasury';
