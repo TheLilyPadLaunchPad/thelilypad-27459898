@@ -1141,6 +1141,17 @@ export default function LaunchpadCreate() {
                                                             <div className="p-5 pt-0 space-y-6 border-t border-border/40">
                                                                 <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
                                                                 <Separator />
+                                                                {selectedChain === 'solana' && (
+                                                                    <>
+                                                                        <CollectionPluginsPanel
+                                                                            value={collectionPlugins}
+                                                                            onChange={setCollectionPlugins}
+                                                                            royaltyPercent={royaltyPercent}
+                                                                            onRoyaltyChange={setRoyaltyPercent}
+                                                                        />
+                                                                        <Separator />
+                                                                    </>
+                                                                )}
                                                                 <div className="space-y-3">
                                                                     <Label>Treasury Wallet</Label>
                                                                     <Input value={treasuryWallet} onChange={e => setTreasuryWallet(e.target.value)} placeholder="0x... / Address" />
