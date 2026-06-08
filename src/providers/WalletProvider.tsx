@@ -175,6 +175,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     syncReown();
   }, [isReownConnected, reownAddress, reownStatus, fetchSolanaBalance, ensureSupabaseSession]);
 
+  // Sync Reown's selected network (mainnet / devnet / testnet) into our internal state
+  useEffect(() => {
+    if (!caipNetwork) return;
+    const id = String((caipNetwork as any).id ?? '').toLowerCase();
+    const name = String((caipNetwork as any).name ?? '').toLowerCase();
+    let next: NetworkType | null = null;
+    if (id.includes('devnet') || name.includes('devnet')) next = 'devnet';
+    else if (id.includes('testnet') || name.includes('testnet')) next = 'devnet';
+    else if (name === 'solana' || id.includes('mainnet') || id.includes('5eykt4')) next = 'mainnet';
+    if (next) {
+      const target = next;
+      setState(prev => prev.network === target ? prev : { ...prev, network: target });
+      try { localStorage.setItem('solanaNetwork', target); } catch {}
+    }
+  }, [caipNetwork]);
+
   // Main connect function replaces legacy Phantom connect with Reown Modal
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
     try {
