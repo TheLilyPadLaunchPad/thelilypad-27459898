@@ -212,16 +212,26 @@ export async function uploadNFTToArweave(
   let animationUri: string | undefined;
   if (animationFile) animationUri = await uploadToArweave(animationFile, wallet, isMutable, rootTx);
 
-  const nftMetadata: any = {
-    name: metadata.name,
-    description: metadata.description,
+  const { buildMetaplexMetadata } = await import('@/lib/metaplexMetadata');
+  const {
+    name, symbol, description, attributes,
+    external_url, externalUrl,
+    image: _ignoreImage,
+    animation_url: _ignoreAnim,
+    properties: _ignoreProps,
+    ...extra
+  } = metadata as any;
+
+  const nftMetadata = buildMetaplexMetadata({
+    name,
+    symbol,
+    description,
     image: imageUri,
-    ...(metadata.symbol && { symbol: metadata.symbol }),
-    ...(animationUri && { animation_url: animationUri }),
-    ...(metadata.attributes && { attributes: metadata.attributes }),
-  };
-  const { name: _n, symbol: _s, description: _d, attributes: _a, ...extra } = metadata;
-  Object.assign(nftMetadata, extra);
+    animationUrl: animationUri,
+    externalUrl: externalUrl || external_url,
+    attributes,
+    extra,
+  });
 
   const metadataUri = await uploadMetadataToArweave(nftMetadata, wallet, isMutable, rootTx);
   return { metadataUri, imageUri, animationUri };

@@ -11,6 +11,7 @@ import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadCollectionMetadata } from '@/lib/metadataUpload';
+import { buildMetaplexMetadata } from '@/lib/metaplexMetadata';
 import { RevealCandyMachinePanel } from './RevealCandyMachinePanel';
 
 interface ArtworkMeta {
@@ -26,6 +27,7 @@ interface CandyMachineManagerProps {
     collectionAddress?: string;
     collectionId?: string;
     collectionName?: string;
+    collectionWebsite?: string;
     artworks?: ArtworkMeta[] | null;
     itemsLoaded?: number;
     manifestRoot?: string;
@@ -40,6 +42,7 @@ export function CandyMachineManager({
     collectionAddress = '',
     collectionId,
     collectionName,
+    collectionWebsite,
     artworks,
     itemsLoaded = 0,
     manifestRoot,
@@ -111,16 +114,14 @@ export function CandyMachineManager({
                 const a = artworks[i];
                 setSyncProgress(`Uploading metadata ${i + 1}/${artworks.length}…`);
                 const nftName = a.name || `${collectionName || 'Item'} #${i + 1}`;
-                const metadata = {
+                const metadata = buildMetaplexMetadata({
                     name: nftName,
                     description: a.description || '',
                     image: a.imageUrl || '',
                     attributes: [],
-                    properties: {
-                        files: a.imageUrl ? [{ uri: a.imageUrl, type: 'image/png' }] : [],
-                        category: 'image',
-                    },
-                };
+                    externalUrl: collectionWebsite,
+                    collection: collectionName ? { name: collectionName } : undefined,
+                });
                 const uploaded = await uploadCollectionMetadata(metadata, {
                     collectionId,
                     filename: `${collectionId}-item-${i}.json`,

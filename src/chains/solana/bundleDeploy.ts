@@ -19,6 +19,7 @@
 
 import { Umi } from '@metaplex-foundation/umi';
 import { debugUpload, debugUri, debugStep } from '@/lib/deployDebug';
+import { buildMetaplexMetadata } from '@/lib/metaplexMetadata';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -237,24 +238,26 @@ export async function bundleCollectionDeploy(
 
     // ── Phase 2b: generate all metadata JSONs locally ────────────────────────
 
-    const metadataArray: any[] = assets.map((asset, i) => ({
-        name:                 asset.overrides?.name        ?? `${template.namePrefix}${i}`,
-        description:          asset.overrides?.description ?? template.description,
-        symbol:               template.symbol,
-        image:                imageUris[i],
-        seller_fee_basis_points: template.sellerFeeBasisPoints,
-        attributes:           asset.overrides?.attributes  ?? [],
-        properties: {
-            files:   [{ uri: imageUris[i], type: asset.imageMimeType }],
-            category: 'image',
-            creators: template.creators.map(c => ({
-                address:  c.address,
-                share:    c.share,
+    const metadataArray: any[] = assets.map((asset, i) => {
+        const { animation_url, external_url, ...restExtra } = (template.extra ?? {}) as Record<string, any>;
+        return buildMetaplexMetadata({
+            name: asset.overrides?.name ?? `${template.namePrefix}${i}`,
+            symbol: template.symbol,
+            description: asset.overrides?.description ?? template.description,
+            image: imageUris[i],
+            imageMime: asset.imageMimeType,
+            animationUrl: animation_url,
+            externalUrl: external_url,
+            attributes: asset.overrides?.attributes ?? [],
+            sellerFeeBasisPoints: template.sellerFeeBasisPoints,
+            creators: template.creators.map((c) => ({
+                address: c.address,
+                share: c.share,
                 verified: c.verified ?? false,
             })),
-        },
-        ...template.extra,
-    }));
+            extra: restExtra,
+        });
+    });
 
     debugStep('bundleDeploy', 'metadata generated locally', {
         sample: JSON.stringify(metadataArray[0]).slice(0, 200),

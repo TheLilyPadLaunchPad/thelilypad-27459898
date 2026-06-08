@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSolanaLaunch } from "@/hooks/useSolanaLaunch";
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { uploadCollectionMetadata, hasArweaveWallet } from "@/lib/metadataUpload";
+import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 import { runGrinderInWorker } from "@/lib/vanity/runGrinder";
 
 const VANITY_BRAND = "L3AP";
@@ -42,6 +43,9 @@ interface ContractDeployModalProps {
     royalty_percent: number;
     creator_address: string;
     chain?: string;
+    image_url?: string | null;
+    description?: string | null;
+    social_website?: string | null;
   };
   onDeploySuccess: (contractAddress: string) => void;
 }
@@ -130,19 +134,14 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
       if (chainId === 'solana') {
         toast.loading("Preparing collection metadata...", { id: 'deploying' });
 
-        const metadata = {
+        const metadata = buildMetaplexMetadata({
           name: collection.name,
           symbol: collection.symbol,
-          description: `Collection by ${collection.creator_address}`,
-          image: "", // Placeholder, can be updated later
-          properties: {
-            category: "image",
-            creators: [{
-              address: address,
-              share: 100
-            }]
-          }
-        };
+          description: collection.description || `Collection by ${collection.creator_address}`,
+          image: collection.image_url || "",
+          externalUrl: collection.social_website || undefined,
+          creators: [{ address: address!, share: 100, verified: false }],
+        });
 
         let metadataUri = "";
         try {

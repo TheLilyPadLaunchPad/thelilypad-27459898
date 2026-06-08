@@ -2,6 +2,7 @@ import { Zip, ZipPassThrough } from "fflate";
 import { toast } from "sonner";
 import { Layer, BlendMode } from "@/components/launchpad/LayerManager";
 import { TraitRule } from "@/components/launchpad/TraitRulesManager";
+import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 
 export interface GeneratedNFT {
     id: number;
@@ -184,26 +185,33 @@ export const nftToStandardMetadata = (
     nft: GeneratedNFT,
     collectionName: string,
     collectionDescription: string,
-    baseImageUri: string = ""
+    baseImageUri: string = "",
+    externalUrl?: string,
 ): any => {
+    const imageUri = baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_IMAGE_CID/${nft.id}.png`;
+
     if (nft.isOneOfOne && nft.metadataOverride) {
-        return {
+        return buildMetaplexMetadata({
             name: nft.metadataOverride.name,
             description: nft.metadataOverride.description,
-            image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
+            image: imageUri,
+            imageMime: 'image/png',
             attributes: nft.metadataOverride.attributes,
-        };
+            externalUrl,
+        });
     }
 
-    return {
+    return buildMetaplexMetadata({
         name: nft.name || `${collectionName} #${nft.id}`,
         description: collectionDescription || `${collectionName} NFT #${nft.id}`,
-        image: baseImageUri ? `${baseImageUri}/${nft.id}.png` : `ipfs://YOUR_IMAGE_CID/${nft.id}.png`,
+        image: imageUri,
+        imageMime: 'image/png',
         attributes: nft.traits.map((trait) => ({
             trait_type: trait.layerName,
             value: trait.traitName,
         })),
-    };
+        externalUrl,
+    });
 };
 
 /**

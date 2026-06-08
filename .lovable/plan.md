@@ -1,59 +1,76 @@
-# Drop ArConnect, restore Irys (Solana-paid Arweave)
 
-Phantom-only flow: users sign and pay for Arweave uploads in SOL through the Irys network node. No second wallet, no AR token, still permanent storage. Existing Arweave-deployed collections stay untouched.
+# Standardize NFT Metadata to Metaplex Standard
 
-## Why this works
-- Irys exposes a Solana funding path: the user funds an Irys node with SOL via a normal Solana tx (signed by Phantom/Solflare/etc.), then signs upload receipts with the same Solana keypair.
-- Candy Machine just stores the resulting `https://arweave.net/<id>` URI — it doesn't care who paid.
-- Files <100 KiB are free on Irys (no funding tx needed), which covers most JSON metadata.
+Make every metadata JSON the app emits match the canonical Metaplex shape you shared:
 
-## Scope of changes
+```json
+{
+  "name": "...",
+  "description": "...",
+  "image": "...",
+  "animation_url": "...",        // when media present
+  "external_url": "...",         // collection website
+  "attributes": [{ "trait_type": "...", "value": "..." }],
+  "properties": {
+    "files": [{ "uri": "...", "type": "image/png", "cdn": true }],
+    "category": "image" | "video" | "audio" | "vr" | "html"
+  }
+}
+```
 
-### 1. Add Irys uploader (Solana adapter)
-- New `src/integrations/irys/solanaClient.ts` wrapping `@irys/web-upload` + `@irys/web-upload-solana`.
-- Wallet adapter sourced from the existing Solana wallet (`window.phantom.solana` / WalletProvider) — no ArConnect import anywhere.
-- Public API mirrors the current `nativeClient.ts` so callers don't change much: `uploadBytes`, `uploadJson`, `uploadBlob`, `getBalance`, `fund`, `getUploadPriceSol`.
-- Auto-fund logic: before an upload, compare price vs. node balance; if short, send a single SOL funding tx (with our standard `TheLilyPad:v1:irys-fund` memo) and wait for Irys to credit it.
+## Scope
 
-### 2. Rewire upload callers to the new client
-Files importing `@/integrations/arweave/nativeClient` or `useArweaveWallet`:
-- `src/integrations/arweave/umiArweaveUploader.ts` → swap to Irys Solana client.
-- `src/lib/metadataUpload.ts` → drop the ArConnect branch; use Irys for permanent path, keep Supabase `ipfs` bucket only as an explicit "draft / non-permanent" fallback.
-- Any Candy Machine per-item upload path in `LaunchpadCreate` / `bundleDeploy.ts` / `assetBundler.ts` → same swap.
-- Remove `useArweaveWallet` usages from UI (connect buttons, status pills, balance displays).
+Touch only metadata-construction code (no contract / RLS / UI changes beyond passing already-collected fields through to the builder).
 
-### 3. Remove ArConnect surface area
-- Delete `src/integrations/arweave/nativeClient.ts`, `src/hooks/useArweaveWallet.ts`, `src/types/arconnect.d.ts`.
-- Remove the `arweave` npm dep (only used by nativeClient).
-- Remove any "Connect Arweave wallet" UI, install-Wander prompts, and AR-balance checks.
-- Keep `src/integrations/arweave/graphql.ts` / read-only helpers — those only hit the public gateway, no wallet needed.
+## Changes
 
-### 4. Edge function (`deploy-metaplex-launchpad`)
-No change to the deploy function itself — it already accepts a `uri` and per-item `uri` values. The switch is purely on the client upload side. (We previously added `mplCore/mplCandyMachine/mplToolbox` plugins; those stay.)
+### 1. New shared builder — `src/lib/metaplexMetadata.ts`
+- `buildMetaplexMetadata(input)` returning the canonical shape.
+- Helpers:
+  - `mimeToCategory(mime)` — `image/*`→`image`, `video/*`→`video`, `audio/*`→`audio`, `model/*` or `.glb`→`vr`, `text/html`→`html`.
+  - `inferMime(uri, fallback?)` — from extension (`.png|.jpg|.webp|.gif|.mp4|.webm|.mp3|.wav|.glb|.html`).
+  - `buildFiles({ image, animation, thumbnail, preview, extra }, opts)` — produces `properties.files[]` with `type` and optional `cdn: true` for CDN hosts (`watch.videodelivery.net`, `cloudflarestream.com`, `*.r2.dev`, `lovable.app`).
+- Always include `properties.category` (derived from primary media), `properties.files` (omit empty), and `external_url` when supplied.
 
-### 5. UX in `LaunchpadCreate`
-- Replace the "Connect ArConnect + fund with AR" step with a single cost preview: "Permanent storage: ~X SOL via Irys (paid from your connected Solana wallet)."
-- One Phantom approval for the funding tx (only if needed), then uploads stream in the background.
-- Clear error if Phantom is not connected.
+### 2. Update each builder to use the shared helper
 
-### 6. Memory + docs
-- Update `mem://infrastructure/irys-solana-provider-compatibility` from "Irys removed" to "Irys restored, Solana-funded, Phantom-only."
-- Update core memory line about ArConnect/Wander.
-- Update `docs/nft-launchpad.md` storage section.
+| File | Change |
+|---|---|
+| `src/lib/musicMetadata.ts` | Re-implement on top of helper; add `external_url` parameter; keep audio category and existing attrs. |
+| `src/lib/assetBundler.ts` `nftToStandardMetadata` | Add full `properties` + optional `external_url`; pass `baseImageUri` mime as `image/png`. |
+| `src/chains/solana/bundleDeploy.ts` | Replace inline object with helper call; thread `animation_url`/`external_url` from `template.extra`. |
+| `src/components/launchpad/CandyMachineManager.tsx` (auto-sync) | Use helper; infer mime from `imageUrl` instead of hardcoding `image/png`; pass `external_url` from collection. |
+| `src/components/launchpad/ContractDeployModal.tsx` | Use helper for collection meta; pass `collection.social_website` as `external_url`; include `properties.files` with cover image. |
+| `src/hooks/useShopMint.ts` (item + collection) | Use helper for both; infer mime from URL. |
+| `src/components/raffles/CreateOneOfOneModal.tsx` | Use helper; move `thumbUri` / `previewUri` into `properties.files` (drop non-standard top-level keys); derive category from animation/image. |
+| `src/pages/LaunchpadCreate.tsx` non-music path | Use helper; thread `social_website` and per-asset `animation_url` if present; route `thumbUri`/`previewUri` into `properties.files`. |
+| `src/integrations/arweave/legacyClient.ts` `uploadNFTToArweave` | Switch inline merge to helper; keep `extra` spread for caller overrides. |
+| `src/chains/solana/agent.ts` `buildAgentNftMetadata` | Use helper; keep `category: 'agent'` override via opts. |
 
-## What we are NOT doing
-- Not touching collections already deployed with ArConnect-uploaded Arweave URIs (per your answer).
-- Not changing Monad flow.
-- Not changing Candy Machine on-chain layout or guards.
-- Not adding a Supabase-storage fallback for permanent NFT assets — Irys is the only permanent path.
+### 3. Field propagation (no schema changes)
+- Thread `collection.social_website` → `external_url` through `ContractDeployModal`, `CandyMachineManager`, `LaunchpadCreate`, `useShopMint`.
+- Thread `animation_url` from existing per-asset upload results (audio for music, video for video 1-of-1s) where the code already has the URI but discards it.
 
-## Risk / open items
-- The previous "Irys removed" decision was driven by Phantom signer incompatibility. The fix is to use `@irys/web-upload-solana` (current package), which adapts the Solana wallet signature flow correctly — confirmed working with Phantom in current Irys docs. If we hit signature issues again, fallback is to sign funding txs manually with `@solana/web3.js` and only use Irys SDK for the upload receipts.
-- Irys mainnet endpoint: `https://node1.irys.xyz` (Solana mainnet); devnet uses `https://devnet.irys.xyz` with Solana devnet. Network selection follows the existing `network` toggle.
+### 4. Backwards compatibility
+- Helper outputs strict superset of current fields, so existing wallets/marketplaces keep working.
+- Keep `creators` array in `properties` where it already exists (collection deploys), passed through opts.
+- `seller_fee_basis_points`, `symbol`, `collection` top-level fields preserved when caller supplies them.
 
-## Files touched (approx.)
-- add: `src/integrations/irys/solanaClient.ts`
-- edit: `src/integrations/arweave/umiArweaveUploader.ts`, `src/lib/metadataUpload.ts`, `src/lib/assetBundler.ts`, `src/chains/solana/bundleDeploy.ts`, `src/pages/LaunchpadCreate.tsx`, `src/components/launchpad/*` (any AR wallet UI)
-- delete: `src/integrations/arweave/nativeClient.ts`, `src/hooks/useArweaveWallet.ts`, `src/types/arconnect.d.ts`
-- deps: `+ @irys/web-upload @irys/web-upload-solana`, `- arweave`
-- memory: update Irys + core lines
+## Out of scope
+
+- No DB migrations.
+- No changes to Candy Machine / Candy Guard config.
+- No changes to upload transport (Irys/Arweave stays as-is).
+- No UI design changes; only plumbing of already-collected fields.
+
+## Verification
+
+- `npx tsc --noEmit` clean.
+- Spot-check one of each path by logging the built JSON: music NFT, generative collection deploy, shop item, 1-of-1, agent NFT, ZIP export — confirm all match the target shape with correct `properties.category` and `properties.files[].type`.
+
+## Technical notes
+
+- `mimeToCategory` order matters: check `model/`/`.glb` before generic `application/octet-stream` fallback.
+- `cdn: true` is only set when host matches the CDN allowlist; everything else omits the flag (don't emit `cdn: false`).
+- For images uploaded to Arweave, omit `cdn` (Arweave is canonical, not a CDN mirror).
+- Preserve `?ext=…` suffix convention already used for Arweave URIs in music NFTs.

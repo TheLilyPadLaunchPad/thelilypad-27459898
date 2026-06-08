@@ -18,6 +18,7 @@ import { uploadBatchToArweave, BatchUploadItem, uploadToArweave, preFundIrysForB
 import { useMonadLaunch } from "@/hooks/useMonadLaunch";
 import { Plus, Trash2, Clock, Calendar } from "lucide-react";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
+import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 import { CartCheckoutModal, type CheckoutStatus } from "./CartCheckoutModal";
 import type { CartCostEstimate, CartItem } from "@/chains";
 
@@ -178,13 +179,19 @@ export function CreateOneOfOneModal({ open, onOpenChange, onSuccess, chain = 'so
                             );
                         }
                         // Standard image NFT
-                        return {
+                        const extraFiles: { uri: string; type: string }[] = [];
+                        if (thumbUri && thumbUri !== arweaveImageUri) {
+                            extraFiles.push({ uri: thumbUri, type: 'image/png' });
+                        }
+                        if (previewUri && previewUri !== arweaveImageUri) {
+                            extraFiles.push({ uri: previewUri, type: 'image/png' });
+                        }
+                        return buildMetaplexMetadata({
                             name: `${name} ${mode === "edition" ? "Edition" : "1/1"}`,
                             description,
                             image: arweaveImageUri,
-                            ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                            ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {})
-                        };
+                            extraFiles,
+                        });
                     }
                 }
             ];

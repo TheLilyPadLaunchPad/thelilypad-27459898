@@ -293,6 +293,7 @@ export default function CollectionDetail() {
                   collectionAddress={(collection as any).collection_mint_address || collection.contract_address}
                   collectionId={collection.id}
                   collectionName={collection.name}
+                  collectionWebsite={(collection as any).social_website || undefined}
                   artworks={Array.isArray((collection as any).artworks_metadata) ? (collection as any).artworks_metadata : null}
                   itemsLoaded={Number((collection as any).items_loaded ?? 0)}
                   manifestRoot={(collection as any).manifest_root || undefined}
@@ -300,6 +301,7 @@ export default function CollectionDetail() {
                   isCreator={!!isCreator}
                   onRefresh={fetchCollection}
                 />
+
 
                 <CloseAndReclaimCard
                   collectionId={collection.id}

@@ -18,6 +18,7 @@ import {
   uploadMetadataToArweave,
 } from '@/integrations/arweave/legacyClient';
 import { supabase } from '@/integrations/supabase/client';
+import { buildMetaplexMetadata } from '@/lib/metaplexMetadata';
 import { toast } from 'sonner';
 import {
   Connection,
@@ -74,12 +75,13 @@ export function buildStickerMetadata(
   packName: string,
   category: string,
   imageUri: string,
-  opts?: { description?: string; displayOrder?: number },
+  opts?: { description?: string; displayOrder?: number; externalUrl?: string },
 ) {
-  return {
+  return buildMetaplexMetadata({
     name: itemName,
     description: opts?.description || `${itemName} from the ${packName} pack`,
     image: imageUri,
+    externalUrl: opts?.externalUrl,
     attributes: [
       { trait_type: 'Pack', value: packName },
       { trait_type: 'Category', value: category },
@@ -88,13 +90,10 @@ export function buildStickerMetadata(
         ? [{ trait_type: 'Display Order', value: String(opts.displayOrder) }]
         : []),
     ],
-    properties: {
-      category: 'image',
-      files: [{ uri: imageUri, type: 'image/png' }],
-    },
     collection: { name: packName },
-  };
+  });
 }
+
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
@@ -139,12 +138,12 @@ export function useShopMint() {
 
         // 2. Upload collection metadata JSON to Arweave
         toast.loading('Uploading collection metadata…', { id: 'deploy-pack' });
-        const collectionMeta = {
+        const collectionMeta = buildMetaplexMetadata({
           name: pack.name,
           description: `On-chain asset pack: ${pack.name}`,
           image: coverUri,
-          properties: { category: 'image', creators: [] },
-        };
+          creators: [],
+        });
         const metadataUri = await uploadMetadataToArweave(collectionMeta, {
           address,
           chainType: 'solana',

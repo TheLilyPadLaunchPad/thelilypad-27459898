@@ -66,6 +66,7 @@ import { Switch } from "@/components/ui/switch";
 import { Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
+import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 import { getRpcUrl } from "@/config/solana";
 import { CartCheckoutModal, type CheckoutStatus } from "@/components/raffles/CartCheckoutModal";
 import type { CartCostEstimate } from "@/chains";
@@ -644,12 +645,19 @@ export default function LaunchpadCreate() {
                         const track = tracks[asset.metadata._trackIndex ?? idx];
                         m = buildMusicNftMetadata(track, arweaveImageUri, asset.metadata._audioUri, name);
                     } else {
-                        m = {
-                            ...asset.metadata,
+                        const { name: metaName, description: metaDesc, attributes: metaAttrs, ...restMeta } = (asset.metadata ?? {}) as any;
+                        const extraFiles: { uri: string; type: string }[] = [];
+                        if (thumbUri && thumbUri !== arweaveImageUri) extraFiles.push({ uri: thumbUri, type: 'image/png' });
+                        if (previewUri && previewUri !== arweaveImageUri) extraFiles.push({ uri: previewUri, type: 'image/png' });
+                        m = buildMetaplexMetadata({
+                            name: metaName ?? `${name} #${idx + 1}`,
+                            description: metaDesc ?? description,
                             image: arweaveImageUri,
-                            ...(thumbUri && thumbUri !== arweaveImageUri ? { thumbnail: thumbUri } : {}),
-                            ...(previewUri && previewUri !== arweaveImageUri ? { preview: previewUri } : {}),
-                        };
+                            attributes: metaAttrs ?? [],
+                            extraFiles,
+                            collection: { name },
+                            extra: restMeta,
+                        });
                     }
                     builtMetadata[idx] = m;
                     return m;
