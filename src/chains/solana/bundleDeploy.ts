@@ -19,6 +19,7 @@
 
 import { Umi } from '@metaplex-foundation/umi';
 import { debugUpload, debugUri, debugStep } from '@/lib/deployDebug';
+import { buildMetaplexMetadata } from '@/lib/metaplexMetadata';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
