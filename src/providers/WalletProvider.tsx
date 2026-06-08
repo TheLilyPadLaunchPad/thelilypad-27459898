@@ -231,10 +231,16 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [reownDisconnect]);
 
   const switchNetwork = useCallback(async (network: NetworkType) => {
+    try {
+      const target = network === 'mainnet' ? solana : network === 'testnet' ? solanaTestnet : solanaDevnet;
+      await reownSwitchNetwork(target);
+    } catch (e) {
+      console.error('Reown switchNetwork failed:', e);
+    }
     setState(prev => ({ ...prev, network }));
     localStorage.setItem("solanaNetwork", network);
     toast.success(`Switched to ${network}`);
-  }, []);
+  }, [reownSwitchNetwork]);
 
   // Extremely important: This returns the Reown Solana Provider so existing Umi/Metaplex hooks don't break
   const getSolanaProviderCallback = useCallback(() => {
