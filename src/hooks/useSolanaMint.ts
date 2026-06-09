@@ -280,14 +280,35 @@ export const useSolanaMint = () => {
             // Build mint arguments for guards
             const mintArgs: any = {};
             if (phaseArgs?.phaseId) {
-                // If it's a guarded mint, we might need specific guard inputs
-                // For example, if there's an allowList, we need the merkleProof
                 if (phaseArgs.merkleProof) {
                     mintArgs.allowList = some({ merkleRoot: phaseArgs.merkleProof });
                 }
+            }
 
-                // solPayment usually doesn't need extra args in the instruction data 
-                // but the SDK handles the treasury destination automatically if the guard is active
+            // Sol Payment guard requires `destination` in mintArgs as well as
+            // in the guard settings. Read it from the active guard group (or
+            // default guards) on the Candy Guard account.
+            if (isWrapped) {
+                try {
+                    const candyGuard = await fetchCandyGuard(umi, candyGuardPda[0]);
+                    let solPaymentGuard: any = candyGuard.guards?.solPayment;
+                    if (phaseArgs?.phaseId) {
+                        const group = candyGuard.groups?.find(
+                            (g: any) => g.label === phaseArgs.phaseId
+                        );
+                        if (group?.guards?.solPayment) {
+                            solPaymentGuard = group.guards.solPayment;
+                        }
+                    }
+                    const sp = solPaymentGuard?.__option === 'Some'
+                        ? solPaymentGuard.value
+                        : solPaymentGuard;
+                    if (sp?.destination) {
+                        mintArgs.solPayment = some({ destination: sp.destination });
+                    }
+                } catch (e) {
+                    console.warn('[CM Mint] Could not read solPayment destination from guard:', e);
+                }
             }
 
             // Create memo instruction for protocol identification
