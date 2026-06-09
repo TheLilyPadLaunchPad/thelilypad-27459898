@@ -6,6 +6,7 @@ import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi } from '@/config/solana';
 import { generateSigner, publicKey } from '@metaplex-foundation/umi';
 import { createCoreCollection as createCollectionAction } from '@/chains/solana/programs';
+import { friendlyCollectionFetchError } from '@/lib/launchpad/verifyDeploy';
 
 export interface CreateNftParams {
     name: string;
