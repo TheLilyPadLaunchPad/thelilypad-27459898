@@ -94,6 +94,8 @@ export interface SendDeployPaymentParams {
     network: "mainnet" | "devnet" | "testnet";
     lamports: bigint;
     collectionId: string;
+    /** Optional fallback wallet address (base58) when provider.publicKey is missing. */
+    senderAddress?: string;
 }
 
 export interface SendDeployPaymentResult {
@@ -112,14 +114,32 @@ export async function sendDeployPayment({
     network,
     lamports,
     collectionId,
+    senderAddress,
 }: SendDeployPaymentParams): Promise<SendDeployPaymentResult> {
-    if (!provider?.publicKey) throw new Error("Wallet not connected");
     if (lamports <= 0n) throw new Error("Invalid deploy cost");
+    if (!provider || typeof provider.signTransaction !== "function") {
+        throw new Error("Wallet signer unavailable. Please reconnect your Solana wallet and try again.");
+    }
+
+    // Normalize publicKey — Reown/WalletConnect providers may expose it as a
+    // base58 string while Phantom exposes a web3.js PublicKey. Fall back to
+    // the address from WalletProvider when neither is present.
+    let sender: PublicKey;
+    try {
+        const raw = provider.publicKey;
+        if (raw instanceof PublicKey) sender = raw;
+        else if (typeof raw === "string") sender = new PublicKey(raw);
+        else if (raw && typeof raw.toBase58 === "function") sender = new PublicKey(raw.toBase58());
+        else if (senderAddress) sender = new PublicKey(senderAddress);
+        else throw new Error("missing publicKey");
+    } catch {
+        throw new Error("Wallet not connected. Please reconnect your Solana wallet and try again.");
+    }
 
     const rpcUrl = getSolanaRpcUrl(network);
     const connection = new Connection(rpcUrl, "confirmed");
-    const sender: PublicKey = provider.publicKey;
     const recipient = new PublicKey(PLATFORM_WALLETS.solana.treasury);
+
 
     const balance = await connection.getBalance(sender);
     if (BigInt(balance) < lamports + 5000n) {
