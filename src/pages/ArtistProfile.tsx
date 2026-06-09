@@ -488,6 +488,13 @@ export default function ArtistProfile() {
               </div>
             </TabsContent>
           </Tabs>
+
+          {artistUserId && (
+            <div className="grid gap-6 md:grid-cols-2 mb-12">
+              <TopSupportersCard targetUserId={artistUserId} />
+              <ActivityFeed targetUserId={artistUserId} />
+            </div>
+          )}
         </div>
       </main>
 
