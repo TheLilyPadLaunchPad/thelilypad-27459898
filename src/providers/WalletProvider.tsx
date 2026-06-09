@@ -242,8 +242,17 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     toast.success(`Switched to ${network}`);
   }, [reownSwitchNetwork]);
 
-  // Extremely important: This returns the Reown Solana Provider so existing Umi/Metaplex hooks don't break
+  // Extremely important: This returns the Reown Solana Provider so existing Umi/Metaplex hooks don't break.
+  // On Phantom mobile in-app browsers, Reown's AppKit adapter sometimes doesn't expose a provider
+  // even though the wallet is connected (address visible in header). Fall back to the directly
+  // injected window.phantom.solana / window.solana provider so signing flows (batch mint,
+  // candy machine mint, transfers) keep working on mobile.
   const getSolanaProviderCallback = useCallback(() => {
+    if (reownProvider && (reownProvider as any).publicKey) return reownProvider;
+    const injected = (window as any).phantom?.solana || (window as any).solana;
+    if (injected?.publicKey && typeof injected.signTransaction === 'function') {
+      return injected;
+    }
     return reownProvider;
   }, [reownProvider]);
 
