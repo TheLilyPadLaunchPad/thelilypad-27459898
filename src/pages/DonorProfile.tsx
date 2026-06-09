@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { ProfileSocialHeader } from "@/components/social/ProfileSocialHeader";
+import { ActivityFeed } from "@/components/social/ActivityFeed";
 
 type DonorTier = 'platinum' | 'gold' | 'silver' | 'bronze' | null;
 
@@ -84,6 +86,7 @@ const DonorProfile = () => {
   const [totalDonated, setTotalDonated] = useState(0);
   const [currentTier, setCurrentTier] = useState<DonorTier>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useSEO({
     title: "Donor Profile | The Lily Pad",
@@ -103,6 +106,7 @@ const DonorProfile = () => {
       }
 
       const userId = session.user.id;
+      setUserId(userId);
       setWalletAddress(session.user.email?.split('@')[0] || userId.slice(0, 8));
 
       // Fetch donations made by this user
@@ -231,6 +235,7 @@ const DonorProfile = () => {
                   <p className="text-muted-foreground">
                     {currentTier ? tierConfig[currentTier].description : 'Start donating to earn badges!'}
                   </p>
+                  {userId && <ProfileSocialHeader targetUserId={userId} className="mt-3 justify-center md:justify-start" showFollowButton={false} />}
                 </div>
                 <div className="text-center md:text-right">
                   <p className="text-sm text-muted-foreground">Total Donated</p>
@@ -391,6 +396,8 @@ const DonorProfile = () => {
               )}
             </CardContent>
           </Card>
+
+          {userId && <ActivityFeed targetUserId={userId} title="Your Profile Activity" />}
         </div>
       </main>
     </div>

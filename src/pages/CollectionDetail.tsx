@@ -18,6 +18,7 @@ import { RevealHistory } from "@/components/RevealHistory";
 import { RarityLeaderboard } from "@/components/RarityLeaderboard";
 import { CollectionAnalytics } from "@/components/CollectionAnalytics";
 import { BuybackProgramInfo } from "@/components/BuybackProgramInfo";
+import { CollectionSupportersStrip } from "@/components/social/CollectionSupportersStrip";
 import { NFTRevealModal } from "@/components/NFTRevealModal";
 import { BuybackAllocationModal } from "@/components/modals/BuybackAllocationModal";
 import { useCollectionDetail } from "@/components/collection-detail/useCollectionDetail";
@@ -211,6 +212,12 @@ export default function CollectionDetail() {
             phases={phases}
             onMintSuccess={fetchCollection}
           />
+        )}
+
+        {collection?.id && (
+          <div className="mt-4">
+            <CollectionSupportersStrip collectionId={collection.id} />
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">

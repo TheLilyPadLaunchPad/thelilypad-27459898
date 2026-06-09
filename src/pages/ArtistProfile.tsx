@@ -25,6 +25,9 @@ import { MusicDetailModal } from '@/components/music/MusicDetailModal';
 import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ProfileSocialHeader } from '@/components/social/ProfileSocialHeader';
+import { TopSupportersCard } from '@/components/social/TopSupportersCard';
+import { ActivityFeed } from '@/components/social/ActivityFeed';
 
 interface MusicTrack {
   id: string;
@@ -72,12 +75,22 @@ export default function ArtistProfile() {
   const [selectedCollection, setSelectedCollection] = useState<MusicCollection | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [artistUserId, setArtistUserId] = useState<string | null>(null);
 
   const { setQueue } = useAudioPlayer();
 
   useEffect(() => {
     if (artistAddress) {
       fetchArtistData();
+      // Resolve user_id from wallet for social features
+      (async () => {
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('wallet_address', artistAddress)
+          .maybeSingle();
+        setArtistUserId((data as any)?.id ?? null);
+      })();
     }
   }, [artistAddress]);
 
@@ -339,6 +352,12 @@ export default function ArtistProfile() {
                     </Button>
                   )}
                 </div>
+
+                {artistUserId && (
+                  <div className="mt-4">
+                    <ProfileSocialHeader targetUserId={artistUserId} />
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -469,6 +488,13 @@ export default function ArtistProfile() {
               </div>
             </TabsContent>
           </Tabs>
+
+          {artistUserId && (
+            <div className="grid gap-6 md:grid-cols-2 mb-12">
+              <TopSupportersCard targetUserId={artistUserId} />
+              <ActivityFeed targetUserId={artistUserId} />
+            </div>
+          )}
         </div>
       </main>
 

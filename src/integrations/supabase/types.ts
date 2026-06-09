@@ -3753,13 +3753,63 @@ export type Database = {
           target_user_id: string
         }[]
       }
+      get_collection_supporters: {
+        Args: { collection_id: string; limit_count?: number }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          nfts_owned: number
+          supporter_user_id: string
+          total_spend_sol: number
+          wallet_address: string
+        }[]
+      }
       get_launchpad_stats: { Args: never; Returns: Json }
       get_platform_stats: { Args: never; Returns: Json }
+      get_profile_activity_feed: {
+        Args: {
+          before_ts?: string
+          filter?: string
+          limit_count?: number
+          target_user_id: string
+        }
+        Returns: {
+          actor_address: string
+          actor_avatar: string
+          actor_id: string
+          actor_name: string
+          amount: number
+          created_at: string
+          id: string
+          kind: string
+          message: string
+          target_id: string
+          target_image: string
+          target_label: string
+        }[]
+      }
       get_profile_id_by_wallet: {
         Args: { wallet_addr: string }
         Returns: string
       }
+      get_profile_social_counts: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
       get_top_collections_stats: { Args: never; Returns: Json }
+      get_top_supporters: {
+        Args: { limit_count?: number; target_user_id: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          nft_spend_sol: number
+          supporter_user_id: string
+          tier: string
+          tips_sol: number
+          total_score: number
+          wallet_address: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

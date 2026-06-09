@@ -16,6 +16,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/providers/AuthProvider';
+import { ProfileSocialHeader } from '@/components/social/ProfileSocialHeader';
+import { TopSupportersCard } from '@/components/social/TopSupportersCard';
+import { ActivityFeed } from '@/components/social/ActivityFeed';
 
 const socialIcons: Record<string, typeof Twitter> = {
   twitter: Twitter,
@@ -187,6 +190,7 @@ export default function PublicProfile() {
                 {profile.bio && (
                   <p className="text-muted-foreground mt-1 text-sm max-w-lg">{profile.bio}</p>
                 )}
+                <ProfileSocialHeader targetUserId={profile.id} className="mt-3" />
               </div>
               <div className="flex gap-2">
                 {isOwnProfile && (
@@ -353,6 +357,14 @@ export default function PublicProfile() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Social: supporters + activity */}
+        {!isPrivate && (
+          <div className="mt-12 grid gap-6 md:grid-cols-2 px-4">
+            <TopSupportersCard targetUserId={profile.id} />
+            <ActivityFeed targetUserId={profile.id} />
           </div>
         )}
       </main>

@@ -9,9 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DonorLeaderboard } from "@/components/DonorLeaderboard";
 import { TipButton } from "@/components/TipButton";
 import { FollowButton } from "@/components/FollowButton";
+import { ActivityFeed } from "@/components/social/ActivityFeed";
+import { TopSupportersCard } from "@/components/social/TopSupportersCard";
 import { ClipCreationModal } from "@/components/ClipCreationModal";
 import { ClipShareMenu } from "@/components/ClipShareMenu";
 import { ClipAnalytics } from "@/components/ClipAnalytics";
@@ -790,17 +791,22 @@ const StreamerProfile = () => {
               </Card>
             </motion.div>
 
-            {/* Top Supporters */}
+            {/* Top Supporters (combined: tips + NFT spend) */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <DonorLeaderboard
-                streamerId={streamerId}
-                limit={5}
-                title="Top Supporters"
-              />
+              <TopSupportersCard targetUserId={streamerId} />
+            </motion.div>
+
+            {/* Activity feed */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+            >
+              <ActivityFeed targetUserId={streamerId} />
             </motion.div>
           </div>
 
