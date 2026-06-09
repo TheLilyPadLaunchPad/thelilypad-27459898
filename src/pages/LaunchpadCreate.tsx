@@ -467,8 +467,6 @@ export default function LaunchpadCreate() {
                             collectionOnly: is1of1,
                         });
                         setDeployCheckoutProgress({ label: `Confirm deploy fee · ${cost.totalSol.toFixed(4)} SOL`, completed: 1, total: 3 });
-                        const provider = (await import('@/providers/WalletProvider')); // type-only
-                        // Re-use the wallet provider singleton via the hook context already available
                         const paymentRes = await sendDeployPayment({
                             provider: (window as any).phantom?.solana || (window as any).solana,
                             network: (network as any) === 'mainnet' ? 'mainnet' : 'devnet',
