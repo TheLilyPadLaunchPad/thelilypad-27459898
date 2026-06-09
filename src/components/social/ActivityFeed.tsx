@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useProfileActivity, ActivityFilter, ActivityItem } from "@/hooks/useProfileActivity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -120,7 +121,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 }
 
 export function ActivityFeed({ targetUserId, className, title = "Activity" }: ActivityFeedProps) {
-  const [filter, setFilter] = (require("react") as typeof import("react")).useState<ActivityFilter>("all");
+  const [filter, setFilter] = useState<ActivityFilter>("all");
   const { items, loading, hasMore, loadingMore, loadMore } = useProfileActivity(targetUserId, filter);
 
   if (!targetUserId) return null;
