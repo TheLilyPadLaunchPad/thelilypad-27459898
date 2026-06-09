@@ -1,74 +1,76 @@
-# Fix broken devnet launchpad deploy
+## Goal
 
-## What's actually wrong
+Match the Metaplex Core Candy Machine standard for two payment flows:
 
-1. `src/pages/LaunchpadCreate.tsx` → `handleDeploy` always uses Arweave/Irys:
-   - `preFundIrysForBatch(...)`
-   - `uploadBatchToArweave(...)` for all item images + metadata
-   - `uploadToArweave(coverFile, ...)` and `uploadMetadataToArweave(...)` for the collection
-   On devnet, Irys/Arweave is intermittently unreachable from the preview → the console shows `Network Error` retries on images 121–123, then the sandbox restarts and the tester sees a "page refresh."
-2. The `collections` row is inserted *before* uploads finish, so a mid-flight reload leaves a zombie `upcoming` collection and no resumable state for the user.
-3. The Pinata routing we built (`prepareDevnetManifest`, `pinFile`, `pinJson`) is wired into `metadataUpload.ts` only — `handleDeploy` never calls it.
+1. **Mint proceeds → creator wallet** via the canonical `solPayment` guard (`destination = creator`).
+2. **Creator pre-funds the Candy Machine** (rent for collection + CM + guard accounts + insert items + platform fee), instead of the platform treasury silently footing the bill.
 
-## Fix
+Scope is intentionally narrow per your answer ("only align the payment guard") — no full SDK refactor.
 
-### 1. Devnet upload path (Pinata)
-In `src/pages/LaunchpadCreate.tsx` `handleDeploy`, branch on `isDevnet()` from `@/integrations/pinata/client`:
+## Changes
 
-- Skip `preFundIrysForBatch` entirely on devnet (no SOL needed for Pinata).
-- For each asset:
-  - `pinFile(asset.file, asset.name)` → image CID/URL
-  - build the per-item metadata via the existing `buildMetaplexMetadata` / `buildMusicNftMetadata` using the Pinata image URL
-- Bundle all per-item JSONs with `prepareDevnetManifest(builtMetadata, name)` → returns `{ manifestRoot, items }`, giving a single `${manifestRoot}/$ID$.json` URI template for hidden settings.
-- For the collection cover + collection metadata:
-  - `pinFile(coverFile)` → `collectionImageUri`
-  - `pinJson({ name, symbol, description, image })` → `collectionMetadataUri`
-  - `pinJson({ name: "Unrevealed…", … })` → `revealPlaceholderUri`
-- Music: also route `track.audioFile` through `pinFile` instead of `uploadToArweave` when on devnet (keep Arweave tags only on mainnet, since IPFS doesn't carry UDL tags).
+### 1. Force `solPayment.destination = creator wallet`
 
-Mainnet flow stays exactly as it is today.
+File: `src/pages/LaunchpadCreate.tsx` (`phaseToGuards`)
 
-Add a small helper near the top of `handleDeploy`:
+- Today: `destination: ph.payment?.destination || address` — a creator can accidentally override with another address and break "art pays creator".
+- Standard pattern: always send mint SOL to the connected creator wallet for the launchpad flow. Lock it down:
+  ```
+  destination: address   // connected wallet, ignore per-phase override
+  ```
+- Same fix for `tokenPayment.destinationAta` (resolve creator ATA from the SPL mint).
 
-```ts
-const devnet = isDevnet();
-const uploadImage   = devnet ? pinataUploadImage   : arweaveUploadImage;
-const uploadJson    = devnet ? pinataUploadJson    : arweaveUploadJson;
-const uploadBundle  = devnet ? pinataUploadBundle  : arweaveUploadBundle;
-```
+This matches the Metaplex skill's `cli-candy-machine.md` / `sdk-core.md` "solPayment with destination = creator" pattern.
 
-…so the rest of the function stays linear and the two providers are interchangeable.
+### 2. Edge function: surface the destination + platform creator on-chain
 
-### 2. Don't insert the `collections` row until uploads succeed
-Move the `supabase.from("collections").insert(...)` block to **after** the asset/metadata uploads complete (right before `setPendingOnChainDeploy`). That way a failed upload no longer leaves a zombie row. Keep the existing cleanup-on-failure code as a safety net for the on-chain step.
+File: `supabase/functions/deploy-metaplex-launchpad/index.ts`
 
-### 3. Reload guard during deploy
-Add a `beforeunload` listener that's active while `isDeploying === true`:
+- Keep current `buildSingleGuard("solPayment")` — it already passes `destination` through.
+- After building `defaults`, **validate** `solPayment.destination === creatorAddress` (reject otherwise) so a malicious client can't redirect mint proceeds.
+- Royalties plugin: ensure `creators` array reflects the 85/15 creator/platform split already defined in `SOLANA_LAUNCHPAD_CONFIG.treasury.splits`, so secondary-sale royalties (and any creator-share enforcement) follow the standard.
 
-```ts
-useEffect(() => {
-  if (!isDeploying) return;
-  const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
-  window.addEventListener("beforeunload", h);
-  return () => window.removeEventListener("beforeunload", h);
-}, [isDeploying]);
-```
+### 3. Creator pre-funds Candy Machine deploy
 
-This stops the browser from silently dropping a long deploy when Vite HMR or the sandbox reconnects.
+The Metaplex standard payer for `createCandyMachine` is the wallet that signs the tx. Today the edge function signs everything with `TREASURY_PRIVATE_KEY`, so platform pays rent. To make the creator pay without rewriting the whole flow:
 
-### 4. Toast copy
-Replace "Securing N items to Arweave…" / "Uploading collection banner/metadata to Arweave…" with provider-aware strings: `"Pinning N items to IPFS (devnet)…"` vs `"Securing N items to Arweave…"`. Same for `"Persistence secured on Arweave"`. Use `debugUpload('solana.pinata', …)` / `debugUri('solana.pinata', uri)` so the floating Debug panel shows the right scope.
+- Client-side, **before** invoking `deploy-metaplex-launchpad`, compute an estimated cost:
+  ```
+  deployCost = collectionRent + candyMachineRent(itemsAvailable, hidden?) 
+             + candyGuardRent + insertItemsTxFees + platformFeeBps
+  ```
+  Use the constants from `@metaplex-foundation/mpl-core-candy-machine` (hidden-settings CM ≈ 0.012 SOL, configLines CM ≈ 0.0028 SOL/item, guard PDA ≈ 0.0023 SOL, collection ≈ 0.003 SOL).
 
-## Files to edit (build mode)
+- Have the connected wallet send that amount in **one SOL transfer with SPL memo `TheLilyPad:v1:launchpad-deploy`** to the treasury (matches existing protocol memo rule). Show the breakdown to the user before signing.
 
-- `src/pages/LaunchpadCreate.tsx` — branching upload path, deferred collection insert, reload guard, toast copy.
-- `src/integrations/pinata/client.ts` — add a tiny `pinFiles(files)` helper for batched image pinning with progress callback (re-uses existing `pinFile`).
-- `src/lib/metadataUpload.ts` — already exposes `prepareDevnetManifest`; no change.
+- Pass the resulting `paymentSignature` into the edge function payload. The function:
+  - Verifies the memo + amount + recipient on-chain before doing any deploy work.
+  - On success, refunds any unused remainder back to the creator at the end (small System transfer from treasury).
+  - On any deploy failure, refunds the full amount.
 
-No edge-function changes, no DB migration, no mainnet behavior change.
+This keeps the existing treasury-as-broadcaster architecture (no Phantom wallet sign-storm on the user) while making the creator economically responsible for deploy costs — the standard "creator pays Candy Machine" outcome.
 
-## Out of scope
+### 4. Platform fee
 
-- Cleaning up existing zombie `collections` rows from previous broken attempts.
-- Replacing Arweave on mainnet.
-- Changing the edge function `deploy-metaplex-launchpad` (it already accepts the manifest-root URI shape).
+- Add a `PLATFORM_DEPLOY_FEE_BPS` constant (default 1500 = 15%, matching the existing treasury config) applied on top of estimated rent.
+- Recorded in `platform_fees` table after successful deploy.
+
+## Out of scope (explicitly)
+
+- Full client-side Umi `walletAdapterIdentity` refactor of CM creation (would be the "full refactor" option you declined).
+- Changing guard groups / allowlist / startDate semantics.
+- Mint-page UI fixes, missing on-chain tx visibility, image-upload security — tracked separately per the earlier prioritisation.
+
+## Files touched
+
+- `src/pages/LaunchpadCreate.tsx` — lock guard destination, add pre-deploy SOL transfer + cost estimator UI.
+- `src/lib/launchpad/deployCost.ts` *(new)* — rent + fee estimator.
+- `supabase/functions/deploy-metaplex-launchpad/index.ts` — verify `paymentSignature`, validate `solPayment.destination`, enforce creator-share on royalty plugin, refund on failure / remainder.
+
+## Verification
+
+- Deploy a test collection on devnet, confirm:
+  - Creator wallet SOL balance decreases by `≈ rent + 15%` before deploy.
+  - `solPayment.destination` on the Candy Guard matches the creator's address (check via explorer / `mplx core-candy-machine fetch`).
+  - A mint sends SOL straight to the creator wallet.
+  - On forced failure (bad URI), treasury refunds the full pre-payment.
