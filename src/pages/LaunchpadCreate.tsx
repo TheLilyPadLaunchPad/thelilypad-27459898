@@ -406,10 +406,16 @@ export default function LaunchpadCreate() {
 
             if (selectedChain === 'solana') {
                 // Convert phases → Candy Guard JSON payload (defaults + groups).
-                // Per Metaplex standard, mint proceeds (`solPayment.destination`)
-                // always go to the connected creator wallet — the per-phase
-                // override is intentionally ignored here so a malicious draft
-                // can't redirect funds.
+                // Mint proceeds (`solPayment.destination`) default to the
+                // connected creator wallet, but the creator may override per
+                // phase via the GuardConfigurator. Override is validated as a
+                // base58 Solana address to avoid corrupting the guard payload.
+                const isValidSolanaAddress = (s: string) =>
+                    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
+                const resolveDestination = (raw?: string) => {
+                    if (raw && isValidSolanaAddress(raw)) return raw;
+                    return address;
+                };
                 const phaseToGuards = (ph: LaunchpadPhase) => {
                     const g: Record<string, any> = {};
                     if (ph.payment?.type === 'token' && ph.payment.mint) {
@@ -417,13 +423,13 @@ export default function LaunchpadCreate() {
                             enabled: true,
                             mint: ph.payment.mint,
                             amount: ph.payment.amount,
-                            destinationAta: ph.payment.destination || address,
+                            destinationAta: resolveDestination(ph.payment.destination),
                         };
                     } else if ((ph.price || ph.payment?.amount || 0) > 0) {
                         g.solPayment = {
                             enabled: true,
                             amount: ph.payment?.amount || ph.price,
-                            destination: address, // creator wallet — locked
+                            destination: resolveDestination(ph.payment?.destination),
                         };
                     }
                     if (ph.startTime) g.startDate = { enabled: true, date: new Date(ph.startTime).toISOString() };

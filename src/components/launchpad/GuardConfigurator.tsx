@@ -102,6 +102,33 @@ export function GuardConfigurator({ phase, onChange, chainSymbol = 'SOL' }: Guar
                             ? "✨ Premium Rate: 1.25% (Saves 50% vs competition)" 
                             : "Lower than competition (2.0% vs 2.5%)"}
                     </p>
+
+                    {/* Destination Wallet (Sol Payment guard destination) */}
+                    <div className="pt-3 mt-3 border-t border-white/5 space-y-1">
+                        <Label className="text-xs flex items-center gap-1 text-muted-foreground">
+                            Destination Wallet <span className="text-[10px] opacity-60">(optional)</span>
+                        </Label>
+                        <Input
+                            value={phase.payment?.destination ?? ''}
+                            onChange={(e) => {
+                                const dest = e.target.value.trim();
+                                onChange({
+                                    payment: {
+                                        type: phase.payment?.type || 'sol',
+                                        amount: phase.payment?.amount ?? phase.price,
+                                        mint: phase.payment?.mint,
+                                        destination: dest || undefined,
+                                    },
+                                });
+                            }}
+                            placeholder="Defaults to your creator wallet"
+                            className="bg-background/50 border-white/10 font-mono text-xs"
+                            spellCheck={false}
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                            Where mint payments are sent. Leave blank to receive in your connected wallet.
+                        </p>
+                    </div>
                 </div>
                 <div className="space-y-2 p-4 rounded-xl bg-secondary/20 border border-white/5 backdrop-blur-sm">
                     <Label className="flex items-center gap-2 text-primary font-semibold"><Users className="w-4 h-4" /> Max Per Wallet</Label>
