@@ -352,6 +352,12 @@ export default function ArtistProfile() {
                     </Button>
                   )}
                 </div>
+
+                {artistUserId && (
+                  <div className="mt-4">
+                    <ProfileSocialHeader targetUserId={artistUserId} />
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2">
