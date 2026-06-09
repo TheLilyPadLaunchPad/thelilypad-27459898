@@ -449,10 +449,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Send
+    // Send — `skipPreflight: false` so real on-chain errors surface in logs
+    // instead of being masked. Add jitter between batches to dodge mainnet
+    // RPC rate limits when called repeatedly.
     phase = "send";
-    const { signature } = await builder.sendAndConfirm(umi, { send: { skipPreflight: true } });
-    console.log(`[deploy] tx ${bs58.encode(signature)}`);
+    console.log(`[deploy] phase=send · combined tx (collection + candy machine + guard + wrap)`);
+    const { signature } = await builder.sendAndConfirm(umi, {
+      send: { skipPreflight: false },
+      confirm: { commitment: "confirmed" },
+    });
+    console.log(`[deploy] phase=send · tx ${bs58.encode(signature)} confirmed`);
+
 
     // Optional: addConfigLines only if we did NOT use hidden settings
     let itemsLoaded = 0;
@@ -467,12 +474,18 @@ Deno.serve(async (req) => {
         const BATCH = 10;
         for (let i = 0; i < validated.length; i += BATCH) {
           const batch = validated.slice(i, i + BATCH);
+          console.log(`[deploy] phase=insert-items · batch ${i / BATCH + 1} (${i}-${i + batch.length})`);
           await addConfigLines(umi, { candyMachine: cmPubkey, index: i, configLines: batch })
             .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
             .add(setComputeUnitLimit(umi, { units: 800_000 }))
             .sendAndConfirm(umi, { send: { skipPreflight: false }, confirm: { commitment: "confirmed" } });
           itemsLoaded = i + batch.length;
+          // 250ms jitter between batches to avoid mainnet RPC rate-limit.
+          if (i + BATCH < validated.length) {
+            await new Promise((r) => setTimeout(r, 250));
+          }
         }
+
       } catch (e: any) {
         insertError = e?.message || String(e);
         console.error(`[insert] failed at ${itemsLoaded}/${items.length}: ${insertError}`);
