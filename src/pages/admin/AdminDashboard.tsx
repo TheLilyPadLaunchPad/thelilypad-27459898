@@ -9,6 +9,7 @@ import FrogLoader from "@/components/FrogLoader";
 import { MintL3apTokenCard } from "@/components/admin/MintL3apTokenCard";
 import { SystemStatsCards } from "@/components/admin/SystemStatsCards";
 import { UserManagementPanel } from "@/components/admin/UserManagementPanel";
+import { CollectionRepairPanel } from "@/components/admin/CollectionRepairPanel";
 
 const sourceVariant: Record<AuditSource, "default" | "secondary" | "outline"> = {
     admin_action: "default",
