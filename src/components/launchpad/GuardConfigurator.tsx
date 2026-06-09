@@ -91,7 +91,7 @@ export function GuardConfigurator({ phase, onChange, chainSymbol = 'SOL' }: Guar
                             }}
                         >
                             <option value="sol">SOL</option>
-                            <option value="L3APxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">L3AP</option>
+                            <option value="L3APdU7dRYSeUzJBAYRh6YayrK1dQzsmTGuABTaWbqG">L3AP</option>
                             <option value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v">USDC</option>
                             <option value="MONxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">MON</option>
                             <option value="wXRPxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">wXRP</option>
