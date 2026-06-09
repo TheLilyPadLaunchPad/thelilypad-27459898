@@ -25,6 +25,9 @@ import { MusicDetailModal } from '@/components/music/MusicDetailModal';
 import { useAudioPlayer } from '@/providers/AudioPlayerProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ProfileSocialHeader } from '@/components/social/ProfileSocialHeader';
+import { TopSupportersCard } from '@/components/social/TopSupportersCard';
+import { ActivityFeed } from '@/components/social/ActivityFeed';
 
 interface MusicTrack {
   id: string;
@@ -72,6 +75,7 @@ export default function ArtistProfile() {
   const [selectedCollection, setSelectedCollection] = useState<MusicCollection | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [artistUserId, setArtistUserId] = useState<string | null>(null);
 
   const { setQueue } = useAudioPlayer();
 
