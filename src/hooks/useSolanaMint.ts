@@ -195,7 +195,14 @@ export const useSolanaMint = () => {
                 signers: [],
             };
 
-            const collection = await fetchCollection(umi, publicKey(collectionAddress));
+            let collection;
+            try {
+                collection = await fetchCollection(umi, publicKey(collectionAddress));
+            } catch (fetchErr: any) {
+                const friendly = friendlyCollectionFetchError(fetchErr);
+                if (friendly) throw new Error(friendly);
+                throw fetchErr;
+            }
 
             result = await createCore(umi, {
                 asset: nftSigner,
