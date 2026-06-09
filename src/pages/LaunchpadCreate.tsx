@@ -1343,7 +1343,7 @@ export default function LaunchpadCreate() {
                                                             className="overflow-hidden"
                                                         >
                                                             <div className="p-5 pt-0 space-y-6 border-t border-border/40">
-                                                                <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
+                                                                <PhasesEditor phases={phases as any} onChange={(next) => setPhases(next as any)} chainSymbol={chainSymbol} />
                                                                 <Separator />
                                                                 {selectedChain === 'solana' && (
                                                                     <>
