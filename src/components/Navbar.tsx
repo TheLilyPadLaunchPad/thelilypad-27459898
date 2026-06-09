@@ -66,7 +66,8 @@ export const Navbar: React.FC = () => {
   const { network, isConnected, chainType } = useWallet();
   const { chain, setChain } = useChain();
   const { profile, loading: profileLoading } = useUserProfile();
-  const { isAdmin } = useIsAdmin();
+  const { isAdmin, loading: isAdminLoading } = useIsAdmin();
+  const showAdmin = !isAdminLoading && isAdmin;
   const navigate = useNavigate();
   const isTestnet = network === "testnet";
 
@@ -211,7 +212,7 @@ export const Navbar: React.FC = () => {
                   </div>
 
                   {/* Admin Section */}
-                  {isAdmin && (
+                  {showAdmin && (
                     <div className="space-y-1">
                       <p
                         className="px-4 text-xs font-semibold text-primary uppercase tracking-wider animate-fade-in"
@@ -272,7 +273,7 @@ export const Navbar: React.FC = () => {
               </div>
             )}
 
-            {isAdmin && (
+            {showAdmin && (
               <Button
                 variant="ghost"
                 size="sm"
