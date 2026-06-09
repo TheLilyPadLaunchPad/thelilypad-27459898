@@ -66,7 +66,8 @@ export const Navbar: React.FC = () => {
   const { network, isConnected, chainType } = useWallet();
   const { chain, setChain } = useChain();
   const { profile, loading: profileLoading } = useUserProfile();
-  const { isAdmin } = useIsAdmin();
+  const { isAdmin, loading: isAdminLoading } = useIsAdmin();
+  const showAdmin = !isAdminLoading && isAdmin;
   const navigate = useNavigate();
   const isTestnet = network === "testnet";
 
