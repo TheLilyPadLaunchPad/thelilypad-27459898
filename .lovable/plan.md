@@ -1,52 +1,77 @@
-# Admin Dashboard Cleanup & Wire-Up
+# Social Profiles — Followers, Supporters & Activity
 
-Replace the placeholder cards on `/admin` with real, RLS-backed data and tools, and turn the existing stub functions in `src/admin/adminActions.ts` into actual database calls.
+Add a shared social layer to all four profile pages so visitors can follow creators, see who supports their work, and watch a live activity feed.
 
-## 1. Database (migration)
+## Scope
 
-**New table `public.admin_audit_logs`**
-- `admin_id uuid` (admin who acted), `target_user_id uuid` (nullable — moderation actions may target content), `action text`, `source text` (`'admin_action' | 'moderation' | 'creator_approval'`), `before jsonb`, `after jsonb`, `reason text`, `metadata jsonb`, `created_at timestamptz default now()`.
-- GRANT `SELECT` to `authenticated`, `ALL` to `service_role`. RLS: only `has_role(auth.uid(),'admin')` can SELECT; INSERT only via security-definer RPCs.
+Profiles touched:
+- `PublicProfile` (`/u/:identifier`)
+- `ArtistProfile`
+- Streamer profile (`/streamer/:id`)
+- `DonorProfile`
 
-**New RPCs (security definer, `search_path=public`)**
-- `admin_update_profile(target_user_id uuid, patch jsonb, reason text)` — asserts caller is admin, snapshots before/after on `user_profiles`, applies allowed fields (`is_verified`, `is_private`, display_name, bio, banner_url, avatar_url), writes one `admin_audit_logs` row with `source='admin_action'`. Used for verify / unverify / update.
-- `admin_set_user_role(target_user_id uuid, new_role app_role, reason text)` — admin-only; insert/delete in `user_roles`; logs to audit.
-- `admin_ban_user(target_user_id uuid, reason text, expires_at timestamptz)` and `admin_unban_user(target_user_id uuid, reason text)` — wrap `banned_users`; logs to audit. (Used in place of a `status` column since `user_profiles` has none.)
-- `get_admin_audit_feed(limit_count int)` — admin-only; UNION of:
-  - `admin_audit_logs` (all sources),
-  - `moderation_actions` mapped to the same shape (`source='moderation'`, action=`action_type`),
-  - `creator_beta_applications` where `status in ('approved','rejected')` (`source='creator_approval'`).
-  Returns most recent N rows.
-- `search_users(query text, limit_count int)` — admin-only; case-insensitive match on `wallet_address` / `display_name`; returns id, wallet, display_name, is_verified, is_creator, is_streamer, ban status (`is_user_banned`), role list.
+Per-collection: a supporters strip on `CollectionDetail` / collection cards.
 
-## 2. Frontend wiring
+## What the user will see
 
-**`src/admin/adminActions.ts`** — remove `console.warn` stubs; call the new RPCs via `supabase.rpc(...)`. Keep the function signatures so `useAdminActions` keeps working. Add `banUser` / `unbanUser` / `searchUsers`.
+### 1. Profile header — Follow & counts
+- Followers count + Following count chips
+- Follow / Unfollow button (only when wallet connected and viewing another user)
+- Counts and button state update in realtime via Supabase Realtime channel on `followers`
 
-**`src/admin/adminTypes.ts`** — add `source` field to `AuditLogEntry`; add `BAN`, `UNBAN`, `CREATOR_APPROVED`, `CREATOR_REJECTED`, `MODERATION_ACTION` to `AdminAction`.
+### 2. Top Supporters panel
+- Card listing the top 10 wallets supporting this creator, with avatar, display name, supporter score, and tier badge (Bronze → Platinum, reusing the existing donor-tier system)
+- **Combined score** = SOL tipped/donated + total SOL spent on creator's NFTs (mints + secondary buys of items in collections where `creator_id = profile.user_id`)
+- "View all" → links to a full leaderboard sheet
+- Realtime: subscribes to `earnings` and `nft_listings` inserts to refresh
 
-**New `src/components/admin/UserManagementPanel.tsx`** — search box (debounced) → results table with badges (verified, creator, streamer, banned, role). Row actions: Verify / Unverify, Ban / Unban (with reason dialog), Change Role (admin / user dropdown). All wired through `useAdminActions`.
+### 3. Artwork Supporters (per collection)
+- Stacked-avatar row + count ("Supported by Alice, Bob +42 others") on `CollectionDetail` and on collection cards in profile grid
+- Source: distinct `owner_id` from `minted_nfts` for that collection, plus distinct `buyer_id` from sold `nft_listings`
+- Click → opens a sheet listing all supporters with amounts
 
-**New `src/components/admin/SystemStatsCards.tsx`** — calls `get_platform_stats` + `get_launchpad_stats` and renders four KPI cards (Users, Collections, NFTs Minted, Total Volume). Replaces the static "User Management / Audit Logs / System Stats" placeholder grid.
+### 4. Social Activity Feed
+- Tabbed feed on each profile: All / Mints / Sales / Tips / Followers / Clips
+- Items rendered with avatar, action verb, target, amount where relevant, relative time
+- Realtime: subscribes to inserts on `followers`, `earnings`, `minted_nfts`, `nft_listings` (filtered to this creator)
+- Infinite scroll using existing `useInfiniteScroll`
 
-**`src/pages/admin/AdminDashboard.tsx`** — restructure into tabs:
-- **Overview** — `SystemStatsCards` + Recent Admin Actions feed (now populated via `get_admin_audit_feed`, with `source` badge color-coded).
-- **Users** — `UserManagementPanel`.
-- **Tools** — keep `MintL3apTokenCard` and link out to existing managers (`/admin` routes already in the app).
+## Technical details
 
-Loading + empty states use the existing `FrogLoader` and shadcn `Card` patterns. No styling overhaul — just spacing/empty-state polish on the existing tokens.
+### Database (one migration)
+- RPCs (all `SECURITY DEFINER`, `SET search_path = public`):
+  - `get_profile_social_counts(target_user_id uuid)` → `{followers_count, following_count, is_following}` (is_following resolved from `auth.uid()`)
+  - `get_top_supporters(target_user_id uuid, limit_count int default 10)` → table of `(supporter_user_id, wallet_address, display_name, avatar_url, tips_sol, nft_spend_sol, total_score, tier)`
+  - `get_collection_supporters(collection_id uuid, limit_count int default 50)` → table of supporters with avatar + spend
+  - `get_profile_activity_feed(target_user_id uuid, filter text default 'all', limit_count int default 30, before timestamptz default null)` → unified feed (UNION ALL of follows, mints, sold listings, earnings/tips) for keyset pagination
+- Realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE public.followers, public.earnings, public.minted_nfts, public.nft_listings;` (skip any already added — guarded via DO block)
+- No new tables. RLS on existing tables is already in place; new RPCs `GRANT EXECUTE` to `authenticated, anon` (read-only) and `service_role`.
 
-## 3. Out of scope
-- Superadmin tier (kept single `admin` role per your answer).
-- Building separate routes for each existing manager component — they already exist; only the dashboard landing page changes.
-- Changes to moderation, creator-approval, or launchpad flows themselves — we only surface their existing data.
+### New hooks (`src/hooks/`)
+- `useFollow(targetUserId)` — `{ isFollowing, followersCount, followingCount, toggleFollow, loading }`; writes to `followers`, optimistic update, subscribes to realtime, writes a `notifications` row on follow
+- `useTopSupporters(targetUserId)` — calls `get_top_supporters`, refreshes on realtime
+- `useCollectionSupporters(collectionId)` — calls `get_collection_supporters`
+- `useProfileActivity(targetUserId, filter)` — calls `get_profile_activity_feed`, supports filter switch and infinite scroll, realtime prepends new items
+
+### New components (`src/components/social/`)
+- `FollowButton.tsx`
+- `ProfileSocialHeader.tsx` (counts + follow button, drop-in for all four profile pages)
+- `TopSupportersCard.tsx` + `SupporterRow.tsx` + `SupportersSheet.tsx`
+- `CollectionSupportersStrip.tsx`
+- `ActivityFeed.tsx` + `ActivityItem.tsx` (renders typed feed entries with icons per source)
+
+### Integration (presentation-only)
+- `src/pages/PublicProfile.tsx`, `ArtistProfile.tsx`, `DonorProfile.tsx`, streamer profile page: mount `ProfileSocialHeader`, `TopSupportersCard`, and `ActivityFeed` in a tabbed/sidebar layout consistent with current design tokens (mint primary, floating/glow).
+- `src/pages/CollectionDetail.tsx` + collection card on profile grids: add `CollectionSupportersStrip`.
+
+## Out of scope
+- New on-chain actions (tipping/minting flows unchanged)
+- Direct messages / comments on profiles
+- Notification UI changes beyond inserting a row on follow
+- Editing the existing `useFollow`/`FollowButton` if they already exist — I'll reuse and extend rather than duplicate (confirmed during implementation)
 
 ## Files
-
-- migration (new table, RPCs, grants, policies)
-- `src/admin/adminActions.ts` (rewrite stubs)
-- `src/admin/adminTypes.ts` (extend types)
-- `src/hooks/useAdminActions.ts` (add ban/search wrappers)
-- `src/components/admin/UserManagementPanel.tsx` (new)
-- `src/components/admin/SystemStatsCards.tsx` (new)
-- `src/pages/admin/AdminDashboard.tsx` (tabs + real feed)
+- Migration: 1 new file under `supabase/migrations/`
+- New: `src/hooks/useFollow.ts`, `useTopSupporters.ts`, `useCollectionSupporters.ts`, `useProfileActivity.ts`
+- New: `src/components/social/{FollowButton,ProfileSocialHeader,TopSupportersCard,SupporterRow,SupportersSheet,CollectionSupportersStrip,ActivityFeed,ActivityItem}.tsx`
+- Edited: `src/pages/PublicProfile.tsx`, `ArtistProfile.tsx`, `DonorProfile.tsx`, the streamer profile page, `CollectionDetail.tsx`
