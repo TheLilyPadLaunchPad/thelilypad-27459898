@@ -359,6 +359,14 @@ export default function PublicProfile() {
             </div>
           </div>
         )}
+
+        {/* Social: supporters + activity */}
+        {!isPrivate && (
+          <div className="mt-12 grid gap-6 md:grid-cols-2 px-4">
+            <TopSupportersCard targetUserId={profile.id} />
+            <ActivityFeed targetUserId={profile.id} />
+          </div>
+        )}
       </main>
 
       {/* NFT Detail Modal */}
