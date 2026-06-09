@@ -459,10 +459,11 @@ export default function LaunchpadCreate() {
                         });
                         setDeployCheckoutProgress({ label: `Confirm deploy fee · ${cost.totalSol.toFixed(4)} SOL`, completed: 1, total: 3 });
                         const paymentRes = await sendDeployPayment({
-                            provider: (window as any).phantom?.solana || (window as any).solana,
+                            provider: getSolanaProvider() || (window as any).phantom?.solana || (window as any).solana,
                             network: (network as any) === 'mainnet' ? 'mainnet' : 'devnet',
                             lamports: cost.lamports,
                             collectionId,
+                            senderAddress: address || undefined,
                         });
                         deployPaymentSignature = paymentRes.signature;
                         console.log(`[deploy] pre-payment ${paymentRes.signature} (${cost.totalSol.toFixed(4)} SOL)`);
