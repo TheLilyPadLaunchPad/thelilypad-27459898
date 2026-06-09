@@ -122,6 +122,7 @@ export default function AdminDashboard() {
                     </TabsContent>
 
                     <TabsContent value="tools" className="space-y-6">
+                        <CollectionRepairPanel />
                         <MintL3apTokenCard />
                     </TabsContent>
                 </Tabs>
