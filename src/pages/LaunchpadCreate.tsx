@@ -360,6 +360,13 @@ export default function LaunchpadCreate() {
     // ─── On-chain deploy (called from checkout modal) ────────────────────────
     const handleConfirmOnChainDeploy = async () => {
         if (!pendingOnChainDeploy) return;
+        // Pre-deploy validation — block on phase errors (overlaps, end<=start, etc.)
+        const phaseIssues = getPhaseValidationIssues(phases as any, false);
+        const blocking = phaseIssues.filter((i) => i.level === 'error');
+        if (blocking.length > 0) {
+            blocking.slice(0, 3).forEach((i) => toast.error(i.message));
+            return;
+        }
         const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri, collectionImageUri } = pendingOnChainDeploy;
         const finalCollectionImageUrl = collectionImageUri || (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : '');
 
