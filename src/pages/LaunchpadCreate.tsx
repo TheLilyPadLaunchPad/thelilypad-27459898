@@ -568,19 +568,51 @@ export default function LaunchpadCreate() {
                 deployedAddress = result.address;
             }
 
+            // Verify Core Collection account exists on-chain before marking live.
+            // If RPC propagation hasn't caught up after several retries, treat as deploy_failed
+            // so we never persist an address minters won't be able to fetch.
+            let verifiedOnChain = false;
+            if (selectedChain === 'solana' && deployedAddress) {
+                try {
+                    const { verifyCoreCollection } = await import('@/lib/launchpad/verifyDeploy');
+                    const netType = (network as any) === 'mainnet' ? 'mainnet' : 'devnet';
+                    const verify = await verifyCoreCollection(deployedAddress, netType, { attempts: 8, delayMs: 2000 });
+                    verifiedOnChain = verify.exists;
+                    if (!verify.exists) {
+                        console.error(`[deploy] Core Collection ${deployedAddress} not found on-chain after ${verify.attempts} attempts:`, verify.error);
+                    }
+                } catch (vErr) {
+                    console.warn('[deploy] verification check failed (treating as unverified):', vErr);
+                }
+            } else {
+                verifiedOnChain = true; // Monad or no address — skip Core verification
+            }
+
             // Finalize DB
             const isOffline = (supabase as any).isOffline;
             if (!isOffline) {
-                await supabase.from("collections").update({
-                    contract_address: deployedAddress,
-                    status: "live",
-                    image_url: finalCollectionImageUrl,
-                    is_dynamic: isDynamic || false,
-                    manifest_root: manifestRootForReveal,
-                    candy_machine_address: candyMachineAddressForReveal,
-                    candy_guard_address: candyGuardAddressForReveal,
-                    collection_mint_address: collectionMintForReveal,
-                } as any).eq('id', collectionId);
+                if (verifiedOnChain) {
+                    await supabase.from("collections").update({
+                        contract_address: deployedAddress,
+                        status: "live",
+                        image_url: finalCollectionImageUrl,
+                        is_dynamic: isDynamic || false,
+                        manifest_root: manifestRootForReveal,
+                        candy_machine_address: candyMachineAddressForReveal,
+                        candy_guard_address: candyGuardAddressForReveal,
+                        collection_mint_address: collectionMintForReveal,
+                    } as any).eq('id', collectionId);
+                } else {
+                    // Don't persist the bad on-chain address; flag for admin repair.
+                    await supabase.from("collections").update({
+                        status: "deploy_failed",
+                        image_url: finalCollectionImageUrl,
+                    } as any).eq('id', collectionId);
+                    toast.error(
+                        `Deploy verification failed: collection account ${deployedAddress?.slice(0, 8)}… is not visible on-chain. The collection has been marked as 'deploy_failed' so it won't be mintable. An admin can repair or retry from the Admin Dashboard.`,
+                        { duration: 12000 }
+                    );
+                }
             }
 
             // Decentralized index
