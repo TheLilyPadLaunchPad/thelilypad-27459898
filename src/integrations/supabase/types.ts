@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_logs: {
+        Row: {
+          action: string
+          admin_id: string
+          after: Json | null
+          before: Json | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          reason: string | null
+          source: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string | null
+          source?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string | null
+          source?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       allowlist_entries: {
         Row: {
           collection_id: string
@@ -3658,6 +3697,62 @@ export type Database = {
       }
     }
     Functions: {
+      admin_ban_user: {
+        Args: { expires_at?: string; reason: string; target_user_id: string }
+        Returns: undefined
+      }
+      admin_revoke_user_role: {
+        Args: {
+          reason?: string
+          revoke_role: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Returns: undefined
+      }
+      admin_search_users: {
+        Args: { limit_count?: number; query_text: string }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          display_name: string
+          is_banned: boolean
+          is_creator: boolean
+          is_streamer: boolean
+          is_verified: boolean
+          roles: string[]
+          user_id: string
+          wallet_address: string
+        }[]
+      }
+      admin_set_user_role: {
+        Args: {
+          new_role: Database["public"]["Enums"]["app_role"]
+          reason?: string
+          target_user_id: string
+        }
+        Returns: undefined
+      }
+      admin_unban_user: {
+        Args: { reason?: string; target_user_id: string }
+        Returns: undefined
+      }
+      admin_update_profile: {
+        Args: { patch: Json; reason?: string; target_user_id: string }
+        Returns: undefined
+      }
+      get_admin_audit_feed: {
+        Args: { limit_count?: number }
+        Returns: {
+          action: string
+          admin_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          reason: string
+          source: string
+          target_user_id: string
+        }[]
+      }
       get_launchpad_stats: { Args: never; Returns: Json }
       get_platform_stats: { Args: never; Returns: Json }
       get_profile_id_by_wallet: {
