@@ -381,11 +381,13 @@ export default function LaunchpadCreate() {
             if (selectedChain === 'solana') {
                 try {
                     setDeployCheckoutProgress({ label: "Branding collection address …L3AP", completed: 1, total: 3 });
-                    const { runGrinderInWorker } = await import("@/lib/vanity/runGrinder");
-                    const handle = runGrinderInWorker({
+                    const { runGrinderPool } = await import("@/lib/vanity/runGrinder");
+                    const handle = runGrinderPool({
                         match: "L3AP",
                         position: "suffix",
-                        timeoutMs: 90_000,
+                        // Pool of workers (~hw-1) hits ~11M attempts much faster.
+                        // 45s is enough for >95% of laptops; falls back silently on miss.
+                        timeoutMs: 45_000,
                         onProgress: (n) => {
                             if (n % 200_000 === 0) {
                                 setDeployCheckoutProgress({ label: `Branding …L3AP · ${n.toLocaleString()} attempts`, completed: 1, total: 3 });
@@ -398,7 +400,7 @@ export default function LaunchpadCreate() {
                     console.log(`[vanity] L3AP ready: ${result.publicKey} (${result.attempts.toLocaleString()} attempts, ${result.elapsedMs}ms)`);
                 } catch (vErr: any) {
                     console.warn("[vanity] skipped — using random address:", vErr?.message || vErr);
-                    toast.info("Vanity grind timed out — deploying with a random address.", { duration: 4000 });
+                    toast.info("Skipped vanity branding — deploying with a random address.", { duration: 4000 });
                 }
             }
 
