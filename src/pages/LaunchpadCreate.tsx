@@ -406,6 +406,10 @@ export default function LaunchpadCreate() {
 
             if (selectedChain === 'solana') {
                 // Convert phases → Candy Guard JSON payload (defaults + groups).
+                // Per Metaplex standard, mint proceeds (`solPayment.destination`)
+                // always go to the connected creator wallet — the per-phase
+                // override is intentionally ignored here so a malicious draft
+                // can't redirect funds.
                 const phaseToGuards = (ph: LaunchpadPhase) => {
                     const g: Record<string, any> = {};
                     if (ph.payment?.type === 'token' && ph.payment.mint) {
@@ -419,7 +423,7 @@ export default function LaunchpadCreate() {
                         g.solPayment = {
                             enabled: true,
                             amount: ph.payment?.amount || ph.price,
-                            destination: ph.payment?.destination || address,
+                            destination: address, // creator wallet — locked
                         };
                     }
                     if (ph.startTime) g.startDate = { enabled: true, date: new Date(ph.startTime).toISOString() };
@@ -447,12 +451,45 @@ export default function LaunchpadCreate() {
                     : undefined;
 
                 const isBlindBox = collectionType === 'generative' && pendingOnChainDeploy?.revealPlaceholderUri;
+
+                // Creator pre-pays Candy Machine rent + 15% platform fee.
+                // Standard Metaplex pattern is "wallet that signs createCandyMachine
+                // pays rent" — we keep the treasury keypair as broadcaster but
+                // charge the creator upfront via a memo'd SOL transfer the edge
+                // function verifies before doing any deploy work.
+                let deployPaymentSignature: string | undefined;
+                if (!is1of1 || assetsCount > 0) {
+                    try {
+                        const { estimateDeployCost, sendDeployPayment } = await import('@/lib/launchpad/deployCost');
+                        const cost = estimateDeployCost({
+                            itemsAvailable: assetsCount,
+                            hiddenSettings: true, // backend uses hiddenSettings when manifestRoot is supplied
+                            collectionOnly: is1of1,
+                        });
+                        setDeployCheckoutProgress({ label: `Confirm deploy fee · ${cost.totalSol.toFixed(4)} SOL`, completed: 1, total: 3 });
+                        const paymentRes = await sendDeployPayment({
+                            provider: (window as any).phantom?.solana || (window as any).solana,
+                            network: (network as any) === 'mainnet' ? 'mainnet' : 'devnet',
+                            lamports: cost.lamports,
+                            collectionId,
+                        });
+                        deployPaymentSignature = paymentRes.signature;
+                        console.log(`[deploy] pre-payment ${paymentRes.signature} (${cost.totalSol.toFixed(4)} SOL)`);
+                    } catch (payErr: any) {
+                        const msg = payErr?.message || String(payErr);
+                        toast.error(`Deploy payment failed: ${msg}`);
+                        throw payErr;
+                    }
+                }
+
                 const sharedDeployPayload = {
                     collectionPlugins,
                     defaultGuards,
                     guardGroups,
                     collectionType: (isBlindBox ? 'blind_box' : collectionType) as any,
+                    deployPaymentSignature,
                 };
+
 
                 if (!is1of1) {
                     setDeployCheckoutProgress({ label: "Deploying collection via backend...", completed: 1, total: 3 });

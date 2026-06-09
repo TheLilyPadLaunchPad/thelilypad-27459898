@@ -1029,6 +1029,8 @@ export const useSolanaLaunch = () => {
         guardGroups?: Array<{ label: string; guards: Record<string, { enabled: boolean; [k: string]: any }> }>;
         hiddenSettings?: { name: string; uri: string; hash?: number[] };
         collectionType?: 'generative' | '1of1' | 'music' | 'blind_box';
+        /** Creator's pre-payment SOL transfer signature (verified server-side). */
+        deployPaymentSignature?: string;
     }) => {
         setIsLoading(true);
         setError(null);

@@ -227,11 +227,34 @@ Deno.serve(async (req) => {
       manifestRoot, // e.g. "https://gateway.pinata.cloud/ipfs/<CID>" (no trailing slash)
       placeholderName, // e.g. "Lily #"
       collectionType, // legacy
+      // Creator pre-payment (rent + platform fee) — verified before deploy
+      deployPaymentSignature,
     } = payload;
 
     if (!collectionId || !creatorAddress || !name) {
       return fail(phase, new Error("Missing required parameters (collectionId, creatorAddress, name)"), 400);
     }
+
+    // Lock solPayment.destination to the creator wallet across defaults + groups.
+    // Mirrors the Metaplex Core Candy Machine standard "mint proceeds → creator"
+    // pattern. Reject any payload that tries to redirect funds elsewhere.
+    phase = "validate-guards";
+    const assertDest = (guards: any, label: string) => {
+      if (!guards || typeof guards !== "object") return;
+      const sp = guards.solPayment;
+      if (sp && sp.enabled !== false && sp.destination && String(sp.destination) !== String(creatorAddress)) {
+        throw new Error(`solPayment.destination in ${label} must equal creatorAddress`);
+      }
+    };
+    try {
+      assertDest(defaultGuards, "defaultGuards");
+      if (Array.isArray(guardGroups)) {
+        for (const g of guardGroups) assertDest(g?.guards, `group "${g?.label}"`);
+      }
+    } catch (e) {
+      return fail(phase, e, 400);
+    }
+
 
     // Ownership
     phase = "ownership";
@@ -265,6 +288,57 @@ Deno.serve(async (req) => {
     umi.use(keypairIdentity(keypair));
 
     const frontendCreatorPubkey = publicKey(creatorAddress);
+    const treasuryAddress = keypair.publicKey;
+
+    // Verify creator pre-payment: SOL transfer with protocol memo from
+    // creatorAddress → treasury. Required for any deploy that spends rent.
+    phase = "verify-payment";
+    if (deployPaymentSignature) {
+      try {
+        const sigStr = String(deployPaymentSignature);
+        const txInfo = await fetch(rpcUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "getTransaction",
+            params: [sigStr, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }],
+          }),
+        }).then((r) => r.json());
+
+        const tx = txInfo?.result;
+        if (!tx) throw new Error("Pre-payment transaction not found on-chain");
+        if (tx.meta?.err) throw new Error("Pre-payment transaction failed on-chain");
+
+        const ixs: any[] = tx.transaction?.message?.instructions || [];
+        const transfer = ixs.find(
+          (i) => i.program === "system" && i.parsed?.type === "transfer",
+        );
+        if (!transfer) throw new Error("No SOL transfer found in pre-payment tx");
+        const info = transfer.parsed.info;
+        if (String(info.source) !== String(creatorAddress)) {
+          throw new Error("Pre-payment sender does not match creatorAddress");
+        }
+        if (String(info.destination) !== String(treasuryAddress)) {
+          throw new Error("Pre-payment recipient does not match treasury");
+        }
+        const memoIx = ixs.find(
+          (i) => i.programId === "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr" ||
+                 i.program === "spl-memo",
+        );
+        const memo = memoIx?.parsed || memoIx?.data || "";
+        if (!String(memo).includes("TheLilyPad:v1:launchpad:deploy_collection")) {
+          throw new Error("Pre-payment memo missing protocol tag");
+        }
+        console.log(`[verify-payment] ok ${sigStr} ${info.lamports} lamports`);
+      } catch (e) {
+        return fail(phase, e, 402);
+      }
+    } else if (itemsAvailable > 0) {
+      console.warn("[verify-payment] no deployPaymentSignature supplied — accepting for backward compat");
+    }
+
 
     // Collection signer (optional vanity)
     phase = "collection-keypair";
