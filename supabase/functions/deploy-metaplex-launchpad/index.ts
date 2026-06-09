@@ -229,6 +229,8 @@ Deno.serve(async (req) => {
       collectionType, // legacy
       // Creator pre-payment (rent + platform fee) — verified before deploy
       deployPaymentSignature,
+      // Multi-phase config (persisted to collections.phases for the UI)
+      phases,
     } = payload;
 
     if (!collectionId || !creatorAddress || !name) {
