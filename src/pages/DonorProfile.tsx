@@ -235,6 +235,7 @@ const DonorProfile = () => {
                   <p className="text-muted-foreground">
                     {currentTier ? tierConfig[currentTier].description : 'Start donating to earn badges!'}
                   </p>
+                  {userId && <ProfileSocialHeader targetUserId={userId} className="mt-3 justify-center md:justify-start" showFollowButton={false} />}
                 </div>
                 <div className="text-center md:text-right">
                   <p className="text-sm text-muted-foreground">Total Donated</p>
