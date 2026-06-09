@@ -396,6 +396,8 @@ const DonorProfile = () => {
               )}
             </CardContent>
           </Card>
+
+          {userId && <ActivityFeed targetUserId={userId} title="Your Profile Activity" />}
         </div>
       </main>
     </div>
