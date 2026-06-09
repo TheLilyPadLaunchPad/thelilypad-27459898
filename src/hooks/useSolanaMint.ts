@@ -7,6 +7,7 @@ import {
 } from '@metaplex-foundation/mpl-core';
 import {
     fetchCandyMachine,
+    fetchCandyGuard,
     mintV1,
     findCandyGuardPda,
 } from '@metaplex-foundation/mpl-core-candy-machine';
