@@ -82,6 +82,15 @@ export default function ArtistProfile() {
   useEffect(() => {
     if (artistAddress) {
       fetchArtistData();
+      // Resolve user_id from wallet for social features
+      (async () => {
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('wallet_address', artistAddress)
+          .maybeSingle();
+        setArtistUserId((data as any)?.id ?? null);
+      })();
     }
   }, [artistAddress]);
 
