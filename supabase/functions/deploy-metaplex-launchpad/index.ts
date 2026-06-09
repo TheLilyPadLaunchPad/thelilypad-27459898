@@ -498,6 +498,36 @@ Deno.serve(async (req) => {
 
     // Persist
     phase = "persist";
+    // Build UI-facing phases JSON from the supplied phase array (or the guard groups).
+    let phasesForUi: any[] | null = null;
+    try {
+      const src = Array.isArray(phases) && phases.length > 0
+        ? phases
+        : (Array.isArray(guardGroups) ? guardGroups.map((g: any, i: number) => ({
+            id: g?.label || `phase-${i}`,
+            name: g?.label || `Phase ${i + 1}`,
+            price: String(g?.guards?.solPayment?.amount ?? 0),
+            maxPerWallet: g?.guards?.mintLimit?.limit ?? 0,
+            startTime: g?.guards?.startDate?.date ?? null,
+            endTime: g?.guards?.endDate?.date ?? null,
+            requiresAllowlist: !!g?.guards?.allowList,
+          })) : []);
+      phasesForUi = src.map((p: any, i: number) => ({
+        id: String(p.id ?? `phase-${i}`),
+        name: String(p.name ?? p.id ?? `Phase ${i + 1}`),
+        price: String(p.price ?? p.payment?.amount ?? 0),
+        maxPerWallet: Number(p.maxPerWallet ?? 0),
+        supply: Number(p.supply ?? itemsAvailable ?? 0),
+        startTime: p.startTime ? new Date(p.startTime).toISOString() : null,
+        endTime: p.endTime ? new Date(p.endTime).toISOString() : null,
+        requiresAllowlist: !!(p.requiresAllowlist ?? p.merkleRoot),
+        candyMachineAddress: candyMachineAddress || null,
+        timezone: p.timezone || 'UTC',
+      }));
+    } catch (e) {
+      console.warn('[persist] failed to normalize phases for UI:', (e as any)?.message);
+    }
+
     await supabaseServiceRole.from("collections").update({
       contract_address: collectionSigner.publicKey,
       status: "live",
@@ -505,6 +535,7 @@ Deno.serve(async (req) => {
       candy_guard_address: candyGuardAddress || null,
       collection_mint_address: collectionSigner.publicKey,
       items_loaded: itemsLoaded,
+      ...(phasesForUi && phasesForUi.length > 0 ? { phases: phasesForUi } : {}),
     }).eq("id", collectionId);
 
     return ok({
