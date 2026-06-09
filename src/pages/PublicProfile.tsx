@@ -190,6 +190,7 @@ export default function PublicProfile() {
                 {profile.bio && (
                   <p className="text-muted-foreground mt-1 text-sm max-w-lg">{profile.bio}</p>
                 )}
+                <ProfileSocialHeader targetUserId={profile.id} className="mt-3" />
               </div>
               <div className="flex gap-2">
                 {isOwnProfile && (
