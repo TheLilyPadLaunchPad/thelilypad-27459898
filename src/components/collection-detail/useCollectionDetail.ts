@@ -99,6 +99,22 @@ export function useCollectionDetail() {
                     const active = phasesData.find((p) => p.isActive);
                     const publicPhase = phasesData.find((p) => p.id === "public");
                     setActivePhase(active || publicPhase || phasesData[0]);
+                } else if (data.contract_address) {
+                    // Fallback: synthesize a default public phase so the mint button activates
+                    // for deployed collections that have no phases configured in the DB.
+                    const defaultPrice = String((data as any).mint_price ?? (data as any).price ?? 0);
+                    setActivePhase({
+                        id: "public",
+                        name: "Public",
+                        price: defaultPrice,
+                        maxPerWallet: (data as any).max_per_wallet || 10,
+                        supply: data.total_supply || 0,
+                        isActive: true,
+                        startTime: null,
+                        endTime: null,
+                        requiresAllowlist: false,
+                        candyMachineAddress: data.contract_address,
+                    });
                 }
             } else {
                 toast.error("Collection not found");
