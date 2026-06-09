@@ -6,30 +6,32 @@ import {
     suspendProfile,
     unsuspendProfile,
     changeUserRole,
+    grantRole,
+    revokeRole,
     verifyUser,
+    unverifyUser,
+    banUser,
+    unbanUser,
+    searchUsers,
     fetchUserAuditLogs,
-    fetchRecentAdminActions
+    fetchRecentAdminActions,
 } from "@/admin/adminActions";
 import { AdminProfilePatch } from "@/admin/adminTypes";
 
-/**
- * Hook for admin moderation actions
- * Provides wrapped functions with loading states and error handling
- */
 export function useAdminActions() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const executeAction = async <T,>(
         action: () => Promise<T>,
-        successMessage: string
+        successMessage: string,
+        opts: { silent?: boolean } = {}
     ): Promise<T | null> => {
         setLoading(true);
         setError(null);
-
         try {
             const result = await action();
-            toast.success(successMessage);
+            if (!opts.silent) toast.success(successMessage);
             return result;
         } catch (err) {
             const message = err instanceof Error ? err.message : "Action failed";
@@ -45,51 +47,43 @@ export function useAdminActions() {
         loading,
         error,
 
-        // Profile updates
         updateProfile: (userId: string, patch: AdminProfilePatch, reason?: string) =>
-            executeAction(
-                () => adminUpdateProfile(userId, patch, reason),
-                "Profile updated successfully"
-            ),
+            executeAction(() => adminUpdateProfile(userId, patch, reason), "Profile updated"),
 
-        // Suspension
         suspend: (userId: string, reason: string) =>
-            executeAction(
-                () => suspendProfile(userId, reason),
-                "User suspended"
-            ),
+            executeAction(() => suspendProfile(userId, reason), "User suspended"),
 
         unsuspend: (userId: string, reason: string) =>
-            executeAction(
-                () => unsuspendProfile(userId, reason),
-                "User unsuspended"
-            ),
+            executeAction(() => unsuspendProfile(userId, reason), "User unsuspended"),
 
-        // Role management
+        ban: (userId: string, reason: string, expiresAt?: string | null) =>
+            executeAction(() => banUser(userId, reason, expiresAt), "User banned"),
+
+        unban: (userId: string, reason: string) =>
+            executeAction(() => unbanUser(userId, reason), "User unbanned"),
+
         changeRole: (userId: string, role: string, reason: string) =>
-            executeAction(
-                () => changeUserRole(userId, role, reason),
-                "Role changed successfully"
-            ),
+            executeAction(() => changeUserRole(userId, role, reason), "Role granted"),
 
-        // Verification
+        grantRole: (userId: string, role: string, reason: string) =>
+            executeAction(() => grantRole(userId, role, reason), "Role granted"),
+
+        revokeRole: (userId: string, role: string, reason: string) =>
+            executeAction(() => revokeRole(userId, role, reason), "Role revoked"),
+
         verify: (userId: string, reason: string) =>
-            executeAction(
-                () => verifyUser(userId, reason),
-                "User verified"
-            ),
+            executeAction(() => verifyUser(userId, reason), "User verified"),
 
-        // Audit logs
+        unverify: (userId: string, reason: string) =>
+            executeAction(() => unverifyUser(userId, reason), "Verification removed"),
+
+        searchUsers: (query: string, limit?: number) =>
+            executeAction(() => searchUsers(query, limit), "Search complete", { silent: true }),
+
         getAuditLogs: (userId: string) =>
-            executeAction(
-                () => fetchUserAuditLogs(userId),
-                "Audit logs fetched"
-            ),
+            executeAction(() => fetchUserAuditLogs(userId), "Audit logs fetched", { silent: true }),
 
         getRecentActions: (limit?: number) =>
-            executeAction(
-                () => fetchRecentAdminActions(limit),
-                "Recent actions fetched"
-            )
+            executeAction(() => fetchRecentAdminActions(limit), "Recent actions fetched", { silent: true }),
     };
 }

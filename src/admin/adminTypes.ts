@@ -1,53 +1,63 @@
 // src/admin/adminTypes.ts
 
-/**
- * Admin role levels
- */
-export type AdminRole =
-    | "admin"       // Standard admin access
-    | "superadmin"; // Full system access
+export type AdminRole = "admin" | "superadmin";
 
-/**
- * Admin user record
- */
 export interface AdminUser {
     user_id: string;
     role: AdminRole;
     created_at: string;
 }
 
-/**
- * Admin action types for audit logging
- */
 export type AdminAction =
     | "PROFILE_UPDATE"
     | "PROFILE_SUSPEND"
     | "PROFILE_UNSUSPEND"
+    | "ROLE_GRANT"
+    | "ROLE_REVOKE"
     | "ROLE_CHANGE"
     | "STATUS_OVERRIDE"
     | "DELETE_CONTENT"
-    | "BAN_USER";
+    | "BAN"
+    | "UNBAN"
+    | "BAN_USER"
+    | "CREATOR_APPROVED"
+    | "CREATOR_REJECTED"
+    | "MODERATION_ACTION"
+    | string;
 
-/**
- * Audit log entry
- */
+export type AuditSource = "admin_action" | "moderation" | "creator_approval";
+
 export interface AuditLogEntry {
     id: string;
-    admin_id: string;
-    target_user_id: string;
+    admin_id: string | null;
+    target_user_id: string | null;
     action: AdminAction;
-    before: Record<string, any> | null;
-    after: Record<string, any> | null;
-    reason?: string;
+    source: AuditSource;
+    before?: Record<string, any> | null;
+    after?: Record<string, any> | null;
+    reason?: string | null;
+    metadata?: Record<string, any> | null;
     created_at: string;
 }
 
-/**
- * Profile update patch for admin actions
- */
 export interface AdminProfilePatch {
-    status?: string;
-    role?: string;
-    metadata?: Record<string, any>;
     is_verified?: boolean;
+    is_private?: boolean;
+    display_name?: string;
+    bio?: string;
+    avatar_url?: string;
+    banner_url?: string;
+}
+
+export interface AdminUserSearchResult {
+    user_id: string;
+    wallet_address: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+    is_verified: boolean;
+    is_creator: boolean;
+    is_streamer: boolean;
+    is_banned: boolean;
+    roles: string[];
+    created_at: string;
 }
