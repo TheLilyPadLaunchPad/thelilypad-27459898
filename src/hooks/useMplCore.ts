@@ -6,6 +6,7 @@ import { useWallet } from '@/providers/WalletProvider';
 import { initializeUmi } from '@/config/solana';
 import { generateSigner, publicKey } from '@metaplex-foundation/umi';
 import { createCoreCollection as createCollectionAction } from '@/chains/solana/programs';
+import { friendlyCollectionFetchError } from '@/lib/launchpad/verifyDeploy';
 
 export interface CreateNftParams {
     name: string;
@@ -48,9 +49,16 @@ export const useMplCore = () => {
 
             // Per Metaplex Core docs: when minting into a collection, pass the fetched
             // Collection object (not a publicKey) so the SDK can resolve update authority.
-            const collection = collectionAddress
-                ? await fetchCollection(umi, publicKey(collectionAddress))
-                : undefined;
+            let collection;
+            if (collectionAddress) {
+                try {
+                    collection = await fetchCollection(umi, publicKey(collectionAddress));
+                } catch (fetchErr: any) {
+                    const friendly = friendlyCollectionFetchError(fetchErr);
+                    if (friendly) throw new Error(friendly);
+                    throw fetchErr;
+                }
+            }
 
             const transaction = create(umi, {
                 asset,

@@ -293,7 +293,15 @@ export async function executeCartCheckout(
 
     // ── Step 3: Batch-mint items ────────────────────────────────────
     const BATCH_SIZE = isCompressed ? 10 : 4;
-    const collection = await fetchCollection(umi, publicKey(result.collectionAddress));
+    const { friendlyCollectionFetchError } = await import('@/lib/launchpad/verifyDeploy');
+    let collection;
+    try {
+        collection = await fetchCollection(umi, publicKey(result.collectionAddress));
+    } catch (fetchErr: any) {
+        const friendly = friendlyCollectionFetchError(fetchErr);
+        if (friendly) throw new Error(friendly);
+        throw fetchErr;
+    }
 
     for (let i = 0; i < items.length; i += BATCH_SIZE) {
         const batch = items.slice(i, i + BATCH_SIZE);

@@ -19,6 +19,7 @@ import { buildProtocolMemo, MEMO_PROGRAM_ID } from '@/lib/solanaProtocol';
 import { PLATFORM_WALLETS, getLaunchpadFeeSplit } from '@/config/treasury';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAsset } from '@metaplex-foundation/mpl-core';
+import { friendlyCollectionFetchError } from '@/lib/launchpad/verifyDeploy';
 
 export interface MintPhaseArgs {
     phaseId: string;
@@ -194,7 +195,14 @@ export const useSolanaMint = () => {
                 signers: [],
             };
 
-            const collection = await fetchCollection(umi, publicKey(collectionAddress));
+            let collection;
+            try {
+                collection = await fetchCollection(umi, publicKey(collectionAddress));
+            } catch (fetchErr: any) {
+                const friendly = friendlyCollectionFetchError(fetchErr);
+                if (friendly) throw new Error(friendly);
+                throw fetchErr;
+            }
 
             result = await createCore(umi, {
                 asset: nftSigner,
