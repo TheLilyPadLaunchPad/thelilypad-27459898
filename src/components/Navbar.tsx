@@ -212,7 +212,7 @@ export const Navbar: React.FC = () => {
                   </div>
 
                   {/* Admin Section */}
-                  {isAdmin && (
+                  {showAdmin && (
                     <div className="space-y-1">
                       <p
                         className="px-4 text-xs font-semibold text-primary uppercase tracking-wider animate-fade-in"
@@ -273,7 +273,7 @@ export const Navbar: React.FC = () => {
               </div>
             )}
 
-            {isAdmin && (
+            {showAdmin && (
               <Button
                 variant="ghost"
                 size="sm"
