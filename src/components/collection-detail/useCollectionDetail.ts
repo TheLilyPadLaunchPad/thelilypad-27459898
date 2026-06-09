@@ -96,9 +96,20 @@ export function useCollectionDetail() {
                 setCollection(data as unknown as Collection);
                 const phasesData = data.phases as unknown as Phase[] | null;
                 if (phasesData && Array.isArray(phasesData) && phasesData.length > 0) {
-                    const active = phasesData.find((p) => p.isActive);
-                    const publicPhase = phasesData.find((p) => p.id === "public");
-                    setActivePhase(active || publicPhase || phasesData[0]);
+                    // Pick the phase whose time window contains "now" first;
+                    // otherwise the next upcoming phase; otherwise the explicit
+                    // active/public phase; otherwise the first phase.
+                    const now = Date.now();
+                    const inWindow = phasesData.find((p) => {
+                        const s = p.startTime ? new Date(p.startTime).getTime() : -Infinity;
+                        const e = p.endTime ? new Date(p.endTime).getTime() : Infinity;
+                        return now >= s && now < e;
+                    });
+                    const upcoming = phasesData
+                        .filter((p) => p.startTime && new Date(p.startTime).getTime() > now)
+                        .sort((a, b) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())[0];
+                    const explicit = phasesData.find((p) => p.isActive) || phasesData.find((p) => p.id === "public");
+                    setActivePhase(inWindow || upcoming || explicit || phasesData[0]);
                 } else if (data.contract_address) {
                     // Fallback: synthesize a default public phase so the mint button activates
                     // for deployed collections that have no phases configured in the DB.

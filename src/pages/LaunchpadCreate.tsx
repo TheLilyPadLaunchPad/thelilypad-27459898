@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { FolderUploader } from "@/components/launchpad/FolderUploader";
 import { GuardConfigurator } from "@/components/launchpad/GuardConfigurator";
+import { PhasesEditor, getPhaseValidationIssues } from "@/components/launchpad/PhasesEditor";
 import { CollectionPluginsPanel } from "@/components/launchpad/CollectionPluginsPanel";
 import { defaultCollectionPluginsConfig, type CollectionPluginsConfig } from "@/config/launchpad/corePlugins";
 import { LaunchpadPreview } from "@/components/launchpad/LaunchpadPreview";
@@ -359,6 +360,13 @@ export default function LaunchpadCreate() {
     // ─── On-chain deploy (called from checkout modal) ────────────────────────
     const handleConfirmOnChainDeploy = async () => {
         if (!pendingOnChainDeploy) return;
+        // Pre-deploy validation — block on phase errors (overlaps, end<=start, etc.)
+        const phaseIssues = getPhaseValidationIssues(phases as any, false);
+        const blocking = phaseIssues.filter((i) => i.level === 'error');
+        if (blocking.length > 0) {
+            blocking.slice(0, 3).forEach((i) => toast.error(i.message));
+            return;
+        }
         const { collectionId, itemLinks, primaryArweaveUri, assetsCount, builtMetadata, collectionMetadataUri, revealPlaceholderUri, collectionImageUri } = pendingOnChainDeploy;
         const finalCollectionImageUrl = collectionImageUri || (itemLinks.length > 0 ? itemLinks[0].arweaveImageUri : '');
 
@@ -1342,7 +1350,7 @@ export default function LaunchpadCreate() {
                                                             className="overflow-hidden"
                                                         >
                                                             <div className="p-5 pt-0 space-y-6 border-t border-border/40">
-                                                                <GuardConfigurator phase={phases[0] || defaultPhases[0]} onChange={u => setPhases(p => [{ ...(p[0] || defaultPhases[0]), ...u }])} chainSymbol={chainSymbol} />
+                                                                <PhasesEditor phases={phases as any} onChange={(next) => setPhases(next as any)} chainSymbol={chainSymbol} />
                                                                 <Separator />
                                                                 {selectedChain === 'solana' && (
                                                                     <>

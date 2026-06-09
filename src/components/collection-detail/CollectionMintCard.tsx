@@ -14,6 +14,7 @@ import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
 } from "@/components/ui/tooltip";
 import { Phase } from "./types";
+import { PhaseCountdown } from "@/components/launchpad/PhaseCountdown";
 import { useCryptoPrice } from "@/hooks/useCryptoPrice";
 import { useWallet } from "@/providers/WalletProvider";
 import { toast } from "sonner";
@@ -111,6 +112,9 @@ export const CollectionMintCard: React.FC<CollectionMintCardProps> = ({
             </CardHeader>
 
             <CardContent className="space-y-6 relative z-10">
+                {/* Live countdown for the active phase */}
+                <PhaseCountdown phase={activePhase as any} />
+
                 {/* Phase Quick Selector (if multiple) */}
                 {phases.length > 1 && (
                     <Tabs
