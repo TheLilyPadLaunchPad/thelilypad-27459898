@@ -227,11 +227,34 @@ Deno.serve(async (req) => {
       manifestRoot, // e.g. "https://gateway.pinata.cloud/ipfs/<CID>" (no trailing slash)
       placeholderName, // e.g. "Lily #"
       collectionType, // legacy
+      // Creator pre-payment (rent + platform fee) — verified before deploy
+      deployPaymentSignature,
     } = payload;
 
     if (!collectionId || !creatorAddress || !name) {
       return fail(phase, new Error("Missing required parameters (collectionId, creatorAddress, name)"), 400);
     }
+
+    // Lock solPayment.destination to the creator wallet across defaults + groups.
+    // Mirrors the Metaplex Core Candy Machine standard "mint proceeds → creator"
+    // pattern. Reject any payload that tries to redirect funds elsewhere.
+    phase = "validate-guards";
+    const assertDest = (guards: any, label: string) => {
+      if (!guards || typeof guards !== "object") return;
+      const sp = guards.solPayment;
+      if (sp && sp.enabled !== false && sp.destination && String(sp.destination) !== String(creatorAddress)) {
+        throw new Error(`solPayment.destination in ${label} must equal creatorAddress`);
+      }
+    };
+    try {
+      assertDest(defaultGuards, "defaultGuards");
+      if (Array.isArray(guardGroups)) {
+        for (const g of guardGroups) assertDest(g?.guards, `group "${g?.label}"`);
+      }
+    } catch (e) {
+      return fail(phase, e, 400);
+    }
+
 
     // Ownership
     phase = "ownership";
