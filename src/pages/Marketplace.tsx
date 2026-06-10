@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Badge } from "@/components/ui/badge";
 import { BuyNFTModal } from "@/components/BuyNFTModal";
+import { BidAuctionModal } from "@/components/BidAuctionModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import BuybackStats from "@/components/BuybackStats";
 import { Sparkles } from "lucide-react";
@@ -12,6 +13,7 @@ import { FeaturedCardStack } from "@/components/sections/FeaturedCardStack";
 import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
 import { useSEO } from "@/hooks/useSEO";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useMarketplaceData,
   isCollectionNew,
@@ -27,10 +29,13 @@ import {
   MarketplaceFilters,
   CollectionsGrid,
   ListingsGrid,
+  AuctionsGrid,
+  type AuctionRow,
   StickerPacksGrid,
   HomepageFeaturedCollections,
 } from "@/components/marketplace";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
+
 
 
 export default function Marketplace() {
@@ -41,6 +46,9 @@ export default function Marketplace() {
   const [showHotOnly, setShowHotOnly] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
+  const [selectedAuction, setSelectedAuction] = useState<AuctionRow | null>(null);
+  const [auctions, setAuctions] = useState<AuctionRow[]>([]);
+  const [auctionsLoading, setAuctionsLoading] = useState(true);
   // Default to connected chain, or 'all' if none
   const [selectedChain, setSelectedChain] = useState<ChainFilter>(() => {
     return (chain?.id as ChainFilter) || 'all';
@@ -65,6 +73,41 @@ export default function Marketplace() {
     title: "Lily Marketplace | The Lily Pad",
     description: `Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on ${chainLabel}.`
   });
+
+  // Load active on-chain auctions (filtered by chain)
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setAuctionsLoading(true);
+      let q = supabase
+        .from("onchain_nft_auctions")
+        .select("id,asset_address,name,image_url,collection_name,reserve_price,min_bid_increment,highest_bid,highest_bidder_address,seller_address,currency,chain,ends_at,status")
+        .eq("status", "active")
+        .gt("ends_at", new Date().toISOString())
+        .order("ends_at", { ascending: true })
+        .limit(60);
+      if (selectedChain !== "all") q = q.eq("chain", selectedChain);
+      const { data } = await q;
+      if (!cancelled) {
+        setAuctions((data ?? []) as AuctionRow[]);
+        setAuctionsLoading(false);
+      }
+    };
+    load();
+
+    const ch = supabase
+      .channel("marketplace-auctions")
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "onchain_nft_auctions" },
+        () => load())
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch);
+    };
+  }, [selectedChain]);
+
 
   // Filter collections
   const filteredCollections = useMemo(() => {
@@ -213,6 +256,15 @@ export default function Marketplace() {
             />
           )}
 
+          {/* Live Auctions Section */}
+          {showListings && (
+            <AuctionsGrid
+              auctions={auctions}
+              isLoading={auctionsLoading}
+              onSelect={setSelectedAuction}
+            />
+          )}
+
           {/* Collections Section with Infinite Scroll */}
           {showCollections && (
             <CollectionsGrid
@@ -244,6 +296,14 @@ export default function Marketplace() {
             onSuccess={() => setSelectedListing(null)}
           />
         )}
+
+        {/* Bid Auction Modal */}
+        <BidAuctionModal
+          open={!!selectedAuction}
+          auction={selectedAuction}
+          onOpenChange={(open) => !open && setSelectedAuction(null)}
+        />
+
       </main>
 
       <BackToTop />
