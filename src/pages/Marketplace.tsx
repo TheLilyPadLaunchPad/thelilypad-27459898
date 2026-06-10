@@ -46,6 +46,9 @@ export default function Marketplace() {
   const [showHotOnly, setShowHotOnly] = useState(false);
   const [showNewOnly, setShowNewOnly] = useState(false);
   const [selectedListing, setSelectedListing] = useState<NFTListing | null>(null);
+  const [selectedAuction, setSelectedAuction] = useState<AuctionRow | null>(null);
+  const [auctions, setAuctions] = useState<AuctionRow[]>([]);
+  const [auctionsLoading, setAuctionsLoading] = useState(true);
   // Default to connected chain, or 'all' if none
   const [selectedChain, setSelectedChain] = useState<ChainFilter>(() => {
     return (chain?.id as ChainFilter) || 'all';
