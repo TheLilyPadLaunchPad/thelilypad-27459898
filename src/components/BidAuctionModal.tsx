@@ -65,17 +65,8 @@ export function BidAuctionModal({ auction, open, onOpenChange, onSuccess }: Prop
           amount: n,
         });
       if (insErr) throw insErr;
+      // Highest bid is set by the apply_auction_bid trigger.
 
-      // Update auction highest bid (RLS allows only seller; use RPC-less optimistic update via upsert is blocked,
-      // so rely on a trigger or the seller-side settlement. We still try to update for instant UI.)
-      await supabase
-        .from("onchain_nft_auctions")
-        .update({
-          highest_bid: n,
-          highest_bidder_id: user.id,
-          highest_bidder_address: address,
-        })
-        .eq("id", auction.id);
 
       toast.success("Bid placed");
       onSuccess?.();
