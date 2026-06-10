@@ -74,6 +74,41 @@ export default function Marketplace() {
     description: `Browse NFT collections, listings, and sticker packs on Lily Marketplace. Discover unique digital collectibles on ${chainLabel}.`
   });
 
+  // Load active on-chain auctions (filtered by chain)
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setAuctionsLoading(true);
+      let q = supabase
+        .from("onchain_nft_auctions")
+        .select("id,asset_address,name,image_url,collection_name,reserve_price,min_bid_increment,highest_bid,highest_bidder_address,seller_address,currency,chain,ends_at,status")
+        .eq("status", "active")
+        .gt("ends_at", new Date().toISOString())
+        .order("ends_at", { ascending: true })
+        .limit(60);
+      if (selectedChain !== "all") q = q.eq("chain", selectedChain);
+      const { data } = await q;
+      if (!cancelled) {
+        setAuctions((data ?? []) as AuctionRow[]);
+        setAuctionsLoading(false);
+      }
+    };
+    load();
+
+    const ch = supabase
+      .channel("marketplace-auctions")
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "onchain_nft_auctions" },
+        () => load())
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch);
+    };
+  }, [selectedChain]);
+
+
   // Filter collections
   const filteredCollections = useMemo(() => {
     return collections.filter(c => {
