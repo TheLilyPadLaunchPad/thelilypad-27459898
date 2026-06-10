@@ -256,6 +256,15 @@ export default function Marketplace() {
             />
           )}
 
+          {/* Live Auctions Section */}
+          {showListings && (
+            <AuctionsGrid
+              auctions={auctions}
+              isLoading={auctionsLoading}
+              onSelect={setSelectedAuction}
+            />
+          )}
+
           {/* Collections Section with Infinite Scroll */}
           {showCollections && (
             <CollectionsGrid
@@ -287,6 +296,14 @@ export default function Marketplace() {
             onSuccess={() => setSelectedListing(null)}
           />
         )}
+
+        {/* Bid Auction Modal */}
+        <BidAuctionModal
+          open={!!selectedAuction}
+          auction={selectedAuction}
+          onOpenChange={(open) => !open && setSelectedAuction(null)}
+        />
+
       </main>
 
       <BackToTop />
