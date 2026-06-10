@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Badge } from "@/components/ui/badge";
 import { BuyNFTModal } from "@/components/BuyNFTModal";
+import { BidAuctionModal } from "@/components/BidAuctionModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import BuybackStats from "@/components/BuybackStats";
 import { Sparkles } from "lucide-react";
@@ -12,6 +13,7 @@ import { FeaturedCardStack } from "@/components/sections/FeaturedCardStack";
 import { useWallet, ChainType } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
 import { useSEO } from "@/hooks/useSEO";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useMarketplaceData,
   isCollectionNew,
@@ -27,10 +29,13 @@ import {
   MarketplaceFilters,
   CollectionsGrid,
   ListingsGrid,
+  AuctionsGrid,
+  type AuctionRow,
   StickerPacksGrid,
   HomepageFeaturedCollections,
 } from "@/components/marketplace";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
+
 
 
 export default function Marketplace() {
