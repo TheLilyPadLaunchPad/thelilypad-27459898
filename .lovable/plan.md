@@ -1,114 +1,69 @@
-# Launchpad 2026 Upgrade Plan
+# Mainnet Launchpad Deploy Failure — Root Cause & Fix
 
-Move the launchpad from a single Start/End date model to a multi-phase Candy Guard Groups architecture matching modern Metaplex Core Candy Machine standards.
+## What happened to the tester
 
-## 1. Phase System (Core)
+The Solscan tx is **only the pre-payment** (0.00575 SOL + protocol memo `TheLilyPad:v1:launchpad:deploy_collection`) from the artist's wallet to the platform treasury `2cS7yyypbtxQ4qBdZRYtXDEDTQJZK34h4RPmXxz4sKHk`. No collection / Candy Machine / guard transactions exist on-chain. That confirms the edge function `deploy-metaplex-launchpad` failed before broadcasting, but the fee was already paid → SOL gone, no NFT.
 
-Replace the single mint window with an array of **Mint Phases**, each compiled to a Metaplex Candy Guard Group.
+## Root cause
 
-Per phase config:
-- Phase label (Whitelist / Public / OG / Custom)
-- Price (SOL)
-- Per-wallet mint limit
-- Start date + start time + timezone
-- End date + end time + timezone
-- Allowlist source: CSV upload, paste list, or existing Merkle root
-- Optional: token-gate / NFT-gate
+In `supabase/functions/deploy-metaplex-launchpad/index.ts` (phase `treasury`, lines 270–290):
 
-Defaults provided via launch templates:
-- Free Mint
-- Standard (Whitelist → Public)
-- Premium (WL → OG → Public → Collectors)
-- Open Edition (unlimited, timed)
-
-## 2. Date + Time + Timezone
-
-Every date input gains:
-- Date picker
-- Time picker (HH:MM)
-- Timezone selector (default UTC, browser tz suggested)
-
-All values are normalized to a UTC unix timestamp before being sent to the edge function and assigned to Metaplex `startDate` / `endDate` guards.
-
-## 3. Countdown Widget
-
-On collection detail page:
-- Pre-launch: "Mint Starts In: Xd Yh Zm Ws"
-- Active: "Mint Ends In: ..."
-- Closed: "Mint Closed"
-Driven by active phase from `useCollectionDetail`.
-
-## 4. Advanced Settings (collapsible)
-
-- Bot Tax toggle (default ON, 0.01 SOL)
-- Sequential phases toggle (auto-chain end→start)
-- Allow concurrent phases toggle
-- Global per-wallet `mintLimit` guard
-- Expert mode: compute unit limit auto-tuned to active guard count
-
-## 5. Validation
-
-Block deploy if:
-- Any phase end ≤ start
-- Phases overlap when concurrent disabled
-- Whitelist phase has no wallets / Merkle root
-- Per-wallet limit < 1
-- Price < 0
-
-## 6. Deployment Preview Modal
-
-Show summary: name, supply, royalty, treasury, each phase (price + window), guard checklist, estimated SOL cost, dry-run option.
-
-## 7. Edge Function (`deploy-metaplex-launchpad`)
-
-Accept new payload shape:
 ```ts
-{
-  defaultGuards: { botTax?, solPayment? },
-  groups: Array<{
-    label: string,           // ≤32 chars, on-chain group label
-    guards: {
-      startDate?: { date: number },     // unix seconds
-      endDate?:   { date: number },
-      solPayment?:{ amount, destination },
-      mintLimit?: { id, limit },
-      allowList?: { merkleRoot },
-    }
-  }>
+const devKey = Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY");
+const mainKey = Deno.env.get("TREASURY_PRIVATE_KEY");
+let effectiveNetwork = network;
+if (effectiveNetwork === "mainnet" && !mainKey && devKey) {
+  console.warn("[treasury] no mainnet key configured; forcing network=devnet");
+  effectiveNetwork = "devnet";
 }
 ```
-Build merkle root server-side from CSV when provided. Persist phases into a new `collection_phases` table for the front end (replacing the synthesized fallback added previously).
 
-## 8. Database
+Project secrets contain `DEVNET_TREASURY_PRIVATE_KEY` but **no `TREASURY_PRIVATE_KEY`**. On a mainnet deploy the function silently flips to devnet, then:
 
-New table `collection_phases`:
-- collection_id (fk), label, price, max_per_wallet, supply, starts_at, ends_at, requires_allowlist, merkle_root, group_label, sort_order
-- RLS: public read, creator/admin write via edge function (service role).
+1. Queries `https://api.devnet.solana.com` for the mainnet payment signature.
+2. `getTransaction` returns null → `fail("verify-payment", "Pre-payment transaction not found on-chain", 402)`.
+3. The fee is non-refundable as written — the artist loses SOL with zero on-chain deploy.
 
-`useCollectionDetail` reads from this table; falls back to current synthesized public phase only if empty.
+Secondary issues that compound the failure on mainnet even after fixing the key:
 
-## 9. UI Files Touched
+- RPC is hardcoded to public `https://api.mainnet-beta.solana.com`, which is rate-limited and routinely 429s combined Core + Candy Machine + Guard + wrap txs. We already use Helius elsewhere.
+- The frontend treats any non-2xx as "deploy failed" but never refunds the prepayment.
+- The function never logs/persists the failure phase to the collection row, so testers see only a toast.
 
-- `src/components/launchpad/PhaseEditor.tsx` (new — repeatable phase rows)
-- `src/components/launchpad/DateTimeTzPicker.tsx` (new)
-- `src/components/launchpad/AdvancedSettingsPanel.tsx` (new)
-- `src/components/launchpad/LaunchTemplates.tsx` (new)
-- `src/components/launchpad/ContractDeployModal.tsx` (preview + diagnostics)
-- `src/pages/LaunchpadCreate.tsx` (wire phases into payload)
-- `src/components/collection-detail/CollectionMintCard.tsx` (countdown + active-phase switching)
-- `src/components/collection-detail/useCollectionDetail.ts` (load phases from new table)
-- `supabase/functions/deploy-metaplex-launchpad/index.ts` (groups → guard groups)
+## Fix
 
-## 10. Rollout
+### 1. Edge function (`supabase/functions/deploy-metaplex-launchpad/index.ts`)
 
-1. Migration: `collection_phases` table + grants + RLS.
-2. Edge function payload accepts both legacy and new shape (back-compat).
-3. UI ships new PhaseEditor behind existing Advanced Mode toggle, default template = "Standard".
-4. Countdown + mint-button gating reads active phase by current UTC.
+- Add `MAINNET_HELIUS_RPC_URL` / `HELIUS_API_KEY` resolution; when present use `https://mainnet.helius-rpc.com/?api-key=...` for both `verify-payment` and Umi.
+- Remove the silent devnet fallback. If `network === "mainnet"` and `TREASURY_PRIVATE_KEY` is missing, **fail BEFORE the client sends the prepayment is impossible**, so we add a preflight in the frontend (see #2). Server-side, return `fail("treasury", "Mainnet treasury key not configured — contact support", 503)` immediately — and DO NOT touch network, so client knows to refund.
+- On any failure after `verify-payment` succeeded, return a structured `{ ok:false, phase, error, refundable:true, paymentSignature }` so the client can issue a refund.
+- Persist `last_deploy_error` (phase + message) to `collections` row when we have one.
 
-## Out of scope (this pass)
+### 2. Frontend (`src/pages/LaunchpadCreate.tsx`, `src/lib/launchpad/deployCost.ts`)
 
-- Token-2022 payment guards
-- Civic gatekeeper captcha
-- Freeze guards (thaw flow)
-These remain available in `GuardConfigurator` for power users but are not exposed in the new phase UI yet.
+- New preflight edge function call `deploy-metaplex-launchpad?preflight=1` (or just a `GET` health) that returns whether the requested network is supported. Run it BEFORE `sendDeployPayment` so we never charge the artist on a misconfigured backend.
+- If the deploy call returns `refundable:true`, automatically call a new edge function `refund-deploy-payment` that sends an equivalent SOL transfer back from the platform treasury → creator, with memo `TheLilyPad:v1:launchpad:refund_deploy:cid=…:ref=<origSig>`. Surface the refund signature in the toast.
+- Show the failing `phase` and message in the deploy modal (already returned from edge function) so testers can report meaningful errors.
+
+### 3. New edge function `refund-deploy-payment`
+
+- Verifies the original payment tx exists, came from `creatorAddress`, went to treasury, has the protocol memo, and that no refund memo already exists for that signature.
+- Sends `lamports` back to creator from the treasury key, attaches the refund memo.
+- Idempotent — caches refunded signatures in a new `deploy_refunds` table (sig PK).
+
+### 4. Secret / config
+
+- Document that `TREASURY_PRIVATE_KEY` (mainnet) is required for mainnet launches. Until it's set, the preflight in #2 blocks mainnet deploys with a clear "Mainnet launches temporarily disabled" message — no SOL is ever taken.
+
+## For this specific tester
+
+After deploying #3, manually invoke `refund-deploy-payment` with their signature `33cHBu5jj1brRvXzBFWmh9GpdbsJWQMDZv5657a57fYd6UNSUVgcS4xWXMHj47DMsu9YW5aCJTfxK1G3R1uJS7Mo` to return the 0.00575 SOL. (Or admin-process via psql + a one-off script.)
+
+## Out of scope
+
+- Changing the artist-pays-rent model itself.
+- Migrating Candy Machine to a different program.
+
+---
+
+**One thing I need from you before building:** Do you have a mainnet treasury private key ready to add as the `TREASURY_PRIVATE_KEY` secret? If yes, I'll wire up the secret prompt as part of the build. If no, the preflight will simply block mainnet deploys until you provide one (devnet keeps working).
