@@ -591,6 +591,31 @@ Deno.serve(async (req) => {
       collectionType: collectionType || null,
     });
   } catch (error) {
-    return fail(phase, error, 500);
+    // If we already verified the creator's deploy fee but the on-chain
+    // build/send failed, surface this so the client can issue an automatic
+    // refund instead of silently losing the artist's SOL.
+    const message = (error as any)?.message || String(error);
+    const stack = (error as any)?.stack;
+    console.error(JSON.stringify({ level: "error", phase, error: message, stack }));
+    if (supabaseServiceRoleOuter && collectionIdForError) {
+      try {
+        await supabaseServiceRoleOuter
+          .from("collections")
+          .update({ last_deploy_error: `[${phase}] ${message}`.slice(0, 1000) })
+          .eq("id", collectionIdForError);
+      } catch (_) { /* best-effort */ }
+    }
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        phase,
+        error: message,
+        stack,
+        refundable: paymentVerified === true && !!paymentSignatureForRefund,
+        paymentSignature: paymentSignatureForRefund || null,
+        collectionId: collectionIdForError || null,
+      }),
+      { status: 500, headers: jsonHeaders },
+    );
   }
 });
