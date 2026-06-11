@@ -450,6 +450,32 @@ export default function LaunchpadCreate() {
                 // function verifies before doing any deploy work.
                 let deployPaymentSignature: string | undefined;
                 if (!is1of1 || assetsCount > 0) {
+                    // Preflight: verify the backend is configured for the
+                    // requested network BEFORE the artist's wallet is asked
+                    // to sign anything. Prevents "SOL gone, no NFT" on
+                    // mainnet when the platform treasury key is missing.
+                    try {
+                        setDeployCheckoutProgress({ label: "Checking deploy readiness…", completed: 0, total: 3 });
+                        const pf = await supabase.functions.invoke('deploy-metaplex-launchpad', {
+                            body: {
+                                preflight: true,
+                                network: (network as any) === 'mainnet' ? 'mainnet' : 'devnet',
+                            },
+                        });
+                        const pfData: any = pf?.data;
+                        if (!pfData?.ok || !pfData?.keyAvailable) {
+                            throw new Error(
+                                pfData?.network === 'mainnet'
+                                    ? 'Mainnet launches are temporarily disabled — platform treasury key not configured. No SOL was charged.'
+                                    : 'Backend not configured for this network. No SOL was charged.'
+                            );
+                        }
+                    } catch (preErr: any) {
+                        const msg = preErr?.message || String(preErr);
+                        toast.error(msg);
+                        throw preErr;
+                    }
+
                     try {
                         const { estimateDeployCost, sendDeployPayment } = await import('@/lib/launchpad/deployCost');
                         const cost = estimateDeployCost({
@@ -473,6 +499,49 @@ export default function LaunchpadCreate() {
                         throw payErr;
                     }
                 }
+
+                // Helper: if the backend signals refundable failure AFTER
+                // the deploy fee was taken, automatically refund the artist.
+                const tryAutoRefund = async (err: any) => {
+                    const ctx: any = err?.context;
+                    let body: any = err?.data;
+                    if (!body && ctx && typeof ctx.json === 'function') {
+                        try { body = await ctx.json(); } catch { /* ignore */ }
+                    }
+                    const refundable = body?.refundable === true;
+                    const sig = body?.paymentSignature || deployPaymentSignature;
+                    const phaseLabel = body?.phase ? `[${body.phase}] ` : '';
+                    const serverMsg = body?.error || err?.message || 'Deploy failed';
+                    if (refundable && sig) {
+                        try {
+                            toast.loading('Deploy failed after payment — refunding your SOL…', { id: 'deploy-refund' });
+                            const { data: refundData, error: refundErr } = await supabase.functions.invoke(
+                                'refund-deploy-payment',
+                                {
+                                    body: {
+                                        paymentSignature: sig,
+                                        network: (network as any) === 'mainnet' ? 'mainnet' : 'devnet',
+                                        collectionId,
+                                        reason: `${phaseLabel}${serverMsg}`.slice(0, 400),
+                                    },
+                                },
+                            );
+                            if (refundErr) throw refundErr;
+                            const refundSig = (refundData as any)?.refundSignature;
+                            toast.success(
+                                `Deploy failed (${phaseLabel}${serverMsg}). Your SOL has been refunded. Refund tx: ${String(refundSig || '').slice(0, 16)}…`,
+                                { id: 'deploy-refund', duration: 15000 },
+                            );
+                        } catch (rfErr: any) {
+                            toast.error(
+                                `Deploy failed (${phaseLabel}${serverMsg}). Automatic refund FAILED: ${rfErr?.message || rfErr}. Contact support with payment signature ${sig}.`,
+                                { id: 'deploy-refund', duration: 30000 },
+                            );
+                        }
+                    }
+                };
+
+
 
                 const sharedDeployPayload = {
                     collectionPlugins,
