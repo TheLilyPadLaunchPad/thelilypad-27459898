@@ -716,7 +716,15 @@ export default function LaunchpadCreate() {
             console.error("On-chain deploy failed:", e);
             setDeployCheckoutStatus('failed');
             setDeployCheckoutProcessing(false);
-            toast.error(getErrorMessage(e) || "On-chain deployment failed. Your uploads are safe — try again.");
+            const phaseLabel = e?.phase ? `[${e.phase}] ` : '';
+            toast.error(`${phaseLabel}${getErrorMessage(e) || 'On-chain deployment failed.'} Your uploads are safe — try again.`);
+            // If backend confirms the failure happened AFTER the creator's
+            // pre-payment was verified on-chain, automatically refund the SOL.
+            try {
+                if (e?.refundable === true && e?.paymentSignature) {
+                    await tryAutoRefund(e);
+                }
+            } catch (_) { /* tryAutoRefund handles its own toasts */ }
         }
     };
 
