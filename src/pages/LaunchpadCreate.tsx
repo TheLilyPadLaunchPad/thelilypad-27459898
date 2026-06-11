@@ -500,46 +500,8 @@ export default function LaunchpadCreate() {
                     }
                 }
 
-                // Helper: if the backend signals refundable failure AFTER
-                // the deploy fee was taken, automatically refund the artist.
-                const tryAutoRefund = async (err: any) => {
-                    const ctx: any = err?.context;
-                    let body: any = err?.data;
-                    if (!body && ctx && typeof ctx.json === 'function') {
-                        try { body = await ctx.json(); } catch { /* ignore */ }
-                    }
-                    const refundable = body?.refundable === true;
-                    const sig = body?.paymentSignature || deployPaymentSignature;
-                    const phaseLabel = body?.phase ? `[${body.phase}] ` : '';
-                    const serverMsg = body?.error || err?.message || 'Deploy failed';
-                    if (refundable && sig) {
-                        try {
-                            toast.loading('Deploy failed after payment — refunding your SOL…', { id: 'deploy-refund' });
-                            const { data: refundData, error: refundErr } = await supabase.functions.invoke(
-                                'refund-deploy-payment',
-                                {
-                                    body: {
-                                        paymentSignature: sig,
-                                        network: (network as any) === 'mainnet' ? 'mainnet' : 'devnet',
-                                        collectionId,
-                                        reason: `${phaseLabel}${serverMsg}`.slice(0, 400),
-                                    },
-                                },
-                            );
-                            if (refundErr) throw refundErr;
-                            const refundSig = (refundData as any)?.refundSignature;
-                            toast.success(
-                                `Deploy failed (${phaseLabel}${serverMsg}). Your SOL has been refunded. Refund tx: ${String(refundSig || '').slice(0, 16)}…`,
-                                { id: 'deploy-refund', duration: 15000 },
-                            );
-                        } catch (rfErr: any) {
-                            toast.error(
-                                `Deploy failed (${phaseLabel}${serverMsg}). Automatic refund FAILED: ${rfErr?.message || rfErr}. Contact support with payment signature ${sig}.`,
-                                { id: 'deploy-refund', duration: 30000 },
-                            );
-                        }
-                    }
-                };
+                // (auto-refund handled in outer catch via e.refundable + e.paymentSignature)
+
 
 
 
