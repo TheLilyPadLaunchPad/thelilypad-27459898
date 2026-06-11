@@ -682,11 +682,34 @@ export default function LaunchpadCreate() {
             toast.error(`${phaseLabel}${getErrorMessage(e) || 'On-chain deployment failed.'} Your uploads are safe — try again.`);
             // If backend confirms the failure happened AFTER the creator's
             // pre-payment was verified on-chain, automatically refund the SOL.
-            try {
-                if (e?.refundable === true && e?.paymentSignature) {
-                    await tryAutoRefund(e);
+            const sig = e?.paymentSignature;
+            if (e?.refundable === true && sig) {
+                try {
+                    toast.loading('Deploy failed after payment — refunding your SOL…', { id: 'deploy-refund' });
+                    const { data: refundData, error: refundErr } = await supabase.functions.invoke(
+                        'refund-deploy-payment',
+                        {
+                            body: {
+                                paymentSignature: sig,
+                                network: (network as any) === 'mainnet' ? 'mainnet' : 'devnet',
+                                collectionId,
+                                reason: `${phaseLabel}${getErrorMessage(e) || ''}`.slice(0, 400),
+                            },
+                        },
+                    );
+                    if (refundErr) throw refundErr;
+                    const refundSig = (refundData as any)?.refundSignature;
+                    toast.success(
+                        `Your SOL has been refunded. Refund tx: ${String(refundSig || '').slice(0, 16)}…`,
+                        { id: 'deploy-refund', duration: 15000 },
+                    );
+                } catch (rfErr: any) {
+                    toast.error(
+                        `Automatic refund FAILED: ${rfErr?.message || rfErr}. Contact support with payment signature ${sig}.`,
+                        { id: 'deploy-refund', duration: 30000 },
+                    );
                 }
-            } catch (_) { /* tryAutoRefund handles its own toasts */ }
+            }
         }
     };
 
