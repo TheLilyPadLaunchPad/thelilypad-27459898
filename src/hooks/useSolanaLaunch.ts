@@ -1064,20 +1064,34 @@ export const useSolanaLaunch = () => {
             if (fnError) {
                 let serverMsg = fnError.message;
                 let phase: string | undefined;
+                let body: any = undefined;
                 try {
                     const ctx: any = (fnError as any).context;
                     if (ctx && typeof ctx.json === 'function') {
-                        const j = await ctx.json();
-                        if (j?.error) serverMsg = j.error;
-                        if (j?.phase) phase = j.phase;
+                        body = await ctx.json();
+                        if (body?.error) serverMsg = body.error;
+                        if (body?.phase) phase = body.phase;
                     } else if (ctx?.error) {
                         serverMsg = ctx.error;
+                        body = ctx;
                     }
                 } catch { /* ignore */ }
-                throw new Error(phase ? `[${phase}] ${serverMsg}` : (serverMsg || 'Backend deployment failed'));
+                const e: any = new Error(phase ? `[${phase}] ${serverMsg}` : (serverMsg || 'Backend deployment failed'));
+                e.serverBody = body;
+                e.phase = phase;
+                e.refundable = body?.refundable === true;
+                e.paymentSignature = body?.paymentSignature;
+                throw e;
             }
 
-            if (data?.ok === false) throw new Error(`[${data.phase}] ${data.error}`);
+            if (data?.ok === false) {
+                const e: any = new Error(`[${data.phase}] ${data.error}`);
+                e.serverBody = data;
+                e.phase = data.phase;
+                e.refundable = data.refundable === true;
+                e.paymentSignature = data.paymentSignature;
+                throw e;
+            }
             if (data?.error) throw new Error(data.error);
             return data;
         } catch (err: any) {
