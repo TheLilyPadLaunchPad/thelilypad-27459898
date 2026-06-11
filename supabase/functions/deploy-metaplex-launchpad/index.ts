@@ -192,6 +192,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   let phase = "init";
+  let paymentVerified = false;
+  let paymentSignatureForRefund: string | undefined;
+  let collectionIdForError: string | undefined;
+  let supabaseServiceRoleOuter: any = null;
   try {
     // Auth
     phase = "auth";
@@ -209,6 +213,21 @@ Deno.serve(async (req) => {
     phase = "payload";
     const payload = await req.json();
     const network: "devnet" | "mainnet" = payload.network === "mainnet" ? "mainnet" : "devnet";
+
+    // Preflight: client checks network is configured BEFORE asking the
+    // creator to sign the deploy-fee transaction.
+    if (payload.preflight === true) {
+      const devKeyP = Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY");
+      const mainKeyP = Deno.env.get("TREASURY_PRIVATE_KEY");
+      const keyAvailable = network === "mainnet" ? !!mainKeyP : !!devKeyP;
+      return ok({
+        preflight: true,
+        network,
+        keyAvailable,
+        rpcProvider: Deno.env.get("HELIUS_API_KEY") ? "helius" : "public",
+      });
+    }
+
     const {
       collectionId,
       name,
@@ -232,6 +251,8 @@ Deno.serve(async (req) => {
       // Multi-phase config (persisted to collections.phases for the UI)
       phases,
     } = payload;
+    collectionIdForError = collectionId;
+    paymentSignatureForRefund = deployPaymentSignature;
 
     if (!collectionId || !creatorAddress || !name) {
       return fail(phase, new Error("Missing required parameters (collectionId, creatorAddress, name)"), 400);
@@ -261,30 +282,44 @@ Deno.serve(async (req) => {
     // Ownership
     phase = "ownership";
     const supabaseServiceRole = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    supabaseServiceRoleOuter = supabaseServiceRole;
     const { data: existingCollection, error: ownershipError } = await supabaseServiceRole
       .from("collections").select("creator_id").eq("id", collectionId).maybeSingle();
     if (ownershipError) return fail(phase, ownershipError, 500);
     if (!existingCollection) return fail(phase, new Error("Collection not found"), 404);
     if (existingCollection.creator_id !== user.id) return fail(phase, new Error("Forbidden: not the collection owner"), 403);
 
-    // Treasury keypair — if only the devnet key is configured, force network to devnet
-    // so we never try to broadcast on mainnet with a devnet-only treasury.
+    // Treasury keypair — STRICT per-network. No silent devnet fallback:
+    // if mainnet key is missing on a mainnet deploy we MUST reject before
+    // any creator SOL is committed (client preflight should catch this).
     phase = "treasury";
     const devKey = Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY");
     const mainKey = Deno.env.get("TREASURY_PRIVATE_KEY");
-    let effectiveNetwork: "devnet" | "mainnet" = network;
-    if (effectiveNetwork === "mainnet" && !mainKey && devKey) {
-      console.warn("[treasury] no mainnet key configured; forcing network=devnet");
-      effectiveNetwork = "devnet";
+    const treasuryKey = network === "mainnet" ? mainKey : devKey;
+    if (!treasuryKey) {
+      return fail(
+        phase,
+        new Error(
+          network === "mainnet"
+            ? "Mainnet launches are temporarily disabled — platform treasury key not configured. No SOL was charged."
+            : "Devnet treasury key not configured.",
+        ),
+        503,
+      );
     }
-    const treasuryKey = effectiveNetwork === "devnet" ? (devKey || mainKey) : mainKey;
-    if (!treasuryKey) return fail(phase, new Error(`Treasury private key not configured for network: ${effectiveNetwork}`), 500);
+    const effectiveNetwork: "devnet" | "mainnet" = network;
 
-    // Umi
+    // Umi — prefer Helius (premium RPC) when configured. Public mainnet RPC
+    // is heavily rate-limited and routinely 429s the combined deploy tx.
     phase = "umi";
-    const rpcUrl = effectiveNetwork === "mainnet"
-      ? "https://api.mainnet-beta.solana.com"
-      : "https://api.devnet.solana.com";
+    const heliusKey = Deno.env.get("HELIUS_API_KEY");
+    const rpcUrl = heliusKey
+      ? (effectiveNetwork === "mainnet"
+          ? `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`
+          : `https://devnet.helius-rpc.com/?api-key=${heliusKey}`)
+      : (effectiveNetwork === "mainnet"
+          ? "https://api.mainnet-beta.solana.com"
+          : "https://api.devnet.solana.com");
     const umi = createUmi(rpcUrl).use(mplCore()).use(mplCandyMachine()).use(mplToolbox());
     const keypair = umi.eddsa.createKeypairFromSecretKey(bs58.decode(treasuryKey));
     umi.use(keypairIdentity(keypair));
@@ -334,6 +369,7 @@ Deno.serve(async (req) => {
           throw new Error("Pre-payment memo missing protocol tag");
         }
         console.log(`[verify-payment] ok ${sigStr} ${info.lamports} lamports`);
+        paymentVerified = true;
       } catch (e) {
         return fail(phase, e, 402);
       }
@@ -555,6 +591,31 @@ Deno.serve(async (req) => {
       collectionType: collectionType || null,
     });
   } catch (error) {
-    return fail(phase, error, 500);
+    // If we already verified the creator's deploy fee but the on-chain
+    // build/send failed, surface this so the client can issue an automatic
+    // refund instead of silently losing the artist's SOL.
+    const message = (error as any)?.message || String(error);
+    const stack = (error as any)?.stack;
+    console.error(JSON.stringify({ level: "error", phase, error: message, stack }));
+    if (supabaseServiceRoleOuter && collectionIdForError) {
+      try {
+        await supabaseServiceRoleOuter
+          .from("collections")
+          .update({ last_deploy_error: `[${phase}] ${message}`.slice(0, 1000) })
+          .eq("id", collectionIdForError);
+      } catch (_) { /* best-effort */ }
+    }
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        phase,
+        error: message,
+        stack,
+        refundable: paymentVerified === true && !!paymentSignatureForRefund,
+        paymentSignature: paymentSignatureForRefund || null,
+        collectionId: collectionIdForError || null,
+      }),
+      { status: 500, headers: jsonHeaders },
+    );
   }
 });

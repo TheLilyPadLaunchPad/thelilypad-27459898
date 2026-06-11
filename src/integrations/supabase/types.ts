@@ -650,6 +650,7 @@ export type Database = {
           ipfs_base_cid: string | null
           is_revealed: boolean
           items_loaded: number
+          last_deploy_error: string | null
           layers_metadata: Json | null
           manifest_root: string | null
           media_type: string | null
@@ -694,6 +695,7 @@ export type Database = {
           ipfs_base_cid?: string | null
           is_revealed?: boolean
           items_loaded?: number
+          last_deploy_error?: string | null
           layers_metadata?: Json | null
           manifest_root?: string | null
           media_type?: string | null
@@ -738,6 +740,7 @@ export type Database = {
           ipfs_base_cid?: string | null
           is_revealed?: boolean
           items_loaded?: number
+          last_deploy_error?: string | null
           layers_metadata?: Json | null
           manifest_root?: string | null
           media_type?: string | null
@@ -860,6 +863,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      deploy_refunds: {
+        Row: {
+          collection_id: string | null
+          created_at: string
+          creator_address: string
+          lamports: number
+          network: string
+          payment_signature: string
+          reason: string | null
+          refund_signature: string
+        }
+        Insert: {
+          collection_id?: string | null
+          created_at?: string
+          creator_address: string
+          lamports: number
+          network: string
+          payment_signature: string
+          reason?: string | null
+          refund_signature: string
+        }
+        Update: {
+          collection_id?: string | null
+          created_at?: string
+          creator_address?: string
+          lamports?: number
+          network?: string
+          payment_signature?: string
+          reason?: string | null
+          refund_signature?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deploy_refunds_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       earnings: {
         Row: {
