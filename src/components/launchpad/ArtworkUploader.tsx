@@ -641,7 +641,7 @@ export function ArtworkUploader({
                     { key: "uncommon", label: "Uncommon", color: "bg-green-500" },
                     { key: "common", label: "Common", color: "bg-muted-foreground" }
                   ].map(({ key, label, color }) => {
-                    const count = traitStats.rarityCount[key] || 0;
+                    const count = traitStats.rarityCount[key as keyof typeof traitStats.rarityCount] || 0;
                     const percentage = traitStats.totalTraits > 0
                       ? (count / traitStats.totalTraits) * 100
                       : 0;
@@ -978,30 +978,33 @@ export function ArtworkUploader({
                 <div className="flex gap-4 p-4 flex-1 overflow-auto">
                   <div className="w-[160px] shrink-0">
                     <div className="aspect-square rounded-xl overflow-hidden border-2 border-primary/30 bg-muted/20">
-                      {art.imageUrl ? <img src={art.imageUrl} alt={art.name} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-12 h-12 text-muted-foreground/30" /></div>}
+                      {art.imageUrl ? <img src={art.imageUrl} alt={art.name} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-muted-foreground" /></div>}
                     </div>
                     <p className="text-[10px] text-muted-foreground text-center mt-1">#{idx + 1} of {artworks.length}</p>
                   </div>
                   <div className="flex-1 space-y-3">
-                    <div className="space-y-1.5"><Label className="text-xs">Name</Label><Input value={art.name} onChange={e => updateArtwork(art.id, { name: e.target.value })} placeholder="Artwork name" className="text-sm" /></div>
-                    <div className="space-y-1.5"><Label className="text-xs">Description</Label><Textarea value={art.description || ''} onChange={e => updateArtwork(art.id, { description: e.target.value })} placeholder="Description (optional)" className="text-sm min-h-[72px]" rows={3} /></div>
+                    <div className="space-y-1.5"><Label className="text-xs">Name</Label><Input value={art.name} onChange={e => updateArtwork(art.id, { name: e.target.value })} placeholder="Artwork name" className="h-8 text-sm" /></div>
+                    <div className="space-y-1.5"><Label className="text-xs">Description</Label><Textarea value={art.description || ''} onChange={e => updateArtwork(art.id, { description: e.target.value })} placeholder="Description (optional)" className="text-sm min-h-[60px]" rows={2} /></div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs flex items-center gap-1"><Tag className="w-3 h-3" />Trait Attributes</Label>
-                        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => updateArtwork(art.id, { attributes: [...(art.attributes || []), { trait_type: '', value: '' }] })}><Plus className="w-3 h-3 mr-1" />Add</Button>
+                        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => updateArtwork(art.id, { attributes: [...(art.attributes || []), { trait_type: '', value: '' }] })}>
+                          <Plus className="w-3 h-3 mr-1" />
+                          Add
+                        </Button>
                       </div>
                       {(art.attributes || []).map((attr, i) => (
                         <div key={i} className="flex gap-2 items-center">
-                          <Input value={attr.trait_type} onChange={e => { const a = [...(art.attributes || [])]; a[i] = { ...attr, trait_type: e.target.value }; updateArtwork(art.id, { attributes: a }); }} placeholder="Trait type" className="h-7 text-xs flex-1" />
-                          <Input value={attr.value} onChange={e => { const a = [...(art.attributes || [])]; a[i] = { ...attr, value: e.target.value }; updateArtwork(art.id, { attributes: a }); }} placeholder="Value" className="h-7 text-xs flex-1" />
+                          <Input value={attr.trait_type} onChange={e => { const a = [...(art.attributes || [])]; a[i] = { ...attr, trait_type: e.target.value }; updateArtwork(art.id, { attributes: a }); }} placeholder="Trait type" className="h-7 text-xs" />
+                          <Input value={attr.value} onChange={e => { const a = [...(art.attributes || [])]; a[i] = { ...attr, value: e.target.value }; updateArtwork(art.id, { attributes: a }); }} placeholder="Value" className="h-7 text-xs" />
                           <Select value={attr.rarity || 'common'} onValueChange={v => { const a = [...(art.attributes || [])]; a[i] = { ...attr, rarity: v as TraitAttribute['rarity'] }; updateArtwork(art.id, { attributes: a }); }}>
                             <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent><SelectItem value="common">Common</SelectItem><SelectItem value="uncommon">Uncommon</SelectItem><SelectItem value="rare">Rare</SelectItem><SelectItem value="epic">Epic</SelectItem><SelectItem value="legendary">Legendary</SelectItem></SelectContent>
                           </Select>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { const a = (art.attributes || []).filter((_, j) => j !== i); updateArtwork(art.id, { attributes: a }); }}><X className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { const a = (art.attributes || []).filter((_, j) => j !== i); updateArtwork(art.id, { attributes: a }); }}><X className="w-4 h-4" /></Button>
                         </div>
                       ))}
-                      {(!art.attributes || art.attributes.length === 0) && <p className="text-xs text-muted-foreground text-center py-2 border border-dashed border-border/50 rounded-lg">No traits yet — click Add to start</p>}
+                      {(!art.attributes || art.attributes.length === 0) && <p className="text-xs text-muted-foreground text-center py-2 border border-dashed border-border/50 rounded-lg">No traits added yet</p>}
                     </div>
                     <Button size="sm" className="w-full" onClick={() => setEditingId(null)}><Check className="w-4 h-4 mr-2" />Done Editing</Button>
                   </div>
