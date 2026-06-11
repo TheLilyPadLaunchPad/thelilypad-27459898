@@ -251,6 +251,8 @@ Deno.serve(async (req) => {
       // Multi-phase config (persisted to collections.phases for the UI)
       phases,
     } = payload;
+    collectionIdForError = collectionId;
+    paymentSignatureForRefund = deployPaymentSignature;
 
     if (!collectionId || !creatorAddress || !name) {
       return fail(phase, new Error("Missing required parameters (collectionId, creatorAddress, name)"), 400);
