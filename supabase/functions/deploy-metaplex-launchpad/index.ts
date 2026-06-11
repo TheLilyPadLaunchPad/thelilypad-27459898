@@ -369,6 +369,7 @@ Deno.serve(async (req) => {
           throw new Error("Pre-payment memo missing protocol tag");
         }
         console.log(`[verify-payment] ok ${sigStr} ${info.lamports} lamports`);
+        paymentVerified = true;
       } catch (e) {
         return fail(phase, e, 402);
       }
