@@ -192,6 +192,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   let phase = "init";
+  let paymentVerified = false;
+  let paymentSignatureForRefund: string | undefined;
+  let collectionIdForError: string | undefined;
+  let supabaseServiceRoleOuter: any = null;
   try {
     // Auth
     phase = "auth";
@@ -209,6 +213,21 @@ Deno.serve(async (req) => {
     phase = "payload";
     const payload = await req.json();
     const network: "devnet" | "mainnet" = payload.network === "mainnet" ? "mainnet" : "devnet";
+
+    // Preflight: client checks network is configured BEFORE asking the
+    // creator to sign the deploy-fee transaction.
+    if (payload.preflight === true) {
+      const devKeyP = Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY");
+      const mainKeyP = Deno.env.get("TREASURY_PRIVATE_KEY");
+      const keyAvailable = network === "mainnet" ? !!mainKeyP : !!devKeyP;
+      return ok({
+        preflight: true,
+        network,
+        keyAvailable,
+        rpcProvider: Deno.env.get("HELIUS_API_KEY") ? "helius" : "public",
+      });
+    }
+
     const {
       collectionId,
       name,
