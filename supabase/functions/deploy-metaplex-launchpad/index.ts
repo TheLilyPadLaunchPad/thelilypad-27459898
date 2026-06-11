@@ -280,30 +280,44 @@ Deno.serve(async (req) => {
     // Ownership
     phase = "ownership";
     const supabaseServiceRole = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    supabaseServiceRoleOuter = supabaseServiceRole;
     const { data: existingCollection, error: ownershipError } = await supabaseServiceRole
       .from("collections").select("creator_id").eq("id", collectionId).maybeSingle();
     if (ownershipError) return fail(phase, ownershipError, 500);
     if (!existingCollection) return fail(phase, new Error("Collection not found"), 404);
     if (existingCollection.creator_id !== user.id) return fail(phase, new Error("Forbidden: not the collection owner"), 403);
 
-    // Treasury keypair — if only the devnet key is configured, force network to devnet
-    // so we never try to broadcast on mainnet with a devnet-only treasury.
+    // Treasury keypair — STRICT per-network. No silent devnet fallback:
+    // if mainnet key is missing on a mainnet deploy we MUST reject before
+    // any creator SOL is committed (client preflight should catch this).
     phase = "treasury";
     const devKey = Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY");
     const mainKey = Deno.env.get("TREASURY_PRIVATE_KEY");
-    let effectiveNetwork: "devnet" | "mainnet" = network;
-    if (effectiveNetwork === "mainnet" && !mainKey && devKey) {
-      console.warn("[treasury] no mainnet key configured; forcing network=devnet");
-      effectiveNetwork = "devnet";
+    const treasuryKey = network === "mainnet" ? mainKey : devKey;
+    if (!treasuryKey) {
+      return fail(
+        phase,
+        new Error(
+          network === "mainnet"
+            ? "Mainnet launches are temporarily disabled — platform treasury key not configured. No SOL was charged."
+            : "Devnet treasury key not configured.",
+        ),
+        503,
+      );
     }
-    const treasuryKey = effectiveNetwork === "devnet" ? (devKey || mainKey) : mainKey;
-    if (!treasuryKey) return fail(phase, new Error(`Treasury private key not configured for network: ${effectiveNetwork}`), 500);
+    const effectiveNetwork: "devnet" | "mainnet" = network;
 
-    // Umi
+    // Umi — prefer Helius (premium RPC) when configured. Public mainnet RPC
+    // is heavily rate-limited and routinely 429s the combined deploy tx.
     phase = "umi";
-    const rpcUrl = effectiveNetwork === "mainnet"
-      ? "https://api.mainnet-beta.solana.com"
-      : "https://api.devnet.solana.com";
+    const heliusKey = Deno.env.get("HELIUS_API_KEY");
+    const rpcUrl = heliusKey
+      ? (effectiveNetwork === "mainnet"
+          ? `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`
+          : `https://devnet.helius-rpc.com/?api-key=${heliusKey}`)
+      : (effectiveNetwork === "mainnet"
+          ? "https://api.mainnet-beta.solana.com"
+          : "https://api.devnet.solana.com");
     const umi = createUmi(rpcUrl).use(mplCore()).use(mplCandyMachine()).use(mplToolbox());
     const keypair = umi.eddsa.createKeypairFromSecretKey(bs58.decode(treasuryKey));
     umi.use(keypairIdentity(keypair));
