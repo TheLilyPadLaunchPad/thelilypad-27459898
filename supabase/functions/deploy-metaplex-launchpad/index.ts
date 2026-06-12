@@ -19,6 +19,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { createUmi } from "npm:@metaplex-foundation/umi-bundle-defaults@0.9.2";
 import {
   keypairIdentity,
+  createSignerFromKeypair,
   publicKey,
   some,
   sol,
@@ -378,20 +379,25 @@ Deno.serve(async (req) => {
     }
 
 
-    // Collection signer (optional vanity)
+    // Collection signer (optional vanity).
+    // IMPORTANT: createCollection requires a Umi `Signer`, NOT a raw `Keypair`.
+    // A Keypair lacks `signTransaction`, so passing it directly causes
+    // "missing required signature for instruction" on CreateCollectionV2.
     phase = "collection-keypair";
-    let collectionSigner;
+    let collectionKeypair;
     if (collectionSecretKey) {
       const secret = bs58.decode(collectionSecretKey);
       if (secret.length !== 64) return fail(phase, new Error(`Invalid collectionSecretKey length ${secret.length}`), 400);
-      collectionSigner = umi.eddsa.createKeypairFromSecretKey(secret);
-      if (collectionPublicKey && collectionSigner.publicKey !== collectionPublicKey) {
+      collectionKeypair = umi.eddsa.createKeypairFromSecretKey(secret);
+      if (collectionPublicKey && collectionKeypair.publicKey !== collectionPublicKey) {
         return fail(phase, new Error("collectionPublicKey does not match supplied secret"), 400);
       }
     } else {
-      collectionSigner = umi.eddsa.generateKeypair();
+      collectionKeypair = umi.eddsa.generateKeypair();
     }
+    const collectionSigner = createSignerFromKeypair(umi, collectionKeypair);
     console.log(`[deploy] collection=${collectionSigner.publicKey} network=${network}`);
+    console.log(`[deploy] signers · identity=${umi.identity.publicKey} treasury=${treasuryAddress} collection=${collectionSigner.publicKey}`);
 
     // Plugins
     phase = "plugins";
@@ -404,6 +410,7 @@ Deno.serve(async (req) => {
     phase = "build-collection";
     let builder = createCollection(umi, {
       collection: collectionSigner,
+      updateAuthority: umi.identity.publicKey,
       name,
       uri: collectionUri || "",
       plugins: pluginPayload,
@@ -491,6 +498,12 @@ Deno.serve(async (req) => {
     // instead of being masked. Add jitter between batches to dodge mainnet
     // RPC rate limits when called repeatedly.
     phase = "send";
+    try {
+      const required = builder.items.flatMap((it: any) => it.signers || []);
+      const uniq = Array.from(new Set(required.map((s: any) => String(s.publicKey))));
+      console.log(`[deploy] required signers (${uniq.length}): ${uniq.join(", ")}`);
+      console.log(`[deploy] identity signer: ${umi.identity.publicKey}`);
+    } catch (_) { /* debug-only */ }
     console.log(`[deploy] phase=send · combined tx (collection + candy machine + guard + wrap)`);
     const { signature } = await builder.sendAndConfirm(umi, {
       send: { skipPreflight: false },
