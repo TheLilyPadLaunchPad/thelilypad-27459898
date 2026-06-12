@@ -19,6 +19,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { createUmi } from "npm:@metaplex-foundation/umi-bundle-defaults@0.9.2";
 import {
   keypairIdentity,
+  createSignerFromKeypair,
   publicKey,
   some,
   sol,
