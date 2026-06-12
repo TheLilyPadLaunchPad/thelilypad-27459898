@@ -406,6 +406,86 @@ Deno.serve(async (req) => {
       creator: String(frontendCreatorPubkey),
     });
 
+    // ─── PREFLIGHT AUTHORITY VALIDATION ──────────────────────────────────────
+    // Catch InvalidAuthority (mpl-core 0x9) before sending to chain. The
+    // collection is created with updateAuthority = umi.identity. Every signing
+    // surface must match the intended treasury identity, and any plugin that
+    // carries an `authority` or `verified` flag must reference a signer that
+    // is actually present in the transaction.
+    phase = "preflight-authority";
+    {
+      const intendedAuthority = String(umi.identity.publicKey);
+      const collectionAuthority = String(collectionSigner.publicKey);
+      const expectedTreasury = String(treasuryAddress);
+      const signerSet = new Set([intendedAuthority, collectionAuthority]);
+
+      console.log(`[preflight] intendedUpdateAuthority=${intendedAuthority}`);
+      console.log(`[preflight] collectionSigner=${collectionAuthority}`);
+      console.log(`[preflight] expectedTreasury=${expectedTreasury}`);
+      console.log(`[preflight] signers in tx: ${[...signerSet].join(", ")}`);
+
+      if (intendedAuthority !== expectedTreasury) {
+        return fail(
+          "preflight-authority",
+          new Error(
+            `Identity / treasury mismatch — umi.identity=${intendedAuthority} but TREASURY_PRIVATE_KEY resolves to ${expectedTreasury}. Refusing to build CreateCollectionV2.`,
+          ),
+          500,
+        );
+      }
+      if (!collectionAuthority || collectionAuthority === intendedAuthority) {
+        return fail(
+          "preflight-authority",
+          new Error(`Collection signer must be a distinct fresh keypair (got ${collectionAuthority || "<empty>"}).`),
+          400,
+        );
+      }
+      if (typeof (collectionSigner as any).signTransaction !== "function") {
+        return fail(
+          "preflight-authority",
+          new Error("collectionSigner is not a valid Umi Signer — missing signTransaction()."),
+          500,
+        );
+      }
+
+      // Sanitize plugin authorities + verified flags. Any value that points at
+      // a non-signer triggers on-chain InvalidAuthority (0x9). This is the
+      // root cause of the CreateCollectionV2 failure seen in production logs.
+      for (const plugin of pluginPayload) {
+        if (plugin?.authority?.address) {
+          const a = String(plugin.authority.address);
+          if (!signerSet.has(a)) {
+            console.warn(`[preflight] stripping plugin authority ${a} on ${plugin.type} (not a signer) → defaulting to UpdateAuthority`);
+            delete plugin.authority;
+          }
+        }
+        if (plugin.type === "VerifiedCreators" && Array.isArray(plugin.signatures)) {
+          plugin.signatures = plugin.signatures.map((s: any) => {
+            const addr = String(s.address);
+            if (s.verified && !signerSet.has(addr)) {
+              console.warn(`[preflight] VerifiedCreators: forcing verified=false for non-signer ${addr}`);
+              return { address: s.address, verified: false };
+            }
+            return s;
+          });
+        }
+        if (plugin.type === "Royalties" && Array.isArray(plugin.creators)) {
+          // Royalties creators do NOT need to sign, but any stray `verified`
+          // field gets rejected by mpl-core. Strip it.
+          plugin.creators = plugin.creators.map((cr: any) => ({
+            address: cr.address,
+            percentage: cr.percentage,
+          }));
+          const totalPct = plugin.creators.reduce((sum: number, cr: any) => sum + Number(cr.percentage || 0), 0);
+          if (totalPct !== 100) {
+            console.warn(`[preflight] Royalties creators percentage sum=${totalPct} ≠ 100, normalizing to single fallback`);
+            plugin.creators = [{ address: publicKey(String(frontendCreatorPubkey)), percentage: 100 }];
+          }
+        }
+      }
+      console.log(`[preflight] plugin authority validation passed (${pluginPayload.length} plugins)`);
+    }
+
     // 1) Create collection
     phase = "build-collection";
     let builder = createCollection(umi, {
