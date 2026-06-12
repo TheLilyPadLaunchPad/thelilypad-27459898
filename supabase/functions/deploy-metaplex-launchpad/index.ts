@@ -498,6 +498,12 @@ Deno.serve(async (req) => {
     // instead of being masked. Add jitter between batches to dodge mainnet
     // RPC rate limits when called repeatedly.
     phase = "send";
+    try {
+      const required = builder.items.flatMap((it: any) => it.signers || []);
+      const uniq = Array.from(new Set(required.map((s: any) => String(s.publicKey))));
+      console.log(`[deploy] required signers (${uniq.length}): ${uniq.join(", ")}`);
+      console.log(`[deploy] identity signer: ${umi.identity.publicKey}`);
+    } catch (_) { /* debug-only */ }
     console.log(`[deploy] phase=send · combined tx (collection + candy machine + guard + wrap)`);
     const { signature } = await builder.sendAndConfirm(umi, {
       send: { skipPreflight: false },
