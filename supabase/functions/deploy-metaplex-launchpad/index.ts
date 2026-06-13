@@ -407,20 +407,42 @@ Deno.serve(async (req) => {
     });
 
     // ─── PREFLIGHT AUTHORITY VALIDATION ──────────────────────────────────────
-    // Catch InvalidAuthority (mpl-core 0x9) before sending to chain. The
-    // collection is created with updateAuthority = umi.identity. Every signing
-    // surface must match the intended treasury identity, and any plugin that
-    // carries an `authority` or `verified` flag must reference a signer that
-    // is actually present in the transaction.
+    // Catch InvalidAuthority (mpl-core 0x9) before sending to chain. Core
+    // CreateCollectionV2 has no owner account; it accepts only:
+    //   [collection signer, updateAuthority, payer signer, systemProgram].
+    // Therefore any collection authority surface must resolve to the wallet
+    // that is actually signing as payer/update authority (the treasury identity).
     phase = "preflight-authority";
     {
       const intendedAuthority = String(umi.identity.publicKey);
-      const collectionAuthority = String(collectionSigner.publicKey);
+      const updateAuthority = intendedAuthority;
+      const payerAuthority = String((umi.payer as any)?.publicKey || umi.identity.publicKey);
+      const collectionAccount = String(collectionSigner.publicKey);
       const expectedTreasury = String(treasuryAddress);
-      const signerSet = new Set([intendedAuthority, collectionAuthority]);
+      const signerSet = new Set([intendedAuthority, payerAuthority, collectionAccount]);
+      const authorityManagedCollectionPlugins = new Set([
+        "Royalties",
+        "Attributes",
+        "VerifiedCreators",
+        "UpdateDelegate",
+        "ImmutableMetadata",
+        "AddBlocker",
+      ]);
+      const createOnlyCollectionPlugins = new Set([
+        "PermanentFreezeDelegate",
+        "PermanentTransferDelegate",
+        "PermanentBurnDelegate",
+        "BubblegumV2",
+        "Edition",
+        "PermanentFreezeExecute",
+      ]);
 
-      console.log(`[preflight] intendedUpdateAuthority=${intendedAuthority}`);
-      console.log(`[preflight] collectionSigner=${collectionAuthority}`);
+      console.log(`[preflight] umi.identity.publicKey=${intendedAuthority}`);
+      console.log(`[preflight] collectionSigner.publicKey=${collectionAccount}`);
+      console.log(`[preflight] collection authority=${updateAuthority}`);
+      console.log(`[preflight] update authority=${updateAuthority}`);
+      console.log(`[preflight] owner authority=<none: Core collections do not have an owner account>`);
+      console.log(`[preflight] payer authority=${payerAuthority}`);
       console.log(`[preflight] expectedTreasury=${expectedTreasury}`);
       console.log(`[preflight] signers in tx: ${[...signerSet].join(", ")}`);
 
@@ -433,10 +455,19 @@ Deno.serve(async (req) => {
           500,
         );
       }
-      if (!collectionAuthority || collectionAuthority === intendedAuthority) {
+      if (payerAuthority !== intendedAuthority) {
         return fail(
           "preflight-authority",
-          new Error(`Collection signer must be a distinct fresh keypair (got ${collectionAuthority || "<empty>"}).`),
+          new Error(
+            `Payer / update authority mismatch — payer=${payerAuthority} but updateAuthority=${intendedAuthority}. CreateCollectionV2 must be signed by the same wallet used as update authority.`,
+          ),
+          500,
+        );
+      }
+      if (!collectionAccount || collectionAccount === intendedAuthority) {
+        return fail(
+          "preflight-authority",
+          new Error(`Collection signer must be a distinct fresh keypair (got ${collectionAccount || "<empty>"}).`),
           400,
         );
       }
@@ -448,22 +479,48 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Sanitize plugin authorities + verified flags. Any value that points at
-      // a non-signer triggers on-chain InvalidAuthority (0x9). This is the
-      // root cause of the CreateCollectionV2 failure seen in production logs.
-      for (const plugin of pluginPayload) {
-        if (plugin?.authority?.address) {
-          const a = String(plugin.authority.address);
-          if (!signerSet.has(a)) {
-            console.warn(`[preflight] stripping plugin authority ${a} on ${plugin.type} (not a signer) → defaulting to UpdateAuthority`);
-            delete plugin.authority;
-          }
+      // Sanitize collection plugin authorities. Owner-managed plugin authority
+      // is invalid for collections because CreateCollectionV2 has no owner.
+      // Address authority is also unsafe here unless it resolves to the signing
+      // update authority account; normalize it to UpdateAuthority to keep the
+      // authority relationship unambiguous for mpl-core.
+      for (let i = pluginPayload.length - 1; i >= 0; i--) {
+        const plugin = pluginPayload[i];
+        const type = String(plugin?.type || "");
+        const isAuthorityManaged = authorityManagedCollectionPlugins.has(type);
+        const isCreateOnly = createOnlyCollectionPlugins.has(type);
+
+        if (!isAuthorityManaged && !isCreateOnly) {
+          console.warn(`[preflight] removing ${type || "<unknown>"} plugin: not valid on Core collections / no collection owner authority`);
+          pluginPayload.splice(i, 1);
+          continue;
         }
+
+        const auth = plugin.authority;
+        const authType = auth?.type || auth?.__kind || (auth?.address ? "Address" : undefined);
+        const authAddress = auth?.address ? String(auth.address) : undefined;
+
+        console.log(`[preflight] plugin ${type} authority=${authType || "<default>"}${authAddress ? `:${authAddress}` : ""}`);
+
+        if (isAuthorityManaged) {
+          if (authType === "Owner") {
+            console.warn(`[preflight] ${type}: Owner authority is invalid for collections → using UpdateAuthority ${updateAuthority}`);
+          } else if (authType === "Address" && authAddress !== updateAuthority) {
+            console.warn(`[preflight] ${type}: Address authority ${authAddress} is not the signing update authority → using UpdateAuthority ${updateAuthority}`);
+          } else if (authType === "None") {
+            console.warn(`[preflight] ${type}: None authority is invalid for authority-managed collection plugin → using UpdateAuthority ${updateAuthority}`);
+          }
+          plugin.authority = { type: "UpdateAuthority" };
+        } else if (authType === "Owner" || (authType === "Address" && authAddress && !signerSet.has(authAddress))) {
+          console.warn(`[preflight] ${type}: removing invalid create-only authority ${authType}${authAddress ? `:${authAddress}` : ""}`);
+          delete plugin.authority;
+        }
+
         if (plugin.type === "VerifiedCreators" && Array.isArray(plugin.signatures)) {
           plugin.signatures = plugin.signatures.map((s: any) => {
             const addr = String(s.address);
-            if (s.verified && !signerSet.has(addr)) {
-              console.warn(`[preflight] VerifiedCreators: forcing verified=false for non-signer ${addr}`);
+            if (s.verified && addr !== updateAuthority) {
+              console.warn(`[preflight] VerifiedCreators: forcing verified=false for ${addr}; only updateAuthority ${updateAuthority} signs CreateCollectionV2`);
               return { address: s.address, verified: false };
             }
             return s;
@@ -488,9 +545,10 @@ Deno.serve(async (req) => {
 
     // 1) Create collection
     phase = "build-collection";
+    const collectionUpdateAuthority = umi.identity.publicKey;
     let builder = createCollection(umi, {
       collection: collectionSigner,
-      updateAuthority: umi.identity.publicKey,
+      updateAuthority: collectionUpdateAuthority,
       name,
       uri: collectionUri || "",
       plugins: pluginPayload,
