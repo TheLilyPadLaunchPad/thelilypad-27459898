@@ -64,6 +64,64 @@ const fail = (phase: string, error: unknown, status = 500) => {
   );
 };
 
+// ─── Transaction simulation helper ──────────────────────────────────────────
+// Runs a dry-run against the RPC BEFORE the user is committed to the on-chain
+// state change. Lets us catch InvalidAuthority / insufficient-funds / program
+// errors without burning fees and without leaving the caller in limbo.
+// Returns { ok: true } on success, or { ok: false, error, logs } on failure.
+async function simulateUmiBuilder(
+  umi: any,
+  builder: any,
+  rpcUrl: string,
+  label: string,
+): Promise<{ ok: true } | { ok: false; error: string; logs: string[] }> {
+  try {
+    const tx = await builder.buildAndSign(umi);
+    const serialized = umi.transactions.serialize(tx);
+    const base64 = btoa(String.fromCharCode(...serialized));
+    const res = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "simulateTransaction",
+        params: [
+          base64,
+          {
+            encoding: "base64",
+            commitment: "processed",
+            sigVerify: false,
+            replaceRecentBlockhash: true,
+          },
+        ],
+      }),
+    }).then((r) => r.json());
+
+    const value = res?.result?.value;
+    const logs: string[] = Array.isArray(value?.logs) ? value.logs.slice(-50) : [];
+    if (value?.err) {
+      const errStr = typeof value.err === "string" ? value.err : JSON.stringify(value.err);
+      console.error(`[simulate:${label}] FAILED err=${errStr}`);
+      logs.forEach((l) => console.error(`[simulate:${label}] ${l}`));
+      return { ok: false, error: `Simulation failed: ${errStr}`, logs };
+    }
+    if (res?.error) {
+      console.error(`[simulate:${label}] RPC error ${JSON.stringify(res.error)}`);
+      return { ok: false, error: `RPC error: ${res.error?.message || JSON.stringify(res.error)}`, logs };
+    }
+    const cu = value?.unitsConsumed;
+    console.log(`[simulate:${label}] ok · CU=${cu ?? "?"} logs=${logs.length}`);
+    return { ok: true };
+  } catch (e: any) {
+    const msg = e?.message || String(e);
+    console.error(`[simulate:${label}] exception ${msg}`);
+    return { ok: false, error: `Simulation exception: ${msg}`, logs: [] };
+  }
+}
+
+
+
 // ─── Plugin builder ─────────────────────────────────────────────────────────
 type PluginCfg = { enabled: boolean; config?: Record<string, any> } | undefined;
 function buildCollectionPlugins(
