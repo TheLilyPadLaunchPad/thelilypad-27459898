@@ -478,6 +478,13 @@ Deno.serve(async (req) => {
           500,
         );
       }
+      if (await umi.rpc.accountExists(collectionSigner.publicKey, { commitment: "confirmed" })) {
+        return fail(
+          "preflight-authority",
+          new Error(`Collection account ${collectionAccount} already exists on-chain. Generate a fresh collection address before deploying.`),
+          409,
+        );
+      }
 
       // Sanitize collection plugin authorities. Owner-managed plugin authority
       // is invalid for collections because CreateCollectionV2 has no owner.
@@ -519,8 +526,8 @@ Deno.serve(async (req) => {
         if (plugin.type === "VerifiedCreators" && Array.isArray(plugin.signatures)) {
           plugin.signatures = plugin.signatures.map((s: any) => {
             const addr = String(s.address);
-            if (s.verified && addr !== updateAuthority) {
-              console.warn(`[preflight] VerifiedCreators: forcing verified=false for ${addr}; only updateAuthority ${updateAuthority} signs CreateCollectionV2`);
+            if (s.verified) {
+              console.warn(`[preflight] VerifiedCreators: forcing verified=false for ${addr}; CreateCollectionV2 only signs as collection/update/payer, not as a separate creator verifier`);
               return { address: s.address, verified: false };
             }
             return s;
