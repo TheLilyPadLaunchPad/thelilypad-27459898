@@ -125,23 +125,33 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [connection]);
 
-  const ensureSupabaseSession = useCallback(async (walletAddress: string, walletType: string) => {
+  const ensureSupabaseSession = useCallback(async (walletAddress: string) => {
     try {
+      // Bail if we already have a Supabase session for this wallet.
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session || session.user?.user_metadata?.wallet_address !== walletAddress) {
-        const { error } = await supabase.auth.signInAnonymously({
-          options: { data: { wallet_address: walletAddress, wallet_type: walletType } }
-        });
-        if (error) {
-          console.error('Supabase anonymous sign-in failed:', error);
-        } else {
-          console.log('Established Supabase session for wallet:', walletAddress);
-        }
+      const existingAddr =
+        (session?.user?.user_metadata as any)?.address ??
+        (session?.user?.user_metadata as any)?.wallet_address;
+      if (session && existingAddr === walletAddress) return;
+
+      // Need the Reown Solana provider to sign the SIWS message.
+      if (!reownProvider || !(reownProvider as any).publicKey) {
+        console.warn('[Auth] Reown Solana provider not ready yet — will retry on next sync.');
+        return;
+      }
+
+      const { signInWithSolana } = await import('@/auth/supabaseWeb3');
+      const result = await signInWithSolana(reownProvider as any);
+      if (!result.ok) {
+        console.error('[Auth] Solana SIWS failed:', result.error);
+        toast.error('Wallet sign-in failed. Please try again.');
+      } else {
+        console.log('[Auth] Supabase Web3 session established for', result.address);
       }
     } catch (err) {
       console.error('Error ensuring Supabase session:', err);
     }
-  }, []);
+  }, [reownProvider]);
 
   // Sync Reown State to our Internal App State
   useEffect(() => {
