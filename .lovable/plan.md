@@ -1,73 +1,91 @@
-# Plan: Migrate to Supabase Web3 (Solana) Auth via Reown AppKit
 
-## Goal
-Replace the current custom wallet-based auth (which only stores `wallet_address` on `user_profiles` and has no real Supabase session) with **Supabase `signInWithWeb3({ chain: 'solana' })`** so every authenticated request carries a real Supabase JWT and `auth.uid()` works in RLS.
+# Migrate from Lovable Cloud → External Supabase Project
 
-The Solana wallet signing comes from **Reown AppKit** (already wired in `src/integrations/reown/appkit.ts`), not Phantom directly.
+Goal: move the backend off Lovable Cloud onto your own Supabase project so you can enable **Authentication → Providers → Web3 (Solana)** in the Supabase dashboard, which Lovable Cloud doesn't expose.
 
-## What stays the same
-- Reown AppKit modal & connection flow (UI unchanged).
-- `user_profiles`, `user_roles`, profile setup pages.
-- All collection / NFT / launchpad logic.
-- Wallet address still drives on-chain actions (Irys funding, mint txs, etc.).
+This is a one-way move. Once disconnected from Cloud for this project, you can't reattach Cloud to it. Plan a maintenance window — users will need to re-sign in.
 
-## What changes
+---
 
-### 1. Supabase config
-- Enable **Web3 provider (Solana)** in Auth → Providers. *(Requires one manual toggle in the Cloud UI — I'll surface a clear callout; the API does not expose this toggle.)*
-- Set site URL / additional redirect URLs to current preview + published domains.
+## Phase 1 — Create the external Supabase project
 
-### 2. New auth bridge
-- New file `src/auth/supabaseWeb3.ts` exposing:
-  - `signInWithSolana()` — pulls the active Solana account + signer from Reown's AppKit provider, calls `supabase.auth.signInWithWeb3({ chain: 'solana', statement: 'Sign in to The Lily Pad' })`, returns the new session.
-  - `signOutWeb3()` — `supabase.auth.signOut()` + Reown `disconnect()`.
-- Wire it into the existing Reown connect callback: after wallet connects, automatically attempt sign-in (idempotent — skip if `supabase.auth.getSession()` already returns a session for the same address).
+1. Sign up / log in at https://supabase.com.
+2. **New project** → pick org, name (`the-lily-pad-prod`), strong DB password (save in 1Password), region close to your users.
+3. Wait for provisioning (~2 min).
+4. In **Project Settings → API**, copy:
+   - Project URL
+   - `anon` (publishable) key
+   - `service_role` key (server-only, never in `src/`)
+5. In **Project Settings → Database**, copy the connection string (you'll need it for `pg_dump`/`psql`).
 
-### 3. AuthProvider rewrite (`src/providers/AuthProvider.tsx`)
-- Drive state from `supabase.auth.onAuthStateChange` **plus** wallet connection (both must be true → AUTHENTICATED).
-- New state ordering: `DISCONNECTED → CONNECTING_WALLET → WALLET_CONNECTED → SIGNING_IN → LOADING_PROFILE → (NEEDS_PROFILE | AUTHENTICATED)`.
-- `walletAddress` now derives from `session.user.user_metadata.address` as source of truth (cross-checked against Reown).
-- Keep `useIsAdmin` but switch its query to use `auth.uid()` directly.
+## Phase 2 — Export everything from Lovable Cloud
 
-### 4. Database migration
-- Add `auth_user_id uuid` (unique, nullable initially) on `user_profiles` → backfill by upserting an `auth.users` row per existing wallet *(not possible retroactively without users re-signing in)*; new rows populated on first Web3 sign-in via a trigger on `auth.users`:
-  ```sql
-  CREATE FUNCTION public.handle_new_web3_user() ...
-    -- when raw_app_meta_data->>'provider' = 'web3' and chain = 'solana'
-    -- upsert user_profiles by wallet_address, set auth_user_id = new.id
-  ```
-- Rewrite RLS policies on user-owned tables to use `auth.uid() = (SELECT auth_user_id FROM user_profiles WHERE id = <fk>)` via a `SECURITY DEFINER` helper `public.current_profile_id()`.
-- Replace `wallet_owns_profile(profile_uuid, wallet_addr)` callers with `auth.uid()`-based checks.
-- Keep legacy wallet-address columns for display / on-chain ops.
+Lovable Cloud doesn't offer `pg_dump` or full DB dumps. You have two options:
 
-### 5. Edge functions
-- Add shared helper `supabase/functions/_shared/auth.ts` that calls `supabase.auth.getClaims(token)` and resolves `profile_id`.
-- Update every function that currently trusts an `x-wallet-address` header (audit list below) to instead require a valid JWT and derive wallet from the linked profile.
-- Functions touched (initial sweep): `deploy-metaplex-launchpad`, `deploy-candy-machine`, `refund-deploy-payment`, `moderation-*`, `tipping`, `marketplace-*`, `shop-purchase`. Full list confirmed during implementation.
+**Option A (recommended):** Contact Lovable support and request a one-time full DB dump for migration. Mention you're moving to self-hosted Supabase. They can provide a `pg_dump` artifact.
 
-### 6. UI
-- `Auth.tsx` becomes a single "Connect Wallet" → automatic sign-message → done flow (Reown modal opens, then a second wallet popup for the SIWS message).
-- `ProtectedRoute` checks `supabase.auth.getSession()` instead of localStorage `walletConnected`.
-- Sign-out button calls `signOutWeb3()`.
+**Option B (DIY, schema-only + CSV data):**
+- **Schema:** rebuild from your `supabase/migrations/` folder — every migration that ran on Cloud is checked into the repo and will replay cleanly on the new project.
+- **Data:** export each table to CSV from Cloud → Database → Tables → ⋯ → Download as CSV. Save under `migration-data/<table>.csv`.
+- **Storage buckets:** for each bucket (`avatars`, `collection-images`, `collection-drafts`, `channel-emotes`, `stream-thumbnails`, `collection-audio`, `ipfs`, `shop-items`) download all files (Supabase CLI: `supabase storage cp ss:///bucket ./bucket -r`). You may need a temporary Cloud API key from support.
+- **Edge function source** is already in `supabase/functions/` in the repo.
+- **Secrets:** list with `fetch_secrets` and re-add them to the new project manually (you cannot read existing values).
 
-### 7. Cleanup
-- Delete `src/auth/authMachine.ts` reducer events that no longer apply.
-- Remove `user_nonces` table (custom nonce flow replaced by SIWS handled by Supabase).
-- Remove any `x-wallet-address` header signing in client code.
+## Phase 3 — Provision the new project
 
-## Technical notes
-- `signInWithWeb3` for Solana expects an object implementing `{ address, signMessage }`. Reown AppKit exposes this through `getProvider('solana')` → we'll wrap it once in `supabaseWeb3.ts`.
-- Existing sessions: users will be signed out on deploy and must re-connect once to mint a Supabase JWT. Profiles persist (matched by `wallet_address`).
-- Admin role check: `has_role(auth.uid(), 'admin')` — admins must re-sign-in once to get their JWT linked.
+On the new external Supabase project, in order:
 
-## Rollout order
-1. DB migration (add `auth_user_id`, trigger, helper fn) — non-breaking, keeps old policies.
-2. Ship `supabaseWeb3.ts` + AuthProvider rewrite + UI changes.
-3. Flip RLS policies to `auth.uid()`-based (breaking — requires step 2 deployed).
-4. Update edge functions.
-5. Remove legacy `wallet_owns_profile` helpers, `user_nonces`, header-based auth.
+1. **Run migrations**
+   - Install Supabase CLI locally.
+   - `supabase link --project-ref <NEW_PROJECT_REF>`
+   - `supabase db push` — replays everything in `supabase/migrations/`.
+   - Confirm `public.user_profiles.auth_user_id`, `current_profile_id()`, `handle_new_web3_user()` trigger exist.
+2. **Recreate storage buckets** with matching names and public/private flags (see existing list). Upload files from Phase 2.
+3. **Recreate edge functions:** `supabase functions deploy <name>` for each function under `supabase/functions/`.
+4. **Re-add secrets** in Supabase dashboard → Edge Functions → Secrets: `HELIUS_API_KEY`, `PINATA_JWT`, `REOWN_API_KEY`, `TREASURY_PRIVATE_KEY`, `DEVNET_TREASURY_PRIVATE_KEY`, `L3AP_MINT_SECRET_KEY`, `LOVABLE_API_KEY` (only if you keep using Lovable AI Gateway), etc. Skip the auto-managed `SUPABASE_*` ones — Supabase populates those itself.
+5. **Load data:** for each CSV from Phase 2, `\copy public.<table> FROM 'migration-data/<table>.csv' CSV HEADER` via `psql`. Order matters — load tables with no FKs first, then dependents. For `auth.users`, restore from the support dump (Option A) — CSV import of `auth.users` is not reliable on DIY.
 
-## Open questions before I start
-1. Web3 provider toggle in Supabase Auth — can you flip it in the Cloud UI now, or should I pause after step 1 and wait?
-2. Are you OK with all current users being forced to re-connect their wallet once (no data loss, just a fresh sign-in)?
-3. Should I keep the existing custom `/profile-setup` flow, or move profile creation into the post-sign-in callback?
+## Phase 4 — Enable Web3 (Solana) auth
+
+In the **new** Supabase dashboard:
+
+1. **Authentication → Providers → Web3 (Solana)** → toggle **Enabled** → Save.
+2. **Authentication → URL Configuration** → set Site URL to `https://thelilypad.lovable.app` and add Redirect URLs for preview + custom domains.
+3. (Optional) keep Email/Google providers configured as before.
+
+## Phase 5 — Disconnect Lovable Cloud and point the app at the new project
+
+1. In Lovable: **Connectors → Lovable Cloud → Disable Cloud** (this disables Cloud for future projects; the current project keeps its env vars until step 3).
+2. Update `.env` / Lovable project secrets:
+   - `VITE_SUPABASE_URL` → new project URL
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` → new `anon` key
+   - `VITE_SUPABASE_PROJECT_ID` → new ref
+3. Replace `src/integrations/supabase/types.ts` by regenerating: `supabase gen types typescript --project-id <NEW_REF> > src/integrations/supabase/types.ts`.
+4. Verify the client in `src/integrations/supabase/client.ts` still works — it reads from env, so no code change needed.
+5. Smoke-test: connect wallet via Reown → `signInWithSolana()` should now succeed (no more 422) → check `supabase.auth.getSession()` returns a real JWT → confirm `auth.uid()` is populated and RLS-protected queries work.
+
+## Phase 6 — Resume the migration plan
+
+With Web3 auth live, continue the previously-planned Phases 3–5 of the SIWS migration:
+- Rewrite remaining RLS policies to use `current_profile_id()` / `auth.uid()`.
+- Update every edge function to validate JWTs via `supabase.auth.getClaims()` instead of trusting `x-wallet-address` headers.
+- Drop legacy `user_nonces`, `signInAnonymously` path, and header-based auth.
+
+---
+
+## Costs & trade-offs
+
+- **You take over billing.** Supabase Pro is ~$25/mo per project plus usage.
+- **You lose Lovable Cloud UI conveniences** (one-click migrations from chat, integrated secrets, Cloud status). You'll manage them in the Supabase dashboard.
+- **AI Gateway:** `LOVABLE_API_KEY` still works from edge functions hosted anywhere, so Lovable AI usage continues.
+- **Rollback:** not possible after Phase 5 step 1. Make a final Cloud DB CSV export as a backup before disabling.
+
+## Effort estimate
+
+~4–8 hours of focused work, longer if you go with Option B (DIY data export) and have large storage buckets.
+
+## Open questions
+
+1. Do you want to request a full DB dump from Lovable support (Option A) or go DIY (Option B)?
+2. Are you OK forcing all existing users to re-sign-in (they keep wallet + profile data, just new session)?
+3. Which Supabase region should the new project live in?
