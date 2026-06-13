@@ -141,11 +141,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
 
-      const result = await signInWithSolana(reownProvider as any);
-      if (result.ok) {
+      const result: any = await signInWithSolana(reownProvider as any);
+      if (result?.ok) {
         console.log('[Auth] Supabase Web3 session established for', result.address);
       } else {
-        console.error('[Auth] Solana SIWS failed:', result.error);
+        console.error('[Auth] Solana SIWS failed:', result?.error);
         toast.error('Wallet sign-in failed. Please try again.');
       }
     } catch (err) {
