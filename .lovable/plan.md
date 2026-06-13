@@ -1,69 +1,86 @@
-# Mainnet Launchpad Deploy Failure — Root Cause & Fix
+# Metaplex Core Compliance Remediation Plan
 
-## What happened to the tester
+Closes the three blockers raised in the audit so the project can claim a complete Metaplex Core launchpad (target compliance 9/10).
 
-The Solscan tx is **only the pre-payment** (0.00575 SOL + protocol memo `TheLilyPad:v1:launchpad:deploy_collection`) from the artist's wallet to the platform treasury `2cS7yyypbtxQ4qBdZRYtXDEDTQJZK34h4RPmXxz4sKHk`. No collection / Candy Machine / guard transactions exist on-chain. That confirms the edge function `deploy-metaplex-launchpad` failed before broadcasting, but the fee was already paid → SOL gone, no NFT.
+## 1. Transaction simulation in edge functions
 
-## Root cause
+Add a mandatory dry‑run before any SOL is spent or DB row marked deployed.
 
-In `supabase/functions/deploy-metaplex-launchpad/index.ts` (phase `treasury`, lines 270–290):
+- In `supabase/functions/deploy-metaplex-launchpad/index.ts`, insert a new phase `simulate` between `preflight-authority` and `send`:
+  - Build the `createCollection` tx with the umi builder, then call `umi.rpc.call("simulateTransaction", ...)` (via `@solana/web3.js` `Connection.simulateTransaction` against the same RPC endpoint) with `sigVerify: false, replaceRecentBlockhash: true, commitment: "processed"`.
+  - Parse `value.err` and `value.logs`. On any error, return `{ ok:false, phase:"simulate", error, logs, refundable:true, paymentSignature }` so the existing refund flow (`refund-deploy-payment`) reverses the SOL charge.
+  - Repeat the same pattern for the Candy Machine `create` tx and the first `addConfigLines` batch.
+- Add the same simulation step to `supabase/functions/deploy-candy-machine/index.ts` (and any other function that sends a user‑funded tx — audit list during implementation).
+- Cap simulation compute‑unit logs to last ~50 lines before returning, to keep response payload small.
 
-```ts
-const devKey = Deno.env.get("DEVNET_TREASURY_PRIVATE_KEY");
-const mainKey = Deno.env.get("TREASURY_PRIVATE_KEY");
-let effectiveNetwork = network;
-if (effectiveNetwork === "mainnet" && !mainKey && devKey) {
-  console.warn("[treasury] no mainnet key configured; forcing network=devnet");
-  effectiveNetwork = "devnet";
-}
+## 2. Core Asset marketplace — deploy `escrow_program`
+
+The Anchor source already exists at `anchor/escrow_program/` but uses a placeholder ID and is not deployed.
+
+Steps:
+
+1. **Fix the program**
+   - Replace placeholder `declare_id!("Escrow11111…")` with a real keypair‑derived program ID (generated via `solana-keygen new -o target/deploy/escrow_program-keypair.json`).
+   - Convert `escrow_account` to a PDA seeded by `[b"escrow", asset.key()]` (currently `init` with no seeds — unsafe).
+   - Add a `cancel_listing` instruction (seller reclaims authority, closes escrow).
+   - In `purchase`, route a 2.5% cut to the platform treasury (matches `PLATFORM_FEE_BPS`) and emit an SPL memo `TheLilyPad:v1:marketplace_buy`.
+   - Replace direct lamport mutation with `system_program::transfer` CPI (safer, supports buyer = non‑PDA).
+2. **Build & deploy**
+   - `anchor build` → produces `.so` + IDL.
+   - Deploy to devnet first, then mainnet, using the platform deploy keypair (kept in `TREASURY_PRIVATE_KEY` secret — never in `src/`).
+   - Store the deployed program ID in a new edge‑function secret `ESCROW_PROGRAM_ID` and surface it to the client via a small `get-config` edge function (no secret leaks).
+3. **Client integration**
+   - Replace stubs in `src/hooks/useEscrowProgram.ts` and `src/hooks/useMarketplaceContract.ts` with real Anchor calls using `@coral-xyz/anchor` + the deployed IDL (`anchor/escrow_program/idl/escrow_program.json`).
+   - Wire `listItem`, `cancelListing`, `purchaseItem` to actual on‑chain instructions; keep the existing `nft_listings` DB rows as an index/cache only (source of truth = chain).
+   - Add a Helius webhook listener (new edge function `marketplace-indexer`) that updates `nft_listings.status` on `initialize_listing` / `purchase` / `cancel_listing` events.
+4. **Buyback pool hardening (bonus, same PR)**
+   - Add an on‑chain authority check: wrap the buyback wallet in a tiny PDA‑gated program OR — minimal change — restrict withdrawals to a multisig (Squads) and store the multisig address in `buyback_pool` table. Document in `docs/buyback.md`.
+
+## 3. Legacy code cleanup
+
+Remove the dead Token Metadata + EVM artifacts that confuse the audit, **without** breaking the active Monad chain support (Monad still uses ERC‑721 — that stays).
+
+Delete / quarantine:
+
+- `src/config/theLilyPad.ts` (legacy EVM contract constants, all stubs returning `""` / `false`).
+- `src/config/nftContract.ts` and the EVM‑only fields in `src/config/nftFactory.ts` (keep IPFS helpers, drop `NFT_FACTORY_ADDRESS` / `isFactoryConfigured`).
+- `src/hooks/useVerifyTheLilyPad.ts` (references the dead Lily Pad ERC‑721).
+- `contracts/TheLilyPad.sol`, `TheLilyPadUpgradeable.sol`, `SimpleLilyPadNFT.sol`, `LilyPadNFT.sol` — replaced by Metaplex Core. Keep `BuybackController.sol`, `LilyPadToken.sol`, `LilyPadGovernor.sol`, `LilyPadTimelock.sol`, `LilyPadMarketplace.sol` (Monad side).
+- Any Token‑Metadata (`mpl-token-metadata`) imports in edge functions — confirm with `rg "mpl-token-metadata" supabase/functions` and remove unused branches. The unified deploy path is Core only.
+- Update `src/chains/index.ts` and `src/chains/solana/*` to drop legacy re‑exports surfaced by the deletions.
+
+Add a single source‑of‑truth doc `docs/metaplex-standards.md` stating: **Solana = Metaplex Core only. Monad = ERC‑721A.** Audit script `scripts/check-no-legacy.ts` (grep for forbidden imports) wired into CI as a sanity guard.
+
+## Technical details
+
+```text
+deploy-metaplex-launchpad phases (new):
+  validate → upload → preflight-authority → simulate → send → confirm → finalize
+                                              ^^^^^^^^ NEW
+                                              on fail → refund
 ```
 
-Project secrets contain `DEVNET_TREASURY_PRIVATE_KEY` but **no `TREASURY_PRIVATE_KEY`**. On a mainnet deploy the function silently flips to devnet, then:
+Files touched (high‑level):
 
-1. Queries `https://api.devnet.solana.com` for the mainnet payment signature.
-2. `getTransaction` returns null → `fail("verify-payment", "Pre-payment transaction not found on-chain", 402)`.
-3. The fee is non-refundable as written — the artist loses SOL with zero on-chain deploy.
-
-Secondary issues that compound the failure on mainnet even after fixing the key:
-
-- RPC is hardcoded to public `https://api.mainnet-beta.solana.com`, which is rate-limited and routinely 429s combined Core + Candy Machine + Guard + wrap txs. We already use Helius elsewhere.
-- The frontend treats any non-2xx as "deploy failed" but never refunds the prepayment.
-- The function never logs/persists the failure phase to the collection row, so testers see only a toast.
-
-## Fix
-
-### 1. Edge function (`supabase/functions/deploy-metaplex-launchpad/index.ts`)
-
-- Add `MAINNET_HELIUS_RPC_URL` / `HELIUS_API_KEY` resolution; when present use `https://mainnet.helius-rpc.com/?api-key=...` for both `verify-payment` and Umi.
-- Remove the silent devnet fallback. If `network === "mainnet"` and `TREASURY_PRIVATE_KEY` is missing, **fail BEFORE the client sends the prepayment is impossible**, so we add a preflight in the frontend (see #2). Server-side, return `fail("treasury", "Mainnet treasury key not configured — contact support", 503)` immediately — and DO NOT touch network, so client knows to refund.
-- On any failure after `verify-payment` succeeded, return a structured `{ ok:false, phase, error, refundable:true, paymentSignature }` so the client can issue a refund.
-- Persist `last_deploy_error` (phase + message) to `collections` row when we have one.
-
-### 2. Frontend (`src/pages/LaunchpadCreate.tsx`, `src/lib/launchpad/deployCost.ts`)
-
-- New preflight edge function call `deploy-metaplex-launchpad?preflight=1` (or just a `GET` health) that returns whether the requested network is supported. Run it BEFORE `sendDeployPayment` so we never charge the artist on a misconfigured backend.
-- If the deploy call returns `refundable:true`, automatically call a new edge function `refund-deploy-payment` that sends an equivalent SOL transfer back from the platform treasury → creator, with memo `TheLilyPad:v1:launchpad:refund_deploy:cid=…:ref=<origSig>`. Surface the refund signature in the toast.
-- Show the failing `phase` and message in the deploy modal (already returned from edge function) so testers can report meaningful errors.
-
-### 3. New edge function `refund-deploy-payment`
-
-- Verifies the original payment tx exists, came from `creatorAddress`, went to treasury, has the protocol memo, and that no refund memo already exists for that signature.
-- Sends `lamports` back to creator from the treasury key, attaches the refund memo.
-- Idempotent — caches refunded signatures in a new `deploy_refunds` table (sig PK).
-
-### 4. Secret / config
-
-- Document that `TREASURY_PRIVATE_KEY` (mainnet) is required for mainnet launches. Until it's set, the preflight in #2 blocks mainnet deploys with a clear "Mainnet launches temporarily disabled" message — no SOL is ever taken.
-
-## For this specific tester
-
-After deploying #3, manually invoke `refund-deploy-payment` with their signature `33cHBu5jj1brRvXzBFWmh9GpdbsJWQMDZv5657a57fYd6UNSUVgcS4xWXMHj47DMsu9YW5aCJTfxK1G3R1uJS7Mo` to return the 0.00575 SOL. (Or admin-process via psql + a one-off script.)
+- `supabase/functions/deploy-metaplex-launchpad/index.ts` (+ simulate phase)
+- `supabase/functions/deploy-candy-machine/index.ts` (+ simulate phase)
+- `supabase/functions/marketplace-indexer/index.ts` (new)
+- `supabase/functions/get-config/index.ts` (new, returns `ESCROW_PROGRAM_ID`)
+- `anchor/escrow_program/src/lib.rs` (PDA seeds, fee cut, cancel ix, memo, CPI)
+- `anchor/escrow_program/idl/escrow_program.json` (regenerated)
+- `src/hooks/useEscrowProgram.ts`, `src/hooks/useMarketplaceContract.ts` (real Anchor)
+- Delete: `src/config/theLilyPad.ts`, `src/hooks/useVerifyTheLilyPad.ts`, `src/config/nftContract.ts`, 4 legacy `.sol` files
+- New: `docs/metaplex-standards.md`, `scripts/check-no-legacy.ts`
+- New secret: `ESCROW_PROGRAM_ID`
 
 ## Out of scope
 
-- Changing the artist-pays-rent model itself.
-- Migrating Candy Machine to a different program.
+- New marketplace UI design (use existing `Marketplace.tsx` shell).
+- Migrating existing test‑net `nft_listings` rows (drop & re‑seed on devnet).
+- Squads multisig provisioning — documented but operator action required.
 
----
+## Open questions before I build
 
-**One thing I need from you before building:** Do you have a mainnet treasury private key ready to add as the `TREASURY_PRIVATE_KEY` secret? If yes, I'll wire up the secret prompt as part of the build. If no, the preflight will simply block mainnet deploys until you provide one (devnet keeps working).
+1. **Escrow deploy keypair** — should I generate a fresh devnet keypair and have you fund + provide the secret, or do you already have a program keypair you want reused?
+2. **Buyback hardening** — accept the lightweight "multisig wallet + DB record" path, or do you want the full custom guard program (larger scope)?
+3. Want me to keep the Token‑Metadata UI option in the launchpad wizard (hidden flag) for future use, or remove it entirely?

@@ -64,6 +64,64 @@ const fail = (phase: string, error: unknown, status = 500) => {
   );
 };
 
+// ─── Transaction simulation helper ──────────────────────────────────────────
+// Runs a dry-run against the RPC BEFORE the user is committed to the on-chain
+// state change. Lets us catch InvalidAuthority / insufficient-funds / program
+// errors without burning fees and without leaving the caller in limbo.
+// Returns { ok: true } on success, or { ok: false, error, logs } on failure.
+async function simulateUmiBuilder(
+  umi: any,
+  builder: any,
+  rpcUrl: string,
+  label: string,
+): Promise<{ ok: true } | { ok: false; error: string; logs: string[] }> {
+  try {
+    const tx = await builder.buildAndSign(umi);
+    const serialized = umi.transactions.serialize(tx);
+    const base64 = btoa(String.fromCharCode(...serialized));
+    const res = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "simulateTransaction",
+        params: [
+          base64,
+          {
+            encoding: "base64",
+            commitment: "processed",
+            sigVerify: false,
+            replaceRecentBlockhash: true,
+          },
+        ],
+      }),
+    }).then((r) => r.json());
+
+    const value = res?.result?.value;
+    const logs: string[] = Array.isArray(value?.logs) ? value.logs.slice(-50) : [];
+    if (value?.err) {
+      const errStr = typeof value.err === "string" ? value.err : JSON.stringify(value.err);
+      console.error(`[simulate:${label}] FAILED err=${errStr}`);
+      logs.forEach((l) => console.error(`[simulate:${label}] ${l}`));
+      return { ok: false, error: `Simulation failed: ${errStr}`, logs };
+    }
+    if (res?.error) {
+      console.error(`[simulate:${label}] RPC error ${JSON.stringify(res.error)}`);
+      return { ok: false, error: `RPC error: ${res.error?.message || JSON.stringify(res.error)}`, logs };
+    }
+    const cu = value?.unitsConsumed;
+    console.log(`[simulate:${label}] ok · CU=${cu ?? "?"} logs=${logs.length}`);
+    return { ok: true };
+  } catch (e: any) {
+    const msg = e?.message || String(e);
+    console.error(`[simulate:${label}] exception ${msg}`);
+    return { ok: false, error: `Simulation exception: ${msg}`, logs: [] };
+  }
+}
+
+
+
 // ─── Plugin builder ─────────────────────────────────────────────────────────
 type PluginCfg = { enabled: boolean; config?: Record<string, any> } | undefined;
 function buildCollectionPlugins(
@@ -639,10 +697,33 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ─── SIMULATE (dry-run before any state change) ──────────────────────────
+    // If simulation fails, the on-chain create would also fail. Surface the
+    // error here so the existing refund flow can reverse the SOL pre-payment
+    // before we burn rent on a doomed CreateCollectionV2.
+    phase = "simulate";
+    {
+      const sim = await simulateUmiBuilder(umi, builder, rpcUrl, "create-collection+cm+guard");
+      if (!sim.ok) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            phase,
+            error: sim.error,
+            logs: sim.logs,
+            refundable: true,
+            paymentSignature: deployPaymentSignature || null,
+          }),
+          { status: 400, headers: jsonHeaders },
+        );
+      }
+    }
+
     // Send — `skipPreflight: false` so real on-chain errors surface in logs
     // instead of being masked. Add jitter between batches to dodge mainnet
     // RPC rate limits when called repeatedly.
     phase = "send";
+
     try {
       const required = builder.items.flatMap((it: any) => it.signers || []);
       const uniq = Array.from(new Set(required.map((s: any) => String(s.publicKey))));
@@ -674,16 +755,28 @@ Deno.serve(async (req) => {
         for (let i = 0; i < validated.length; i += BATCH) {
           const batch = validated.slice(i, i + BATCH);
           console.log(`[deploy] phase=insert-items · batch ${i / BATCH + 1} (${i}-${i + batch.length})`);
-          await addConfigLines(umi, { candyMachine: cmPubkey, index: i, configLines: batch })
+          const aclBuilder = addConfigLines(umi, { candyMachine: cmPubkey, index: i, configLines: batch })
             .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
-            .add(setComputeUnitLimit(umi, { units: 800_000 }))
-            .sendAndConfirm(umi, { send: { skipPreflight: false }, confirm: { commitment: "confirmed" } });
+            .add(setComputeUnitLimit(umi, { units: 800_000 }));
+          // Dry-run the FIRST batch only — subsequent batches are identical-shape
+          // and would just waste RPC calls. A first-batch failure is enough to
+          // signal a misconfigured candy machine.
+          if (i === 0) {
+            const sim = await simulateUmiBuilder(umi, aclBuilder, rpcUrl, `addConfigLines#${i}`);
+            if (!sim.ok) {
+              insertError = sim.error;
+              console.error(`[insert] simulate failed at batch 0: ${sim.error}`);
+              break;
+            }
+          }
+          await aclBuilder.sendAndConfirm(umi, { send: { skipPreflight: false }, confirm: { commitment: "confirmed" } });
           itemsLoaded = i + batch.length;
           // 250ms jitter between batches to avoid mainnet RPC rate-limit.
           if (i + BATCH < validated.length) {
             await new Promise((r) => setTimeout(r, 250));
           }
         }
+
 
       } catch (e: any) {
         insertError = e?.message || String(e);
