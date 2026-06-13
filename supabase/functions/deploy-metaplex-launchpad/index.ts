@@ -755,16 +755,28 @@ Deno.serve(async (req) => {
         for (let i = 0; i < validated.length; i += BATCH) {
           const batch = validated.slice(i, i + BATCH);
           console.log(`[deploy] phase=insert-items · batch ${i / BATCH + 1} (${i}-${i + batch.length})`);
-          await addConfigLines(umi, { candyMachine: cmPubkey, index: i, configLines: batch })
+          const aclBuilder = addConfigLines(umi, { candyMachine: cmPubkey, index: i, configLines: batch })
             .add(setComputeUnitPrice(umi, { microLamports: 100_000 }))
-            .add(setComputeUnitLimit(umi, { units: 800_000 }))
-            .sendAndConfirm(umi, { send: { skipPreflight: false }, confirm: { commitment: "confirmed" } });
+            .add(setComputeUnitLimit(umi, { units: 800_000 }));
+          // Dry-run the FIRST batch only — subsequent batches are identical-shape
+          // and would just waste RPC calls. A first-batch failure is enough to
+          // signal a misconfigured candy machine.
+          if (i === 0) {
+            const sim = await simulateUmiBuilder(umi, aclBuilder, rpcUrl, `addConfigLines#${i}`);
+            if (!sim.ok) {
+              insertError = sim.error;
+              console.error(`[insert] simulate failed at batch 0: ${sim.error}`);
+              break;
+            }
+          }
+          await aclBuilder.sendAndConfirm(umi, { send: { skipPreflight: false }, confirm: { commitment: "confirmed" } });
           itemsLoaded = i + batch.length;
           // 250ms jitter between batches to avoid mainnet RPC rate-limit.
           if (i + BATCH < validated.length) {
             await new Promise((r) => setTimeout(r, 250));
           }
         }
+
 
       } catch (e: any) {
         insertError = e?.message || String(e);
