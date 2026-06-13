@@ -3449,6 +3449,7 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          auth_user_id: string | null
           avatar_url: string | null
           banner_url: string | null
           bio: string | null
@@ -3476,6 +3477,7 @@ export type Database = {
           wallet_address: string
         }
         Insert: {
+          auth_user_id?: string | null
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
@@ -3503,6 +3505,7 @@ export type Database = {
           wallet_address: string
         }
         Update: {
+          auth_user_id?: string | null
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
@@ -3784,6 +3787,7 @@ export type Database = {
         Args: { patch: Json; reason?: string; target_user_id: string }
         Returns: undefined
       }
+      current_profile_id: { Args: never; Returns: string }
       get_admin_audit_feed: {
         Args: { limit_count?: number }
         Returns: {
