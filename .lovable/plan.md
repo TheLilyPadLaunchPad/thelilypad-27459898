@@ -1,86 +1,73 @@
-# Metaplex Core Compliance Remediation Plan
+# Plan: Migrate to Supabase Web3 (Solana) Auth via Reown AppKit
 
-Closes the three blockers raised in the audit so the project can claim a complete Metaplex Core launchpad (target compliance 9/10).
+## Goal
+Replace the current custom wallet-based auth (which only stores `wallet_address` on `user_profiles` and has no real Supabase session) with **Supabase `signInWithWeb3({ chain: 'solana' })`** so every authenticated request carries a real Supabase JWT and `auth.uid()` works in RLS.
 
-## 1. Transaction simulation in edge functions
+The Solana wallet signing comes from **Reown AppKit** (already wired in `src/integrations/reown/appkit.ts`), not Phantom directly.
 
-Add a mandatory dry‑run before any SOL is spent or DB row marked deployed.
+## What stays the same
+- Reown AppKit modal & connection flow (UI unchanged).
+- `user_profiles`, `user_roles`, profile setup pages.
+- All collection / NFT / launchpad logic.
+- Wallet address still drives on-chain actions (Irys funding, mint txs, etc.).
 
-- In `supabase/functions/deploy-metaplex-launchpad/index.ts`, insert a new phase `simulate` between `preflight-authority` and `send`:
-  - Build the `createCollection` tx with the umi builder, then call `umi.rpc.call("simulateTransaction", ...)` (via `@solana/web3.js` `Connection.simulateTransaction` against the same RPC endpoint) with `sigVerify: false, replaceRecentBlockhash: true, commitment: "processed"`.
-  - Parse `value.err` and `value.logs`. On any error, return `{ ok:false, phase:"simulate", error, logs, refundable:true, paymentSignature }` so the existing refund flow (`refund-deploy-payment`) reverses the SOL charge.
-  - Repeat the same pattern for the Candy Machine `create` tx and the first `addConfigLines` batch.
-- Add the same simulation step to `supabase/functions/deploy-candy-machine/index.ts` (and any other function that sends a user‑funded tx — audit list during implementation).
-- Cap simulation compute‑unit logs to last ~50 lines before returning, to keep response payload small.
+## What changes
 
-## 2. Core Asset marketplace — deploy `escrow_program`
+### 1. Supabase config
+- Enable **Web3 provider (Solana)** in Auth → Providers. *(Requires one manual toggle in the Cloud UI — I'll surface a clear callout; the API does not expose this toggle.)*
+- Set site URL / additional redirect URLs to current preview + published domains.
 
-The Anchor source already exists at `anchor/escrow_program/` but uses a placeholder ID and is not deployed.
+### 2. New auth bridge
+- New file `src/auth/supabaseWeb3.ts` exposing:
+  - `signInWithSolana()` — pulls the active Solana account + signer from Reown's AppKit provider, calls `supabase.auth.signInWithWeb3({ chain: 'solana', statement: 'Sign in to The Lily Pad' })`, returns the new session.
+  - `signOutWeb3()` — `supabase.auth.signOut()` + Reown `disconnect()`.
+- Wire it into the existing Reown connect callback: after wallet connects, automatically attempt sign-in (idempotent — skip if `supabase.auth.getSession()` already returns a session for the same address).
 
-Steps:
+### 3. AuthProvider rewrite (`src/providers/AuthProvider.tsx`)
+- Drive state from `supabase.auth.onAuthStateChange` **plus** wallet connection (both must be true → AUTHENTICATED).
+- New state ordering: `DISCONNECTED → CONNECTING_WALLET → WALLET_CONNECTED → SIGNING_IN → LOADING_PROFILE → (NEEDS_PROFILE | AUTHENTICATED)`.
+- `walletAddress` now derives from `session.user.user_metadata.address` as source of truth (cross-checked against Reown).
+- Keep `useIsAdmin` but switch its query to use `auth.uid()` directly.
 
-1. **Fix the program**
-   - Replace placeholder `declare_id!("Escrow11111…")` with a real keypair‑derived program ID (generated via `solana-keygen new -o target/deploy/escrow_program-keypair.json`).
-   - Convert `escrow_account` to a PDA seeded by `[b"escrow", asset.key()]` (currently `init` with no seeds — unsafe).
-   - Add a `cancel_listing` instruction (seller reclaims authority, closes escrow).
-   - In `purchase`, route a 2.5% cut to the platform treasury (matches `PLATFORM_FEE_BPS`) and emit an SPL memo `TheLilyPad:v1:marketplace_buy`.
-   - Replace direct lamport mutation with `system_program::transfer` CPI (safer, supports buyer = non‑PDA).
-2. **Build & deploy**
-   - `anchor build` → produces `.so` + IDL.
-   - Deploy to devnet first, then mainnet, using the platform deploy keypair (kept in `TREASURY_PRIVATE_KEY` secret — never in `src/`).
-   - Store the deployed program ID in a new edge‑function secret `ESCROW_PROGRAM_ID` and surface it to the client via a small `get-config` edge function (no secret leaks).
-3. **Client integration**
-   - Replace stubs in `src/hooks/useEscrowProgram.ts` and `src/hooks/useMarketplaceContract.ts` with real Anchor calls using `@coral-xyz/anchor` + the deployed IDL (`anchor/escrow_program/idl/escrow_program.json`).
-   - Wire `listItem`, `cancelListing`, `purchaseItem` to actual on‑chain instructions; keep the existing `nft_listings` DB rows as an index/cache only (source of truth = chain).
-   - Add a Helius webhook listener (new edge function `marketplace-indexer`) that updates `nft_listings.status` on `initialize_listing` / `purchase` / `cancel_listing` events.
-4. **Buyback pool hardening (bonus, same PR)**
-   - Add an on‑chain authority check: wrap the buyback wallet in a tiny PDA‑gated program OR — minimal change — restrict withdrawals to a multisig (Squads) and store the multisig address in `buyback_pool` table. Document in `docs/buyback.md`.
+### 4. Database migration
+- Add `auth_user_id uuid` (unique, nullable initially) on `user_profiles` → backfill by upserting an `auth.users` row per existing wallet *(not possible retroactively without users re-signing in)*; new rows populated on first Web3 sign-in via a trigger on `auth.users`:
+  ```sql
+  CREATE FUNCTION public.handle_new_web3_user() ...
+    -- when raw_app_meta_data->>'provider' = 'web3' and chain = 'solana'
+    -- upsert user_profiles by wallet_address, set auth_user_id = new.id
+  ```
+- Rewrite RLS policies on user-owned tables to use `auth.uid() = (SELECT auth_user_id FROM user_profiles WHERE id = <fk>)` via a `SECURITY DEFINER` helper `public.current_profile_id()`.
+- Replace `wallet_owns_profile(profile_uuid, wallet_addr)` callers with `auth.uid()`-based checks.
+- Keep legacy wallet-address columns for display / on-chain ops.
 
-## 3. Legacy code cleanup
+### 5. Edge functions
+- Add shared helper `supabase/functions/_shared/auth.ts` that calls `supabase.auth.getClaims(token)` and resolves `profile_id`.
+- Update every function that currently trusts an `x-wallet-address` header (audit list below) to instead require a valid JWT and derive wallet from the linked profile.
+- Functions touched (initial sweep): `deploy-metaplex-launchpad`, `deploy-candy-machine`, `refund-deploy-payment`, `moderation-*`, `tipping`, `marketplace-*`, `shop-purchase`. Full list confirmed during implementation.
 
-Remove the dead Token Metadata + EVM artifacts that confuse the audit, **without** breaking the active Monad chain support (Monad still uses ERC‑721 — that stays).
+### 6. UI
+- `Auth.tsx` becomes a single "Connect Wallet" → automatic sign-message → done flow (Reown modal opens, then a second wallet popup for the SIWS message).
+- `ProtectedRoute` checks `supabase.auth.getSession()` instead of localStorage `walletConnected`.
+- Sign-out button calls `signOutWeb3()`.
 
-Delete / quarantine:
+### 7. Cleanup
+- Delete `src/auth/authMachine.ts` reducer events that no longer apply.
+- Remove `user_nonces` table (custom nonce flow replaced by SIWS handled by Supabase).
+- Remove any `x-wallet-address` header signing in client code.
 
-- `src/config/theLilyPad.ts` (legacy EVM contract constants, all stubs returning `""` / `false`).
-- `src/config/nftContract.ts` and the EVM‑only fields in `src/config/nftFactory.ts` (keep IPFS helpers, drop `NFT_FACTORY_ADDRESS` / `isFactoryConfigured`).
-- `src/hooks/useVerifyTheLilyPad.ts` (references the dead Lily Pad ERC‑721).
-- `contracts/TheLilyPad.sol`, `TheLilyPadUpgradeable.sol`, `SimpleLilyPadNFT.sol`, `LilyPadNFT.sol` — replaced by Metaplex Core. Keep `BuybackController.sol`, `LilyPadToken.sol`, `LilyPadGovernor.sol`, `LilyPadTimelock.sol`, `LilyPadMarketplace.sol` (Monad side).
-- Any Token‑Metadata (`mpl-token-metadata`) imports in edge functions — confirm with `rg "mpl-token-metadata" supabase/functions` and remove unused branches. The unified deploy path is Core only.
-- Update `src/chains/index.ts` and `src/chains/solana/*` to drop legacy re‑exports surfaced by the deletions.
+## Technical notes
+- `signInWithWeb3` for Solana expects an object implementing `{ address, signMessage }`. Reown AppKit exposes this through `getProvider('solana')` → we'll wrap it once in `supabaseWeb3.ts`.
+- Existing sessions: users will be signed out on deploy and must re-connect once to mint a Supabase JWT. Profiles persist (matched by `wallet_address`).
+- Admin role check: `has_role(auth.uid(), 'admin')` — admins must re-sign-in once to get their JWT linked.
 
-Add a single source‑of‑truth doc `docs/metaplex-standards.md` stating: **Solana = Metaplex Core only. Monad = ERC‑721A.** Audit script `scripts/check-no-legacy.ts` (grep for forbidden imports) wired into CI as a sanity guard.
+## Rollout order
+1. DB migration (add `auth_user_id`, trigger, helper fn) — non-breaking, keeps old policies.
+2. Ship `supabaseWeb3.ts` + AuthProvider rewrite + UI changes.
+3. Flip RLS policies to `auth.uid()`-based (breaking — requires step 2 deployed).
+4. Update edge functions.
+5. Remove legacy `wallet_owns_profile` helpers, `user_nonces`, header-based auth.
 
-## Technical details
-
-```text
-deploy-metaplex-launchpad phases (new):
-  validate → upload → preflight-authority → simulate → send → confirm → finalize
-                                              ^^^^^^^^ NEW
-                                              on fail → refund
-```
-
-Files touched (high‑level):
-
-- `supabase/functions/deploy-metaplex-launchpad/index.ts` (+ simulate phase)
-- `supabase/functions/deploy-candy-machine/index.ts` (+ simulate phase)
-- `supabase/functions/marketplace-indexer/index.ts` (new)
-- `supabase/functions/get-config/index.ts` (new, returns `ESCROW_PROGRAM_ID`)
-- `anchor/escrow_program/src/lib.rs` (PDA seeds, fee cut, cancel ix, memo, CPI)
-- `anchor/escrow_program/idl/escrow_program.json` (regenerated)
-- `src/hooks/useEscrowProgram.ts`, `src/hooks/useMarketplaceContract.ts` (real Anchor)
-- Delete: `src/config/theLilyPad.ts`, `src/hooks/useVerifyTheLilyPad.ts`, `src/config/nftContract.ts`, 4 legacy `.sol` files
-- New: `docs/metaplex-standards.md`, `scripts/check-no-legacy.ts`
-- New secret: `ESCROW_PROGRAM_ID`
-
-## Out of scope
-
-- New marketplace UI design (use existing `Marketplace.tsx` shell).
-- Migrating existing test‑net `nft_listings` rows (drop & re‑seed on devnet).
-- Squads multisig provisioning — documented but operator action required.
-
-## Open questions before I build
-
-1. **Escrow deploy keypair** — should I generate a fresh devnet keypair and have you fund + provide the secret, or do you already have a program keypair you want reused?
-2. **Buyback hardening** — accept the lightweight "multisig wallet + DB record" path, or do you want the full custom guard program (larger scope)?
-3. Want me to keep the Token‑Metadata UI option in the launchpad wizard (hidden flag) for future use, or remove it entirely?
+## Open questions before I start
+1. Web3 provider toggle in Supabase Auth — can you flip it in the Cloud UI now, or should I pause after step 1 and wait?
+2. Are you OK with all current users being forced to re-connect their wallet once (no data loss, just a fresh sign-in)?
+3. Should I keep the existing custom `/profile-setup` flow, or move profile creation into the post-sign-in callback?
