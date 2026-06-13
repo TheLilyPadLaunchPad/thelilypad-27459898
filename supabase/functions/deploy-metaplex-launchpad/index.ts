@@ -639,8 +639,11 @@ Deno.serve(async (req) => {
     try {
       const required = builder.items.flatMap((it: any) => it.signers || []);
       const uniq = Array.from(new Set(required.map((s: any) => String(s.publicKey))));
+      const actualSignerSet = new Set(uniq);
+      console.log(`[deploy] CreateCollectionV2 accounts · collection=${collectionSigner.publicKey} updateAuthority=${collectionUpdateAuthority} payer=${(umi.payer as any)?.publicKey || umi.identity.publicKey} owner=<none>`);
       console.log(`[deploy] required signers (${uniq.length}): ${uniq.join(", ")}`);
       console.log(`[deploy] identity signer: ${umi.identity.publicKey}`);
+      console.log(`[deploy] signer check · identityPresent=${actualSignerSet.has(String(umi.identity.publicKey))} collectionPresent=${actualSignerSet.has(String(collectionSigner.publicKey))} updateAuthorityIsIdentity=${String(collectionUpdateAuthority) === String(umi.identity.publicKey)}`);
     } catch (_) { /* debug-only */ }
     console.log(`[deploy] phase=send · combined tx (collection + candy machine + guard + wrap)`);
     const { signature } = await builder.sendAndConfirm(umi, {
