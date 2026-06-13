@@ -167,7 +167,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           isConnecting: false
         }));
         try { localStorage.setItem("walletConnected", "true"); } catch {}
-        await ensureSupabaseSession(reownAddress, 'reown');
+        await ensureSupabaseSession(reownAddress);
       } else {
         setState(prev => ({
           ...prev,
