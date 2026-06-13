@@ -697,10 +697,33 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ─── SIMULATE (dry-run before any state change) ──────────────────────────
+    // If simulation fails, the on-chain create would also fail. Surface the
+    // error here so the existing refund flow can reverse the SOL pre-payment
+    // before we burn rent on a doomed CreateCollectionV2.
+    phase = "simulate";
+    {
+      const sim = await simulateUmiBuilder(umi, builder, rpcUrl, "create-collection+cm+guard");
+      if (!sim.ok) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            phase,
+            error: sim.error,
+            logs: sim.logs,
+            refundable: true,
+            paymentSignature: deployPaymentSignature || null,
+          }),
+          { status: 400, headers: jsonHeaders },
+        );
+      }
+    }
+
     // Send — `skipPreflight: false` so real on-chain errors surface in logs
     // instead of being masked. Add jitter between batches to dodge mainnet
     // RPC rate limits when called repeatedly.
     phase = "send";
+
     try {
       const required = builder.items.flatMap((it: any) => it.signers || []);
       const uniq = Array.from(new Set(required.map((s: any) => String(s.publicKey))));
