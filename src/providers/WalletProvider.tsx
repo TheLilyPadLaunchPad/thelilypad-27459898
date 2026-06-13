@@ -5,6 +5,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { useChain } from "./ChainProvider";
 import { setStoredChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
+import { signInWithSolana } from "@/auth/supabaseWeb3";
 
 // Reown AppKit Imports
 import { createAppKit, useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
