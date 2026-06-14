@@ -3474,6 +3474,8 @@ export type Database = {
           social_youtube: string | null
           updated_at: string | null
           user_id: string | null
+          verification_attestation: string | null
+          verification_attestation_network: string | null
           wallet_address: string
         }
         Insert: {
@@ -3502,6 +3504,8 @@ export type Database = {
           social_youtube?: string | null
           updated_at?: string | null
           user_id?: string | null
+          verification_attestation?: string | null
+          verification_attestation_network?: string | null
           wallet_address: string
         }
         Update: {
@@ -3530,6 +3534,8 @@ export type Database = {
           social_youtube?: string | null
           updated_at?: string | null
           user_id?: string | null
+          verification_attestation?: string | null
+          verification_attestation_network?: string | null
           wallet_address?: string
         }
         Relationships: []

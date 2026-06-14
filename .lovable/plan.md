@@ -1,60 +1,63 @@
-## Full migration to external Supabase — swap-in plan
+# Plan: Solana Pay + Attestations integration
 
-You have: new empty Supabase project, URL + anon (publishable) key in hand, Web3 (Solana) provider already enabled. Goal: point this app at the new project so SIWS sign-in works end-to-end.
+You selected all four, but the prompt was 1–2. Picking the two with the highest leverage and least overlap with what's already built; the other two are noted at the bottom with the reason to defer.
 
-### Phase 1 — Push schema and storage to the new project (you, CLI)
+## What gets built
 
-The new project is empty. Before flipping any keys, the schema, RLS, functions, triggers, and storage buckets must exist on the new project. From your local clone:
+### 1. Solana Pay — tips & shop checkout
 
-```bash
-supabase link --project-ref <NEW_PROJECT_REF>
-supabase db push        # applies every file in supabase/migrations/
-```
+Solana Pay is a URL spec (`solana:<recipient>?amount=...&reference=...&label=...&message=...&memo=...`) plus a QR. Phantom/Backpack mobile scan it and prompt the user to sign. We already build raw `SystemProgram.transfer` txs with a `TheLilyPad:v1:<action>` memo — Solana Pay is the standards-compliant wrapper around the same intent, and unlocks the mobile-scan flow.
 
-Then recreate the 8 storage buckets that exist today (avatars, collection-images, collection-drafts, channel-emotes, stream-thumbnails, collection-audio, ipfs public; shop-items private) in the new project's dashboard → Storage. Bucket files themselves do not need to copy yet (project is pre-launch / empty).
+Where it plugs in:
+- **Tipping** (`buildTipCreatorTx` in `src/chains/solana/creator.ts`): add a sibling `buildTipCreatorPayUrl` that returns a `solana:` URL + QR. Tip modal gets a "Scan to tip" tab next to the existing connected-wallet button.
+- **Shop checkout** (`buildShopPurchaseTx` and friends in `src/chains/solana/shop.ts`): same treatment — desktop browsing, phone scans QR to pay.
+- **Reference key reconciliation**: each Pay URL gets a fresh `reference` pubkey. A new edge function `solana-pay-confirm` polls Helius for a tx containing that reference and writes to `earnings` / `shop_purchases` (same rows the connected-wallet flow writes). Avoids trusting client-reported tx sigs.
 
-Edge functions deploy automatically once the project is linked and we publish — no manual step needed from you for those.
+New files:
+- `src/chains/solana/solanaPay.ts` — URL builder, reference generator, QR data URL helper.
+- `src/components/payments/SolanaPayQR.tsx` — modal/inline QR + status poller.
+- `supabase/functions/solana-pay-confirm/index.ts` — polls Helius (`HELIUS_API_KEY` already exists), validates recipient + amount + memo + reference, inserts the matching row.
 
-### Phase 2 — You hand me the keys, I swap envs (me, one pass)
+Touch points:
+- `src/components/` tip modal (wherever `buildTipCreatorTx` is called) — add QR tab.
+- Shop checkout component — add QR tab.
 
-Once Phase 1 is done, send me:
-- `VITE_SUPABASE_URL` (e.g. `https://<ref>.supabase.co`)
-- `VITE_SUPABASE_PUBLISHABLE_KEY` (the anon key)
-- `VITE_SUPABASE_PROJECT_ID` (the ref alone)
+No DB schema changes. Reuses existing `earnings` and `shop_purchases` tables.
 
-I'll also need the **service_role key** added as a secret (separate, server-only) before edge functions will work against the new project — I'll request it via the secret tool when we reach Phase 4. You can grab it from Project Settings → API in the new dashboard.
+### 2. Solana Attestation Service — verified creator badge
 
-In a single change I will:
-1. Update the three `VITE_SUPABASE_*` values in `.env`.
-2. Regenerate `src/integrations/supabase/types.ts` against the new project.
-3. Verify `src/integrations/supabase/client.ts` still reads from `import.meta.env` (no edit needed — it already does).
+Replace the boolean `user_profiles.is_verified` flag with an on-chain attestation issued by a platform authority wallet when an admin approves a creator application (`promote_to_creator` flow already exists).
 
-### Phase 3 — Verify SIWS sign-in works
+- New schema in SAS: `LilyPadVerifiedCreator { wallet: pubkey, tier: u8, issued_at: i64 }`.
+- Admin approve action calls a new edge function `attest-creator` that signs and submits the attestation using the existing `TREASURY_PRIVATE_KEY` as the issuer (or a new dedicated key — see Open question).
+- Store the attestation pubkey on `user_profiles.verification_attestation` (new column) so the UI can deep-link to a SAS explorer.
+- Profile badge component reads the column and shows "Verified on-chain" with a link; verification check on sensitive actions (e.g. high-tier shop listing) fetches the attestation on-chain rather than trusting the DB boolean.
 
-With the new URL/anon key live and the Web3 provider already on:
-- Open the preview, click connect wallet → sign message.
-- Expected: `supabase.auth.signInWithWeb3` returns a session, `auth.uid()` is set, `handle_new_web3_user()` trigger creates a `user_profiles` shell row.
+New files:
+- `src/chains/solana/attestations.ts` — SAS schema registration helper + read helpers.
+- `supabase/functions/attest-creator/index.ts` — issues attestation, returns pubkey, updates row.
+- `supabase/functions/revoke-attestation/index.ts` — admin-only revoke.
 
-If sign-in 422s, that's the Web3 toggle not actually on — re-check the dashboard. If it 401s with "Invalid API key", the anon key is wrong.
+Touch points:
+- `src/pages/admin/AdminDashboard.tsx` (creator approval) — call the new function after `promote_to_creator`.
+- Verified badge component — show on-chain link.
+- One-time bootstrap script `scripts/register-sas-schema.ts` to deploy the schema (run once per network).
 
-### Phase 4 — Wire edge functions to the new project
+## Technical details
 
-Edge functions read `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_DB_URL`, `SUPABASE_JWKS` as runtime secrets. All six currently point at Lovable Cloud. I will request the new values via the secrets tool (you paste them once each); then redeploy any function we test (admin-users, verify-solana-tx, content-moderation, etc.).
+- **Solana Pay**: use `@solana/pay` (`encodeURL`, `createQR`). Add as a dependency.
+- **SAS**: use `sas-lib` (Solana Attestation Service SDK). Add as a dependency.
+- **Networks**: both must respect the existing devnet/mainnet toggle in `src/config/solana.ts`. SAS schema is registered separately per network.
+- **Issuer key**: edge functions use a server-held keypair. Reusing `TREASURY_PRIVATE_KEY` is simplest but couples attestation revocation to treasury rotation — see Open question.
+- **Confirmation polling**: `solana-pay-confirm` runs a 60s polling loop with backoff via Helius `getSignaturesForAddress(reference)`. Times out → user sees "Not detected yet, refresh" — they can also retry manually.
 
-### Phase 5 — Clean up legacy auth code
+## What I'm NOT building (and why)
 
-Now that Supabase JWTs are the source of truth, remove the wallet-only fallbacks that exist in case auth was missing:
-- `useIsAdmin` already gates on `supabase.auth.getUser()` — keep.
-- Audit RLS policies that still match on `wallet_address` (instead of `auth.uid()` via `current_profile_id()`) and tighten them. List comes from the linter.
-- Drop the `user_nonces` table if SIWS replaced the custom nonce flow (confirm with you before dropping).
+- **Kora paymaster** — Requires running and SOL-funding a separate paymaster service. Real ongoing infra cost + a non-trivial server to host. Worth doing once user volume justifies it; not now.
+- **Commerce Kit** — Prebuilt React components that overlap almost entirely with what's already in `src/components/` for shop, tips, mint. Adopting it would be a refactor, not a feature gain.
 
-### Technical notes
+If you want either of these anyway, say so and I'll re-plan.
 
-- `src/integrations/supabase/client.ts` is auto-generated normally, but on a full migration it's safe to leave as-is — it already reads env vars. Only `.env` and `types.ts` change.
-- `supabase/config.toml` `project_id` will update automatically when you `supabase link`.
-- The `reference-supabase-auth/` folder is unrelated sample code, untouched.
-- 17 existing project secrets stay; only the 6 `SUPABASE_*` ones get rotated.
+## Open question (answer in build mode)
 
-### What I need from you to start Phase 2
-
-After you finish Phase 1 (`db push` + recreate buckets), reply with the three `VITE_SUPABASE_*` values. I'll handle Phase 2 in one shot, then we test sign-in together before touching edge functions.
+- Issuer key for attestations: reuse `TREASURY_PRIVATE_KEY`, or add a dedicated `ATTESTATION_ISSUER_PRIVATE_KEY` secret? Dedicated is cleaner; reusing is one less secret to manage.
