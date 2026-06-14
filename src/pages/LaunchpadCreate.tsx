@@ -103,7 +103,7 @@ const defaultPhases: LaunchpadPhase[] = [
 export default function LaunchpadCreate() {
     const { chain: chainParam, type: typeParam } = useParams<{ chain: string; type: string }>();
     const navigate = useNavigate();
-    const { address, network, chainType, getSolanaProvider } = useWallet();
+    const { address, network, chainType, getSolanaProvider, ensureSupabaseSession } = useWallet();
     const walletChain: typeof selectedChain =
         chainType === 'monad' ? 'monad' : 'solana';
     const { isAdmin } = useAuth();
