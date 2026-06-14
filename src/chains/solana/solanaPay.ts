@@ -13,11 +13,9 @@
 
 import { Keypair, PublicKey } from '@solana/web3.js';
 import { encodeURL, createQR } from '@solana/pay';
-import type { Address } from '@solana/kit';
+import BigNumber from 'bignumber.js';
 import QRCode from 'qrcode';
 
-// Cast a base58 pubkey string to the branded `Address` type @solana/pay expects.
-const asAddress = (s: string) => s as unknown as Address;
 import { buildProtocolMemo, type ProtocolAction } from '@/lib/solanaProtocol';
 
 export interface SolanaPayParams {
@@ -59,13 +57,12 @@ export function buildSolanaPayIntent(params: SolanaPayParams): SolanaPayIntent {
         ...(params.meta ?? {}),
     });
 
-    // Validate recipient is a real pubkey before encoding
-    new PublicKey(params.recipient);
+    const recipient = new PublicKey(params.recipient);
 
     const url = encodeURL({
-        recipient: asAddress(params.recipient),
-        amount: params.amountSol,
-        reference: asAddress(reference.toBase58()),
+        recipient,
+        amount: new BigNumber(params.amountSol),
+        reference,
         label: params.label ?? 'The Lily Pad',
         message: params.message,
         memo,
