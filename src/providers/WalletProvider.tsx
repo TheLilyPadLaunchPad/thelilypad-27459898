@@ -68,6 +68,7 @@ interface WalletContextType extends WalletState {
   switchNetwork: (network: NetworkType) => Promise<void>;
   getSolanaProvider: () => any;
   setTransactionPending: (pending: boolean) => void;
+  ensureSupabaseSession: () => Promise<boolean>;
   isPhantomAvailable: boolean;
   discoveredWallets: any[];
   connection: Connection;
