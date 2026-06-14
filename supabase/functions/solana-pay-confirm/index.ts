@@ -149,15 +149,28 @@ Deno.serve(async (req) => {
             const { data: existing } = await supabase
                 .from('shop_purchases')
                 .select('id')
-                .eq('tx_signature', candidate.signature)
+                .eq('tx_hash', candidate.signature)
                 .maybeSingle();
 
             if (!existing) {
+                // Look up buyer profile by wallet
+                let buyerUserId: string | null = null;
+                if (payerAddress) {
+                    const { data: buyerProfile } = await supabase
+                        .from('user_profiles')
+                        .select('user_id')
+                        .eq('wallet_address', payerAddress)
+                        .maybeSingle();
+                    buyerUserId = buyerProfile?.user_id ?? null;
+                }
+
                 await supabase.from('shop_purchases').insert({
-                    tx_signature: candidate.signature,
-                    amount: body.amountSol,
-                    buyer_address: payerAddress,
+                    user_id: buyerUserId,
                     item_id: (body.context?.item_id as string) ?? null,
+                    price_paid: body.amountSol,
+                    currency: 'SOL',
+                    tx_hash: candidate.signature,
+                    from_address: payerAddress,
                     metadata: body.context ?? {},
                 });
             }
