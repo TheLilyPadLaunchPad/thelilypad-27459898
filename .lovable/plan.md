@@ -1,91 +1,60 @@
+## Full migration to external Supabase — swap-in plan
 
-# Migrate from Lovable Cloud → External Supabase Project
+You have: new empty Supabase project, URL + anon (publishable) key in hand, Web3 (Solana) provider already enabled. Goal: point this app at the new project so SIWS sign-in works end-to-end.
 
-Goal: move the backend off Lovable Cloud onto your own Supabase project so you can enable **Authentication → Providers → Web3 (Solana)** in the Supabase dashboard, which Lovable Cloud doesn't expose.
+### Phase 1 — Push schema and storage to the new project (you, CLI)
 
-This is a one-way move. Once disconnected from Cloud for this project, you can't reattach Cloud to it. Plan a maintenance window — users will need to re-sign in.
+The new project is empty. Before flipping any keys, the schema, RLS, functions, triggers, and storage buckets must exist on the new project. From your local clone:
 
----
+```bash
+supabase link --project-ref <NEW_PROJECT_REF>
+supabase db push        # applies every file in supabase/migrations/
+```
 
-## Phase 1 — Create the external Supabase project
+Then recreate the 8 storage buckets that exist today (avatars, collection-images, collection-drafts, channel-emotes, stream-thumbnails, collection-audio, ipfs public; shop-items private) in the new project's dashboard → Storage. Bucket files themselves do not need to copy yet (project is pre-launch / empty).
 
-1. Sign up / log in at https://supabase.com.
-2. **New project** → pick org, name (`the-lily-pad-prod`), strong DB password (save in 1Password), region close to your users.
-3. Wait for provisioning (~2 min).
-4. In **Project Settings → API**, copy:
-   - Project URL
-   - `anon` (publishable) key
-   - `service_role` key (server-only, never in `src/`)
-5. In **Project Settings → Database**, copy the connection string (you'll need it for `pg_dump`/`psql`).
+Edge functions deploy automatically once the project is linked and we publish — no manual step needed from you for those.
 
-## Phase 2 — Export everything from Lovable Cloud
+### Phase 2 — You hand me the keys, I swap envs (me, one pass)
 
-Lovable Cloud doesn't offer `pg_dump` or full DB dumps. You have two options:
+Once Phase 1 is done, send me:
+- `VITE_SUPABASE_URL` (e.g. `https://<ref>.supabase.co`)
+- `VITE_SUPABASE_PUBLISHABLE_KEY` (the anon key)
+- `VITE_SUPABASE_PROJECT_ID` (the ref alone)
 
-**Option A (recommended):** Contact Lovable support and request a one-time full DB dump for migration. Mention you're moving to self-hosted Supabase. They can provide a `pg_dump` artifact.
+I'll also need the **service_role key** added as a secret (separate, server-only) before edge functions will work against the new project — I'll request it via the secret tool when we reach Phase 4. You can grab it from Project Settings → API in the new dashboard.
 
-**Option B (DIY, schema-only + CSV data):**
-- **Schema:** rebuild from your `supabase/migrations/` folder — every migration that ran on Cloud is checked into the repo and will replay cleanly on the new project.
-- **Data:** export each table to CSV from Cloud → Database → Tables → ⋯ → Download as CSV. Save under `migration-data/<table>.csv`.
-- **Storage buckets:** for each bucket (`avatars`, `collection-images`, `collection-drafts`, `channel-emotes`, `stream-thumbnails`, `collection-audio`, `ipfs`, `shop-items`) download all files (Supabase CLI: `supabase storage cp ss:///bucket ./bucket -r`). You may need a temporary Cloud API key from support.
-- **Edge function source** is already in `supabase/functions/` in the repo.
-- **Secrets:** list with `fetch_secrets` and re-add them to the new project manually (you cannot read existing values).
+In a single change I will:
+1. Update the three `VITE_SUPABASE_*` values in `.env`.
+2. Regenerate `src/integrations/supabase/types.ts` against the new project.
+3. Verify `src/integrations/supabase/client.ts` still reads from `import.meta.env` (no edit needed — it already does).
 
-## Phase 3 — Provision the new project
+### Phase 3 — Verify SIWS sign-in works
 
-On the new external Supabase project, in order:
+With the new URL/anon key live and the Web3 provider already on:
+- Open the preview, click connect wallet → sign message.
+- Expected: `supabase.auth.signInWithWeb3` returns a session, `auth.uid()` is set, `handle_new_web3_user()` trigger creates a `user_profiles` shell row.
 
-1. **Run migrations**
-   - Install Supabase CLI locally.
-   - `supabase link --project-ref <NEW_PROJECT_REF>`
-   - `supabase db push` — replays everything in `supabase/migrations/`.
-   - Confirm `public.user_profiles.auth_user_id`, `current_profile_id()`, `handle_new_web3_user()` trigger exist.
-2. **Recreate storage buckets** with matching names and public/private flags (see existing list). Upload files from Phase 2.
-3. **Recreate edge functions:** `supabase functions deploy <name>` for each function under `supabase/functions/`.
-4. **Re-add secrets** in Supabase dashboard → Edge Functions → Secrets: `HELIUS_API_KEY`, `PINATA_JWT`, `REOWN_API_KEY`, `TREASURY_PRIVATE_KEY`, `DEVNET_TREASURY_PRIVATE_KEY`, `L3AP_MINT_SECRET_KEY`, `LOVABLE_API_KEY` (only if you keep using Lovable AI Gateway), etc. Skip the auto-managed `SUPABASE_*` ones — Supabase populates those itself.
-5. **Load data:** for each CSV from Phase 2, `\copy public.<table> FROM 'migration-data/<table>.csv' CSV HEADER` via `psql`. Order matters — load tables with no FKs first, then dependents. For `auth.users`, restore from the support dump (Option A) — CSV import of `auth.users` is not reliable on DIY.
+If sign-in 422s, that's the Web3 toggle not actually on — re-check the dashboard. If it 401s with "Invalid API key", the anon key is wrong.
 
-## Phase 4 — Enable Web3 (Solana) auth
+### Phase 4 — Wire edge functions to the new project
 
-In the **new** Supabase dashboard:
+Edge functions read `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_DB_URL`, `SUPABASE_JWKS` as runtime secrets. All six currently point at Lovable Cloud. I will request the new values via the secrets tool (you paste them once each); then redeploy any function we test (admin-users, verify-solana-tx, content-moderation, etc.).
 
-1. **Authentication → Providers → Web3 (Solana)** → toggle **Enabled** → Save.
-2. **Authentication → URL Configuration** → set Site URL to `https://thelilypad.lovable.app` and add Redirect URLs for preview + custom domains.
-3. (Optional) keep Email/Google providers configured as before.
+### Phase 5 — Clean up legacy auth code
 
-## Phase 5 — Disconnect Lovable Cloud and point the app at the new project
+Now that Supabase JWTs are the source of truth, remove the wallet-only fallbacks that exist in case auth was missing:
+- `useIsAdmin` already gates on `supabase.auth.getUser()` — keep.
+- Audit RLS policies that still match on `wallet_address` (instead of `auth.uid()` via `current_profile_id()`) and tighten them. List comes from the linter.
+- Drop the `user_nonces` table if SIWS replaced the custom nonce flow (confirm with you before dropping).
 
-1. In Lovable: **Connectors → Lovable Cloud → Disable Cloud** (this disables Cloud for future projects; the current project keeps its env vars until step 3).
-2. Update `.env` / Lovable project secrets:
-   - `VITE_SUPABASE_URL` → new project URL
-   - `VITE_SUPABASE_PUBLISHABLE_KEY` → new `anon` key
-   - `VITE_SUPABASE_PROJECT_ID` → new ref
-3. Replace `src/integrations/supabase/types.ts` by regenerating: `supabase gen types typescript --project-id <NEW_REF> > src/integrations/supabase/types.ts`.
-4. Verify the client in `src/integrations/supabase/client.ts` still works — it reads from env, so no code change needed.
-5. Smoke-test: connect wallet via Reown → `signInWithSolana()` should now succeed (no more 422) → check `supabase.auth.getSession()` returns a real JWT → confirm `auth.uid()` is populated and RLS-protected queries work.
+### Technical notes
 
-## Phase 6 — Resume the migration plan
+- `src/integrations/supabase/client.ts` is auto-generated normally, but on a full migration it's safe to leave as-is — it already reads env vars. Only `.env` and `types.ts` change.
+- `supabase/config.toml` `project_id` will update automatically when you `supabase link`.
+- The `reference-supabase-auth/` folder is unrelated sample code, untouched.
+- 17 existing project secrets stay; only the 6 `SUPABASE_*` ones get rotated.
 
-With Web3 auth live, continue the previously-planned Phases 3–5 of the SIWS migration:
-- Rewrite remaining RLS policies to use `current_profile_id()` / `auth.uid()`.
-- Update every edge function to validate JWTs via `supabase.auth.getClaims()` instead of trusting `x-wallet-address` headers.
-- Drop legacy `user_nonces`, `signInAnonymously` path, and header-based auth.
+### What I need from you to start Phase 2
 
----
-
-## Costs & trade-offs
-
-- **You take over billing.** Supabase Pro is ~$25/mo per project plus usage.
-- **You lose Lovable Cloud UI conveniences** (one-click migrations from chat, integrated secrets, Cloud status). You'll manage them in the Supabase dashboard.
-- **AI Gateway:** `LOVABLE_API_KEY` still works from edge functions hosted anywhere, so Lovable AI usage continues.
-- **Rollback:** not possible after Phase 5 step 1. Make a final Cloud DB CSV export as a backup before disabling.
-
-## Effort estimate
-
-~4–8 hours of focused work, longer if you go with Option B (DIY data export) and have large storage buckets.
-
-## Open questions
-
-1. Do you want to request a full DB dump from Lovable support (Option A) or go DIY (Option B)?
-2. Are you OK forcing all existing users to re-sign-in (they keep wallet + profile data, just new session)?
-3. Which Supabase region should the new project live in?
+After you finish Phase 1 (`db push` + recreate buckets), reply with the three `VITE_SUPABASE_*` values. I'll handle Phase 2 in one shot, then we test sign-in together before touching edge functions.
