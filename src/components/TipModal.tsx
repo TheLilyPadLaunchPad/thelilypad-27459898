@@ -13,7 +13,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Heart, Loader2, Wallet, Coins, CheckCircle2 } from "lucide-react";
+import { Heart, Loader2, Wallet, Coins, CheckCircle2, QrCode } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SolanaPayQR } from "@/components/payments/SolanaPayQR";
 import { motion, AnimatePresence } from "framer-motion";
 import { getErrorMessage } from "@/lib/errorUtils";
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
