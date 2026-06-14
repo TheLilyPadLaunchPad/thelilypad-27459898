@@ -911,12 +911,14 @@ export type Database = {
           claimed_at: string | null
           created_at: string
           currency: string
+          from_address: string | null
           from_user_id: string | null
           from_username: string | null
           id: string
           is_claimed: boolean
           message: string | null
           stream_id: string | null
+          tx_signature: string | null
           type: string
           user_id: string
         }
@@ -925,12 +927,14 @@ export type Database = {
           claimed_at?: string | null
           created_at?: string
           currency?: string
+          from_address?: string | null
           from_user_id?: string | null
           from_username?: string | null
           id?: string
           is_claimed?: boolean
           message?: string | null
           stream_id?: string | null
+          tx_signature?: string | null
           type: string
           user_id: string
         }
@@ -939,12 +943,14 @@ export type Database = {
           claimed_at?: string | null
           created_at?: string
           currency?: string
+          from_address?: string | null
           from_user_id?: string | null
           from_username?: string | null
           id?: string
           is_claimed?: boolean
           message?: string | null
           stream_id?: string | null
+          tx_signature?: string | null
           type?: string
           user_id?: string
         }
@@ -2883,8 +2889,10 @@ export type Database = {
           creator_claimed: boolean
           creator_claimed_at: string | null
           currency: string | null
+          from_address: string | null
           id: string
           item_id: string
+          metadata: Json | null
           price_paid: number
           purchased_at: string
           tx_hash: string | null
@@ -2894,8 +2902,10 @@ export type Database = {
           creator_claimed?: boolean
           creator_claimed_at?: string | null
           currency?: string | null
+          from_address?: string | null
           id?: string
           item_id: string
+          metadata?: Json | null
           price_paid: number
           purchased_at?: string
           tx_hash?: string | null
@@ -2905,8 +2915,10 @@ export type Database = {
           creator_claimed?: boolean
           creator_claimed_at?: string | null
           currency?: string | null
+          from_address?: string | null
           id?: string
           item_id?: string
+          metadata?: Json | null
           price_paid?: number
           purchased_at?: string
           tx_hash?: string | null
