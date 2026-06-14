@@ -719,12 +719,21 @@ export default function LaunchpadCreate() {
         if (!name || !symbol) return toast.error("Please enter a name and symbol.");
         if (!address) return toast.error("Connect your wallet to launch.");
 
+        // RLS on `collections` requires auth.uid() = creator_id. If the wallet
+        // is connected but no Supabase auth session exists yet, the insert
+        // will fail with "new row violates row-level security policy".
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser?.id) {
+            return toast.error("Please sign in with your wallet before launching. Disconnect & reconnect to refresh your session.");
+        }
+
         if (walletChain !== selectedChain) {
             setIsDeploying(false);
             return toast.error(
                 `Wallet is connected to ${walletChain.toUpperCase()} but you are deploying on ${selectedChain.toUpperCase()}. Switch your wallet or select the correct chain.`
             );
         }
+
 
         setIsDeploying(true);
         const abortCtrl = new AbortController();
