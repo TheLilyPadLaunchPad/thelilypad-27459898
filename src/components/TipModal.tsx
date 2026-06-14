@@ -249,143 +249,186 @@ export const TipModal: React.FC<TipModalProps> = ({
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4 pt-2">
-                {!isConnected ? (
-                  <div className="text-center py-6 space-y-4">
-                    <Wallet className="w-12 h-12 mx-auto text-muted-foreground" />
-                    <p className="text-muted-foreground">Connect your wallet to send a tip</p>
-                    <Button onClick={() => connect()} className="w-full">
-                      Connect Wallet
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    {/* Balance display */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <span className="text-sm text-muted-foreground">Your Balance</span>
-                      <span className="font-medium">
-                        {balance ? parseFloat(balance).toFixed(4) : "0"} SOL
-                      </span>
-                    </div>
+              <Tabs defaultValue="wallet" className="pt-2">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="wallet">
+                    <Wallet className="w-3.5 h-3.5 mr-1.5" /> In-wallet
+                  </TabsTrigger>
+                  <TabsTrigger value="qr">
+                    <QrCode className="w-3.5 h-3.5 mr-1.5" /> Scan QR
+                  </TabsTrigger>
+                </TabsList>
 
-                    {/* Preset amounts */}
-                    <div className="space-y-2">
-                      <Label>Quick Amounts</Label>
-                      <div className="grid grid-cols-5 gap-2">
-                        {presetAmounts.map((preset) => (
-                          <Button
-                            key={preset}
-                            variant={amount === preset.toString() ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handlePresetClick(preset)}
-                            className="text-xs"
-                            disabled={tipState !== "idle"}
-                          >
-                            {preset}
-                          </Button>
-                        ))}
+                <TabsContent value="wallet" className="space-y-4 pt-3">
+                  {!isConnected ? (
+                    <div className="text-center py-6 space-y-4">
+                      <Wallet className="w-12 h-12 mx-auto text-muted-foreground" />
+                      <p className="text-muted-foreground">Connect your wallet to send a tip</p>
+                      <Button onClick={() => connect()} className="w-full">
+                        Connect Wallet
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Balance display */}
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <span className="text-sm text-muted-foreground">Your Balance</span>
+                        <span className="font-medium">
+                          {balance ? parseFloat(balance).toFixed(4) : "0"} SOL
+                        </span>
                       </div>
-                    </div>
 
-                    {/* Custom amount */}
-                    <div className="space-y-2">
-                      <Label htmlFor="amount">Amount (SOL)</Label>
-                      <div className="relative">
-                        <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="amount"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                          className="pl-10"
+                      {/* Preset amounts */}
+                      <div className="space-y-2">
+                        <Label>Quick Amounts</Label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {presetAmounts.map((preset) => (
+                            <Button
+                              key={preset}
+                              variant={amount === preset.toString() ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePresetClick(preset)}
+                              className="text-xs"
+                              disabled={tipState !== "idle"}
+                            >
+                              {preset}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Amount (SOL)</Label>
+                        <div className="relative">
+                          <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="amount"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            className="pl-10"
+                            disabled={tipState !== "idle"}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="message">Message (optional)</Label>
+                        <Textarea
+                          id="message"
+                          placeholder="Say something nice..."
+                          value={message}
+                          onChange={(e) => setMessage(e.target.value)}
+                          maxLength={200}
+                          rows={3}
                           disabled={tipState !== "idle"}
                         />
+                        <p className="text-xs text-muted-foreground text-right">
+                          {message.length}/200
+                        </p>
                       </div>
-                    </div>
 
-                    {/* Message */}
-                    <div className="space-y-2">
-                      <Label htmlFor="message">Message (optional)</Label>
-                      <Textarea
-                        id="message"
-                        placeholder="Say something nice..."
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        maxLength={200}
-                        rows={3}
-                        disabled={tipState !== "idle"}
-                      />
-                      <p className="text-xs text-muted-foreground text-right">
-                        {message.length}/200
+                      <Button
+                        onClick={handleSendTip}
+                        disabled={tipState !== "idle" || !amount || parseFloat(amount) <= 0}
+                        className="w-full relative overflow-hidden"
+                      >
+                        <AnimatePresence mode="wait">
+                          {tipState === "idle" && (
+                            <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
+                              <Heart className="w-4 h-4 mr-2" />
+                              Send {amount || "0"} SOL
+                            </motion.span>
+                          )}
+                          {tipState === "confirming" && (
+                            <motion.span key="confirming" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Confirm in wallet...
+                            </motion.span>
+                          )}
+                          {tipState === "pending" && (
+                            <motion.span key="pending" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Sending...
+                            </motion.span>
+                          )}
+                          {tipState === "error" && (
+                            <motion.span key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-destructive-foreground">
+                              Failed - Try again
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </Button>
+
+                      <p className="text-xs text-center text-muted-foreground">
+                        Powered by Solana. Transaction fees apply.
                       </p>
+                    </>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="qr" className="space-y-4 pt-3">
+                  <div className="space-y-2">
+                    <Label>Quick Amounts</Label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {presetAmounts.map((preset) => (
+                        <Button
+                          key={preset}
+                          variant={amount === preset.toString() ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePresetClick(preset)}
+                          className="text-xs"
+                        >
+                          {preset}
+                        </Button>
+                      ))}
                     </div>
+                  </div>
 
-                    {/* Send button */}
-                    <Button
-                      onClick={handleSendTip}
-                      disabled={tipState !== "idle" || !amount || parseFloat(amount) <= 0}
-                      className="w-full relative overflow-hidden"
-                    >
-                      <AnimatePresence mode="wait">
-                        {tipState === "idle" && (
-                          <motion.span
-                            key="idle"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="flex items-center"
-                          >
-                            <Heart className="w-4 h-4 mr-2" />
-                            Send {amount || "0"} SOL
-                          </motion.span>
-                        )}
-                        {tipState === "confirming" && (
-                          <motion.span
-                            key="confirming"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="flex items-center"
-                          >
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Confirm in wallet...
-                          </motion.span>
-                        )}
-                        {tipState === "pending" && (
-                          <motion.span
-                            key="pending"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="flex items-center"
-                          >
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Sending...
-                          </motion.span>
-                        )}
-                        {tipState === "error" && (
-                          <motion.span
-                            key="error"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="text-destructive-foreground"
-                          >
-                            Failed - Try again
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                    </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="qr-amount">Amount (SOL)</Label>
+                    <div className="relative">
+                      <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="qr-amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
 
-                    <p className="text-xs text-center text-muted-foreground">
-                      Powered by Solana. Transaction fees apply.
+                  {amount && parseFloat(amount) > 0 ? (
+                    <SolanaPayQR
+                      recipient={streamerAddress}
+                      amountSol={parseFloat(amount)}
+                      action="tip:creator"
+                      label="The Lily Pad"
+                      message={`Tip ${streamerName}`}
+                      context={{ streamer_id: streamerId, ...(streamId ? { stream_id: streamId } : {}) }}
+                      onConfirmed={() => {
+                        setSentAmount(amount);
+                        setTipState("success");
+                        setTimeout(() => {
+                          resetState();
+                          onClose();
+                        }, 2000);
+                      }}
+                    />
+                  ) : (
+                    <p className="text-xs text-center text-muted-foreground py-8">
+                      Enter an amount to generate a QR code
                     </p>
-                  </>
-                )}
-              </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </motion.div>
           )}
         </AnimatePresence>
