@@ -289,6 +289,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         switchNetwork,
         getSolanaProvider: getSolanaProviderCallback,
         setTransactionPending,
+        ensureSupabaseSession,
         isPhantomAvailable: true, // Legacy flag, always true now via AppKit
         discoveredWallets: [],
         connection,
