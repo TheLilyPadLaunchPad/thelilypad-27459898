@@ -1,63 +1,62 @@
-# Plan: Solana Pay + Attestations integration
+# Launchpad & Buyback Architect
 
-You selected all four, but the prompt was 1–2. Picking the two with the highest leverage and least overlap with what's already built; the other two are noted at the bottom with the reason to defer.
+Deliver two artifacts to `/mnt/documents/` documenting the end-to-end architecture of the Lily Launchpad and the Buyback engine across Solana and Monad:
 
-## What gets built
+1. `Launchpad_Buyback_Architecture.md` — written architecture doc
+2. `Launchpad_Buyback_Architecture.mmd` — Mermaid diagram
 
-### 1. Solana Pay — tips & shop checkout
+Both surfaced as artifacts in chat. No source code changes.
 
-Solana Pay is a URL spec (`solana:<recipient>?amount=...&reference=...&label=...&message=...&memo=...`) plus a QR. Phantom/Backpack mobile scan it and prompt the user to sign. We already build raw `SystemProgram.transfer` txs with a `TheLilyPad:v1:<action>` memo — Solana Pay is the standards-compliant wrapper around the same intent, and unlocks the mobile-scan flow.
+## Doc outline (`.md`)
 
-Where it plugs in:
-- **Tipping** (`buildTipCreatorTx` in `src/chains/solana/creator.ts`): add a sibling `buildTipCreatorPayUrl` that returns a `solana:` URL + QR. Tip modal gets a "Scan to tip" tab next to the existing connected-wallet button.
-- **Shop checkout** (`buildShopPurchaseTx` and friends in `src/chains/solana/shop.ts`): same treatment — desktop browsing, phone scans QR to pay.
-- **Reference key reconciliation**: each Pay URL gets a fresh `reference` pubkey. A new edge function `solana-pay-confirm` polls Helius for a tx containing that reference and writes to `earnings` / `shop_purchases` (same rows the connected-wallet flow writes). Avoids trusting client-reported tx sigs.
+1. **Overview** — product framing (Lily Launchpad), supported chains, what the Buyback engine does and why (tokenomics, anti-rug).
+2. **System layers**
+   - UI: `src/pages/LaunchpadCreate.tsx`, `BuybackProgram.tsx`, wizards
+   - Chain abstraction: `src/chains/index.ts` + `solana/` and `monad/` modules
+   - Backend: Supabase tables, RLS, edge functions, storage buckets
+   - Assets: Arweave via Irys (funded by connected Solana wallet), Supabase `collection-drafts` for staging
+3. **Launchpad — Solana flow**
+   - Wizard steps (`SOLANA_LAUNCHPAD_CONFIG`)
+   - Auth gate → ensureSupabaseSession → RLS-safe `collections` insert
+   - Asset upload → Metaplex metadata → Core Collection → Candy Machine v3 → Candy Guards (`solPayment`, dates, `mintLimit`, `botTax`) → optional hidden/reveal
+   - Treasury split (85% creator / 15% platform) via `PLATFORM_WALLETS`
+   - Protocol memo `TheLilyPad:v1:<action>` on every tx
+4. **Launchpad — Monad flow**
+   - ERC-721A `LilyPadFactory` deploy, `LilyPadNFTCollection`, `PaymentSplitter` revenue routing via viem
+   - Phase/allowlist persistence in Supabase (`collections`, `allowlist_entries`)
+5. **Buyback engine**
+   - Pool: `buyback_pool`, `buyback_events`, `buyback_program_collections` (no chain filter)
+   - Solana: `executeBuyback` → Jupiter V6 quote → versioned swap tx → treasury signer → memo
+   - Monad: Uniswap V2/V3 router via `MonadBuyback`
+   - Triggers: secondary-sale royalty share, manual admin execution, scheduled
+   - Distribution targets: Lily Pad NFT holder rewards, creator token holders
+6. **Data model touchpoints** — `collections`, `minted_nfts`, `nft_listings`, `mint_sessions`, `platform_fees`, `buyback_*`, plus the relevant RPCs (`get_launchpad_stats`, `get_top_collections_stats`).
+7. **Security model** — RLS rules for `collections`/`buyback_*`, security-definer RPCs, wallet-auth session requirement before insert, server-side moderation, no client-exposed private keys.
+8. **Failure & resilience** — upload retries, blockhash retry loop, deploy refund table, error tracking.
+9. **Open gaps / future work** — pulled from `Launchpad_Audit_Report.md` and `Launchpad_Blueprint_Gap_Analysis.md` if relevant.
 
-New files:
-- `src/chains/solana/solanaPay.ts` — URL builder, reference generator, QR data URL helper.
-- `src/components/payments/SolanaPayQR.tsx` — modal/inline QR + status poller.
-- `supabase/functions/solana-pay-confirm/index.ts` — polls Helius (`HELIUS_API_KEY` already exists), validates recipient + amount + memo + reference, inserts the matching row.
+## Diagram outline (`.mmd`)
 
-Touch points:
-- `src/components/` tip modal (wherever `buildTipCreatorTx` is called) — add QR tab.
-- Shop checkout component — add QR tab.
+`graph LR` with subgraphs:
 
-No DB schema changes. Reuses existing `earnings` and `shop_purchases` tables.
+```text
+[User Wallet] → [UI Wizards] → [Chain Abstraction]
+                                  ├── Solana: Umi → Irys → Core CM → Candy Guards
+                                  └── Monad: viem → Factory → ERC-721A → Splitter
+[Supabase] ⇄ UI (drafts, collections, allowlist, sessions)
+[Edge Functions] → moderation, attestations, solana-pay-confirm
+[Secondary sales] → platform_fees → buyback_pool
+[Buyback Engine] ├── Jupiter V6 (SOL) → token → holder rewards
+                 └── Uniswap (Monad) → token → holder rewards
+```
 
-### 2. Solana Attestation Service — verified creator badge
+Mermaid will use default theme (no custom colors) to stay legible in light + dark.
 
-Replace the boolean `user_profiles.is_verified` flag with an on-chain attestation issued by a platform authority wallet when an admin approves a creator application (`promote_to_creator` flow already exists).
+## Technical notes
 
-- New schema in SAS: `LilyPadVerifiedCreator { wallet: pubkey, tier: u8, issued_at: i64 }`.
-- Admin approve action calls a new edge function `attest-creator` that signs and submits the attestation using the existing `TREASURY_PRIVATE_KEY` as the issuer (or a new dedicated key — see Open question).
-- Store the attestation pubkey on `user_profiles.verification_attestation` (new column) so the UI can deep-link to a SAS explorer.
-- Profile badge component reads the column and shows "Verified on-chain" with a link; verification check on sensitive actions (e.g. high-tier shop listing) fetches the attestation on-chain rather than trusting the DB boolean.
+- Read-only exploration only — no edits to `src/`, no migrations, no installs.
+- Pull file references with `code--view` on: `src/chains/index.ts`, `src/chains/solana/{buyback,cartCheckout,bundleDeploy}.ts`, `src/chains/monad/{buyback,contracts,shop}.ts`, `src/config/treasury.ts`, `src/pages/{LaunchpadCreate,BuybackProgram}.tsx`, `contracts/BuybackController.sol`, `contracts/LilyPadNFT.sol`, plus `supabase/functions/` index.
+- Use `supabase--read_query` only if exact column names for `buyback_*` / `collections` are needed for the doc.
+- Emit artifacts with `<presentation-artifact>` tags after writing.
 
-New files:
-- `src/chains/solana/attestations.ts` — SAS schema registration helper + read helpers.
-- `supabase/functions/attest-creator/index.ts` — issues attestation, returns pubkey, updates row.
-- `supabase/functions/revoke-attestation/index.ts` — admin-only revoke.
-
-Touch points:
-- `src/pages/admin/AdminDashboard.tsx` (creator approval) — call the new function after `promote_to_creator`.
-- Verified badge component — show on-chain link.
-- One-time bootstrap script `scripts/register-sas-schema.ts` to deploy the schema (run once per network).
-
-## Technical details
-
-- **Solana Pay**: use `@solana/pay` (`encodeURL`, `createQR`). Add as a dependency.
-- **SAS**: use `sas-lib` (Solana Attestation Service SDK). Add as a dependency.
-- **Networks**: both must respect the existing devnet/mainnet toggle in `src/config/solana.ts`. SAS schema is registered separately per network.
-- **Issuer key**: edge functions use a server-held keypair. Reusing `TREASURY_PRIVATE_KEY` is simplest but couples attestation revocation to treasury rotation — see Open question.
-- **Confirmation polling**: `solana-pay-confirm` runs a 60s polling loop with backoff via Helius `getSignaturesForAddress(reference)`. Times out → user sees "Not detected yet, refresh" — they can also retry manually.
-
-## What I'm NOT building (and why)
-
-- **Kora paymaster** — Requires running and SOL-funding a separate paymaster service. Real ongoing infra cost + a non-trivial server to host. Worth doing once user volume justifies it; not now.
-- **Commerce Kit** — Prebuilt React components that overlap almost entirely with what's already in `src/components/` for shop, tips, mint. Adopting it would be a refactor, not a feature gain.
-
-If you want either of these anyway, say so and I'll re-plan.
-
-## Open question (answer in build mode)
-
-- Issuer key for attestations: reuse `TREASURY_PRIVATE_KEY`, or add a dedicated `ATTESTATION_ISSUER_PRIVATE_KEY` secret? Dedicated is cleaner; reusing is one less secret to manage.
+Hand off to build mode to produce the two files.
