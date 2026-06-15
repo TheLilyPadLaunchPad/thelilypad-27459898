@@ -33,11 +33,11 @@ function adaptWallet(provider: ReownLikeSolanaProvider) {
   return {
     address,
     signMessage: async (message: Uint8Array) => {
-      const res = await provider.signMessage!(message);
-      // Phantom returns { signature }, others return Uint8Array directly
-      const signature =
-        res instanceof Uint8Array ? res : (res as { signature: Uint8Array }).signature;
-      return { signature };
+      const res = await provider.signMessage!(message, "utf8");
+      // Phantom may return { signature }, while Reown returns Uint8Array.
+      // supabase.auth.signInWithWeb3 requires the wallet method itself to
+      // resolve to the raw Uint8Array signature.
+      return res instanceof Uint8Array ? res : (res as { signature: Uint8Array }).signature;
     },
   };
 }
