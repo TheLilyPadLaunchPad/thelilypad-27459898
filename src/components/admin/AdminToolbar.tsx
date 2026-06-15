@@ -240,10 +240,11 @@ export const AdminToolbar: React.FC = () => {
         <>
             {/* Floating Toggle Button */}
             <motion.button
-                className="fixed bottom-20 right-4 z-[100] w-12 h-12 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 transition-transform"
+                className="fixed right-[68px] bottom-[calc(env(safe-area-inset-bottom)+88px)] md:right-6 md:bottom-6 z-[100] w-11 h-11 md:w-12 md:h-12 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 transition-transform"
                 onClick={() => setIsOpen(prev => !prev)}
                 whileTap={{ scale: 0.9 }}
                 title="Admin Controls (Ctrl+Shift+A)"
+                aria-label="Admin controls"
             >
                 <ShieldCheck className="w-5 h-5" />
                 {stats && stats.pendingModeration > 0 && (
@@ -261,7 +262,7 @@ export const AdminToolbar: React.FC = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 40, scale: 0.95 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="fixed bottom-36 right-4 z-[100] w-[360px] max-h-[70vh] bg-background border border-border/60 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden flex flex-col"
+                        className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+148px)] md:right-6 md:bottom-24 z-[100] w-[min(92vw,360px)] max-h-[65vh] bg-background border border-border/60 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden flex flex-col"
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 py-3 bg-primary/5 border-b border-border/50">

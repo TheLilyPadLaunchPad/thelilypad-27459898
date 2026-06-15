@@ -101,7 +101,7 @@ export default function PublicProfile() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <main className="container mx-auto px-4 pt-24 pb-12 max-w-4xl">
+        <main className="container mx-auto px-4 pt-24 pb-24 md:pb-12 max-w-4xl">
           <Skeleton className="h-48 w-full rounded-xl mb-6" />
           <div className="flex items-center gap-4 mb-8">
             <Skeleton className="h-20 w-20 rounded-full" />
@@ -124,7 +124,7 @@ export default function PublicProfile() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <main className="container mx-auto px-4 pt-24 pb-12 max-w-4xl text-center">
+        <main className="container mx-auto px-4 pt-24 pb-24 md:pb-12 max-w-4xl text-center">
           <User className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
           <p className="text-muted-foreground">This user doesn't exist or their profile is unavailable.</p>
@@ -139,7 +139,7 @@ export default function PublicProfile() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container mx-auto px-4 pt-24 pb-12 max-w-4xl">
+      <main className="container mx-auto px-4 pt-24 pb-24 md:pb-12 max-w-4xl">
         {/* Banner */}
         {profile.banner_url ? (
           <div className="h-48 md:h-56 rounded-xl overflow-hidden mb-6 bg-muted">

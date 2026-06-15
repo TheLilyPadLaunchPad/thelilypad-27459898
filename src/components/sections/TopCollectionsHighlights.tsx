@@ -112,24 +112,24 @@ export const TopCollectionsHighlights: React.FC = () => {
   };
 
   return (
-    <section className="relative py-16 sm:py-16 overflow-hidden">
+    <section className="relative py-10 sm:py-16 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-muted/30 via-background to-muted/20" />
 
       <div className="relative z-10 container mx-auto px-4 sm:px-6">
         <motion.div
-          className="text-center mb-12"
+          className="text-center mb-8 md:mb-12"
           initial={{ opacity: 0, y: -20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">Collection Highlights</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <h2 className="text-2xl sm:text-4xl font-bold text-foreground mb-2 md:mb-4">Collection Highlights</h2>
+          <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
             Discover the top performing NFT collections on The Lily Pad
           </p>
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -143,15 +143,15 @@ export const TopCollectionsHighlights: React.FC = () => {
               <motion.div key={category.key} variants={itemVariants}>
                 <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm h-full">
                   <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient} opacity-50`} />
-                  <CardContent className="relative p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className={`p-2.5 rounded-xl bg-background/80 ${category.iconColor}`}>
-                        <Icon className="w-5 h-5" />
+                  <CardContent className="relative p-4 md:p-6">
+                    <div className="flex items-center gap-2.5 mb-4 md:mb-6">
+                      <div className={`p-2 md:p-2.5 rounded-xl bg-background/80 ${category.iconColor}`}>
+                        <Icon className="w-4 h-4 md:w-5 md:h-5" />
                       </div>
-                      <h3 className="font-semibold text-lg text-foreground">{category.title}</h3>
+                      <h3 className="font-semibold text-base md:text-lg text-foreground">{category.title}</h3>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3 md:space-y-4">
                       {isLoading ? (
                         <>
                           {[1, 2, 3].map((i) => (

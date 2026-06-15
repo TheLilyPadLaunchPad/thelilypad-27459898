@@ -216,7 +216,7 @@ export const DevConsole = () => {
         size="icon"
         variant="secondary"
         aria-label="Open dev console"
-        className="fixed bottom-20 right-4 z-[60] h-11 w-11 rounded-full shadow-lg border border-border"
+        className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+88px)] md:right-[88px] md:bottom-6 z-[60] h-11 w-11 rounded-full shadow-lg border border-border"
       >
         <Terminal className="h-4 w-4" />
         {errorCount > 0 && (
@@ -227,7 +227,7 @@ export const DevConsole = () => {
       </Button>
 
       {open && (
-        <div className="fixed bottom-32 right-4 z-[60] w-[min(95vw,640px)] h-[min(70vh,520px)] rounded-lg border border-border bg-background shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed right-3 bottom-[calc(env(safe-area-inset-bottom)+148px)] md:right-6 md:bottom-24 z-[60] w-[min(95vw,640px)] h-[min(65vh,520px)] rounded-lg border border-border bg-background shadow-2xl flex flex-col overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/40">
             <Terminal className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold">Dev Console</span>
