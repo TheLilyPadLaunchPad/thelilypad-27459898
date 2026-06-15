@@ -259,3 +259,34 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Reown AppKit modal (WalletConnect) — mobile visibility fixes
+   The modal shadow-DOM components sit above everything else and
+   must clear our fixed mobile bottom nav + iOS safe-area inset.
+   Without this, the "Sign" / "Connect" button inside the modal
+   gets hidden behind the bottom nav on small screens.
+   ────────────────────────────────────────────────────────────── */
+w3m-modal,
+appkit-modal,
+wcm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000 !important; /* above bottom-nav, toasts, sheets */
+}
+
+/* Reown exposes a CSS variable for its z-index — set it too so the
+   internal overlay/card both lift above our app chrome. */
+:root {
+  --w3m-z-index: 2147483000;
+}
+
+@media (max-width: 767px) {
+  /* Ensure modal card isn't clipped by the 64px bottom nav + safe area */
+  w3m-modal::part(overlay),
+  w3m-modal::part(container),
+  appkit-modal::part(overlay),
+  appkit-modal::part(container) {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
