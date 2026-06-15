@@ -163,33 +163,71 @@ export type Database = {
       }
       buyback_events: {
         Row: {
+          attempts: number
+          chain: string | null
+          confirmed_at: string | null
+          error: string | null
           executed_at: string
           id: string
-          mon_spent: number
+          idempotency_key: string | null
+          mon_spent: number | null
+          program_id: string | null
+          requested_by: string | null
+          scheduled_for: string
+          started_at: string | null
+          status: string
           token_address: string | null
           tokens_bought: number
-          trigger_volume: number
-          tx_hash: string
+          trigger_volume: number | null
+          tx_hash: string | null
         }
         Insert: {
+          attempts?: number
+          chain?: string | null
+          confirmed_at?: string | null
+          error?: string | null
           executed_at?: string
           id?: string
-          mon_spent: number
+          idempotency_key?: string | null
+          mon_spent?: number | null
+          program_id?: string | null
+          requested_by?: string | null
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
           token_address?: string | null
           tokens_bought?: number
-          trigger_volume: number
-          tx_hash: string
+          trigger_volume?: number | null
+          tx_hash?: string | null
         }
         Update: {
+          attempts?: number
+          chain?: string | null
+          confirmed_at?: string | null
+          error?: string | null
           executed_at?: string
           id?: string
-          mon_spent?: number
+          idempotency_key?: string | null
+          mon_spent?: number | null
+          program_id?: string | null
+          requested_by?: string | null
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
           token_address?: string | null
           tokens_bought?: number
-          trigger_volume?: number
-          tx_hash?: string
+          trigger_volume?: number | null
+          tx_hash?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "buyback_events_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "buyback_programs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       buyback_pool: {
         Row: {
@@ -258,6 +296,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      buyback_programs: {
+        Row: {
+          chain: string
+          created_at: string
+          dex: string
+          enabled: boolean
+          id: string
+          last_run_at: string | null
+          max_notional_per_run: number
+          min_interval_minutes: number
+          min_pool_balance: number
+          name: string
+          network: string
+          router_address: string | null
+          slippage_bps: number
+          token_mint: string
+          updated_at: string
+          wmon_address: string | null
+        }
+        Insert: {
+          chain: string
+          created_at?: string
+          dex?: string
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          max_notional_per_run?: number
+          min_interval_minutes?: number
+          min_pool_balance?: number
+          name: string
+          network?: string
+          router_address?: string | null
+          slippage_bps?: number
+          token_mint: string
+          updated_at?: string
+          wmon_address?: string | null
+        }
+        Update: {
+          chain?: string
+          created_at?: string
+          dex?: string
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          max_notional_per_run?: number
+          min_interval_minutes?: number
+          min_pool_balance?: number
+          name?: string
+          network?: string
+          router_address?: string | null
+          slippage_bps?: number
+          token_mint?: string
+          updated_at?: string
+          wmon_address?: string | null
+        }
+        Relationships: []
       }
       card_stack_items: {
         Row: {
@@ -3697,6 +3792,62 @@ export type Database = {
       }
     }
     Views: {
+      buyback_events_public: {
+        Row: {
+          attempts: number | null
+          chain: string | null
+          confirmed_at: string | null
+          executed_at: string | null
+          id: string | null
+          mon_spent: number | null
+          program_id: string | null
+          scheduled_for: string | null
+          started_at: string | null
+          status: string | null
+          token_address: string | null
+          tokens_bought: number | null
+          tx_hash: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          chain?: string | null
+          confirmed_at?: string | null
+          executed_at?: string | null
+          id?: string | null
+          mon_spent?: number | null
+          program_id?: string | null
+          scheduled_for?: string | null
+          started_at?: string | null
+          status?: string | null
+          token_address?: string | null
+          tokens_bought?: number | null
+          tx_hash?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          chain?: string | null
+          confirmed_at?: string | null
+          executed_at?: string | null
+          id?: string | null
+          mon_spent?: number | null
+          program_id?: string | null
+          scheduled_for?: string | null
+          started_at?: string | null
+          status?: string | null
+          token_address?: string | null
+          tokens_bought?: number | null
+          tx_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyback_events_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "buyback_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       streamer_profiles_public: {
         Row: {
           avatar_url: string | null
@@ -3805,7 +3956,43 @@ export type Database = {
         Args: { patch: Json; reason?: string; target_user_id: string }
         Returns: undefined
       }
+      claim_next_buyback: {
+        Args: never
+        Returns: {
+          attempts: number
+          chain: string | null
+          confirmed_at: string | null
+          error: string | null
+          executed_at: string
+          id: string
+          idempotency_key: string | null
+          mon_spent: number | null
+          program_id: string | null
+          requested_by: string | null
+          scheduled_for: string
+          started_at: string | null
+          status: string
+          token_address: string | null
+          tokens_bought: number
+          trigger_volume: number | null
+          tx_hash: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "buyback_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      complete_buyback_event: {
+        Args: { p_event_id: string; p_tokens_bought: number; p_tx_hash: string }
+        Returns: undefined
+      }
       current_profile_id: { Args: never; Returns: string }
+      fail_buyback_event: {
+        Args: { p_error: string; p_event_id: string }
+        Returns: undefined
+      }
       get_admin_audit_feed: {
         Args: { limit_count?: number }
         Returns: {
@@ -3888,13 +4075,22 @@ export type Database = {
         Args: { p_admin_id: string; p_application_id: string }
         Returns: undefined
       }
+      queue_buyback: {
+        Args: {
+          p_amount: number
+          p_idempotency_key?: string
+          p_program_id: string
+          p_scheduled_for?: string
+        }
+        Returns: string
+      }
       wallet_owns_profile: {
         Args: { profile_uuid: string; wallet_addr: string }
         Returns: boolean
       }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role: "admin" | "moderator" | "user" | "buyback_operator"
       moderation_content_type:
         | "text"
         | "image"
@@ -4044,7 +4240,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: ["admin", "moderator", "user", "buyback_operator"],
       moderation_content_type: [
         "text",
         "image",
