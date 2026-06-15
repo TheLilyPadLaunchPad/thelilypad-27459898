@@ -160,10 +160,10 @@ export default function Marketplace() {
   const canLoadMore = hasMore && !verifiedOnly && !showHotOnly && !showNewOnly;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Navbar />
 
-      <main className="container mx-auto px-4 pt-24 pb-12">
+      <main className="container mx-auto px-4 sm:px-6 pt-20 sm:pt-24 pb-24 md:pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <PageHeader
@@ -186,7 +186,7 @@ export default function Marketplace() {
               aria-pressed={selectedChain === tab.id}
               key={tab.id}
               onClick={() => setSelectedChain(tab.id)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedChain === tab.id
+              className={`flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedChain === tab.id
                 ? tab.id === 'solana' ? 'bg-green-500/15 text-green-400 border border-green-500/30'
                   : tab.id === 'monad' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
                   : 'bg-primary/15 text-primary border border-primary/30'

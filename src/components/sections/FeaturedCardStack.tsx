@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CardStack, CardStackItem } from "@/components/ui/card-stack";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CardStackItemRow {
     id: string;
@@ -18,6 +19,7 @@ interface CardStackItemRow {
 export const FeaturedCardStack: React.FC = () => {
     const [items, setItems] = useState<CardStackItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         fetchActiveCards();
@@ -54,7 +56,7 @@ export const FeaturedCardStack: React.FC = () => {
     if (loading) {
         return (
             <div className="w-full">
-                <Skeleton className="h-[450px] w-full rounded-xl" />
+                <Skeleton className="h-[320px] sm:h-[450px] w-full rounded-xl" />
             </div>
         );
     }
@@ -64,18 +66,21 @@ export const FeaturedCardStack: React.FC = () => {
     }
 
     return (
-        <section className="w-full py-12">
+        <section className="w-full py-8 md:py-12">
             <div className="container mx-auto px-4">
-                <div className="text-center mb-8">
-                    <h2 className="text-3xl md:text-4xl font-bold mb-4">Featured Collections</h2>
-                    <p className="text-muted-foreground max-w-2xl mx-auto">
+                <div className="text-center mb-6 md:mb-8">
+                    <h2 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4">Featured Collections</h2>
+                    <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
                         Explore our curated selection of outstanding NFT collections
                     </p>
                 </div>
                 <CardStack
                     items={items}
-                    cardWidth={520}
-                    cardHeight={320}
+                    cardWidth={isMobile ? 300 : 520}
+                    cardHeight={isMobile ? 220 : 320}
+                    overlap={isMobile ? 0.55 : 0.48}
+                    spreadDeg={isMobile ? 30 : 48}
+                    maxVisible={isMobile ? 5 : 7}
                     autoAdvance
                     pauseOnHover
                     intervalMs={3500}

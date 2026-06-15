@@ -36,7 +36,7 @@ const Index: React.FC = () => {
     }
   });
   return (
-    <main className="min-h-screen bg-background overflow-hidden">
+    <main className="min-h-screen bg-background overflow-x-hidden pb-24 md:pb-0">
       <Navbar />
       <HeroSection />
       <FeaturedCardStack />

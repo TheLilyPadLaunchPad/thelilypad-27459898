@@ -6,22 +6,22 @@ import { HomepageFeaturedCollections } from "./HomepageFeaturedCollections";
 
 export const FeaturedCollectionsSection: React.FC = () => {
   return (
-    <section className="relative py-16 sm:py-16 overflow-hidden">
+    <section className="relative py-10 sm:py-16 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-background via-muted/10 to-background" />
 
       <div className="relative z-10 container mx-auto px-4 sm:px-6">
         {/* Section Header */}
         <motion.div
-          className="text-center mb-12"
+          className="text-center mb-8 md:mb-12"
           initial={{ opacity: 0, y: -20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
+          <h2 className="text-2xl sm:text-4xl font-bold text-foreground mb-2 md:mb-4">
             Featured Collections
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
             Hand-picked NFT collections chosen by The Lily Pad team
           </p>
         </motion.div>
