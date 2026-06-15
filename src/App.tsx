@@ -80,6 +80,7 @@ const DonorProfile = lazy(() => import("./pages/DonorProfile"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminBuyback = lazy(() => import("./pages/admin/AdminBuyback"));
 
 // Profile pages
 const ProfileSuspended = lazy(() => import("./pages/ProfileSuspended"));
@@ -177,6 +178,7 @@ const AppContent = () => {
           <Route path="/my-nfts" element={<ProtectedRoute><MyNFTs /></ProtectedRoute>} />
           <Route path="/watch/:playbackId" element={<ProtectedRoute><Watch /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
+          <Route path="/admin/buyback" element={<ProtectedRoute><AdminRoute><AdminBuyback /></AdminRoute></ProtectedRoute>} />
           <Route path="/fees" element={<ProtectedRoute><FeesAndPricing /></ProtectedRoute>} />
           <Route path="/buyback-program" element={<ProtectedRoute><BuybackProgram /></ProtectedRoute>} />
           <Route path="/official-packs" element={<ProtectedRoute><OfficialPacks /></ProtectedRoute>} />
