@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
+import { getSolanaRpcUrl, type NetworkType } from "@/config/solana";
 
 export interface SPLToken {
   mint: string;
@@ -49,9 +50,7 @@ export function useSPLTokens() {
     setError(null);
 
     try {
-      const rpcUrl = network === "mainnet" 
-        ? "https://api.mainnet-beta.solana.com"
-        : "https://api.devnet.solana.com";
+      const rpcUrl = getSolanaRpcUrl((network as NetworkType) || "mainnet");
 
       // Fetch token accounts owned by the wallet
       const response = await fetch(rpcUrl, {

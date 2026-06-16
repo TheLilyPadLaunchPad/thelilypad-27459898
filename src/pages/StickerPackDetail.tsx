@@ -28,6 +28,7 @@ import {
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import { TREASURY_CONFIG, getTransactionSplit } from "@/config/treasury";
+import { getSolanaRpcUrl, type NetworkType } from "@/config/solana";
 import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
 
 interface ShopItem {
@@ -255,9 +256,7 @@ export default function StickerPackDetail() {
           throw new Error("Solana wallet not available");
         }
 
-        const rpcUrl = network === "mainnet"
-          ? "https://api.mainnet-beta.solana.com"
-          : "https://api.devnet.solana.com";
+        const rpcUrl = getSolanaRpcUrl(network as NetworkType);
         const connection = new Connection(rpcUrl, "confirmed");
 
         const fromPubkey = new PublicKey(address!);

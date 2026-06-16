@@ -132,7 +132,7 @@ export async function pinDirectory(
 export function isDevnet(): boolean {
   try {
     const n = localStorage.getItem("solanaNetwork");
-    return !n || n === "devnet";
+    return n === "devnet";
   } catch {
     return false;
   }

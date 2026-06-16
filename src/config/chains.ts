@@ -4,6 +4,8 @@
  * Unified chain configuration for SOL and MON support
  */
 
+import { SOLANA_MAINNET_RPC, SOLANA_DEVNET_RPC } from "@/config/solana";
+
 export type SupportedChain = 'solana' | 'monad';
 
 export interface ChainNetwork {
@@ -70,7 +72,7 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         },
         networks: {
             mainnet: {
-                url: 'https://api.mainnet-beta.solana.com',
+                url: SOLANA_MAINNET_RPC,
                 name: 'Mainnet',
                 explorer: 'https://solscan.io',
             },
@@ -80,7 +82,7 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
                 explorer: 'https://solscan.io/?cluster=testnet',
             },
             devnet: {
-                url: 'https://api.devnet.solana.com',
+                url: SOLANA_DEVNET_RPC,
                 name: 'Devnet',
                 explorer: 'https://solscan.io/?cluster=devnet',
             },

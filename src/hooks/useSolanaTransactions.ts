@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
+import { getSolanaRpcUrl, type NetworkType } from "@/config/solana";
 
 interface SendSOLParams {
   to: string;
@@ -33,9 +34,7 @@ export function useSolanaTransactions() {
   const { address, chainType, network, getSolanaProvider } = useWallet();
 
   const getRpcUrl = useCallback(() => {
-    return network === "mainnet" 
-      ? "https://api.mainnet-beta.solana.com"
-      : "https://api.devnet.solana.com";
+    return getSolanaRpcUrl((network as NetworkType) || "mainnet");
   }, [network]);
 
   // Get recent blockhash for transaction
