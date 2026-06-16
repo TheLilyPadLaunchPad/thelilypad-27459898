@@ -106,6 +106,58 @@
     @apply bg-clip-text text-transparent;
     background: var(--gradient-premium);
   }
+
+  /* Fancy NFT frame with glass shine + highlight on hover */
+  .nft-frame {
+    @apply relative overflow-hidden rounded-2xl border border-border/60 bg-card/40 backdrop-blur-xl transition-all duration-500;
+    box-shadow:
+      0 1px 0 0 hsl(0 0% 100% / 0.08) inset,
+      0 0 0 1px hsl(0 0% 100% / 0.03) inset,
+      0 10px 30px -12px hsl(0 0% 0% / 0.5);
+  }
+  .nft-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(135deg, hsl(0 0% 100% / 0.18) 0%, hsl(0 0% 100% / 0.04) 28%, transparent 55%);
+    mix-blend-mode: overlay;
+    opacity: 0.9;
+    z-index: 2;
+  }
+  .nft-frame::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 75%;
+    height: 100%;
+    background: linear-gradient(
+      115deg,
+      transparent 0%,
+      hsl(0 0% 100% / 0.06) 35%,
+      hsl(0 0% 100% / 0.35) 50%,
+      hsl(0 0% 100% / 0.06) 65%,
+      transparent 100%
+    );
+    transform: skewX(-18deg);
+    transition: left 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .nft-frame:hover {
+    transform: translateY(-3px);
+    border-color: hsl(var(--primary) / 0.55);
+    box-shadow:
+      0 1px 0 0 hsl(0 0% 100% / 0.12) inset,
+      0 0 0 1px hsl(var(--primary) / 0.25) inset,
+      0 0 30px -4px hsl(var(--primary) / 0.45),
+      0 22px 50px -16px hsl(0 0% 0% / 0.65);
+  }
+  .nft-frame:hover::after {
+    left: 150%;
+  }
 }
 
 @layer utilities {
