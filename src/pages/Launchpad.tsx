@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
 import { ImportCollectionModal } from "@/components/launchpad/ImportCollectionModal";
+import { CollectionCsvImportModal } from "@/components/launchpad/CollectionCsvImportModal";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { MetaplexBadge, MetaplexHexIcon } from "@/components/MetaplexBadge";
@@ -369,6 +370,10 @@ export default function Launchpad() {
                   </div>
                   <div className="flex items-center gap-2">
                     <ImportCollectionModal
+                      chain={selectedChain}
+                      onSuccess={() => refetch()}
+                    />
+                    <CollectionCsvImportModal
                       chain={selectedChain}
                       onSuccess={() => refetch()}
                     />
