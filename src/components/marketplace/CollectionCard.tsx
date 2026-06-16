@@ -127,25 +127,25 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
         </Badge>
       </div>
 
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg truncate">{collection.name}</CardTitle>
-        <CardDescription>
-          by {collection.creator_address.slice(0, 6)}...{collection.creator_address.slice(-4)}
+      <CardHeader className="pb-1 px-3 pt-2">
+        <CardTitle className="text-sm truncate">{collection.name}</CardTitle>
+        <CardDescription className="text-[10px]">
+          by {collection.creator_address.slice(0, 4)}...{collection.creator_address.slice(-4)}
         </CardDescription>
       </CardHeader>
 
-      <CardContent>
-        <div className="flex items-center justify-between text-sm mb-2">
+      <CardContent className="px-3 pb-3">
+        <div className="flex items-center justify-between text-xs mb-1">
           <span className="text-muted-foreground">Price</span>
           <span className="font-medium">{getCollectionPrice(collection)}</span>
         </div>
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Supply</span>
-          <span className="font-medium">{collection.minted} / {collection.total_supply}</span>
+          <span className="font-medium">{collection.minted}/{collection.total_supply}</span>
         </div>
-        <div className="w-full bg-muted rounded-full h-1.5 mt-3">
+        <div className="w-full bg-muted rounded-full h-1 mt-2">
           <div
-            className="bg-primary h-1.5 rounded-full transition-all"
+            className="bg-primary h-1 rounded-full transition-all"
             style={{ width: `${collection.total_supply > 0 ? (collection.minted / collection.total_supply) * 100 : 0}%` }}
           />
         </div>
