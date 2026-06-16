@@ -4,23 +4,28 @@ import { mplCandyMachine as mplCoreCandyMachinePlugin } from '@metaplex-foundati
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox';
 import { arweaveUploader } from '@/integrations/arweave/umiArweaveUploader';
 // Helius Configuration
-// Prefer env var; fall back to legacy hardcoded dev key so existing previews keep working.
-// In production, set VITE_HELIUS_API_KEY (devnet) and VITE_HELIUS_MAINNET_API_KEY (mainnet).
+// Keys must be supplied via env vars (VITE_HELIUS_API_KEY for devnet,
+// VITE_HELIUS_MAINNET_API_KEY for mainnet). No hardcoded fallback — exposing
+// a real Helius key in the client bundle allows anyone to drain quota/billing.
 export const HELIUS_API_KEY =
-    (import.meta.env.VITE_HELIUS_API_KEY as string | undefined) ||
-    "0c6d7147-2cfe-4a0f-9a19-4dc723608121";
+    (import.meta.env.VITE_HELIUS_API_KEY as string | undefined) || "";
 
-// Solana RPC endpoints
+// Solana RPC endpoints — only include Helius URL when a key is configured.
 export const DEVNET_RPC_LIST = [
-    `https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`,
+    ...(HELIUS_API_KEY ? [`https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`] : []),
     "https://api.devnet.solana.com",
 ];
 
 // Helius Enhanced API — correct host is api.helius.xyz (no devnet subdomain).
 const HELIUS_ENHANCED_BASE = "https://api.helius.xyz";
-export const HELIUS_DEVNET_URL = `${HELIUS_ENHANCED_BASE}/v0/transactions?api-key=${HELIUS_API_KEY}`;
+export const HELIUS_DEVNET_URL = HELIUS_API_KEY
+    ? `${HELIUS_ENHANCED_BASE}/v0/transactions?api-key=${HELIUS_API_KEY}`
+    : "";
 export const HELIUS_ADDRESS_HISTORY_URL = (address: string) =>
-    `${HELIUS_ENHANCED_BASE}/v0/addresses/${address}/transactions?api-key=${HELIUS_API_KEY}`;
+    HELIUS_API_KEY
+        ? `${HELIUS_ENHANCED_BASE}/v0/addresses/${address}/transactions?api-key=${HELIUS_API_KEY}`
+        : "";
+
 
 // Mainnet Helius key — set VITE_HELIUS_MAINNET_API_KEY in .env for premium mainnet RPC.
 export const HELIUS_MAINNET_API_KEY = import.meta.env.VITE_HELIUS_MAINNET_API_KEY as string | undefined;
