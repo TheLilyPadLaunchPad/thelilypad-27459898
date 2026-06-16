@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { getDasUmi } from "@/utils/dasApi";
+import { getDasUmi, getAssetsByGroup } from "@/utils/dasApi";
 import { getSolanaRpcUrl, NetworkType } from "@/config/solana";
 import { publicKey } from "@metaplex-foundation/umi";
 import { DasApiAsset, DasApiAssetList } from "@metaplex-foundation/digital-asset-standard-api";
@@ -351,4 +351,147 @@ export function useSolanaCollection(collectionAddress: string | null, isDevnet: 
   }, [fetchCollection]);
 
   return { collection, isLoading, error, refresh: fetchCollection };
+}
+
+// Hook to fetch assets by group (e.g., collection) using DAS API
+export function useCollectionAssets(
+  collectionAddress: string | null,
+  isDevnet: boolean = true
+) {
+  const [nfts, setNfts] = useState<NFT[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+
+  const fetchAssets = useCallback(async (loadMore = false) => {
+    if (!collectionAddress) {
+      setNfts([]);
+      setTotalCount(0);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const networkType: NetworkType = isDevnet ? "devnet" : "mainnet";
+      const rpcUrl = getSolanaRpcUrl(networkType);
+      const page = loadMore ? currentPage + 1 : 1;
+      const limit = 50;
+
+      // Fetch assets using DAS API getAssetsByGroup
+      const assets = await getAssetsByGroup(
+        rpcUrl,
+        "collection",
+        collectionAddress,
+        page,
+        limit
+      );
+
+      // Filter to only NFT-type assets (exclude fungible tokens, SOL, SPL tokens)
+      const nftAssets = assets.items.filter((asset: DasApiAsset) => {
+        const iface = asset.interface;
+        return (
+          iface === 'V1_NFT' ||
+          iface === 'MplCoreAsset' ||
+          iface === 'ProgrammableNFT' ||
+          iface === 'MplCoreCollection' ||
+          (asset.compression?.compressed === true)
+        );
+      });
+
+      // Map DAS assets to our NFT interface
+      const mappedNfts: NFT[] = nftAssets.map((asset: DasApiAsset) => {
+        const collectionGroup = asset.grouping.find(
+          (g: any) => g.group_key === 'collection'
+        );
+
+        const imageFile = (asset.content.files as any[])?.find(
+          (f: any) => f.mime?.startsWith('image/')
+        );
+        const image =
+          (asset.content.links as any)?.image ||
+          imageFile?.cdn_uri ||
+          imageFile?.uri ||
+          "";
+
+        const attributes = asset.content.metadata.attributes?.map((attr: any) => ({
+          trait_type: attr.trait_type || "Unknown",
+          value: attr.value?.toString() || ""
+        })) || [];
+
+        const isCompressed = asset.compression?.compressed || false;
+        let standard = "Standard";
+
+        if (asset.interface === "MplCoreAsset") standard = "Core";
+        else if (isCompressed) standard = "Compressed";
+        else if (asset.interface === "V1_NFT") standard = "Standard";
+
+        return {
+          tokenId: asset.id,
+          contractAddress: asset.id,
+          name: asset.content.metadata.name || "Unknown Asset",
+          description: asset.content.metadata.description || "",
+          image,
+          collection: collectionGroup?.group_value || "Unknown Collection",
+          attributes,
+          standard,
+          isCompressed
+        };
+      });
+
+      if (loadMore) {
+        setNfts((prev) => [...prev, ...mappedNfts]);
+        setCurrentPage(page);
+      } else {
+        setNfts(mappedNfts);
+        setCurrentPage(1);
+      }
+
+      setTotalCount(loadMore ? nfts.length + mappedNfts.length : mappedNfts.length);
+      setHasMore(assets.items.length === limit && mappedNfts.length > 0);
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to fetch collection assets";
+      setError(message);
+      console.error("Error fetching collection assets:", err);
+
+      if (!loadMore) {
+        toast.error("Failed to load collection assets");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [collectionAddress, isDevnet, currentPage]);
+
+  const loadMore = useCallback(async () => {
+    if (hasMore && !isLoading) {
+      await fetchAssets(true);
+    }
+  }, [fetchAssets, hasMore, isLoading]);
+
+  const refresh = useCallback(async () => {
+    setCurrentPage(1);
+    setNfts([]);
+    await fetchAssets(false);
+  }, [fetchAssets]);
+
+  useEffect(() => {
+    setNfts([]);
+    setCurrentPage(1);
+    setHasMore(false);
+    fetchAssets(false);
+  }, [collectionAddress, isDevnet]);
+
+  return {
+    nfts,
+    totalCount,
+    isLoading,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  };
 }
