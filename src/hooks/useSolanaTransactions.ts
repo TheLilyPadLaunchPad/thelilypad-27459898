@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
+import { getSolanaRpcUrl, type NetworkType } from "@/config/solana";
 
 interface SendSOLParams {
   to: string;
