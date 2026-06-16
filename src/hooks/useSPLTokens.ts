@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@/providers/WalletProvider";
+import { getSolanaRpcUrl, type NetworkType } from "@/config/solana";
 
 export interface SPLToken {
   mint: string;
