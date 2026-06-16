@@ -60,7 +60,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
 
   return (
     <Card
-      className={`overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in ${ringClass}`}
+      className={`nft-frame overflow-hidden cursor-pointer group animate-fade-in ${ringClass}`}
       style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
       onClick={() => navigate(`/launchpad/${collection.id}`)}
     >
