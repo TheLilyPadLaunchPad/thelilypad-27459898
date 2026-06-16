@@ -61,8 +61,8 @@ export default defineConfig(({ mode }) => ({
           /^\/api\//,
           /\.supabase\.co/,
         ],
-        skipWaiting: false,
-        clientsClaim: false,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /\.(?:js|css)$/,
