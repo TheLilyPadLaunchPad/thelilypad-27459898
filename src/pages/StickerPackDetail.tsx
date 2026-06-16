@@ -255,9 +255,7 @@ export default function StickerPackDetail() {
           throw new Error("Solana wallet not available");
         }
 
-        const rpcUrl = network === "mainnet"
-          ? "https://api.mainnet-beta.solana.com"
-          : "https://api.devnet.solana.com";
+        const rpcUrl = getSolanaRpcUrl(network as NetworkType);
         const connection = new Connection(rpcUrl, "confirmed");
 
         const fromPubkey = new PublicKey(address!);
