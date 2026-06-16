@@ -50,9 +50,7 @@ export function useSPLTokens() {
     setError(null);
 
     try {
-      const rpcUrl = network === "mainnet" 
-        ? "https://api.mainnet-beta.solana.com"
-        : "https://api.devnet.solana.com";
+      const rpcUrl = getSolanaRpcUrl((network as NetworkType) || "mainnet");
 
       // Fetch token accounts owned by the wallet
       const response = await fetch(rpcUrl, {
