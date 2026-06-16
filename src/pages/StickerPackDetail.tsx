@@ -28,6 +28,7 @@ import {
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import { TREASURY_CONFIG, getTransactionSplit } from "@/config/treasury";
+import { getSolanaRpcUrl, type NetworkType } from "@/config/solana";
 import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
 
 interface ShopItem {
