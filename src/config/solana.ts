@@ -10,7 +10,14 @@ import { arweaveUploader } from '@/integrations/arweave/umiArweaveUploader';
 export const HELIUS_API_KEY =
     (import.meta.env.VITE_HELIUS_API_KEY as string | undefined) || "";
 
-// Solana RPC endpoints — only include Helius URL when a key is configured.
+// Mainnet RPC endpoints — hardcoded live Helius connections for production
+export const HELIUS_MAINNET_GATEKEEPER_URL =
+    "https://beta.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55";
+
+export const HELIUS_MAINNET_SECURE_URL =
+    "https://collie-k01vc3-fast-mainnet.helius-rpc.com";
+
+// Devnet RPC endpoints
 export const DEVNET_RPC_LIST = [
     ...(HELIUS_API_KEY ? [`https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`] : []),
     "https://api.devnet.solana.com",
@@ -26,15 +33,20 @@ export const HELIUS_ADDRESS_HISTORY_URL = (address: string) =>
         ? `${HELIUS_ENHANCED_BASE}/v0/addresses/${address}/transactions?api-key=${HELIUS_API_KEY}`
         : "";
 
-
-// Mainnet Helius key — set VITE_HELIUS_MAINNET_API_KEY in .env for premium mainnet RPC.
+// Mainnet config — uses provided live Helius endpoints (gatekeeper + secure RPC)
 export const HELIUS_MAINNET_API_KEY = import.meta.env.VITE_HELIUS_MAINNET_API_KEY as string | undefined;
+
 export const HELIUS_MAINNET_URL = HELIUS_MAINNET_API_KEY
     ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_MAINNET_API_KEY}`
     : "";
 
 export const MAINNET_RPC_LIST: string[] = [
+    // Live Helius connections — primary endpoints for mainnet
+    HELIUS_MAINNET_GATEKEEPER_URL,
+    HELIUS_MAINNET_SECURE_URL,
+    // Fallback: any additional Helius key-based URL
     ...(HELIUS_MAINNET_URL ? [HELIUS_MAINNET_URL] : []),
+    // Public fallbacks
     "https://api.mainnet-beta.solana.com",
     "https://solana-mainnet.rpc.extrnode.com",
 ];
