@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Ticket, Package, LogOut, LogIn, Vote, Music, Coins } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
@@ -69,7 +69,9 @@ export const Navbar: React.FC = () => {
   const { isAdmin, loading: isAdminLoading } = useIsAdmin();
   const showAdmin = !isAdminLoading && isAdmin;
   const navigate = useNavigate();
+  const location = useLocation();
   const isTestnet = network === "testnet";
+  const isWaitRoom = location.pathname === '/waitroom';
 
   const { isMockMode } = useMockMode();
   const [isBuyTokensOpen, setIsBuyTokensOpen] = useState(false);
@@ -100,7 +102,11 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-2">
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
-                <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                <button 
+                  className="p-2 hover:bg-muted/50 rounded-lg transition-colors"
+                  disabled={isWaitRoom}
+                  onClick={(e) => isWaitRoom && e.preventDefault()}
+                >
                   <Menu className="w-5 h-5" />
                 </button>
               </SheetTrigger>
@@ -130,8 +136,9 @@ export const Navbar: React.FC = () => {
                       <SheetClose asChild key={link.label}>
                         <Link
                           to={link.href}
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                          className={`flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in ${isWaitRoom ? 'pointer-events-none opacity-50' : ''}`}
                           style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
+                          onClick={(e) => isWaitRoom && e.preventDefault()}
                         >
                           <link.icon className="w-5 h-5 text-muted-foreground" />
                           {link.label}
@@ -172,8 +179,9 @@ export const Navbar: React.FC = () => {
                         <SheetClose asChild key={link.label}>
                           <Link
                             to={link.href}
-                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in ${isWaitRoom ? 'pointer-events-none opacity-50' : ''}`}
                             style={{ animationDelay: `${(primaryLinks.length + index + 1) * 50 + 50}ms`, animationFillMode: 'both' }}
+                            onClick={(e) => isWaitRoom && e.preventDefault()}
                           >
                             <link.icon className="w-5 h-5 text-muted-foreground" />
                             {link.label}
@@ -201,8 +209,9 @@ export const Navbar: React.FC = () => {
                       <SheetClose asChild key={link.label}>
                         <Link
                           to={link.href}
-                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                          className={`flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in ${isWaitRoom ? 'pointer-events-none opacity-50' : ''}`}
                           style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + index + 2) * 50 + 50}ms`, animationFillMode: 'both' }}
+                          onClick={(e) => isWaitRoom && e.preventDefault()}
                         >
                           <link.icon className="w-5 h-5 text-muted-foreground" />
                           {link.label}
@@ -224,8 +233,9 @@ export const Navbar: React.FC = () => {
                         <SheetClose asChild key={link.label}>
                           <Link
                             to={link.href}
-                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-primary hover:bg-primary/10 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in"
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-primary hover:bg-primary/10 hover:translate-x-1 transition-all duration-200 font-medium animate-fade-in ${isWaitRoom ? 'pointer-events-none opacity-50' : ''}`}
                             style={{ animationDelay: `${(primaryLinks.length + exploreLinks.length + accountLinks.length + index + 3) * 50 + 50}ms`, animationFillMode: 'both' }}
+                            onClick={(e) => isWaitRoom && e.preventDefault()}
                           >
                             <link.icon className="w-5 h-5" />
                             {link.label}
@@ -246,7 +256,11 @@ export const Navbar: React.FC = () => {
             </Sheet>
 
             {/* Logo - Next to hamburger */}
-            <Link to="/" className="flex items-center gap-2">
+            <Link 
+              to="/" 
+              className={`flex items-center gap-2 ${isWaitRoom ? 'pointer-events-none opacity-50' : ''}`}
+              onClick={(e) => isWaitRoom && e.preventDefault()}
+            >
               <LilyPadLogo size={32} className="sm:w-9 sm:h-9" />
               <span className="font-bold text-base sm:text-lg hidden xs:block">The Lily Pad</span>
             </Link>
@@ -277,8 +291,9 @@ export const Navbar: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="hidden md:flex items-center gap-2 text-primary hover:text-primary hover:bg-primary/10 border border-primary/20"
-                onClick={() => navigate('/admin')}
+                className={`hidden md:flex items-center gap-2 text-primary hover:text-primary hover:bg-primary/10 border border-primary/20 ${isWaitRoom ? 'pointer-events-none opacity-50' : ''}`}
+                onClick={() => !isWaitRoom && navigate('/admin')}
+                disabled={isWaitRoom}
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span className="font-bold text-xs uppercase tracking-tight">Admin</span>
