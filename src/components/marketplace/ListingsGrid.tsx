@@ -60,7 +60,7 @@ export const ListingsGrid: React.FC<ListingsGridProps> = ({
         {listings.map((listing, index) => (
           <Card
             key={listing.id}
-            className="overflow-hidden hover:border-primary/50 transition-colors cursor-pointer group animate-fade-in"
+            className="nft-frame overflow-hidden cursor-pointer group animate-fade-in"
             style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'backwards' }}
             onClick={() => onSelectListing(listing)}
           >
@@ -69,49 +69,41 @@ export const ListingsGrid: React.FC<ListingsGridProps> = ({
                 <img
                   src={resolveNftImageUrl(listing.nft.image_url || "")}
                   alt={listing.nft.name || `Token #${listing.nft.token_id}`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   loading="lazy"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <ImageIcon className="w-12 h-12 text-muted-foreground" />
+                  <ImageIcon className="w-10 h-10 text-muted-foreground" />
                 </div>
               )}
 
               <Badge
                 variant="outline"
-                className="absolute top-3 right-3 bg-green-500/20 text-green-400 border-green-500/30"
+                className="absolute top-2 right-2 bg-green-500/20 text-green-400 border-green-500/30 text-[10px] px-1.5 py-0.5"
               >
-                <Tag className="w-3 h-3 mr-1" />
-                For Sale
+                <Tag className="w-2.5 h-2.5 mr-0.5" />
+                Sale
               </Badge>
-
-
             </div>
 
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg truncate">
+            <CardHeader className="pb-1 px-3 pt-2">
+              <CardTitle className="text-sm truncate">
                 {listing.nft.name || `Token #${listing.nft.token_id}`}
               </CardTitle>
               {listing.nft.collection && (
-                <CardDescription>{listing.nft.collection.name}</CardDescription>
+                <CardDescription className="text-[10px] truncate">{listing.nft.collection.name}</CardDescription>
               )}
             </CardHeader>
 
-            <CardContent>
-              <div className="flex items-center justify-between text-sm mb-2">
+            <CardContent className="px-3 pb-3">
+              <div className="flex items-center justify-between text-xs mb-1">
                 <span className="text-muted-foreground">Price</span>
-                <span className="font-bold text-lg">{listing.price} {listing.currency}</span>
+                <span className="font-bold text-sm">{listing.price} {listing.currency}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Seller</span>
-                <span className="font-mono text-xs">
-                  {listing.seller_address.slice(0, 6)}...{listing.seller_address.slice(-4)}
-                </span>
-              </div>
-              <Button className="w-full mt-3" size="sm">
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Buy Now
+              <Button className="w-full mt-2 h-7 text-xs" size="sm">
+                <ShoppingCart className="w-3 h-3 mr-1" />
+                Buy
               </Button>
             </CardContent>
           </Card>
