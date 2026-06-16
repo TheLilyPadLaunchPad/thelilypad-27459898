@@ -34,11 +34,7 @@ export const HELIUS_ADDRESS_HISTORY_URL = (address: string) =>
         : "";
 
 // Mainnet config — uses provided live Helius endpoints (gatekeeper + secure RPC)
-export const HELIUS_MAINNET_API_KEY = import.meta.env.VITE_HELIUS_MAINNET_API_KEY as string | undefined;
-
-export const HELIUS_MAINNET_URL = HELIUS_MAINNET_API_KEY
-    ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_MAINNET_API_KEY}`
-    : "";
+export const HELIUS_MAINNET_URL = "https://mainnet.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55";
 
 export const MAINNET_RPC_LIST: string[] = [
     // Live Helius connections — primary endpoints for mainnet

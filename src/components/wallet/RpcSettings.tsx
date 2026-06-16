@@ -34,6 +34,9 @@ const RPC_LABELS: Record<string, string> = {
 
   [SOLANA_MAINNET_RPC]: "Solana Mainnet (Public)",
   "https://devnet.helius-rpc.com/?api-key=demo": "Helius Devnet",
+  "https://mainnet.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55": "Helius Mainnet",
+  "https://beta.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55": "Helius Gatekeeper (Beta)",
+  "https://collie-k01vc3-fast-mainnet.helius-rpc.com": "Helius Secure (Fast)",
 };
 
 export const getPreferredRpc = (network: NetworkType): string | null => {
