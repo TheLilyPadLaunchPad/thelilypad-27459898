@@ -34,9 +34,7 @@ export function useSolanaTransactions() {
   const { address, chainType, network, getSolanaProvider } = useWallet();
 
   const getRpcUrl = useCallback(() => {
-    return network === "mainnet" 
-      ? "https://api.mainnet-beta.solana.com"
-      : "https://api.devnet.solana.com";
+    return getSolanaRpcUrl((network as NetworkType) || "mainnet");
   }, [network]);
 
   // Get recent blockhash for transaction
