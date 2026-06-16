@@ -8,6 +8,7 @@
  * Returns: { cid: string, url: string, size?: number }
  */
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 const json = (b: unknown, status = 200) =>
@@ -19,8 +20,27 @@ const GATEWAY = "https://gateway.pinata.cloud/ipfs/";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    // Require an authenticated Supabase user — prevents unauth abuse of the platform Pinata account.
+    const authHeader = req.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!supabaseUrl || !anonKey) {
+      return json({ error: "Server auth not configured" }, 500);
+    }
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = await authClient.auth.getUser();
+    if (userErr || !userData?.user) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+
     const jwt = Deno.env.get("PINATA_JWT");
     if (!jwt) return json({ error: "PINATA_JWT not configured" }, 500);
+
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
