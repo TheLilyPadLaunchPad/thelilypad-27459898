@@ -5,6 +5,7 @@ import { getDasUmi, getAssetsByGroup } from "@/utils/dasApi";
 import { getSolanaRpcUrl, NetworkType } from "@/config/solana";
 import { publicKey } from "@metaplex-foundation/umi";
 import { DasApiAsset, DasApiAssetList } from "@metaplex-foundation/digital-asset-standard-api";
+import { resolveNftImageUrl } from "@/lib/ipfs";
 
 export interface NFT {
   tokenId: string;
@@ -113,11 +114,14 @@ export function useWalletNFTs(
           const imageFile = (asset.content.files as any[])?.find(
             (f: any) => f.mime?.startsWith('image/')
           );
-          const image =
+          const rawImage =
             (asset.content.links as any)?.image ||
             imageFile?.cdn_uri ||
             imageFile?.uri ||
             "";
+          
+          // Resolve IPFS/Arweave URLs to HTTP URLs for browser display
+          const image = resolveNftImageUrl(rawImage);
 
           // Map attributes
           const attributes = asset.content.metadata.attributes?.map((attr: any) => ({
