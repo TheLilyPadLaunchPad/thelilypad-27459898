@@ -4,6 +4,8 @@
  * Unified chain configuration for SOL and MON support
  */
 
+import { SOLANA_MAINNET_RPC, SOLANA_DEVNET_RPC } from "@/config/solana";
+
 export type SupportedChain = 'solana' | 'monad';
 
 export interface ChainNetwork {
