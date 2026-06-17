@@ -24,18 +24,19 @@ export async function mintNFT(
         URI: uriHex,
         Flags: flags,
         TransferFee: transferFee,
-        Taxon: taxon,
+        NFTokenTaxon: taxon,
     };
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Mint failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Mint failed: ${meta.TransactionResult}`);
     }
 
     // Extract NFTokenID from the transaction metadata
-    const nftId = tx.result.meta?.nftoken_id || '';
-    
+    const nftId = meta?.nftoken_id || '';
+
     return {
         nftId,
         txHash: tx.result.hash,
