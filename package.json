@@ -20,6 +20,7 @@
     "@hookform/resolvers": "^3.10.0",
     "@irys/web-upload": "^0.0.15",
     "@irys/web-upload-solana": "^0.1.8",
+    "@joey-wallet/wc-client": "^1.0.4",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-agent-registry": "^0.2.5",
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
