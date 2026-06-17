@@ -1,10 +1,15 @@
 /**
- * Pinata IPFS uploader — DEVNET ONLY.
+ * Pinata IPFS uploader.
  *
  * Goes through the `pinata-upload` edge function so the PINATA_JWT secret
- * never touches the browser. Used as the preferred path for collection
- * metadata + assets while testing on Solana devnet. Mainnet still uses
- * Arweave/Irys for permanence.
+ * never touches the browser.
+ *
+ * Usage:
+ *   - Solana devnet: preferred storage path for collection metadata + assets.
+ *   - Solana / Monad mainnet: Arweave/Irys is used for permanence.
+ *   - XRPL (mainnet + testnet): Pinata is the storage backend for both
+ *     image bytes and per-NFT metadata JSON. The returned `ipfs://<cid>`
+ *     URIs are written on-ledger via NFTokenMint.
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,8 +20,14 @@ export interface PinResult {
   url: string;
 }
 
-export function ipfsUrl(cid: string): string {
-  return `${GATEWAY}${cid}`;
+/** HTTP gateway URL — for browser previews / fetches. */
+export function ipfsUrl(cid: string, filename?: string): string {
+  return filename ? `${GATEWAY}${cid}/${filename}` : `${GATEWAY}${cid}`;
+}
+
+/** Canonical `ipfs://` URI — for on-chain / on-ledger storage. */
+export function ipfsUri(cid: string, filename?: string): string {
+  return filename ? `ipfs://${cid}/${filename}` : `ipfs://${cid}`;
 }
 
 /** Upload a JSON object to IPFS via Pinata. Returns gateway URL + CID. */
