@@ -212,15 +212,47 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [caipNetwork]);
 
-  // Main connect function opens Reown AppKit Modal
-  const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
+  // XRPL Connection using Joey Wallet
+  const connectXRPL = useCallback(async () => {
     try {
-       await open();
+      setState(prev => ({ ...prev, isConnecting: true }));
+      toast.loading('Connecting to Joey Wallet...', { id: 'xrpl-connect' });
+
+      const result = await connectJoeyWallet();
+      
+      setState(prev => ({
+        ...prev,
+        address: result.address,
+        isConnected: true,
+        isConnecting: false,
+        walletType: 'joey',
+        chainType: 'xrpl',
+      }));
+
+      toast.success('Connected to Joey Wallet', { id: 'xrpl-connect' });
+    } catch (error: any) {
+      console.error('XRPL connection failed:', error);
+      setState(prev => ({ ...prev, isConnecting: false }));
+      toast.error(error.message || 'Failed to connect to Joey Wallet', { id: 'xrpl-connect' });
+      throw error;
+    }
+  }, []);
+
+  // Main connect function opens Reown AppKit Modal or Joey Wallet
+  const connect = useCallback(async (walletType?: WalletType, _chainType?: ChainType) => {
+    try {
+      if (walletType === "joey") {
+        // Connect via Joey Wallet
+        await connectXRPL();
+      } else {
+        // Default to Reown AppKit
+        await open();
+      }
     } catch (error) {
-       console.error("Failed to open Reown AppKit:", error);
+       console.error("Failed to open wallet connection modal:", error);
        toast.error("Failed to open wallet connection modal");
     }
-  }, [open]);
+  }, [open, connectXRPL]);
 
   const connectWithOAuth = useCallback(async (_provider: OAuthProvider) => {
     try {
@@ -270,32 +302,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setTransactionPending = useCallback((pending: boolean) => {
     setState(prev => ({ ...prev, isTransactionPending: pending }));
-  }, []);
-
-  // XRPL Connection using Joey Wallet
-  const connectXRPL = useCallback(async () => {
-    try {
-      setState(prev => ({ ...prev, isConnecting: true }));
-      toast.loading('Connecting to Joey Wallet...', { id: 'xrpl-connect' });
-
-      const result = await connectJoeyWallet();
-      
-      setState(prev => ({
-        ...prev,
-        address: result.address,
-        isConnected: true,
-        isConnecting: false,
-        walletType: 'joey',
-        chainType: 'xrpl',
-      }));
-
-      toast.success('Connected to Joey Wallet', { id: 'xrpl-connect' });
-    } catch (error: any) {
-      console.error('XRPL connection failed:', error);
-      setState(prev => ({ ...prev, isConnecting: false }));
-      toast.error(error.message || 'Failed to connect to Joey Wallet', { id: 'xrpl-connect' });
-      throw error;
-    }
   }, []);
 
   const signXRPLTransaction = useCallback(async (txJson: any) => {

@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useChain } from "@/providers/ChainProvider";
 import { cn } from "@/lib/utils";
 
-export type WalletType = "reown";
+export type WalletType = "reown" | "joey";
 export type ChainType = "solana" | "monad";
 
 export type OAuthProvider = "google" | "apple";
@@ -62,7 +62,16 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
           description: "Connect with any wallet via Reown",
         };
 
-        options.push(reownOption);
+        const joeyOption: WalletOption = {
+          id: "joey",
+          name: "Joey Wallet Connect",
+          icon: "🐸",
+          isInstalled: true,
+          installUrl: "",
+          description: "Connect with Joey Wallet for multi-chain support",
+        };
+
+        options.push(reownOption, joeyOption);
 
         setWalletOptions(options);
       } catch (e) {
