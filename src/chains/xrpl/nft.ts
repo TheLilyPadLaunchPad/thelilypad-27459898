@@ -128,9 +128,10 @@ export async function burnNFT(
     };
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Burn failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Burn failed: ${meta.TransactionResult}`);
     }
 
     return tx.result.hash;
@@ -154,8 +155,8 @@ export async function getAccountNFTs(
         request.marker = marker;
     }
 
-    const response = await client.request(request);
-    
+    const response = await client.request(request) as any;
+
     return {
         nfts: response.result.account_nfts || [],
         marker: response.result.marker,
