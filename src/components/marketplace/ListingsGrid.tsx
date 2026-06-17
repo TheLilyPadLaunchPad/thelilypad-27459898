@@ -71,6 +71,8 @@ export const ListingsGrid: React.FC<ListingsGridProps> = ({
                   alt={listing.nft.name || `Token #${listing.nft.token_id}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   loading="lazy"
+                  width="199"
+                  height="199"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

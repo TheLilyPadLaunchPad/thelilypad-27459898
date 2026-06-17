@@ -83,6 +83,8 @@ export const AuctionsGrid: React.FC<Props> = ({ auctions, isLoading, onSelect })
                     alt={a.name ?? "Auction NFT"}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
+                    width="199"
+                    height="199"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

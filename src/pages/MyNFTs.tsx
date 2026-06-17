@@ -935,12 +935,16 @@ export default function MyNFTs() {
                           src={resolveNftImageUrl(nft.image_url)}
                           alt={nft.name || `#${nft.token_id}`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          width="199"
+                          height="199"
                         />
                       ) : nft.collection?.image_url ? (
                         <img
                           src={resolveNftImageUrl(nft.collection.image_url)}
                           alt={nft.name || `#${nft.token_id}`}
                           className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-300"
+                          width="199"
+                          height="199"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
@@ -1000,18 +1004,22 @@ export default function MyNFTs() {
                       className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
                       onClick={() => setSelectedNft(nft)}
                     >
-                      <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                      <div className="relative w-[199px] h-[199px] rounded-lg overflow-hidden bg-muted flex-shrink-0">
                         {nft.image_url ? (
                           <img
                             src={resolveNftImageUrl(nft.image_url)}
                             alt={nft.name || `#${nft.token_id}`}
                             className="w-full h-full object-cover"
+                            width="199"
+                            height="199"
                           />
                         ) : nft.collection?.image_url ? (
                           <img
                             src={resolveNftImageUrl(nft.collection.image_url)}
                             alt={nft.name || `#${nft.token_id}`}
                             className="w-full h-full object-cover opacity-50"
+                            width="199"
+                            height="199"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
