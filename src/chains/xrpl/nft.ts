@@ -102,9 +102,10 @@ export async function acceptOffer(
     };
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Accept offer failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Accept offer failed: ${meta.TransactionResult}`);
     }
 
     return {
