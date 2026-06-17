@@ -84,7 +84,8 @@ export function useWalletNFTs(
 
         // Filter to only NFT-type assets (exclude fungible tokens, SOL, SPL tokens)
         const nftAssets = assets.items.filter((asset: DasApiAsset) => {
-          const iface = asset.interface;
+          const iface = asset.interface as string;
+          const a = asset as any;
           // Keep all known NFT interfaces - expanded list to catch more NFT types
           return (
             iface === 'V1_NFT' ||
@@ -93,12 +94,12 @@ export function useWalletNFTs(
             iface === 'MplCoreCollection' ||
             iface === 'MplxNft' ||
             iface === 'NFT' ||
-            iface === 'FungibleAsset' && asset.content?.metadata?.name || // Some NFTs misclassified as fungible
+            (iface === 'FungibleAsset' && asset.content?.metadata?.name) || // Some NFTs misclassified as fungible
             (asset.compression?.compressed === true) || // compressed NFTs
             // Also include assets that have NFT-like characteristics but unknown interface
-            (asset.content?.files?.some((f: any) => f.mime?.startsWith('image/')) && 
+            (asset.content?.files?.some((f: any) => f.mime?.startsWith('image/')) &&
              asset.content?.metadata?.name &&
-             !asset.token_standard?.includes('Fungible'))
+             !a.token_standard?.includes?.('Fungible'))
           );
         });
 

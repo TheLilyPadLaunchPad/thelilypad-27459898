@@ -110,7 +110,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
 
       // 1. Handle Payment if totalCost > 0
       if (totalCost > 0) {
-        const treasury = getPlatformWallet('treasury', chain);
+        const treasury = getPlatformWallet('treasury', chain as 'solana' | 'monad');
         
         if (chain === 'solana') {
           const result = await sendSolanaPayment({
