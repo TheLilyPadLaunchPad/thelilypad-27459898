@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { NFTTransferModal } from "@/components/NFTTransferModal";
 import { ListNFTModal } from "@/components/ListNFTModal";
@@ -47,7 +49,8 @@ import {
   Flame,
   MessageSquare,
   Gavel,
-  TrendingUp
+  TrendingUp,
+  Hash
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
@@ -1064,110 +1067,187 @@ export default function MyNFTs() {
 
       {/* NFT Detail Modal */}
       <Dialog open={!!selectedNft} onOpenChange={() => setSelectedNft(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           {selectedNft && (
             <>
               <DialogHeader>
-                <DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
                   {selectedNft.name || `${selectedNft.collection?.name} #${selectedNft.token_id}`}
                 </DialogTitle>
               </DialogHeader>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="aspect-square rounded-lg overflow-hidden bg-muted">
-                  {selectedNft.image_url ? (
-                    <img
-                      src={resolveNftImageUrl(selectedNft.image_url)}
-                      alt={selectedNft.name || `#${selectedNft.token_id}`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : selectedNft.collection?.image_url ? (
-                    <img
-                      src={resolveNftImageUrl(selectedNft.collection.image_url)}
-                      alt={selectedNft.name || `#${selectedNft.token_id}`}
-                      className="w-full h-full object-cover opacity-50"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-16 h-16 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <Badge variant="outline" className="mb-2">
-                      Token #{selectedNft.token_id}
-                    </Badge>
-                    {selectedNft.collection && (
-                      selectedNft.collection_id ? (
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto text-primary"
-                          onClick={() => {
-                            setSelectedNft(null);
-                            navigate(`/launchpad/${selectedNft.collection_id}`);
-                          }}
-                        >
-                          {selectedNft.collection.name}
-                          <ArrowUpRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      ) : selectedNft.collection.contract_address || selectedNft.onChainAddress ? (
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto text-primary"
-                          onClick={() => {
-                            const addr = selectedNft.collection?.contract_address || selectedNft.onChainAddress;
-                            if (addr) {
-                              window.open(`https://explorer.solana.com/address/${addr}?cluster=devnet`, '_blank');
-                            }
-                          }}
-                        >
-                          {selectedNft.collection.name}
-                          <ExternalLink className="w-3 h-3 ml-1" />
-                        </Button>
+              <ScrollArea className="max-h-[calc(90vh-8rem)] pr-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Image */}
+                  <div className="space-y-4">
+                    <div className="relative aspect-square rounded-xl overflow-hidden bg-muted border border-border">
+                      {selectedNft.image_url ? (
+                        <img
+                          src={resolveNftImageUrl(selectedNft.image_url)}
+                          alt={selectedNft.name || `#${selectedNft.token_id}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : selectedNft.collection?.image_url ? (
+                        <img
+                          src={resolveNftImageUrl(selectedNft.collection.image_url)}
+                          alt={selectedNft.name || `#${selectedNft.token_id}`}
+                          className="w-full h-full object-cover opacity-50"
+                        />
                       ) : (
-                        <span className="text-sm font-medium">
-                          {selectedNft.collection.name}
-                        </span>
-                      )
-                    )}
-                    {selectedNft.description && (
-                      <p className="text-muted-foreground text-sm mt-2">
-                        {selectedNft.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Owner:</span>
-                      <code className="bg-muted px-2 py-0.5 rounded text-xs">
-                        {formatAddress(selectedNft.owner_address)}
-                      </code>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Minted {formatDistanceToNow(new Date(selectedNft.minted_at), { addSuffix: true })}
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="w-16 h-16 text-muted-foreground" />
+                        </div>
+                      )}
+                      <Badge className="absolute top-3 right-3 bg-black/70 text-white border-none">
+                        <Hash className="w-3 h-3 mr-1" />
+                        #{selectedNft.token_id}
+                      </Badge>
+                      {selectedNft.source === 'onchain' && (
+                        <Badge className="absolute top-3 left-3 bg-blue-500/90 text-white border-none">
+                          <Globe className="w-3 h-3 mr-1" />
+                          On-Chain
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
-                  {selectedNft.attributes.length > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">Attributes</h4>
-                        {(() => {
-                          const score = rarityScores.get(selectedNft.id) ?? 50;
-                          const tier = getRarityTier(score);
-                          const rarity = RARITY_CONFIG[tier];
-                          const RarityIcon = rarity.icon;
-                          return (
-                            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${rarity.bgColor}`}>
-                              <RarityIcon className={`w-3.5 h-3.5 ${rarity.color}`} />
-                              <span className={`text-xs font-medium ${rarity.color}`}>{rarity.label}</span>
+                  {/* Right Column - Details */}
+                  <div className="space-y-4">
+                    {/* Collection Info Card */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Collection</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {selectedNft.collection && (
+                          <div className="flex items-center gap-3">
+                            {selectedNft.collection.image_url && (
+                              <img
+                                src={resolveNftImageUrl(selectedNft.collection.image_url)}
+                                alt={selectedNft.collection.name}
+                                className="w-12 h-12 rounded-lg object-cover"
+                              />
+                            )}
+                            <div className="flex-1">
+                              {selectedNft.collection_id ? (
+                                <Button
+                                  variant="link"
+                                  className="p-0 h-auto text-primary font-medium"
+                                  onClick={() => {
+                                    setSelectedNft(null);
+                                    navigate(`/launchpad/${selectedNft.collection_id}`);
+                                  }}
+                                >
+                                  {selectedNft.collection.name}
+                                  <ArrowUpRight className="w-3 h-3 ml-1" />
+                                </Button>
+                              ) : (
+                                <span className="font-medium">{selectedNft.collection.name}</span>
+                              )}
+                              {selectedNft.collection.contract_address && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <code className="text-xs bg-muted px-2 py-0.5 rounded">
+                                    {formatAddress(selectedNft.collection.contract_address)}
+                                  </code>
+                                </div>
+                              )}
                             </div>
-                          );
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* NFT Details Card */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Details</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Token ID</span>
+                          <Badge variant="secondary">#{selectedNft.token_id}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Owner</span>
+                          <code className="text-xs bg-muted px-2 py-0.5 rounded">
+                            {formatAddress(selectedNft.owner_address)}
+                          </code>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Minted</span>
+                          <span className="text-sm">
+                            {formatDistanceToNow(new Date(selectedNft.minted_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                        {selectedNft.source === 'onchain' && (() => {
+                          const mint = selectedNft.onChainAddress || '';
+                          const ocStat = onchainStats.get(mint);
+                          return ocStat && (ocStat.floorPrice != null || ocStat.volume24h != null) ? (
+                            <>
+                              <Separator />
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-muted-foreground">Floor Price</span>
+                                  <span className="text-sm font-semibold">
+                                    {ocStat.floorPrice != null ? `${ocStat.floorPrice.toFixed(3)} ${chainSymbol}` : '—'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-muted-foreground">24h Volume</span>
+                                  <span className="text-sm font-semibold">
+                                    {ocStat.volume24h != null ? `${ocStat.volume24h.toFixed(2)} ${chainSymbol}` : '—'}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground text-right">
+                                  Source: Magic Eden
+                                </p>
+                              </div>
+                            </>
+                          ) : null;
                         })()}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      </CardContent>
+                    </Card>
+
+                    {/* Description Card */}
+                    {selectedNft.description && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Description</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedNft.description}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Attributes Card */}
+                    {selectedNft.attributes.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-primary" />
+                              Attributes
+                            </CardTitle>
+                            {(() => {
+                              const score = rarityScores.get(selectedNft.id) ?? 50;
+                              const tier = getRarityTier(score);
+                              const rarity = RARITY_CONFIG[tier];
+                              const RarityIcon = rarity.icon;
+                              return (
+                                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${rarity.bgColor}`}>
+                                  <RarityIcon className={`w-3.5 h-3.5 ${rarity.color}`} />
+                                  <span className={`text-xs font-medium ${rarity.color}`}>{rarity.label}</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <ScrollArea className="h-[200px] pr-4">
+                            <div className="grid grid-cols-2 gap-2">
                         {selectedNft.attributes.map((attr, i) => {
                           const key = `${attr.trait_type}:${attr.value}`;
                           const traitInfo = traitRarityData.get(selectedNft.id)?.get(key);
@@ -1213,10 +1293,58 @@ export default function MyNFTs() {
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                )}
 
-                  <div className="flex flex-col gap-2 pt-2">
+                {/* Marketplace Links Card */}
+                {selectedNft.onChainAddress && (
+                  <Card className="border-primary/20">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <ExternalLink className="w-4 h-4 text-primary" />
+                        View on Marketplaces
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => window.open(`https://magiceden.io/item-details/${selectedNft.onChainAddress}`, "_blank")}
+                      >
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mr-2" />
+                        Magic Eden
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => window.open(`https://tensor.trade/item/${selectedNft.onChainAddress}`, "_blank")}
+                      >
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 mr-2" />
+                        Tensor
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => window.open(`https://drip.haus/item/${selectedNft.onChainAddress}`, "_blank")}
+                      >
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-orange-500 to-red-500 mr-2" />
+                        DRiP Haus
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Actions Card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
                     {/* On-chain-only info badge + floor/volume */}
                     {selectedNft.source === 'onchain' && (() => {
                       const mint = selectedNft.onChainAddress || '';
@@ -1455,9 +1583,11 @@ export default function MyNFTs() {
                         </>
                       )}
                     </div>
-                  </div>
+                  </CardContent>
+                </Card>
                 </div>
               </div>
+            </ScrollArea>
             </>
           )}
         </DialogContent>
