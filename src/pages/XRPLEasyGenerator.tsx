@@ -32,6 +32,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+import { pinFile, pinJson, ipfsUri } from "@/integrations/pinata/client";
 import { cn } from "@/lib/utils";
 import { useSEO } from "@/hooks/useSEO";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -79,14 +80,12 @@ export default function XRPLEasyGenerator() {
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const preview = URL.createObjectURL(file);
-            
-            // In a real implementation, you would upload to Supabase/IPFS here
-            // For now, we'll use a placeholder URI
-            const uri = `ipfs://placeholder-${Date.now()}-${i}`;
 
+            // Pinning happens at mint time so users can still re-order /
+            // remove items before paying for uploads. Stage locally for now.
             newItems.push({
                 name: file.name.replace(/\.[^/.]+$/, ""),
-                uri,
+                uri: "",
                 file,
                 preview,
             });
@@ -109,6 +108,56 @@ export default function XRPLEasyGenerator() {
         try {
             setCurrentStep("minting");
 
+            // 1. Pin each image + per-NFT metadata JSON to IPFS via Pinata.
+            //    Used for both mainnet and testnet on XRPL.
+            const pinnedItems: { name: string; uri: string }[] = [];
+            let firstImageCid: string | null = null;
+
+            for (let i = 0; i < nftItems.length; i++) {
+                const item = nftItems[i];
+                if (!item.file) {
+                    throw new Error(`Item "${item.name}" is missing its image file`);
+                }
+
+                toast.loading(
+                    `Pinning image ${i + 1}/${nftItems.length} to IPFS…`,
+                    { id: "xrpl-pin" }
+                );
+                const img = await pinFile(item.file, item.file.name);
+                if (!firstImageCid) firstImageCid = img.cid;
+
+                toast.loading(
+                    `Pinning metadata ${i + 1}/${nftItems.length} to IPFS…`,
+                    { id: "xrpl-pin" }
+                );
+                const meta = await pinJson(
+                    {
+                        name: item.name,
+                        description,
+                        image: ipfsUri(img.cid),
+                        attributes: [],
+                        collection: { name, family: symbol || name },
+                    },
+                    `${item.name}.json`
+                );
+
+                pinnedItems.push({ name: item.name, uri: ipfsUri(meta.cid) });
+            }
+
+            // 2. Pin collection-level metadata; use its ipfs:// URI as the
+            //    collection root URI written into AccountSet Domain.
+            toast.loading("Pinning collection metadata to IPFS…", { id: "xrpl-pin" });
+            const collectionMeta = await pinJson(
+                {
+                    name,
+                    description,
+                    symbol: symbol || undefined,
+                    image: firstImageCid ? ipfsUri(firstImageCid) : undefined,
+                },
+                `${name}.json`
+            );
+            toast.success("All assets pinned to IPFS", { id: "xrpl-pin" });
+
             // In a real implementation, you would get the seed from the wallet
             // For now, we'll use a placeholder
             const seed = "sEd123456789012345678901234567890"; // Placeholder
@@ -117,21 +166,19 @@ export default function XRPLEasyGenerator() {
                 collectionParams: {
                     name,
                     description,
-                    uri: `https://thelilypad.io/collections/${name.toLowerCase().replace(/\s+/g, '-')}`,
+                    uri: ipfsUri(collectionMeta.cid),
                     issuer: "rPlaceholderAddress", // Would come from wallet
                     taxon,
                     transferFee: transferFee * 1000, // Convert to XRPL format
                 },
-                items: nftItems.map(item => ({
-                    name: item.name,
-                    uri: item.uri,
-                })),
+                items: pinnedItems,
             }, network);
 
             setMintResult(result);
             setCurrentStep("complete");
-        } catch (error) {
-            toast.error("Failed to mint collection");
+        } catch (error: any) {
+            console.error("XRPL mint failed:", error);
+            toast.error(error?.message || "Failed to mint collection", { id: "xrpl-pin" });
             setCurrentStep("review");
         }
     };
