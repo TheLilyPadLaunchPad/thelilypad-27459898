@@ -10,8 +10,9 @@ This document outlines the technical architecture of The Lily Pad platform.
 | Styling | Tailwind CSS, shadcn/ui |
 | State Management | React Context, TanStack Query |
 | Backend | Supabase (PostgreSQL, Edge Functions) |
-| Blockchain | Monad (EVM-compatible) |
-| Web3 | viem, MetaMask |
+| Blockchain | Solana (Metaplex Core), Monad (EVM-compatible), XRPL |
+| Web3 | Reown AppKit, Joey Wallet, Metaplex Umi SDK, viem |
+| Solana | Core Candy Machine, MPL Core Assets, Anchor (post-mint modules) |
 
 ## Project Structure
 
@@ -24,16 +25,33 @@ src/
 │   ├── ui/              # shadcn/ui components
 │   └── wallet/          # Wallet-related components
 ├── config/
-│   └── alchemy.ts       # Chain configurations
+│   ├── alchemy.ts       # Chain configurations
+│   ├── launchpad/       # Launchpad-specific configs
+│   └── solana.ts        # Solana RPC configurations
 ├── hooks/               # Custom React hooks
 ├── integrations/
-│   └── supabase/        # Supabase client & types
+│   ├── supabase/        # Supabase client & types
+│   ├── arweave/         # Arweave/Irys storage
+│   └── reown/           # Reown AppKit integration
 ├── lib/
 │   └── utils.ts         # Utility functions
 ├── pages/               # Route pages
 ├── providers/
 │   └── WalletProvider.tsx  # Wallet context
+├── chains/              # Blockchain operations
+│   ├── solana/          # Solana Core operations
+│   │   ├── programs.ts  # Core Candy Machine wrappers
+│   │   ├── client.ts     # Umi client setup
+│   │   └── types.ts      # Solana types
+│   ├── monad/            # Monad EVM operations
+│   └── xrpl/             # XRPL operations
 └── types/               # TypeScript definitions
+
+anchor/                  # Anchor programs (post-mint modules)
+├── escrow_program/      # Marketplace escrow (Core CPI compliant)
+├── programs/
+│   └── battle_program/  # Experimental gaming module
+└── README.md            # Anchor programs documentation
 
 supabase/
 ├── config.toml          # Supabase configuration
@@ -43,6 +61,62 @@ supabase/
 
 docs/                    # Documentation
 ```
+
+## Solana Architecture (2026 Metaplex Core Standards)
+
+### Codebase Separation
+
+The codebase follows strict separation between minting and post-mint operations:
+
+**`src/chains/solana/` - Core Operations (Minting)**
+- Core Candy Machine wrappers (`programs.ts`)
+- MPL Core Asset operations
+- Umi SDK integration
+- Guard configuration and deployment
+- **Purpose**: Exclusive mint engine per 2026 standards
+
+**`anchor/` - Post-Mint Modules**
+- `escrow_program`: Marketplace escrow (Core CPI compliant)
+- `battle_program`: Experimental gaming module
+- **Purpose**: Separate modules that interact with NFTs AFTER minting
+
+### Core Candy Machine Foundation
+
+Per 2026 Metaplex Core standards:
+- ✅ Core Candy Machine is the **exclusive** mint engine
+- ✅ No custom mint contracts
+- ✅ All minting uses `@metaplex-foundation/mpl-core-candy-machine`
+- ✅ Anchor programs only operate post-mint
+
+### Anchor Program Integration
+
+**escrow_program**:
+- Uses `mpl_core::cpi::transfer_v1` for Core asset transfers
+- Non-custodial marketplace escrow
+- Platform fee routing (2.5%)
+- Full audit: [anchor/escrow_program/AUDIT.md](../anchor/escrow_program/AUDIT.md)
+
+**battle_program**:
+- Experimental gaming module
+- Localnet only
+- No Core CPI required (gaming mechanics, not trading)
+- Documentation: [anchor/programs/battle_program/README.md](../anchor/programs/battle_program/README.md)
+
+### Architecture Compliance
+
+```
+User Request → Core Candy Machine (minting) → Core Asset
+                                                  ↓
+                                            Anchor Programs (post-mint)
+                                            - Marketplace escrow
+                                            - Gaming/battle system
+```
+
+This separation ensures:
+- Core Candy Machine remains the mint foundation
+- Custom contracts only add post-mint functionality
+- No interference with minting operations
+- Clear module boundaries
 
 ## Component Architecture
 
