@@ -24,18 +24,19 @@ export async function mintNFT(
         URI: uriHex,
         Flags: flags,
         TransferFee: transferFee,
-        Taxon: taxon,
+        NFTokenTaxon: taxon,
     };
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Mint failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Mint failed: ${meta.TransactionResult}`);
     }
 
     // Extract NFTokenID from the transaction metadata
-    const nftId = tx.result.meta?.nftoken_id || '';
-    
+    const nftId = meta?.nftoken_id || '';
+
     return {
         nftId,
         txHash: tx.result.hash,
@@ -69,13 +70,14 @@ export async function createSellOffer(
     }
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Create offer failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Create offer failed: ${meta.TransactionResult}`);
     }
 
-    const offerId = tx.result.meta?.offer_id || '';
-    
+    const offerId = meta?.offer_id || '';
+
     return {
         offerId,
         txHash: tx.result.hash,
@@ -100,9 +102,10 @@ export async function acceptOffer(
     };
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Accept offer failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Accept offer failed: ${meta.TransactionResult}`);
     }
 
     return {
@@ -125,9 +128,10 @@ export async function burnNFT(
     };
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Burn failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Burn failed: ${meta.TransactionResult}`);
     }
 
     return tx.result.hash;
@@ -151,8 +155,8 @@ export async function getAccountNFTs(
         request.marker = marker;
     }
 
-    const response = await client.request(request);
-    
+    const response = await client.request(request) as any;
+
     return {
         nfts: response.result.account_nfts || [],
         marker: response.result.marker,

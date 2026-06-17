@@ -40,12 +40,12 @@ export async function getNFTSellOffers(
     client: Client,
     nftId: string
 ): Promise<any[]> {
-    const request = {
+    const request: any = {
         command: 'nft_sell_offers',
         nft_id: nftId,
     };
 
-    const response = await client.request(request);
+    const response = await client.request(request) as any;
     return response.result.offers || [];
 }
 
@@ -56,12 +56,12 @@ export async function getNFTBuyOffers(
     client: Client,
     nftId: string
 ): Promise<any[]> {
-    const request = {
+    const request: any = {
         command: 'nft_buy_offers',
         nft_id: nftId,
     };
 
-    const response = await client.request(request);
+    const response = await client.request(request) as any;
     return response.result.offers || [];
 }
 
@@ -80,9 +80,10 @@ export async function cancelOffer(
     };
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Cancel offer failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Cancel offer failed: ${meta.TransactionResult}`);
     }
 
     return tx.result.hash;
