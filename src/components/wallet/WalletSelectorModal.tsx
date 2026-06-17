@@ -10,11 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Wallet, ExternalLink, Clock, Sparkles, Zap, Hexagon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { waitForPhantomExtension } from "@/config/phantom";
 import { useChain } from "@/providers/ChainProvider";
 import { cn } from "@/lib/utils";
 
-export type WalletType = "phantom" | "solana";
+export type WalletType = "reown";
 export type ChainType = "solana" | "monad";
 
 export type OAuthProvider = "google" | "apple";
@@ -54,30 +53,27 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
       try {
         const options: WalletOption[] = [];
 
-        await waitForPhantomExtension(2000);
-        const isPhantomInstalled = !!(window as any).phantom?.solana?.isPhantom || !!(window as any).phantom?.ethereum;
-
-        const phantomOption: WalletOption = {
-          id: "phantom",
-          name: "Phantom",
-          icon: "👻",
-          isInstalled: isPhantomInstalled,
-          installUrl: "https://phantom.app/",
-          description: chain.id === 'monad' ? "Connect Monad via Phantom EVM" : "Solana, EVM & more",
+        const reownOption: WalletOption = {
+          id: "reown",
+          name: "Reown Wallet Connect",
+          icon: "�",
+          isInstalled: true,
+          installUrl: "",
+          description: "Connect with any wallet via Reown",
         };
 
-        options.push(phantomOption);
+        options.push(reownOption);
 
         setWalletOptions(options);
       } catch (e) {
         console.error("Error initializing wallets:", e);
         setWalletOptions([
           {
-            id: "phantom",
-            name: "Phantom",
-            icon: "👻",
-            isInstalled: false,
-            installUrl: "https://phantom.app/",
+            id: "reown",
+            name: "Reown Wallet Connect",
+            icon: "�",
+            isInstalled: true,
+            installUrl: "",
           },
         ]);
       }
@@ -88,7 +84,7 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
     if (open) {
       initWallets();
     }
-  }, [open, chain.id]);
+  }, [open]);
 
   const handleWalletClick = (wallet: WalletOption) => {
     if (!wallet.isInstalled) {
@@ -179,14 +175,6 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
             )}
           </div>
 
-          {chain.id === 'monad' && (
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 flex gap-3">
-              <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-amber-200/80 leading-relaxed">
-                Monad is currently in Testnet. Make sure your Phantom wallet is set to an EVM network to connect successfully.
-              </p>
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

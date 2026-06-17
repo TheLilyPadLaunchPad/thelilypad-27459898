@@ -9,13 +9,16 @@ export function useMonadPayment() {
     const sendPayment = useCallback(async (amount: string, destination: string) => {
         setIsProcessing(true);
         try {
-            const phantomEvm = (window as any).phantom?.ethereum;
-            if (!phantomEvm) {
-                toast.error("Phantom EVM provider not found");
+            // Use Reown AppKit for EVM provider
+            const { useAppKitProvider } = await import('@reown/appkit/react');
+            const { walletProvider } = useAppKitProvider('eip155');
+            
+            if (!walletProvider) {
+                toast.error("Wallet provider not found");
                 return { success: false };
             }
 
-            const provider = new ethers.BrowserProvider(phantomEvm);
+            const provider = new ethers.BrowserProvider(walletProvider);
             const signer = await provider.getSigner();
 
             const tx = await signer.sendTransaction({

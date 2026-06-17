@@ -14,25 +14,6 @@ const fallbackAuthBranding = "/auth-branding.webp";
 
 type SelectedChain = "solana" | "monad";
 
-// Phantom icon
-const PhantomIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="128" height="128" rx="26" fill="url(#paint0_linear_auth)" />
-    <path d="M110.5 64.6C110.5 90.5 89.3 111.5 63.2 111.5H33.6C31.5 111.5 29.8 109.8 29.8 107.7V63.1C29.8 41.1 47.9 23.2 70.1 23.2C92.3 23.2 110.5 41.1 110.5 63.1V64.6Z" fill="url(#paint1_linear_auth)" />
-    <path d="M86.7 64.5C86.7 68.3 83.6 71.4 79.8 71.4C76 71.4 72.9 68.3 72.9 64.5C72.9 60.7 76 57.6 79.8 57.6C83.6 57.6 86.7 60.7 86.7 64.5Z" fill="white" />
-    <path d="M64.5 64.5C64.5 68.3 61.4 71.4 57.6 71.4C53.8 71.4 50.7 68.3 50.7 64.5C50.7 60.7 53.8 57.6 57.6 57.6C61.4 57.6 64.5 60.7 64.5 64.5Z" fill="white" />
-    <defs>
-      <linearGradient id="paint0_linear_auth" x1="64" y1="0" x2="64" y2="128" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#534BB1" />
-        <stop offset="1" stopColor="#551BF9" />
-      </linearGradient>
-      <linearGradient id="paint1_linear_auth" x1="70.15" y1="23.2" x2="70.15" y2="111.5" gradientUnits="userSpaceOnUse">
-        <stop stopColor="white" />
-        <stop offset="1" stopColor="white" stopOpacity="0.82" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
 
 
 // Monad icon — purple diamond
@@ -51,7 +32,7 @@ const MonadIcon = () => (
 );
 
 const CHAINS: { id: SelectedChain; label: string; Icon: React.FC }[] = [
-  { id: "solana", label: "Phantom", Icon: PhantomIcon },
+  { id: "solana", label: "Solana", Icon: MonadIcon },
   { id: "monad", label: "Monad", Icon: MonadIcon },
 ];
 
@@ -67,7 +48,7 @@ export default function Auth() {
 
   useSEO({
     title: "Connect Wallet | The Lily Pad",
-    description: "Connect your wallet to access The Lily Pad. Choose Phantom for Solana or Monad."
+    description: "Connect your wallet to access The Lily Pad. Choose Solana or Monad."
   });
 
   // Redirect when authenticated or needs profile setup
@@ -79,12 +60,12 @@ export default function Auth() {
     }
   }, [state, navigate]);
 
-  const handlePhantomConnect = async () => {
+  const handleSolanaConnect = async () => {
     setIsConnectingWallet(true);
     try {
-      await connect("phantom", "solana");
+      await connect("reown", "solana");
     } catch (error) {
-      console.error("Phantom connect error:", error);
+      console.error("Solana connect error:", error);
     } finally {
       setIsConnectingWallet(false);
     }
@@ -191,16 +172,16 @@ export default function Auth() {
                   </div>
 
                   <Button
-                    onClick={handlePhantomConnect}
+                    onClick={handleSolanaConnect}
                     disabled={isLoading}
                     className="w-full h-14 text-base font-medium bg-gradient-to-r from-[#534BB1] to-[#551BF9] hover:from-[#4a43a0] hover:to-[#4c18e0] text-white"
                   >
                     {isLoading ? (
                       <Loader2 className="w-5 h-5 animate-spin mr-3" />
                     ) : (
-                      <span className="mr-3"><PhantomIcon /></span>
+                      <span className="mr-3"><MonadIcon /></span>
                     )}
-                    Connect with Phantom
+                    Connect Wallet
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center">
@@ -234,17 +215,14 @@ export default function Auth() {
                     {isLoading ? (
                       <Loader2 className="w-5 h-5 animate-spin mr-3" />
                     ) : (
-                      <span className="mr-3"><PhantomIcon /></span>
+                      <span className="mr-3"><MonadIcon /></span>
                     )}
-                    Connect with Phantom (Monad)
+                    Connect Wallet (Monad)
                   </Button>
 
                   <div className="space-y-1.5">
                     <p className="text-xs text-muted-foreground text-center">
-                      Uses your Phantom EVM wallet address for Monad Testnet.
-                    </p>
-                    <p className="text-xs text-muted-foreground/60 text-center">
-                      Make sure Phantom is installed and set to an EVM network.
+                      Uses your wallet address for Monad Testnet.
                     </p>
                   </div>
                 </motion.div>
@@ -269,15 +247,7 @@ export default function Auth() {
             </p>
           ) : (
             <p>
-              Need Phantom?{" "}
-              <a
-                href="https://phantom.app/download"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline font-medium"
-              >
-                Download here
-              </a>
+              Connect with Reown Wallet Connect
             </p>
           )}
         </div>

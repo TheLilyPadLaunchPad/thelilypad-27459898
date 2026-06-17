@@ -164,7 +164,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
           <p className="text-xs text-center text-muted-foreground">
             {listing.seller_address === address
               ? "You own this listing."
-              : chainId === 'monad' ? "Confirms via Phantom Monad wallet." : "Note: Seller signature required for P2P transfer."}
+              : chainId === 'monad' ? "Confirms via your Monad wallet." : "Note: Seller signature required for P2P transfer."}
           </p>
         </div>
       </DialogContent>

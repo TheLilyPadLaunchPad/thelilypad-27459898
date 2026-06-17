@@ -15,7 +15,7 @@ interface Props {
 /**
  * Banner for any flow that needs permanent Arweave storage. Storage is
  * Solana-funded via Irys — no second wallet required, the connected
- * Phantom / Solflare wallet pays the upload fee in SOL.
+ * Solana wallet pays the upload fee in SOL.
  */
 export function ArweaveWalletBanner({
   pendingUploadBytes,
@@ -64,8 +64,7 @@ export function ArweaveWalletBanner({
         <AlertTitle>Connect a Solana wallet to upload</AlertTitle>
         <AlertDescription>
           Permanent storage is paid in SOL via Irys using your connected
-          Solana wallet (Phantom, Solflare, etc.). Connect a wallet to
-          continue.
+          Solana wallet. Connect a wallet to continue.
         </AlertDescription>
       </Alert>
     );

@@ -21,7 +21,7 @@ interface ReownLikeSolanaProvider {
 }
 
 /**
- * Adapt a Reown/Phantom-style Solana provider into the shape supabase-js
+ * Adapt a Reown-style Solana provider into the shape supabase-js
  * expects for `signInWithWeb3` (Wallet Standard `signMessage`-compatible).
  */
 function adaptWallet(provider: ReownLikeSolanaProvider) {
@@ -34,7 +34,7 @@ function adaptWallet(provider: ReownLikeSolanaProvider) {
     address,
     signMessage: async (message: Uint8Array) => {
       const res = await provider.signMessage!(message, "utf8");
-      // Phantom may return { signature }, while Reown returns Uint8Array.
+      // Wallet may return { signature }, while Reown returns Uint8Array.
       // supabase.auth.signInWithWeb3 requires the wallet method itself to
       // resolve to the raw Uint8Array signature.
       return res instanceof Uint8Array ? res : (res as { signature: Uint8Array }).signature;

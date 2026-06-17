@@ -1,7 +1,7 @@
 /**
  * Arweave client — Solana-funded via Irys.
  *
- * Phantom (and other Solana wallets) sign and pay for permanent Arweave
+ * Solana wallets (via Reown Wallet Connect) sign and pay for permanent Arweave
  * uploads in SOL through the Irys network node. No second wallet, no AR
  * token, no ArConnect/Wander required.
  *
@@ -13,7 +13,7 @@
  *
  *  • `uploadBytes / uploadJson / uploadBlob`  → Irys upload paid in SOL
  *  • `isArweaveWalletAvailable / ensureArweaveWalletConnected`
- *                                              → Solana wallet (Phantom)
+ *                                              → Solana wallet (via Reown)
  *  • `getArBalance`                            → Irys node balance (SOL)
  *  • `getUploadPriceAr`                        → upload price (SOL)
  *  • `waitForConfirmation`                     → Irys returns instantly-
@@ -49,8 +49,7 @@ export function getArweaveUrl(txId: string): string {
 export class ArweaveWalletMissingError extends Error {
   constructor() {
     super(
-      "Solana wallet not detected. Install Phantom (https://phantom.app/) " +
-        "or another Solana wallet to upload."
+      "Solana wallet not detected. Connect your wallet via Reown Wallet Connect to upload."
     );
     this.name = "ArweaveWalletMissingError";
   }
@@ -68,9 +67,10 @@ interface SolanaWalletProvider {
 
 function getSolanaProvider(): SolanaWalletProvider {
   if (typeof window === "undefined") throw new ArweaveWalletMissingError();
+  
+  // Try to get provider from WalletProvider/Reown
   const w = window as any;
-  const provider: SolanaWalletProvider | undefined =
-    w.phantom?.solana || w.solana;
+  const provider: SolanaWalletProvider | undefined = w.solana;
   if (!provider) throw new ArweaveWalletMissingError();
   return provider;
 }
@@ -79,7 +79,7 @@ function getSolanaProvider(): SolanaWalletProvider {
 export function isArweaveWalletAvailable(): boolean {
   if (typeof window === "undefined") return false;
   const w = window as any;
-  return !!(w.phantom?.solana || w.solana);
+  return !!w.solana;
 }
 
 /**

@@ -43,7 +43,7 @@ export interface ChainConfig {
         testnet: ChainNetwork;
         devnet?: ChainNetwork;
     };
-    walletType: 'phantom' | 'evm' | 'xrpl' | 'joey';
+    walletType: 'evm' | 'xrpl' | 'joey';
     nftStandard: string;
     isActive: boolean;
     isTestnetOnly: boolean;
@@ -66,9 +66,9 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
             buttonGradient: 'from-[#14F195] to-[#9945FF]',
         },
         walletLabels: {
-            connect: 'Connect Phantom',
-            disconnect: 'Disconnect Phantom',
-            connecting: 'Connecting to Phantom...',
+            connect: 'Connect Wallet',
+            disconnect: 'Disconnect Wallet',
+            connecting: 'Connecting to Wallet...',
         },
         networks: {
             mainnet: {
@@ -87,7 +87,7 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
                 explorer: 'https://solscan.io/?cluster=devnet',
             },
         },
-        walletType: 'phantom',
+        walletType: 'evm',
         nftStandard: 'Metaplex Core',
         isActive: true,
         isTestnetOnly: false,

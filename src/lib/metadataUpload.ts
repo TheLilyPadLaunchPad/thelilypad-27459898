@@ -50,7 +50,7 @@ export async function prepareDevnetManifest(
 
 const FALLBACK_BUCKET = "ipfs";
 
-/** True when a Solana wallet (Phantom etc.) is available to fund Irys uploads. */
+/** True when a Solana wallet is available to fund Irys uploads. */
 export function hasArweaveWallet(): boolean {
     return isArweaveWalletAvailable();
 }

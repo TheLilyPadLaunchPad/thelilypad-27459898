@@ -109,7 +109,7 @@ export function SolanaPayQR(props: SolanaPayQRProps) {
             <CardHeader>
                 <CardTitle className="text-base">Scan to pay</CardTitle>
                 <CardDescription>
-                    Open Phantom, Backpack, or Solflare on your phone and scan this QR to send {payParams.amountSol} SOL.
+                    Open your Solana wallet on your phone and scan this QR to send {payParams.amountSol} SOL.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

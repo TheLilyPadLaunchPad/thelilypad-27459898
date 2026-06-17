@@ -32,7 +32,7 @@ export async function deployMonadCollection(
     if (typeof window === 'undefined' || !window.ethereum) {
         return {
             success: false,
-            error: "No EVM wallet detected. Please install Phantom or MetaMask and enable Monad support.",
+            error: "No EVM wallet detected. Please install a wallet and enable Monad support.",
         };
     }
 
@@ -88,7 +88,7 @@ export async function mintMonadNFT(
     if (typeof window === 'undefined' || !window.ethereum) {
         return {
             success: false,
-            error: "No EVM wallet detected. Please install Phantom or MetaMask and enable Monad support.",
+            error: "No EVM wallet detected. Please install a wallet and enable Monad support.",
         };
     }
 

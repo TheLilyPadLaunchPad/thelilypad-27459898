@@ -54,7 +54,7 @@ export function useSolanaTransactions() {
     return data.result.value.blockhash;
   }, [getRpcUrl]);
 
-  // Send SOL - Uses Phantom's native transfer capability
+  // Send SOL - Uses Reown wallet provider
   const sendSOL = useCallback(async ({ to, amount }: SendSOLParams): Promise<TransactionResult> => {
     if (chainType !== "solana" || !address) {
       throw new Error("Solana wallet not connected");
@@ -65,31 +65,9 @@ export function useSolanaTransactions() {
       throw new Error("Solana provider not available");
     }
 
-    // Phantom doesn't expose a simple transfer API, so we need to construct
-    // a transaction. For a production app, you'd use @solana/web3.js.
-    // For this demo, we'll show a user-friendly message.
-    
-    // Convert SOL to lamports
-    const lamports = Math.floor(amount * 1_000_000_000);
-    
-    // For Phantom, we can use signAndSendTransaction if we construct the transaction
-    // Since we can't easily do that without @solana/web3.js in browser,
-    // we'll provide a fallback that opens Phantom's transfer UI
-    
-    // Phantom mobile deep link format (works on web too in some cases)
-    const transferUrl = `https://phantom.app/ul/v1/transfer?` + new URLSearchParams({
-      to,
-      amount: amount.toString(),
-    }).toString();
-
-    // Open Phantom for the transfer
-    window.open(transferUrl, "_blank");
-
-    // Return a placeholder - in production, you'd wait for the transaction
-    return {
-      signature: "pending",
-      success: false,
-    };
+    // Note: For production, use @solana/web3.js to construct and sign transactions
+    // This is a placeholder that indicates the wallet should handle the transfer
+    throw new Error("Direct SOL transfers require @solana/web3.js transaction construction");
   }, [chainType, address, getSolanaProvider]);
 
   // Send SPL Token
@@ -103,23 +81,8 @@ export function useSolanaTransactions() {
       throw new Error("Solana provider not available");
     }
 
-    // Similar limitation as sendSOL - SPL transfers require transaction construction
-    // For production, use @solana/web3.js and @solana/spl-token
-    
-    // Phantom deep link for SPL transfer
-    const rawAmount = Math.floor(amount * Math.pow(10, decimals));
-    const transferUrl = `https://phantom.app/ul/v1/transfer?` + new URLSearchParams({
-      to,
-      amount: rawAmount.toString(),
-      splToken: mint,
-    }).toString();
-
-    window.open(transferUrl, "_blank");
-
-    return {
-      signature: "pending",
-      success: false,
-    };
+    // Note: For production, use @solana/web3.js and @solana/spl-token for transaction construction
+    throw new Error("SPL token transfers require @solana/web3.js transaction construction");
   }, [chainType, address, getSolanaProvider]);
 
   // Check if recipient address is valid Solana address
@@ -171,7 +134,6 @@ export function useSolanaTransactions() {
     getSOLBalance,
     isSupported: chainType === "solana" && !!address,
     network,
-    // Flag to indicate this uses deep links rather than direct signing
-    usesDeepLinks: true,
+    usesDeepLinks: false,
   };
 }

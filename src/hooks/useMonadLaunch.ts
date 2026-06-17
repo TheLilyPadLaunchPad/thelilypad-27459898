@@ -40,7 +40,7 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
                     setIsConnected(true);
                 }
             } catch (err: any) {
-                // Phantom returns code 4001 when no EVM accounts are configured — this is expected, not an error
+                // Wallet returns code 4001 when no EVM accounts are configured — this is expected, not an error
                 if (err?.code === 4001) {
                     console.log('Monad: No EVM accounts configured in wallet (expected if using Solana-only).');
                 } else {
@@ -66,7 +66,7 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
     }, [network]);
 
     /**
-     * Connect EVM wallet (Phantom EVM or MetaMask)
+     * Connect EVM wallet
      */
     const connect = useCallback(async (): Promise<boolean> => {
         try {

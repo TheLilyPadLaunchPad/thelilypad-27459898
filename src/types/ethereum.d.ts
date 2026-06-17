@@ -1,14 +1,12 @@
 // Legacy provider interfaces for backwards compatibility
 interface EthereumProvider {
   isMetaMask?: boolean;
-  isPhantom?: boolean;
   request: (args: { method: string; params?: any[] }) => Promise<any>;
   on: (event: string, callback: (...args: any[]) => void) => void;
   removeListener: (event: string, callback: (...args: any[]) => void) => void;
 }
 
 interface SolanaProvider {
-  isPhantom?: boolean;
   publicKey: { toString: () => string } | null;
   isConnected: boolean;
   connect: (options?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
@@ -21,13 +19,7 @@ interface SolanaProvider {
   off: (event: string, callback: (...args: any[]) => void) => void;
 }
 
-interface PhantomProvider {
-  ethereum?: EthereumProvider;
-  solana?: SolanaProvider;
-}
-
 interface Window {
   ethereum?: EthereumProvider;
-  phantom?: PhantomProvider;
   solana?: SolanaProvider;
 }

@@ -5,8 +5,7 @@
  *   • EVM-compatible Monad (via the ethers adapter), or
  *   • Solana mainnet (via the solana adapter).
  *
- * This sits alongside the existing native Phantom integration — it does not
- * replace it. Trigger the modal from anywhere by calling `openWalletModal()`
+ * Trigger the modal from anywhere by calling `openWalletModal()`
  * or by rendering `<WalletConnectButton />`.
  */
 

@@ -409,7 +409,7 @@ const LimitedEditionMint = () => {
                 <Wallet className="w-12 h-12 mx-auto mb-4 text-primary" />
                 <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
                 <p className="text-muted-foreground mb-4">
-                  Connect your Phantom wallet to mint Limited Edition NFTs
+                  Connect your wallet to mint Limited Edition NFTs
                 </p>
               </CardContent>
             </Card>

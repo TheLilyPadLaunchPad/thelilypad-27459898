@@ -3,7 +3,7 @@
  *
  * Wraps the existing tip / shop SOL transfer intents in the Solana Pay URL spec
  * (`solana:<recipient>?amount=...&reference=...&memo=...&label=...&message=...`)
- * so mobile wallets (Phantom, Backpack, Solflare) can scan a QR and approve.
+ * so mobile wallets can scan a QR and approve.
  *
  * The protocol memo format used by the rest of the app
  * (`TheLilyPad:v1:<action>:<meta>`) is preserved inside the `memo` field, so a

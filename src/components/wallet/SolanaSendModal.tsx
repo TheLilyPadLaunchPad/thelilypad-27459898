@@ -99,7 +99,7 @@ export const SolanaSendModal: React.FC<SolanaSendModalProps> = ({
       }
     }
     
-    toast.info("Opening Phantom wallet...", { description: "Complete the transfer in Phantom" });
+    toast.info("Opening wallet...", { description: "Complete the transfer in your wallet" });
     onOpenChange(false);
   };
 
@@ -122,7 +122,7 @@ export const SolanaSendModal: React.FC<SolanaSendModalProps> = ({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Send className="w-5 h-5" />Send Tokens</DialogTitle>
-          <DialogDescription>Send SOL or SPL tokens via Phantom</DialogDescription>
+          <DialogDescription>Send SOL or SPL tokens</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -153,12 +153,12 @@ export const SolanaSendModal: React.FC<SolanaSendModalProps> = ({
 
           {error && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
           
-          <Alert><AlertCircle className="h-4 w-4" /><AlertDescription>This will open Phantom wallet to complete the transfer.</AlertDescription></Alert>
+          <Alert><AlertCircle className="h-4 w-4" /><AlertDescription>This will open your wallet to complete the transfer.</AlertDescription></Alert>
         </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={validateAndSend}><ExternalLink className="w-4 h-4 mr-2" />Send via Phantom</Button>
+          <Button onClick={validateAndSend}><ExternalLink className="w-4 h-4 mr-2" />Send via Wallet</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

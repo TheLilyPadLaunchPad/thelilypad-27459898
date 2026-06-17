@@ -45,7 +45,7 @@ createAppKit({
 });
 
 // Types
-export type WalletType = "phantom" | "solana" | "reown" | "joey";
+export type WalletType = "reown" | "joey";
 export type ChainType = "solana" | "monad" | "xrpl";
 export type OAuthProvider = "google" | "apple";
 
@@ -70,7 +70,6 @@ interface WalletContextType extends WalletState {
   getSolanaProvider: () => any;
   setTransactionPending: (pending: boolean) => void;
   ensureSupabaseSession: () => Promise<boolean>;
-  isPhantomAvailable: boolean;
   discoveredWallets: any[];
   connection: Connection;
   connectXRPL: () => Promise<void>;
@@ -213,7 +212,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [caipNetwork]);
 
-  // Main connect function replaces legacy Phantom connect with Reown Modal
+  // Main connect function opens Reown AppKit Modal
   const connect = useCallback(async (_walletType?: WalletType, _chainType?: ChainType) => {
     try {
        await open();
@@ -264,17 +263,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     toast.success(`Switched to ${network}`);
   }, [reownSwitchNetwork]);
 
-  // Extremely important: This returns the Reown Solana Provider so existing Umi/Metaplex hooks don't break.
-  // On Phantom mobile in-app browsers, Reown's AppKit adapter sometimes doesn't expose a provider
-  // even though the wallet is connected (address visible in header). Fall back to the directly
-  // injected window.phantom.solana / window.solana provider so signing flows (batch mint,
-  // candy machine mint, transfers) keep working on mobile.
+  // Returns the Reown Solana Provider for Umi/Metaplex hooks
   const getSolanaProviderCallback = useCallback(() => {
-    if (reownProvider && (reownProvider as any).publicKey) return reownProvider;
-    const injected = (window as any).phantom?.solana || (window as any).solana;
-    if (injected?.publicKey && typeof injected.signTransaction === 'function') {
-      return injected;
-    }
     return reownProvider;
   }, [reownProvider]);
 
@@ -330,7 +320,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         getSolanaProvider: getSolanaProviderCallback,
         setTransactionPending,
         ensureSupabaseSession,
-        isPhantomAvailable: true, // Legacy flag, always true now via AppKit
         discoveredWallets: [],
         connection,
         connectXRPL,

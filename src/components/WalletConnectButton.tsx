@@ -9,8 +9,7 @@ interface WalletConnectButtonProps extends Omit<ButtonProps, "onClick"> {
 
 /**
  * Opens the Reown AppKit modal. Works for both EVM (Monad) and Solana —
- * the modal lets the user pick a chain and a wallet. Sits alongside the
- * existing Phantom-native connect flows.
+ * the modal lets the user pick a chain and a wallet.
  */
 export function WalletConnectButton({
   label = "Connect via WalletConnect",

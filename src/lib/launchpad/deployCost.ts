@@ -90,7 +90,7 @@ export function estimateDeployCost(input: EstimateInput): DeployCostBreakdown {
 }
 
 export interface SendDeployPaymentParams {
-    provider: any; // Phantom / WalletProvider native solana provider
+    provider: any; // WalletProvider native solana provider
     network: "mainnet" | "devnet" | "testnet";
     lamports: bigint;
     collectionId: string;
@@ -122,8 +122,7 @@ export async function sendDeployPayment({
     }
 
     // Normalize publicKey — Reown/WalletConnect providers may expose it as a
-    // base58 string while Phantom exposes a web3.js PublicKey. Fall back to
-    // the address from WalletProvider when neither is present.
+    // base58 string. Fall back to the address from WalletProvider when not present.
     let sender: PublicKey;
     try {
         const raw = provider.publicKey;

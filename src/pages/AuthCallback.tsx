@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * Auth callback page for OAuth redirects and email verification
- * Handles Phantom OAuth, Google OAuth, and email verification flows
+ * Handles Google OAuth and email verification flows
  */
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
