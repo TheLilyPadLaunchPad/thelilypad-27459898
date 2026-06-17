@@ -6,7 +6,7 @@
 
 import { SOLANA_MAINNET_RPC, SOLANA_DEVNET_RPC } from "@/config/solana";
 
-export type SupportedChain = 'solana' | 'monad';
+export type SupportedChain = 'solana' | 'monad' | 'xrpl';
 
 export interface ChainNetwork {
     url: string;
@@ -34,7 +34,7 @@ export interface ChainConfig {
     id: SupportedChain;
     name: string;
     symbol: string;
-    iconName: 'solana' | 'monad';
+    iconName: 'solana' | 'monad' | 'xrpl';
     color: string;
     theme: ChainThemeConfig;
     walletLabels: ChainWalletLabels;
@@ -43,7 +43,7 @@ export interface ChainConfig {
         testnet: ChainNetwork;
         devnet?: ChainNetwork;
     };
-    walletType: 'phantom' | 'evm';
+    walletType: 'phantom' | 'evm' | 'xrpl';
     nftStandard: string;
     isActive: boolean;
     isTestnetOnly: boolean;
@@ -133,6 +133,44 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         isTestnetOnly: true,
         description: 'High-performance EVM-compatible chain with parallel execution',
     },
+
+    xrpl: {
+        id: 'xrpl',
+        name: 'XRP Ledger',
+        symbol: 'XRP',
+        iconName: 'xrpl',
+        color: '#00AAFF',
+        theme: {
+            primaryColor: '#00AAFF',
+            secondaryColor: '#232323',
+            background: 'from-[#0a0a0a] via-[#1a1a1a] to-[#232323]',
+            cardBorder: '#00AAFF40',
+            glowColor: '#00AAFF',
+            buttonGradient: 'from-[#00AAFF] to-[#232323]',
+        },
+        walletLabels: {
+            connect: 'Connect XRPL Wallet',
+            disconnect: 'Disconnect XRPL Wallet',
+            connecting: 'Connecting to XRPL...',
+        },
+        networks: {
+            mainnet: {
+                url: 'wss://xrplcluster.com',
+                name: 'Mainnet',
+                explorer: 'https://xrpscan.com',
+            },
+            testnet: {
+                url: 'wss://s.altnet.rippletest.net:51233',
+                name: 'Testnet',
+                explorer: 'https://testnet.xrpscan.com',
+            },
+        },
+        walletType: 'xrpl',
+        nftStandard: 'XLS-20',
+        isActive: true,
+        isTestnetOnly: false,
+        description: 'Fast, scalable, and carbon-neutral blockchain with XLS-20 NFT standard',
+    },
 };
 
 export function getActiveChains(): ChainConfig[] {
@@ -168,6 +206,10 @@ export function getExplorerUrl(
             return type === 'tx'
                 ? `${baseUrl}/tx/${hash}`
                 : `${baseUrl}/address/${hash}`;
+        case 'xrpl':
+            return type === 'tx'
+                ? `${baseUrl}/transactions/${hash}`
+                : `${baseUrl}/accounts/${hash}`;
         default:
             return baseUrl;
     }
@@ -206,6 +248,8 @@ export function getDbChainValues(chain: SupportedChain): string[] {
             return ['solana', 'solana-devnet', 'solana-mainnet'];
         case 'monad':
             return ['monad', 'monad-testnet', 'monad-devnet', 'monad-mainnet'];
+        case 'xrpl':
+            return ['xrpl', 'xrpl-testnet', 'xrpl-mainnet'];
         default:
             return ['solana'];
     }

@@ -1,0 +1,475 @@
+/**
+ * XRPLEasyGenerator - 3-step XRPL NFT creation wizard
+ */
+
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Navbar } from "@/components/Navbar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import {
+    Sparkles,
+    Layers,
+    Download,
+    RefreshCw,
+    ArrowLeft,
+    CheckCircle2,
+    Palette,
+    Rocket,
+    ImageIcon,
+    Wand2,
+    Settings,
+    ChevronRight,
+    Loader2,
+    Upload,
+    X
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+import { cn } from "@/lib/utils";
+import { useSEO } from "@/hooks/useSEO";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type Step = "setup" | "upload" | "review" | "minting" | "complete";
+
+interface NFTItem {
+    name: string;
+    uri: string;
+    file?: File;
+    preview?: string;
+}
+
+export default function XRPLEasyGenerator() {
+    const navigate = useNavigate();
+    const [currentStep, setCurrentStep] = useState<Step>("setup");
+
+    // Collection Metadata
+    const [name, setName] = useState("");
+    const [description, setDescription] = useState("");
+    const [symbol, setSymbol] = useState("");
+    const [network, setNetwork] = useState<"mainnet" | "testnet">("testnet");
+    const [transferFee, setTransferFee] = useState(0);
+    const [taxon, setTaxon] = useState(Math.floor(Date.now() / 1000));
+
+    // NFT Items
+    const [nftItems, setNftItems] = useState<NFTItem[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+
+    // Minting
+    const { launch, isLaunching, progress } = useXRPLLaunch();
+    const [mintResult, setMintResult] = useState<any>(null);
+
+    useSEO({
+        title: "XRPL NFT Generator | The Lily Pad",
+        description: "Create and launch NFT collections on XRP Ledger with our easy-to-use generator."
+    });
+
+    const handleFileUpload = async (files: FileList | null) => {
+        if (!files) return;
+
+        setIsUploading(true);
+        const newItems: NFTItem[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const preview = URL.createObjectURL(file);
+            
+            // In a real implementation, you would upload to Supabase/IPFS here
+            // For now, we'll use a placeholder URI
+            const uri = `ipfs://placeholder-${Date.now()}-${i}`;
+
+            newItems.push({
+                name: file.name.replace(/\.[^/.]+$/, ""),
+                uri,
+                file,
+                preview,
+            });
+        }
+
+        setNftItems(prev => [...prev, ...newItems]);
+        setIsUploading(false);
+        toast.success(`Added ${newItems.length} NFTs`);
+    };
+
+    const removeItem = (index: number) => {
+        setNftItems(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleMint = async () => {
+        if (!name || nftItems.length === 0) {
+            return toast.error("Please fill in collection name and add NFTs");
+        }
+
+        try {
+            setCurrentStep("minting");
+
+            // In a real implementation, you would get the seed from the wallet
+            // For now, we'll use a placeholder
+            const seed = "sEd123456789012345678901234567890"; // Placeholder
+
+            const result = await launch(seed, {
+                collectionParams: {
+                    name,
+                    description,
+                    uri: `https://thelilypad.io/collections/${name.toLowerCase().replace(/\s+/g, '-')}`,
+                    issuer: "rPlaceholderAddress", // Would come from wallet
+                    taxon,
+                    transferFee: transferFee * 1000, // Convert to XRPL format
+                },
+                items: nftItems.map(item => ({
+                    name: item.name,
+                    uri: item.uri,
+                })),
+            }, network);
+
+            setMintResult(result);
+            setCurrentStep("complete");
+        } catch (error) {
+            toast.error("Failed to mint collection");
+            setCurrentStep("review");
+        }
+    };
+
+    const variants = {
+        enter: { x: 20, opacity: 0 },
+        center: { x: 0, opacity: 1 },
+        exit: { x: -20, opacity: 0 }
+    };
+
+    return (
+        <div className="min-h-screen bg-background text-foreground flex flex-col">
+            <Navbar />
+
+            <main className="flex-1 pt-24 pb-12 px-4 container max-w-5xl mx-auto flex flex-col items-center">
+                {/* Header */}
+                <div className="text-center space-y-3 mb-12">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-medium text-primary mb-2">
+                        <Palette className="w-3 h-3" />
+                        <span>XRPL NFT Generator</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tight gradient-text">
+                        Create on XRP Ledger
+                    </h1>
+                    <p className="text-muted-foreground max-w-xl mx-auto">
+                        Launch your NFT collection on XRPL with XLS-20 standard. 
+                        Simple, fast, and decentralized.
+                    </p>
+                </div>
+
+                {/* Progress Tracker */}
+                {currentStep !== "complete" && (
+                    <div className="w-full max-w-3xl mb-12 flex justify-between relative px-2">
+                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-muted -translate-y-1/2 z-0" />
+                        {[
+                            { id: "setup", label: "Setup", icon: Settings },
+                            { id: "upload", label: "Upload", icon: Upload },
+                            { id: "review", label: "Review", icon: Sparkles },
+                        ].map((s, i) => (
+                            <div key={s.id} className="relative z-10 flex flex-col items-center gap-2">
+                                <div
+                                    className={cn(
+                                        "w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all duration-300",
+                                        currentStep === s.id || (currentStep === "minting" && s.id === "review")
+                                            ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-110"
+                                            : "bg-card border-border text-muted-foreground"
+                                    )}
+                                >
+                                    <s.icon className="w-5 h-5" />
+                                </div>
+                                <span className={cn(
+                                    "text-[10px] font-bold uppercase tracking-wider",
+                                    (currentStep === s.id || (currentStep === "minting" && s.id === "review")) ? "text-primary" : "text-muted-foreground"
+                                )}>
+                                    {s.label}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <div className="w-full flex flex-col md:flex-row gap-8 items-start">
+                    {/* Workspace Area */}
+                    <div className="flex-1 w-full min-h-[500px]">
+                        <AnimatePresence mode="wait">
+                            {currentStep === "setup" && (
+                                <motion.div key="setup" initial="enter" animate="center" exit="exit" variants={variants} className="space-y-6">
+                                    <Card className="glass-card p-8 border-primary/10">
+                                        <CardHeader className="px-0 pt-0">
+                                            <CardTitle className="text-xl">Collection Details</CardTitle>
+                                            <CardDescription>Set up your XRPL collection</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="px-0 space-y-6">
+                                            <div className="space-y-2">
+                                                <Label>Collection Name</Label>
+                                                <Input
+                                                    placeholder="My XRPL Collection"
+                                                    value={name}
+                                                    onChange={e => setName(e.target.value)}
+                                                    className="h-12 text-lg font-bold"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Symbol</Label>
+                                                <Input
+                                                    placeholder="XRPL"
+                                                    value={symbol}
+                                                    onChange={e => setSymbol(e.target.value.toUpperCase())}
+                                                    maxLength={10}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Description</Label>
+                                                <Input
+                                                    placeholder="A unique collection on XRP Ledger..."
+                                                    value={description}
+                                                    onChange={e => setDescription(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label>Network</Label>
+                                                    <Select value={network} onValueChange={(val: any) => setNetwork(val)}>
+                                                        <SelectTrigger>
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="testnet">Testnet</SelectItem>
+                                                            <SelectItem value="mainnet">Mainnet</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Transfer Fee (%)</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={transferFee}
+                                                        onChange={e => setTransferFee(Number(e.target.value))}
+                                                        min={0}
+                                                        max={100}
+                                                        step={0.1}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <Button
+                                                className="w-full h-12 text-lg gap-2 mt-4"
+                                                onClick={() => setCurrentStep("upload")}
+                                                disabled={!name}
+                                            >
+                                                Next: Upload NFTs <ChevronRight className="w-5 h-5" />
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+
+                            {currentStep === "upload" && (
+                                <motion.div key="upload" initial="enter" animate="center" exit="exit" variants={variants} className="space-y-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <Button variant="ghost" onClick={() => setCurrentStep("setup")} className="gap-2">
+                                            <ArrowLeft className="w-4 h-4" /> Back
+                                        </Button>
+                                        <Button onClick={() => setCurrentStep("review")} disabled={nftItems.length === 0} className="gap-2">
+                                            Next: Review <ChevronRight className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                    
+                                    <Card className="glass-card p-8 border-primary/10">
+                                        <CardHeader className="px-0 pt-0">
+                                            <CardTitle className="text-xl">Upload NFTs</CardTitle>
+                                            <CardDescription>Add images for your collection</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="px-0 space-y-6">
+                                            <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
+                                                <input
+                                                    type="file"
+                                                    multiple
+                                                    accept="image/*"
+                                                    onChange={e => handleFileUpload(e.target.files)}
+                                                    className="hidden"
+                                                    id="file-upload"
+                                                    disabled={isUploading}
+                                                />
+                                                <label htmlFor="file-upload" className="cursor-pointer">
+                                                    <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {isUploading ? "Uploading..." : "Click to upload images or drag and drop"}
+                                                    </p>
+                                                </label>
+                                            </div>
+
+                                            {nftItems.length > 0 && (
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label>Uploaded NFTs ({nftItems.length})</Label>
+                                                        <Badge variant="outline">{nftItems.length} items</Badge>
+                                                    </div>
+                                                    <div className="grid grid-cols-4 gap-4">
+                                                        {nftItems.map((item, index) => (
+                                                            <div key={index} className="relative group">
+                                                                <img
+                                                                    src={item.preview}
+                                                                    alt={item.name}
+                                                                    className="w-full aspect-square object-cover rounded-lg border border-border"
+                                                                />
+                                                                <button
+                                                                    onClick={() => removeItem(index)}
+                                                                    className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                                <p className="text-xs text-muted-foreground mt-1 truncate">{item.name}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+
+                            {currentStep === "review" && (
+                                <motion.div key="review" initial="enter" animate="center" exit="exit" variants={variants} className="space-y-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <Button variant="ghost" onClick={() => setCurrentStep("upload")} className="gap-2">
+                                            <ArrowLeft className="w-4 h-4" /> Back
+                                        </Button>
+                                        <Button onClick={handleMint} className="gap-2 bg-gradient-to-r from-primary to-accent">
+                                            Launch Collection <Rocket className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                    
+                                    <Card className="glass-card p-8 border-primary/10">
+                                        <CardHeader className="px-0 pt-0">
+                                            <CardTitle className="text-xl">Review & Launch</CardTitle>
+                                            <CardDescription>Confirm your collection details</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="px-0 space-y-6">
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between">
+                                                    <Label>Name</Label>
+                                                    <span className="font-medium">{name}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <Label>Symbol</Label>
+                                                    <span className="font-medium">{symbol}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <Label>Network</Label>
+                                                    <Badge variant={network === "mainnet" ? "default" : "secondary"}>{network}</Badge>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <Label>Transfer Fee</Label>
+                                                    <span className="font-medium">{transferFee}%</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <Label>Total NFTs</Label>
+                                                    <span className="font-medium">{nftItems.length}</span>
+                                                </div>
+                                            </div>
+                                            <Separator />
+                                            <div className="text-sm text-muted-foreground">
+                                                <p>By clicking "Launch Collection", you agree to deploy this collection on the XRP Ledger.</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+
+                            {currentStep === "minting" && (
+                                <motion.div key="minting" initial="enter" animate="center" exit="exit" variants={variants} className="space-y-8 flex flex-col items-center justify-center text-center py-12">
+                                    <div className="w-24 h-24 rounded-3xl bg-primary/20 flex items-center justify-center mb-4 animate-pulse">
+                                        {isLaunching ? (
+                                            <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                                        ) : (
+                                            <Wand2 className="w-12 h-12 text-primary" />
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h2 className="text-3xl font-bold">Launching Collection</h2>
+                                        <p className="text-muted-foreground max-w-sm">
+                                            Minting {nftItems.length} NFTs on XRP Ledger...
+                                        </p>
+                                    </div>
+
+                                    {isLaunching && (
+                                        <div className="w-full max-w-sm space-y-4">
+                                            <div className="flex justify-between text-sm font-medium">
+                                                <span>Progress</span>
+                                                <span>{progress.current}/{progress.total}</span>
+                                            </div>
+                                            <Progress value={(progress.current / progress.total) * 100} className="h-3" />
+                                        </div>
+                                    )}
+                                </motion.div>
+                            )}
+
+                            {currentStep === "complete" && (
+                                <motion.div key="complete" initial="enter" animate="center" exit="exit" variants={variants} className="space-y-8 flex flex-col items-center justify-center text-center py-12">
+                                    <div className="w-24 h-24 rounded-3xl bg-green-500/20 flex items-center justify-center mb-4">
+                                        <CheckCircle2 className="w-12 h-12 text-green-500" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h2 className="text-3xl font-bold">Collection Launched!</h2>
+                                        <p className="text-muted-foreground max-w-sm">
+                                            Your XRPL collection has been successfully deployed with {nftItems.length} NFTs.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <Button onClick={() => navigate("/launchpad")} variant="outline">
+                                            Back to Launchpad
+                                        </Button>
+                                        <Button onClick={() => {
+                                            setCurrentStep("setup");
+                                            setName("");
+                                            setDescription("");
+                                            setSymbol("");
+                                            setNftItems([]);
+                                            setMintResult(null);
+                                        }}>
+                                            Create Another
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Sidebar */}
+                    <div className="w-full md:w-[320px] shrink-0 space-y-4">
+                        <Card className="glass-card p-6 border-white/5 bg-white/5">
+                            <h3 className="font-bold flex items-center gap-2 mb-4">
+                                <ImageIcon className="w-4 h-4 text-primary" /> Collection Info
+                            </h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Network</span>
+                                    <Badge variant="outline">{network}</Badge>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Standard</span>
+                                    <span className="text-primary font-bold">XLS-20</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">NFTs</span>
+                                    <span className="font-bold">{nftItems.length}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Transfer Fee</span>
+                                    <span className="font-bold">{transferFee}%</span>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}

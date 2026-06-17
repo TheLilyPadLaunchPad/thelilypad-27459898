@@ -5,17 +5,22 @@
 import type { SupportedChain } from '@/config/chains';
 import * as solana from './solana/client';
 import * as monad from './monad/client';
+import * as xrpl from './xrpl/client';
 
 export type { SolanaNetwork } from './solana/client';
+export type { XRPLNetwork } from './xrpl/types';
 
 // Re-export chain-specific modules
-export { solana, monad };
+export { solana, monad, xrpl };
 
 // Re-export solana client functions
 export { createUmi } from './solana/client';
 
 // Re-export monad client functions
 export { createMonadProvider, connectMonadWallet } from './monad/client';
+
+// Re-export XRPL client functions
+export { createXRPLClient, createXRPLWallet, generateXRPLWallet, getXRPLEndpoint, getXRPLNetwork } from './xrpl/client';
 
 // Re-export types
 export type { SolanaCollectionParams, SolanaCollectionResult, CandyMachineItem } from './solana/types';
