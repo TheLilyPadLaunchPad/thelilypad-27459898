@@ -43,7 +43,7 @@ export interface ChainConfig {
         testnet: ChainNetwork;
         devnet?: ChainNetwork;
     };
-    walletType: 'phantom' | 'evm' | 'xrpl';
+    walletType: 'phantom' | 'evm' | 'xrpl' | 'joey';
     nftStandard: string;
     isActive: boolean;
     isTestnetOnly: boolean;
@@ -165,7 +165,7 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
                 explorer: 'https://testnet.xrpscan.com',
             },
         },
-        walletType: 'xrpl',
+        walletType: 'joey',
         nftStandard: 'XLS-20',
         isActive: true,
         isTestnetOnly: false,

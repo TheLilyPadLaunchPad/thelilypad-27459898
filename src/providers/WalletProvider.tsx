@@ -6,6 +6,7 @@ import { useChain } from "./ChainProvider";
 import { setStoredChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithSolana } from "@/auth/supabaseWeb3";
+import { connectJoeyWallet, disconnectJoeyWallet, isJoeyWalletConnected } from "@/lib/joeyWalletConnection";
 
 // Reown AppKit Imports
 import { createAppKit, useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
@@ -44,8 +45,8 @@ createAppKit({
 });
 
 // Types
-export type WalletType = "phantom" | "solana" | "reown";
-export type ChainType = "solana" | "monad";
+export type WalletType = "phantom" | "solana" | "reown" | "joey";
+export type ChainType = "solana" | "monad" | "xrpl";
 export type OAuthProvider = "google" | "apple";
 
 interface WalletState {
@@ -72,6 +73,8 @@ interface WalletContextType extends WalletState {
   isPhantomAvailable: boolean;
   discoveredWallets: any[];
   connection: Connection;
+  connectXRPL: () => Promise<void>;
+  signXRPLTransaction: (txJson: any) => Promise<any>;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -279,6 +282,43 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setState(prev => ({ ...prev, isTransactionPending: pending }));
   }, []);
 
+  // XRPL Connection using Joey Wallet
+  const connectXRPL = useCallback(async () => {
+    try {
+      setState(prev => ({ ...prev, isConnecting: true }));
+      toast.loading('Connecting to Joey Wallet...', { id: 'xrpl-connect' });
+
+      const result = await connectJoeyWallet();
+      
+      setState(prev => ({
+        ...prev,
+        address: result.address,
+        isConnected: true,
+        isConnecting: false,
+        walletType: 'joey',
+        chainType: 'xrpl',
+      }));
+
+      toast.success('Connected to Joey Wallet', { id: 'xrpl-connect' });
+    } catch (error: any) {
+      console.error('XRPL connection failed:', error);
+      setState(prev => ({ ...prev, isConnecting: false }));
+      toast.error(error.message || 'Failed to connect to Joey Wallet', { id: 'xrpl-connect' });
+      throw error;
+    }
+  }, []);
+
+  const signXRPLTransaction = useCallback(async (txJson: any) => {
+    try {
+      const chainId = state.chainType === 'xrpl' ? 'xrpl:testnet' : 'xrpl:testnet';
+      const result = await (await import('@/lib/joeyWalletConnection')).signTransactionWithJoey(txJson, chainId);
+      return result;
+    } catch (error) {
+      console.error('XRPL transaction signing failed:', error);
+      throw error;
+    }
+  }, [state.chainType]);
+
   return (
     <WalletContext.Provider
       value={{
@@ -293,6 +333,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isPhantomAvailable: true, // Legacy flag, always true now via AppKit
         discoveredWallets: [],
         connection,
+        connectXRPL,
+        signXRPLTransaction,
       }}
     >
       {children}
