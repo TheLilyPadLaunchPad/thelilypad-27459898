@@ -70,13 +70,14 @@ export async function createSellOffer(
     }
 
     const tx = await client.submitAndWait(transaction, { wallet });
-    
-    if (tx.result.meta && tx.result.meta.TransactionResult !== 'tesSUCCESS') {
-        throw new Error(`Create offer failed: ${tx.result.meta.TransactionResult}`);
+    const meta = tx.result.meta as any;
+
+    if (meta && meta.TransactionResult !== 'tesSUCCESS') {
+        throw new Error(`Create offer failed: ${meta.TransactionResult}`);
     }
 
-    const offerId = tx.result.meta?.offer_id || '';
-    
+    const offerId = meta?.offer_id || '';
+
     return {
         offerId,
         txHash: tx.result.hash,
