@@ -18,7 +18,7 @@ export function useMonadPayment() {
                 return { success: false };
             }
 
-            const provider = new ethers.BrowserProvider(walletProvider);
+            const provider = new ethers.BrowserProvider(walletProvider as any);
             const signer = await provider.getSigner();
 
             const tx = await signer.sendTransaction({

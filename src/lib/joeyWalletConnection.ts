@@ -23,8 +23,8 @@ export async function initJoeyWalletProvider() {
 
   providerPromise = (async () => {
     try {
-      const advanced = await import('@joey-wallet/wc-client/react');
-      const { Provider } = advanced.default || advanced;
+      const advanced: any = await import('@joey-wallet/wc-client/react');
+      const { Provider } = (advanced.default || advanced) as any;
       const provider = new Provider(joeyWalletConfig);
       providerInstance = provider;
       return provider;
@@ -54,7 +54,7 @@ export async function connectJoeyWallet() {
       };
     } else {
       // Fallback to using core methods
-      const session = await core.methods.connect({ provider });
+      const session = await (core as any).methods.connect({ provider });
       return {
         address: session?.accounts?.[0]?.replace('xrpl:', '') || '',
         chainId: session?.chainId || 'xrpl:testnet',
@@ -76,7 +76,7 @@ export async function disconnectJoeyWallet() {
       if (providerInstance.disconnect) {
         await providerInstance.disconnect();
       } else {
-        await core.methods.disconnect({ provider: providerInstance });
+        await (core as any).methods.disconnect({ provider: providerInstance });
       }
       providerInstance = null;
       providerPromise = null;
@@ -94,7 +94,7 @@ export async function signTransactionWithJoey(txJson: any, chainId: string = 'xr
   try {
     const provider = await initJoeyWalletProvider();
     
-    const result = await core.methods.signTransaction({
+    const result = await (core as any).methods.signTransaction({
       provider,
       chainId,
       request: {
