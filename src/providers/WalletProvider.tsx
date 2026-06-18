@@ -73,7 +73,7 @@ interface WalletContextType extends WalletState {
   discoveredWallets: any[];
   connection: Connection;
   connectXRPL: () => Promise<void>;
-  signXRPLTransaction: (txJson: any) => Promise<any>;
+  signXRPLTransaction: (txJson: any, network?: 'mainnet' | 'testnet') => Promise<any>;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -304,16 +304,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setState(prev => ({ ...prev, isTransactionPending: pending }));
   }, []);
 
-  const signXRPLTransaction = useCallback(async (txJson: any) => {
+  const signXRPLTransaction = useCallback(async (txJson: any, network?: 'mainnet' | 'testnet') => {
     try {
-      const chainId = state.chainType === 'xrpl' ? 'xrpl:testnet' : 'xrpl:testnet';
+      // Resolve XRPL network: explicit arg > stored toggle > current wallet network.
+      const stored = (typeof window !== 'undefined' && localStorage.getItem('xrplNetwork')) as 'mainnet' | 'testnet' | null;
+      const net: 'mainnet' | 'testnet' = network || stored || (state.network === 'mainnet' ? 'mainnet' : 'testnet');
+      const chainId = net === 'mainnet' ? 'xrpl:mainnet' : 'xrpl:testnet';
       const result = await (await import('@/lib/joeyWalletConnection')).signTransactionWithJoey(txJson, chainId);
       return result;
     } catch (error) {
       console.error('XRPL transaction signing failed:', error);
       throw error;
     }
-  }, [state.chainType]);
+  }, [state.network]);
 
   return (
     <WalletContext.Provider
