@@ -454,38 +454,32 @@ export default function XRPLEasyGenerator() {
                                         <Button variant="ghost" onClick={() => setCurrentStep("upload")} className="gap-2">
                                             <ArrowLeft className="w-4 h-4" /> Back
                                         </Button>
-                                        <Button onClick={handleMint} className="gap-2 bg-gradient-to-r from-primary to-accent">
-                                            Launch Collection <Rocket className="w-4 h-4" />
-                                        </Button>
+                                        {isConnected && chainType === 'xrpl' ? (
+                                            <Button onClick={handleMint} className="gap-2 bg-gradient-to-r from-primary to-accent">
+                                                Launch Collection <Rocket className="w-4 h-4" />
+                                            </Button>
+                                        ) : (
+                                            <Button onClick={() => connectXRPL()} className="gap-2">
+                                                Connect XRPL Wallet
+                                            </Button>
+                                        )}
                                     </div>
                                     
                                     <Card className="glass-card p-8 border-primary/10">
                                         <CardHeader className="px-0 pt-0">
                                             <CardTitle className="text-xl">Review & Launch</CardTitle>
-                                            <CardDescription>Confirm your collection details</CardDescription>
+                                            <CardDescription>Confirm your XLS-20 collection details</CardDescription>
                                         </CardHeader>
                                         <CardContent className="px-0 space-y-6">
                                             <div className="space-y-4">
-                                                <div className="flex justify-between">
-                                                    <Label>Name</Label>
-                                                    <span className="font-medium">{name}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <Label>Symbol</Label>
-                                                    <span className="font-medium">{symbol}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <Label>Network</Label>
-                                                    <Badge variant={network === "mainnet" ? "default" : "secondary"}>{network}</Badge>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <Label>Transfer Fee</Label>
-                                                    <span className="font-medium">{transferFee}%</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <Label>Total NFTs</Label>
-                                                    <span className="font-medium">{nftItems.length}</span>
-                                                </div>
+                                                <div className="flex justify-between"><Label>Name</Label><span className="font-medium">{name}</span></div>
+                                                <div className="flex justify-between"><Label>Symbol</Label><span className="font-medium">{symbol}</span></div>
+                                                <div className="flex justify-between"><Label>Network</Label><Badge variant={network === "mainnet" ? "default" : "secondary"}>{network}</Badge></div>
+                                                <div className="flex justify-between"><Label>NFTokenTaxon</Label><span className="font-mono text-sm">{taxon}</span></div>
+                                                <div className="flex justify-between"><Label>Transfer Fee</Label><span className="font-medium">{transferFee}%</span></div>
+                                                <div className="flex justify-between gap-4"><Label>Flags</Label><span className="font-mono text-xs text-right">{[flagTransferable && 'Transferable', flagBurnable && 'Burnable', flagOnlyXRP && 'OnlyXRP', flagTrustLine && 'TrustLine'].filter(Boolean).join(', ') || 'None'}</span></div>
+                                                <div className="flex justify-between gap-4"><Label>Issuer</Label><span className="font-mono text-xs text-right truncate max-w-[60%]">{address || '— not connected —'}</span></div>
+                                                <div className="flex justify-between"><Label>Total NFTs</Label><span className="font-medium">{nftItems.length}</span></div>
                                             </div>
                                             <Separator />
                                             <div className="text-sm text-muted-foreground">
