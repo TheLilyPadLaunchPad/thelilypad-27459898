@@ -557,7 +557,7 @@ export default function Launchpad() {
                             <Rocket className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                             <p className="font-medium mb-1">No collections yet</p>
                             <p className="text-sm text-muted-foreground mb-5">Be the first to launch!</p>
-                            <Button onClick={() => navigate(`/launchpad/create/${selectedChain}`)} size="sm">
+                            <Button onClick={() => selectedChain === 'xrpl' ? navigate('/launchpad/xrpl-generator') : navigate(`/launchpad/create/${selectedChain}`)} size="sm">
                               <Plus className="w-4 h-4 mr-1.5" />
                               Create Collection
                             </Button>
