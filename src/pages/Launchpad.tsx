@@ -191,6 +191,10 @@ export default function Launchpad() {
   };
 
   const continueDraft = () => {
+    if (selectedChain === 'xrpl') {
+      navigate('/launchpad/xrpl-generator');
+      return;
+    }
     if (localDraft) {
       navigate(`/launchpad/create/${selectedChain}/${localDraft.type || 'generative'}`);
     } else {
@@ -237,6 +241,11 @@ export default function Launchpad() {
   const secondaryTiles = SECONDARY_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
+    // XRPL doesn't use Metaplex/Candy Machine — route to the dedicated XLS-20 generator.
+    if (selectedChain === 'xrpl') {
+      navigate('/launchpad/xrpl-generator');
+      return;
+    }
     if (tile.id === "hybrid-404") {
       setShowHybridForm(true);
       return;
@@ -379,7 +388,9 @@ export default function Launchpad() {
                     />
                     <Button
                       size="default"
-                      onClick={() => navigate(`/launchpad/create/${selectedChain}`)}
+                      onClick={() => selectedChain === 'xrpl'
+                        ? navigate('/launchpad/xrpl-generator')
+                        : navigate(`/launchpad/create/${selectedChain}`)}
                       className="gap-2 shadow-sm"
                     >
                       <Plus className="w-4 h-4" />
