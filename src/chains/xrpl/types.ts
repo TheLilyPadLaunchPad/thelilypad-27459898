@@ -68,7 +68,8 @@ export interface XRPLOfferResult {
 
 export interface XRPLAcceptOfferParams {
     offerId: string;
-    nftId: string;
+    /** @deprecated Not used by XLS-20 NFTokenAcceptOffer; kept for backward-compat. */
+    nftId?: string;
 }
 
 export interface XRPLAcceptOfferResult {

@@ -191,6 +191,10 @@ export default function Launchpad() {
   };
 
   const continueDraft = () => {
+    if (selectedChain === 'xrpl') {
+      navigate('/launchpad/xrpl-generator');
+      return;
+    }
     if (localDraft) {
       navigate(`/launchpad/create/${selectedChain}/${localDraft.type || 'generative'}`);
     } else {
@@ -237,6 +241,11 @@ export default function Launchpad() {
   const secondaryTiles = SECONDARY_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
+    // XRPL doesn't use Metaplex/Candy Machine — route to the dedicated XLS-20 generator.
+    if (selectedChain === 'xrpl') {
+      navigate('/launchpad/xrpl-generator');
+      return;
+    }
     if (tile.id === "hybrid-404") {
       setShowHybridForm(true);
       return;
@@ -379,7 +388,9 @@ export default function Launchpad() {
                     />
                     <Button
                       size="default"
-                      onClick={() => navigate(`/launchpad/create/${selectedChain}`)}
+                      onClick={() => selectedChain === 'xrpl'
+                        ? navigate('/launchpad/xrpl-generator')
+                        : navigate(`/launchpad/create/${selectedChain}`)}
                       className="gap-2 shadow-sm"
                     >
                       <Plus className="w-4 h-4" />
@@ -546,7 +557,7 @@ export default function Launchpad() {
                             <Rocket className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                             <p className="font-medium mb-1">No collections yet</p>
                             <p className="text-sm text-muted-foreground mb-5">Be the first to launch!</p>
-                            <Button onClick={() => navigate(`/launchpad/create/${selectedChain}`)} size="sm">
+                            <Button onClick={() => selectedChain === 'xrpl' ? navigate('/launchpad/xrpl-generator') : navigate(`/launchpad/create/${selectedChain}`)} size="sm">
                               <Plus className="w-4 h-4 mr-1.5" />
                               Create Collection
                             </Button>

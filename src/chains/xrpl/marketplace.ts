@@ -4,7 +4,7 @@
 
 import { Client, Wallet } from 'xrpl';
 import type { XRPLOfferParams, XRPLOfferResult, XRPLAcceptOfferParams, XRPLAcceptOfferResult } from './types';
-import { createSellOffer, acceptOffer, getAccountNFTs } from './nft';
+import { createSellOffer, acceptOffer, getAllAccountNFTs } from './nft';
 
 /**
  * List an NFT for sale (create sell offer)
@@ -96,7 +96,7 @@ export async function getAccountListings(
     client: Client,
     address: string
 ): Promise<any[]> {
-    const { nfts } = await getAccountNFTs(client, address);
+    const nfts = await getAllAccountNFTs(client, address);
     const listings: any[] = [];
 
     for (const nft of nfts) {

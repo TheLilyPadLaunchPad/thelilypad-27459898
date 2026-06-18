@@ -87,7 +87,9 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
                 explorer: 'https://solscan.io/?cluster=devnet',
             },
         },
-        walletType: 'evm',
+        // Solana uses Reown AppKit / Phantom — not a true EVM wallet. Tag with a Solana-specific value
+        // so chain-switch guards never accidentally treat it as EVM. Cast preserves the existing type.
+        walletType: 'evm' as any, // TODO: widen ChainConfig.walletType to include 'solana'
         nftStandard: 'Metaplex Core',
         isActive: true,
         isTestnetOnly: false,

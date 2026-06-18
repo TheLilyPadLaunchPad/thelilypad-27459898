@@ -31,7 +31,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { useXRPLLaunch } from "@/hooks/useXRPLLaunch";
+import { useXRPLConnectedLaunch } from "@/hooks/useXRPLConnectedLaunch";
+import { useWallet } from "@/providers/WalletProvider";
 import { pinFile, pinJson, ipfsUri } from "@/integrations/pinata/client";
 import { cn } from "@/lib/utils";
 import { useSEO } from "@/hooks/useSEO";
@@ -58,12 +59,19 @@ export default function XRPLEasyGenerator() {
     const [transferFee, setTransferFee] = useState(0);
     const [taxon, setTaxon] = useState(Math.floor(Date.now() / 1000));
 
+    // XLS-20 mint flags
+    const [flagTransferable, setFlagTransferable] = useState(true);
+    const [flagBurnable, setFlagBurnable] = useState(false);
+    const [flagOnlyXRP, setFlagOnlyXRP] = useState(false);
+    const [flagTrustLine, setFlagTrustLine] = useState(false);
+
     // NFT Items
     const [nftItems, setNftItems] = useState<NFTItem[]>([]);
     const [isUploading, setIsUploading] = useState(false);
 
-    // Minting
-    const { launch, isLaunching, progress } = useXRPLLaunch();
+    // Minting — uses connected Joey Wallet (no raw seeds)
+    const { address, isConnected, chainType, connectXRPL } = useWallet();
+    const { launch, isLaunching, progress } = useXRPLConnectedLaunch();
     const [mintResult, setMintResult] = useState<any>(null);
 
     useSEO({
@@ -100,9 +108,23 @@ export default function XRPLEasyGenerator() {
         setNftItems(prev => prev.filter((_, i) => i !== index));
     };
 
+    const computedFlags =
+        (flagBurnable ? 1 : 0) |
+        (flagOnlyXRP ? 2 : 0) |
+        (flagTrustLine ? 4 : 0) |
+        (flagTransferable ? 8 : 0);
+
     const handleMint = async () => {
         if (!name || nftItems.length === 0) {
             return toast.error("Please fill in collection name and add NFTs");
+        }
+        if (!isConnected || chainType !== 'xrpl' || !address) {
+            toast.error("Connect your XRPL wallet first");
+            try { await connectXRPL(); } catch { return; }
+            return;
+        }
+        if (transferFee > 0 && !flagTransferable) {
+            return toast.error("Transfer Fee requires the Transferable flag to be enabled");
         }
 
         try {
@@ -158,21 +180,19 @@ export default function XRPLEasyGenerator() {
             );
             toast.success("All assets pinned to IPFS", { id: "xrpl-pin" });
 
-            // In a real implementation, you would get the seed from the wallet
-            // For now, we'll use a placeholder
-            const seed = "sEd123456789012345678901234567890"; // Placeholder
-
-            const result = await launch(seed, {
-                collectionParams: {
+            // 3. Sign & submit AccountSet + NFTokenMint txs via connected Joey Wallet.
+            const result = await launch({
+                network,
+                collection: {
                     name,
                     description,
                     uri: ipfsUri(collectionMeta.cid),
-                    issuer: "rPlaceholderAddress", // Would come from wallet
                     taxon,
-                    transferFee: transferFee * 1000, // Convert to XRPL format
+                    transferFeePct: transferFee,
+                    flags: computedFlags,
                 },
                 items: pinnedItems,
-            }, network);
+            });
 
             setMintResult(result);
             setCurrentStep("complete");
@@ -296,10 +316,57 @@ export default function XRPLEasyGenerator() {
                                                     <Input
                                                         type="number"
                                                         value={transferFee}
-                                                        onChange={e => setTransferFee(Number(e.target.value))}
+                                                        onChange={e => setTransferFee(Math.min(50, Math.max(0, Number(e.target.value))))}
                                                         min={0}
-                                                        max={100}
+                                                        max={50}
                                                         step={0.1}
+                                                    />
+                                                    <p className="text-[10px] text-muted-foreground">XLS-20 max 50%. Requires Transferable flag.</p>
+                                                </div>
+                                            </div>
+
+                                            {/* XLS-20 NFTokenMint flags */}
+                                            <div className="space-y-2">
+                                                <Label>Token Flags (XLS-20)</Label>
+                                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                                    <label className="flex items-center gap-2 p-2 rounded-md border border-border cursor-pointer">
+                                                        <input type="checkbox" checked={flagTransferable} onChange={e => setFlagTransferable(e.target.checked)} />
+                                                        <span>Transferable</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 p-2 rounded-md border border-border cursor-pointer">
+                                                        <input type="checkbox" checked={flagBurnable} onChange={e => setFlagBurnable(e.target.checked)} />
+                                                        <span>Burnable</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 p-2 rounded-md border border-border cursor-pointer">
+                                                        <input type="checkbox" checked={flagOnlyXRP} onChange={e => setFlagOnlyXRP(e.target.checked)} />
+                                                        <span>OnlyXRP</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 p-2 rounded-md border border-border cursor-pointer">
+                                                        <input type="checkbox" checked={flagTrustLine} onChange={e => setFlagTrustLine(e.target.checked)} />
+                                                        <span>TrustLine</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            {/* NFTokenTaxon — required group identifier */}
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label>NFTokenTaxon</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={taxon}
+                                                        onChange={e => setTaxon(Math.max(0, Number(e.target.value) | 0))}
+                                                        min={0}
+                                                    />
+                                                    <p className="text-[10px] text-muted-foreground">Required XLS-20 collection grouping ID.</p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Issuer Address</Label>
+                                                    <Input
+                                                        value={address || ''}
+                                                        readOnly
+                                                        placeholder={isConnected ? '' : 'Connect XRPL wallet'}
+                                                        className="font-mono text-xs"
                                                     />
                                                 </div>
                                             </div>
@@ -387,38 +454,32 @@ export default function XRPLEasyGenerator() {
                                         <Button variant="ghost" onClick={() => setCurrentStep("upload")} className="gap-2">
                                             <ArrowLeft className="w-4 h-4" /> Back
                                         </Button>
-                                        <Button onClick={handleMint} className="gap-2 bg-gradient-to-r from-primary to-accent">
-                                            Launch Collection <Rocket className="w-4 h-4" />
-                                        </Button>
+                                        {isConnected && chainType === 'xrpl' ? (
+                                            <Button onClick={handleMint} className="gap-2 bg-gradient-to-r from-primary to-accent">
+                                                Launch Collection <Rocket className="w-4 h-4" />
+                                            </Button>
+                                        ) : (
+                                            <Button onClick={() => connectXRPL()} className="gap-2">
+                                                Connect XRPL Wallet
+                                            </Button>
+                                        )}
                                     </div>
                                     
                                     <Card className="glass-card p-8 border-primary/10">
                                         <CardHeader className="px-0 pt-0">
                                             <CardTitle className="text-xl">Review & Launch</CardTitle>
-                                            <CardDescription>Confirm your collection details</CardDescription>
+                                            <CardDescription>Confirm your XLS-20 collection details</CardDescription>
                                         </CardHeader>
                                         <CardContent className="px-0 space-y-6">
                                             <div className="space-y-4">
-                                                <div className="flex justify-between">
-                                                    <Label>Name</Label>
-                                                    <span className="font-medium">{name}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <Label>Symbol</Label>
-                                                    <span className="font-medium">{symbol}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <Label>Network</Label>
-                                                    <Badge variant={network === "mainnet" ? "default" : "secondary"}>{network}</Badge>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <Label>Transfer Fee</Label>
-                                                    <span className="font-medium">{transferFee}%</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <Label>Total NFTs</Label>
-                                                    <span className="font-medium">{nftItems.length}</span>
-                                                </div>
+                                                <div className="flex justify-between"><Label>Name</Label><span className="font-medium">{name}</span></div>
+                                                <div className="flex justify-between"><Label>Symbol</Label><span className="font-medium">{symbol}</span></div>
+                                                <div className="flex justify-between"><Label>Network</Label><Badge variant={network === "mainnet" ? "default" : "secondary"}>{network}</Badge></div>
+                                                <div className="flex justify-between"><Label>NFTokenTaxon</Label><span className="font-mono text-sm">{taxon}</span></div>
+                                                <div className="flex justify-between"><Label>Transfer Fee</Label><span className="font-medium">{transferFee}%</span></div>
+                                                <div className="flex justify-between gap-4"><Label>Flags</Label><span className="font-mono text-xs text-right">{[flagTransferable && 'Transferable', flagBurnable && 'Burnable', flagOnlyXRP && 'OnlyXRP', flagTrustLine && 'TrustLine'].filter(Boolean).join(', ') || 'None'}</span></div>
+                                                <div className="flex justify-between gap-4"><Label>Issuer</Label><span className="font-mono text-xs text-right truncate max-w-[60%]">{address || '— not connected —'}</span></div>
+                                                <div className="flex justify-between"><Label>Total NFTs</Label><span className="font-medium">{nftItems.length}</span></div>
                                             </div>
                                             <Separator />
                                             <div className="text-sm text-muted-foreground">
