@@ -79,6 +79,7 @@ export default function XRPLTraitGenerator() {
     const [symbol, setSymbol] = useState("");
     const [description, setDescription] = useState("");
     const [network, setNetwork] = useState<"mainnet" | "testnet">("testnet");
+    const [storage, setStorage] = useState<"pinata" | "arweave">("pinata");
     const [transferFee, setTransferFee] = useState(0);
     const [taxon, setTaxon] = useState(Math.floor(Date.now() / 1000));
     const [targetSupply, setTargetSupply] = useState(50);
