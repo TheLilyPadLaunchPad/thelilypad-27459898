@@ -354,7 +354,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setActiveSigner(null);
     } catch {}
     
-    
+    // Clear any Supabase session (anonymous sessions used by XRPL etc.)
+    try { await supabase.auth.signOut(); } catch {}
+
     setState(prev => ({
       ...prev,
       address: null,
@@ -367,6 +369,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     toast.success("Wallet disconnected");
   }, [reownDisconnect]);
+
 
   const switchNetwork = useCallback(async (network: NetworkType) => {
     try {
