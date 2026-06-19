@@ -36,6 +36,8 @@ function explorerForSig(sig: string): string | null {
 }
 
 export function DeploymentDebugPanel() {
+    const location = useLocation();
+    const isLaunchRoute = location.pathname.startsWith('/launchpad');
     const [enabled, setEnabled] = useState(deployDebug.isEnabled());
     const [open, setOpen] = useState(false);
     const [events, setEvents] = useState<DeployEvent[]>([]);
@@ -86,13 +88,19 @@ export function DeploymentDebugPanel() {
         return () => window.removeEventListener('keydown', handler);
     }, [enabled]);
 
+    // Only render on launchpad routes
+    if (!isLaunchRoute) {
+        return null;
+    }
+
     if (!enabled && !open) {
         // Tiny floating bug icon so creators can flip it on without typing
+        // Mobile: top-right to avoid overlapping wallet button; desktop: bottom-right
         return (
             <button
                 aria-label="Enable deployment debug mode"
                 onClick={handleToggleEnabled}
-                className="fixed bottom-4 right-4 z-[60] h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                className="fixed top-4 right-4 z-[60] h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-primary transition-colors md:bottom-4 md:top-auto"
                 title="Enable deployment debug (Ctrl+Shift+D)"
             >
                 <Bug className="h-4 w-4" />
@@ -105,7 +113,7 @@ export function DeploymentDebugPanel() {
             <button
                 aria-label="Open deployment debug panel"
                 onClick={() => setOpen(true)}
-                className="fixed bottom-4 right-4 z-[60] h-10 px-3 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center gap-2 text-xs font-medium"
+                className="fixed top-4 right-4 z-[60] h-10 px-3 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center gap-2 text-xs font-medium md:bottom-4 md:top-auto"
             >
                 <Bug className="h-4 w-4" />
                 Debug ({events.length})
