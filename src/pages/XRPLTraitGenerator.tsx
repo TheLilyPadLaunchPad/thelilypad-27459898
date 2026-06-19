@@ -286,7 +286,7 @@ export default function XRPLTraitGenerator() {
                         <Palette className="w-3 h-3" />
                         <span>XRPL Trait Generator</span>
                         <Badge variant="outline" className="ml-2 text-[10px]">
-                            Pinata IPFS · {network}
+                            {storageLabel} · {network}
                         </Badge>
                     </div>
                     <h1 className="text-4xl md:text-5xl font-black tracking-tight gradient-text">
