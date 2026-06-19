@@ -48,6 +48,11 @@ import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { useXRPLConnectedLaunch } from "@/hooks/useXRPLConnectedLaunch";
 import { useWallet } from "@/providers/WalletProvider";
 import { pinFile, pinJson, ipfsUri } from "@/integrations/pinata/client";
+import {
+    uploadBlob as arweaveUploadBlob,
+    uploadJson as arweaveUploadJson,
+    isArweaveWalletAvailable,
+} from "@/integrations/arweave/nativeClient";
 import { useSEO } from "@/hooks/useSEO";
 import { cn } from "@/lib/utils";
 import {
