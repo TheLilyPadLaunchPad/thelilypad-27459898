@@ -92,13 +92,24 @@ export default function Auth() {
     }
   };
 
+  const handleXRPLConnect = async (provider: "crossmark" | "gem") => {
+    setIsConnectingWallet(true);
+    try {
+      await connectXRPLNonCustodial(provider);
+    } catch (error) {
+      console.error("XRPL connect error:", error);
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  };
+
 
   const isLoading = isConnecting || isConnectingWallet;
 
-  // Tab indicator position: divide in half
+  // Tab indicator position: divide evenly across CHAINS
   const tabIndex = CHAINS.findIndex(c => c.id === selectedChain);
-  const indicatorLeft = `calc(${tabIndex} * (100% / 2) + 4px)`;
-  const indicatorWidth = "calc(100% / 2 - 8px)";
+  const indicatorLeft = `calc(${tabIndex} * (100% / ${CHAINS.length}) + 4px)`;
+  const indicatorWidth = `calc(100% / ${CHAINS.length} - 8px)`;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
