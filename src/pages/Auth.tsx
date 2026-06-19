@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
-type SelectedChain = "solana" | "monad";
+type SelectedChain = "solana" | "monad" | "xrpl";
 
 
 
@@ -31,9 +31,18 @@ const MonadIcon = () => (
   </svg>
 );
 
+// XRPL icon — black X-style square
+const XrplIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="26" fill="#000" />
+    <path d="M34 38l30 30 30-30M34 90l30-30 30 30" stroke="#fff" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  </svg>
+);
+
 const CHAINS: { id: SelectedChain; label: string; Icon: React.FC }[] = [
   { id: "solana", label: "Solana", Icon: MonadIcon },
   { id: "monad", label: "Monad", Icon: MonadIcon },
+  { id: "xrpl", label: "XRPL", Icon: XrplIcon },
 ];
 
 export default function Auth() {
