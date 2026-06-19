@@ -152,6 +152,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [royaltyPercent, setRoyaltyPercent] = useState(0);
   const [status, setStatus] = useState("upcoming");
   const [ipfsBaseCid, setIpfsBaseCid] = useState("");
+  const [buybackEnabled, setBuybackEnabled] = useState(false);
+  const [buybackPct, setBuybackPct] = useState(50);
 
   // Social links
   const [socialTwitter, setSocialTwitter] = useState("");
