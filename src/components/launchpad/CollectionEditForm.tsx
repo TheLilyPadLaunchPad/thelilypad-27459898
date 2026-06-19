@@ -194,6 +194,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       setRoyaltyPercent(collection.royalty_percent);
       setStatus(collection.status);
       setIpfsBaseCid(collection.ipfs_base_cid || "");
+      setBuybackEnabled(!!collection.buyback_enabled);
+      setBuybackPct(
+        typeof collection.buyback_contribution_pct === "number"
+          ? collection.buyback_contribution_pct
+          : 50
+      );
 
       // Social links
       setSocialTwitter(collection.social_twitter || "");
