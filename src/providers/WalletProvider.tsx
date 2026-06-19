@@ -270,6 +270,39 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  // Monad EVM connection via injected wallet (MetaMask, Rabby, etc.)
+  const connectMonad = useCallback(async () => {
+    try {
+      setState(prev => ({ ...prev, isConnecting: true }));
+      const eth = (typeof window !== 'undefined' ? (window as any).ethereum : null);
+      if (!eth) {
+        toast.error('No EVM wallet detected. Install MetaMask or Rabby.');
+        setState(prev => ({ ...prev, isConnecting: false }));
+        return;
+      }
+      toast.loading('Connecting to Monad...', { id: 'monad-connect' });
+      const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' });
+      const address = accounts?.[0];
+      if (!address) throw new Error('No account returned');
+
+      setState(prev => ({
+        ...prev,
+        address,
+        isConnected: true,
+        isConnecting: false,
+        walletType: 'reown',
+        chainType: 'monad',
+      }));
+      try { localStorage.setItem('walletConnected', 'true'); } catch {}
+      toast.success('Connected to Monad', { id: 'monad-connect' });
+    } catch (error: any) {
+      console.error('Monad connection failed:', error);
+      setState(prev => ({ ...prev, isConnecting: false }));
+      toast.error(error?.message || 'Failed to connect to Monad', { id: 'monad-connect' });
+      throw error;
+    }
+  }, []);
+
 
   // Main connect function opens Reown AppKit Modal or Joey Wallet
   const connect = useCallback(async (walletType?: WalletType, _chainType?: ChainType) => {
