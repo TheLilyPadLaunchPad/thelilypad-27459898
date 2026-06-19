@@ -8,7 +8,7 @@
  * No seeds, no custody — the wallet signs in its own UI.
  */
 
-export type XRPLWalletProvider = 'crossmark' | 'gem' | 'cold';
+export type XRPLWalletProvider = 'crossmark' | 'gem' | 'cold' | 'generated';
 
 export interface XRPLConnectResult {
     provider: XRPLWalletProvider;
@@ -81,6 +81,10 @@ export async function connectXRPLWallet(provider: XRPLWalletProvider, address?: 
     if (provider === 'cold') {
         if (!address) throw new Error('Address is required for cold storage connection');
         return connectColdStorage(address, network);
+    }
+    if (provider === 'generated') {
+        if (!address) throw new Error('Address is required for generated wallet connection');
+        return { provider: 'generated', address, network: network || 'mainnet' };
     }
     throw new Error(`Unknown XRPL wallet provider: ${provider}`);
 }

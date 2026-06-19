@@ -335,6 +335,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error("Disconnect error:", error);
     }
+    // Clear any in-memory XRPL generated-wallet signer.
+    try {
+      const { setActiveSigner } = await import('@/lib/xrplGeneratedWallet');
+      setActiveSigner(null);
+    } catch {}
+    
     
     setState(prev => ({
       ...prev,
@@ -375,6 +381,16 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Resolve XRPL network: explicit arg > stored toggle > current wallet network.
       const stored = (typeof window !== 'undefined' && localStorage.getItem('xrplNetwork')) as 'mainnet' | 'testnet' | null;
       const net: 'mainnet' | 'testnet' = network || stored || (state.network === 'mainnet' ? 'mainnet' : 'testnet');
+
+      // Generated (in-browser) wallet: sign locally with the in-memory Wallet.
+      if (state.walletType === ('generated' as any)) {
+        const { getActiveSigner } = await import('@/lib/xrplGeneratedWallet');
+        const signer = getActiveSigner();
+        if (!signer) throw new Error('Generated wallet signer not available. Please unlock the wallet again.');
+        const signed = signer.sign(txJson);
+        return { tx_blob: signed.tx_blob, hash: signed.hash };
+      }
+
       const chainId = net === 'mainnet' ? 'xrpl:mainnet' : 'xrpl:testnet';
       const result = await (await import('@/lib/joeyWalletConnection')).signTransactionWithJoey(txJson, chainId);
       return result;
@@ -382,7 +398,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error('XRPL transaction signing failed:', error);
       throw error;
     }
-  }, [state.network]);
+  }, [state.network, state.walletType]);
 
   return (
     <WalletContext.Provider

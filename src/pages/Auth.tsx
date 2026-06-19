@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Shield, AlertTriangle } from "lucide-react";
+import { Loader2, Shield, AlertTriangle, Sparkles, Lock } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import CreateXRPLWalletDialog from "@/components/auth/CreateXRPLWalletDialog";
+import UnlockXRPLWalletDialog from "@/components/auth/UnlockXRPLWalletDialog";
+import { listSavedWallets } from "@/lib/xrplGeneratedWallet";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
@@ -69,6 +72,9 @@ export default function Auth() {
   const [coldStorageDialogOpen, setColdStorageDialogOpen] = useState(false);
   const [coldStorageAddress, setColdStorageAddress] = useState("");
   const [coldStorageNetwork, setColdStorageNetwork] = useState<'mainnet' | 'testnet'>('mainnet');
+  const [createWalletOpen, setCreateWalletOpen] = useState(false);
+  const [unlockWalletOpen, setUnlockWalletOpen] = useState(false);
+  const hasSavedXrpl = listSavedWallets().length > 0;
   // Fetch dynamic auth branding from site_assets, fallback to local
   const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
 
@@ -334,6 +340,34 @@ export default function Auth() {
                     Connect GemWallet
                   </Button>
 
+                  <div className="relative my-1">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border/60" /></div>
+                    <div className="relative flex justify-center text-[10px] uppercase tracking-wider text-muted-foreground"><span className="bg-card px-2">or</span></div>
+                  </div>
+
+                  <Button
+                    onClick={() => setCreateWalletOpen(true)}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="w-full h-12 text-sm font-medium border-2 border-dashed"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Create New XRPL Wallet
+                  </Button>
+
+                  {hasSavedXrpl && (
+                    <Button
+                      onClick={() => setUnlockWalletOpen(true)}
+                      disabled={isLoading}
+                      variant="ghost"
+                      className="w-full h-10 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <Lock className="w-3.5 h-3.5 mr-2" />
+                      Unlock saved wallet on this device
+                    </Button>
+                  )}
+
+
                   <Dialog open={coldStorageDialogOpen} onOpenChange={setColdStorageDialogOpen}>
                     <DialogTrigger asChild>
                       <Button
@@ -442,6 +476,13 @@ export default function Auth() {
           )}
         </div>
       </div>
+
+      <CreateXRPLWalletDialog
+        open={createWalletOpen}
+        onOpenChange={setCreateWalletOpen}
+        defaultNetwork={coldStorageNetwork}
+      />
+      <UnlockXRPLWalletDialog open={unlockWalletOpen} onOpenChange={setUnlockWalletOpen} />
     </div>
   );
 }
