@@ -10,6 +10,7 @@ import { Loader2, Shield, AlertTriangle } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
