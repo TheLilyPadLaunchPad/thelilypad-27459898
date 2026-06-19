@@ -335,6 +335,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error("Disconnect error:", error);
     }
+    // Clear any in-memory XRPL generated-wallet signer.
+    try {
+      const { setActiveSigner } = await import('@/lib/xrplGeneratedWallet');
+      setActiveSigner(null);
+    } catch {}
+    
     
     setState(prev => ({
       ...prev,
