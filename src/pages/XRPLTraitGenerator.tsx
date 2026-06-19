@@ -47,7 +47,7 @@ import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesM
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { useXRPLConnectedLaunch } from "@/hooks/useXRPLConnectedLaunch";
 import { useWallet } from "@/providers/WalletProvider";
-import { pinFile, pinJson, ipfsUri, ipfsUrl } from "@/integrations/pinata/client";
+import { pinFile, pinJson, ipfsUri } from "@/integrations/pinata/client";
 import { useSEO } from "@/hooks/useSEO";
 import { cn } from "@/lib/utils";
 import {
