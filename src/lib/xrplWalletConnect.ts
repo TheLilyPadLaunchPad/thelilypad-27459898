@@ -8,7 +8,7 @@
  * No seeds, no custody — the wallet signs in its own UI.
  */
 
-export type XRPLWalletProvider = 'crossmark' | 'gem' | 'cold';
+export type XRPLWalletProvider = 'crossmark' | 'gem' | 'cold' | 'generated';
 
 export interface XRPLConnectResult {
     provider: XRPLWalletProvider;
