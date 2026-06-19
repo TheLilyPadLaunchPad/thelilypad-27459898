@@ -733,8 +733,10 @@ export type Database = {
           error: string | null
           event_id: string | null
           id: string
+          listing_id: string | null
           mint_revenue_sol: number
           program_id: string | null
+          source: string
           status: string
           tx_signature: string | null
           updated_at: string
@@ -748,8 +750,10 @@ export type Database = {
           error?: string | null
           event_id?: string | null
           id?: string
+          listing_id?: string | null
           mint_revenue_sol: number
           program_id?: string | null
+          source?: string
           status?: string
           tx_signature?: string | null
           updated_at?: string
@@ -763,8 +767,10 @@ export type Database = {
           error?: string | null
           event_id?: string | null
           id?: string
+          listing_id?: string | null
           mint_revenue_sol?: number
           program_id?: string | null
+          source?: string
           status?: string
           tx_signature?: string | null
           updated_at?: string
@@ -789,6 +795,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "buyback_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_buyback_contributions_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "onchain_nft_listings"
             referencedColumns: ["id"]
           },
           {
@@ -2561,6 +2574,7 @@ export type Database = {
       onchain_nft_listings: {
         Row: {
           asset_address: string
+          buyback_pct: number
           buyer_address: string | null
           buyer_id: string | null
           chain: string
@@ -2582,6 +2596,7 @@ export type Database = {
         }
         Insert: {
           asset_address: string
+          buyback_pct?: number
           buyer_address?: string | null
           buyer_id?: string | null
           chain?: string
@@ -2603,6 +2618,7 @@ export type Database = {
         }
         Update: {
           asset_address?: string
+          buyback_pct?: number
           buyer_address?: string | null
           buyer_id?: string | null
           chain?: string
