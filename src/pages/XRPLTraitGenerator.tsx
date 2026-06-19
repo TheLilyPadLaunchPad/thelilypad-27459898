@@ -432,6 +432,31 @@ export default function XRPLTraitGenerator() {
                                         </div>
 
                                         <div className="space-y-2">
+                                            <Label>Storage Provider</Label>
+                                            <Select
+                                                value={storage}
+                                                onValueChange={(v: any) => setStorage(v)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="pinata">
+                                                        Pinata IPFS — Free, no extra wallet
+                                                    </SelectItem>
+                                                    <SelectItem value="arweave">
+                                                        Arweave (permanent) — Paid in SOL via Solana wallet
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {storage === "arweave" && (
+                                                <p className="text-[11px] text-amber-500/90">
+                                                    Permanent storage. Requires a connected Solana wallet (Phantom) to fund the Irys bundle in SOL.
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
                                             <Label>Token Flags (XLS-20)</Label>
                                             <div className="grid grid-cols-2 gap-2 text-sm">
                                                 <label className="flex items-center gap-2 p-2 rounded-md border border-border cursor-pointer">
