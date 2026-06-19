@@ -75,6 +75,7 @@ interface WalletContextType extends WalletState {
   connection: Connection;
   connectXRPL: () => Promise<void>;
   connectXRPLNonCustodial: (provider: XRPLWalletProvider, address?: string, network?: 'mainnet' | 'testnet') => Promise<void>;
+  connectMonad: () => Promise<void>;
   signXRPLTransaction: (txJson: any, network?: 'mainnet' | 'testnet') => Promise<any>;
 }
 
