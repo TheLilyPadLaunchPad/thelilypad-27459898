@@ -178,20 +178,31 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           isConnected: true,
           balance,
           walletType: "reown",
+          chainType: "solana",
           isConnecting: false
         }));
         try { localStorage.setItem("walletConnected", "true"); } catch {}
         await ensureSupabaseSession();
       } else {
-        setState(prev => ({
-          ...prev,
-          address: null,
-          isConnected: false,
-          balance: null,
-          isConnecting: reownStatus === 'connecting'
-        }));
+        // GUARD: Do NOT wipe state for non-Reown wallets (XRPL: crossmark/gem/cold/generated,
+        // Joey, Monad injected). Reown's "disconnected" status is irrelevant to those flows —
+        // wiping here would log out XRPL users whenever the Reown modal opens/closes
+        // (e.g. user cancels a Phantom prompt) and bounce them back to /auth.
+        setState(prev => {
+          if (prev.walletType && prev.walletType !== "reown") return prev;
+          return {
+            ...prev,
+            address: null,
+            isConnected: false,
+            balance: null,
+            isConnecting: reownStatus === 'connecting'
+          };
+        });
         if (reownStatus !== 'connecting' && reownStatus !== 'reconnecting') {
-          try { localStorage.removeItem("walletConnected"); } catch {}
+          try {
+            // Only clear the persisted flag if no non-Reown wallet is currently active.
+            // (setState above already preserved non-Reown state.)
+          } catch {}
         }
       }
     };
