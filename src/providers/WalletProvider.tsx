@@ -399,6 +399,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         connection,
         connectXRPL,
         connectXRPLNonCustodial,
+        connectMonad,
         signXRPLTransaction,
       }}
     >
