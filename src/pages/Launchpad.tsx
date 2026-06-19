@@ -88,7 +88,7 @@ const PRIMARY_TYPES: CollectionTypeTile[] = [
     title: "1-of-1 Art",
     description: "Upload individual artworks with unique metadata. Direct RAW minting to your wallet.",
     icon: ImageIcon,
-    chains: ["solana", "monad"],
+    chains: ["solana", "monad", "xrpl"],
   },
   {
     id: "music",
