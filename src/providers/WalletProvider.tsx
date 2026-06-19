@@ -7,6 +7,7 @@ import { setStoredChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithSolana } from "@/auth/supabaseWeb3";
 import { connectJoeyWallet, disconnectJoeyWallet, isJoeyWalletConnected } from "@/lib/joeyWalletConnection";
+import { connectXRPLWallet, type XRPLWalletProvider } from "@/lib/xrplWalletConnect";
 
 // Reown AppKit Imports
 import { createAppKit, useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
