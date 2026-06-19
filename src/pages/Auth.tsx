@@ -72,6 +72,9 @@ export default function Auth() {
   const [coldStorageDialogOpen, setColdStorageDialogOpen] = useState(false);
   const [coldStorageAddress, setColdStorageAddress] = useState("");
   const [coldStorageNetwork, setColdStorageNetwork] = useState<'mainnet' | 'testnet'>('mainnet');
+  const [createWalletOpen, setCreateWalletOpen] = useState(false);
+  const [unlockWalletOpen, setUnlockWalletOpen] = useState(false);
+  const hasSavedXrpl = listSavedWallets().length > 0;
   // Fetch dynamic auth branding from site_assets, fallback to local
   const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
 
