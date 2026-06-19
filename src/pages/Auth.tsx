@@ -247,6 +247,55 @@ export default function Auth() {
                   </div>
                 </motion.div>
               )}
+
+              {selectedChain === "xrpl" && (
+                <motion.div
+                  key="xrpl"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  {/* XRPL badge */}
+                  <div className="flex items-center justify-center">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-foreground/5 text-foreground text-xs font-medium border border-foreground/20">
+                      ✕ XRPL Network · Non-Custodial
+                    </span>
+                  </div>
+
+                  <Button
+                    onClick={() => handleXRPLConnect("crossmark")}
+                    disabled={isLoading}
+                    className="w-full h-14 text-base font-medium bg-gradient-to-r from-[#1a1a1a] to-[#3a3a3a] hover:from-[#000] hover:to-[#222] text-white"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin mr-3" />
+                    ) : (
+                      <span className="mr-3 text-xl">✕</span>
+                    )}
+                    Connect Crossmark
+                  </Button>
+
+                  <Button
+                    onClick={() => handleXRPLConnect("gem")}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="w-full h-14 text-base font-medium border-2"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin mr-3" />
+                    ) : (
+                      <span className="mr-3 text-xl">💎</span>
+                    )}
+                    Connect GemWallet
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground text-center">
+                    You hold your own keys. We never see or store them.
+                  </p>
+                </motion.div>
+              )}
             </AnimatePresence>
           </CardContent>
         </Card>
@@ -264,6 +313,13 @@ export default function Auth() {
               >
                 Documentation
               </a>
+            </p>
+          ) : selectedChain === "xrpl" ? (
+            <p>
+              Don't have one?{" "}
+              <a href="https://crossmark.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Crossmark</a>
+              {" · "}
+              <a href="https://gemwallet.app" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">GemWallet</a>
             </p>
           ) : (
             <p>
