@@ -85,7 +85,7 @@ export async function encryptSeed(seed: string, password: string): Promise<Encry
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const key = await deriveKey(password, salt);
-    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(seed));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, enc.encode(seed));
     return { v: 1, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
 }
 
