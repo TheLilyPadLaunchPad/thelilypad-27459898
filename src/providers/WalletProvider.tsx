@@ -242,12 +242,24 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
   // Non-custodial XRPL wallets (Crossmark, GemWallet, Cold Storage) — user controls keys.
   const connectXRPLNonCustodial = useCallback(async (provider: XRPLWalletProvider, address?: string, network?: 'mainnet' | 'testnet') => {
-    const label = provider === 'crossmark' ? 'Crossmark' : provider === 'gem' ? 'GemWallet' : 'Cold Storage';
+    const label = provider === 'crossmark' ? 'Crossmark' : provider === 'gem' ? 'GemWallet' : provider === 'generated' ? 'New XRPL Wallet' : 'Cold Storage';
     try {
       setState(prev => ({ ...prev, isConnecting: true }));
       toast.loading(`Connecting to ${label}...`, { id: 'xrpl-nc' });
 
       const result = await connectXRPLWallet(provider, address, network);
+
+      // Ensure a Supabase session exists so profile creation passes RLS
+      // (auth.uid() must be non-null for `user_profiles` inserts).
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          const { error } = await supabase.auth.signInAnonymously();
+          if (error) console.warn('[XRPL] anon session failed:', error.message);
+        }
+      } catch (e) {
+        console.warn('[XRPL] supabase session bootstrap failed', e);
+      }
 
       setState(prev => ({
         ...prev,
@@ -269,6 +281,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw error;
     }
   }, []);
+
 
   // Monad EVM connection via injected wallet (MetaMask, Rabby, etc.)
   const connectMonad = useCallback(async () => {
