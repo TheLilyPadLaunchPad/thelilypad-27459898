@@ -106,7 +106,7 @@ const SECONDARY_TYPES: CollectionTypeTile[] = [
     title: "Art Generator (ZIP)",
     description: "No-code tool: generate high-res assets with metadata and download as a ZIP.",
     icon: Palette,
-    chains: ["solana", "monad"],
+    chains: ["solana", "monad", "xrpl"],
     tag: "No-Code",
   },
   {
