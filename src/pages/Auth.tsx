@@ -62,7 +62,7 @@ const CHAINS: { id: SelectedChain; label: string; Icon: React.FC }[] = [
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { connect, isConnecting, connectXRPLNonCustodial } = useWallet();
+  const { connect, isConnecting, connectXRPLNonCustodial, connectMonad } = useWallet();
   const { state } = useAuth();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
@@ -75,13 +75,13 @@ export default function Auth() {
 
   useSEO({
     title: "Connect Wallet | The Lily Pad",
-    description: "Connect your wallet to access The Lily Pad. Choose Solana or Monad."
+    description: "Connect your Solana, Monad, or XRPL wallet to access The Lily Pad."
   });
 
   // Redirect when authenticated or needs profile setup
   useEffect(() => {
     if (state === "AUTHENTICATED") {
-      navigate("/");
+      navigate("/streams");
     } else if (state === "NEEDS_PROFILE") {
       navigate("/profile-setup");
     }
@@ -91,8 +91,9 @@ export default function Auth() {
     setIsConnectingWallet(true);
     try {
       await connect("reown", "solana");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Solana connect error:", error);
+      toast.error(error?.message || "Failed to connect Solana wallet");
     } finally {
       setIsConnectingWallet(false);
     }
@@ -102,7 +103,7 @@ export default function Auth() {
   const handleMonadConnect = async () => {
     setIsConnectingWallet(true);
     try {
-      await connect(undefined, "monad");
+      await connectMonad();
     } catch (error) {
       console.error("Monad connect error:", error);
     } finally {
