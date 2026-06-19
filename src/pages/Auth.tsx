@@ -340,6 +340,34 @@ export default function Auth() {
                     Connect GemWallet
                   </Button>
 
+                  <div className="relative my-1">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border/60" /></div>
+                    <div className="relative flex justify-center text-[10px] uppercase tracking-wider text-muted-foreground"><span className="bg-card px-2">or</span></div>
+                  </div>
+
+                  <Button
+                    onClick={() => setCreateWalletOpen(true)}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="w-full h-12 text-sm font-medium border-2 border-dashed"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Create New XRPL Wallet
+                  </Button>
+
+                  {hasSavedXrpl && (
+                    <Button
+                      onClick={() => setUnlockWalletOpen(true)}
+                      disabled={isLoading}
+                      variant="ghost"
+                      className="w-full h-10 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      <Lock className="w-3.5 h-3.5 mr-2" />
+                      Unlock saved wallet on this device
+                    </Button>
+                  )}
+
+
                   <Dialog open={coldStorageDialogOpen} onOpenChange={setColdStorageDialogOpen}>
                     <DialogTrigger asChild>
                       <Button
