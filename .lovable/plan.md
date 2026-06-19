@@ -1,44 +1,102 @@
-## Goal
+# Per-Collection Buyback (Solana, Marketplace v1)
 
-Let XRPL creators choose **Pinata IPFS** (current default) or **Arweave** (permanent) for trait images, per-NFT metadata, and the collection-level JSON written into the AccountSet `Domain`. The choice is a per-launch toggle in `XRPLTraitGenerator`.
+Let creators on the Solana launchpad opt their collection into the platform buyback program. They choose a percentage (50–100%) of the collection's net mint revenue that gets routed to the buyback pool when the collection mints out. On sellout, the platform queues a buyback that swaps that SOL into the platform token via Jupiter (existing infrastructure).
 
-## Important constraint
+Scope: Solana only. Monad/XRPL untouched. Marketplace (secondary sales) buyback hookup is a follow-up — this plan is the primary mint path.
 
-Arweave uploads in this project go through **Irys, funded in SOL by the connected Solana wallet (Phantom)** — see `src/integrations/arweave/nativeClient.ts` (`uploadBytes`). There is no AR/XRP funding path. So when an XRPL user picks Arweave, they must also have a Solana wallet connected to pay for the bundle. Pinata stays the zero-extra-wallet default.
+---
 
-## Changes
+## User flow
 
-### 1. `src/pages/XRPLTraitGenerator.tsx`
-- Add storage state: `const [storage, setStorage] = useState<'pinata' | 'arweave'>('pinata')`.
-- Setup step: add a `Select` ("Storage provider") with two options:
-  - **Pinata IPFS** — "Free, fast, requires no extra wallet"
-  - **Arweave (permanent)** — "Permanent storage, paid in SOL via your Solana wallet"
-- When `storage === 'arweave'`: show a small notice + read `solanaAddress` from `useWallet()`; disable the "Continue" button on the review step if no Solana wallet is connected, with a toast prompting the user to connect Phantom.
-- Replace the hard-coded `pinFile` / `pinJson` calls in the mint loop with a small local helper:
-  ```ts
-  async function uploadImage(blob: Blob, name: string): Promise<string> {
-    if (storage === 'arweave') {
-      const { uploadBlob } = await import('@/integrations/arweave/nativeClient');
-      const { url } = await uploadBlob(blob, { contentType: blob.type, tags: [{ name: 'Content-Type', value: blob.type }] });
-      return url; // https://arweave.net/<id>
-    }
-    const cid = await pinFile(new File([blob], name, { type: blob.type }));
-    return ipfsUri(cid);
-  }
-  async function uploadJson(obj: unknown): Promise<string> { /* same branching */ }
-  ```
-- Use the returned URI for both per-NFT `URI` (still passed through `convertStringToHex` in `useXRPLConnectedLaunch`) and the collection `Domain` URI. Both `ipfs://…` and `https://arweave.net/…` already pass `validateXRPLUri` (256-byte limit) — keep that check.
-- Review step: show a "Storage: Pinata IPFS" or "Storage: Arweave (permanent)" badge so the tester can confirm the active choice before signing.
+1. **Creator (launchpad setup):** New "Buyback Contribution" step shows a slider 50–100%. Default off; if enabled, defaults to 50%. Creator sees a preview: "If your 1000 NFTs mint out at 0.5 SOL each, ~X SOL will fund buybacks."
+2. **Mint:** No change to mint UX. The contribution % is stored on the collection.
+3. **Sellout trigger:** When `collections.minted >= total_supply`, a Cloud function calculates `mint_revenue * contribution_pct`, transfers that SOL from the creator's mint receipts into the buyback pool wallet, and enqueues a `buyback_events` row via the existing `queue_buyback` RPC.
+4. **Marketplace tab:** New "Buyback" widget on collection detail page showing contribution %, pool contribution to-date, and last buyback tx. Read-only.
 
-### 2. No backend / schema changes
-- Pinata path keeps using the `pinata-upload` edge function.
-- Arweave path reuses the existing Irys-backed `uploadBytes/uploadBlob/uploadJson` in `nativeClient.ts` — no new secrets, no new edge function.
-- `useXRPLConnectedLaunch` is untouched; it already accepts any string URI.
+---
 
-### 3. Memory
-- Update `mem://features/xrpl-xls20-integration` to note that XRPL launches now support a Pinata-or-Arweave toggle, and that the Arweave path requires a connected Solana wallet for Irys funding.
+## Database changes (single migration the user runs in SQL editor)
 
-## Out of scope
-- No changes to the 1-of-1 `XRPLEasyGenerator` flow (can be done in a follow-up if desired).
-- No new AR/XRP payment path for Irys.
-- No change to mainnet vs testnet selection — both storage options work on both XRPL networks.
+Adds two columns to `collections` plus one tracking table. Migration runs via the migration tool so it appears in the approval flow — the user can also copy/paste it into the SQL editor if they prefer.
+
+```sql
+-- 1. Collection opt-in fields
+ALTER TABLE public.collections
+  ADD COLUMN buyback_enabled boolean NOT NULL DEFAULT false,
+  ADD COLUMN buyback_contribution_pct numeric(5,2)
+    CHECK (buyback_contribution_pct IS NULL
+           OR (buyback_contribution_pct >= 50 AND buyback_contribution_pct <= 100));
+
+-- 2. Per-collection contribution ledger
+CREATE TABLE public.collection_buyback_contributions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  collection_id uuid NOT NULL REFERENCES public.collections(id) ON DELETE CASCADE,
+  program_id uuid REFERENCES public.buyback_programs(id),
+  event_id uuid REFERENCES public.buyback_events(id),
+  chain text NOT NULL DEFAULT 'solana',
+  mint_revenue_sol numeric NOT NULL,
+  contribution_pct numeric(5,2) NOT NULL,
+  contribution_sol numeric NOT NULL,
+  tx_signature text,
+  status text NOT NULL DEFAULT 'pending',   -- pending | transferred | queued | failed
+  error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+GRANT SELECT ON public.collection_buyback_contributions TO anon, authenticated;
+GRANT ALL ON public.collection_buyback_contributions TO service_role;
+
+ALTER TABLE public.collection_buyback_contributions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public read" ON public.collection_buyback_contributions
+  FOR SELECT USING (true);
+
+CREATE POLICY "Service role write" ON public.collection_buyback_contributions
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+CREATE TRIGGER set_contribution_updated_at
+  BEFORE UPDATE ON public.collection_buyback_contributions
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+```
+
+---
+
+## Frontend changes
+
+- **`src/pages/Launchpad.tsx` (or the Solana setup wizard step):** add a "Buyback Contribution" card — toggle + slider (50–100, step 5). Persist to `collections.buyback_enabled` / `buyback_contribution_pct`.
+- **`src/components/launchpad/BuybackContributionStep.tsx`** (new): slider + preview math.
+- **`src/pages/CollectionDetail.tsx`:** add a small "Buyback Program" panel reading from `collection_buyback_contributions` for that collection.
+- **`src/hooks/useCollectionBuyback.ts`** (new): query the contribution row + status.
+
+---
+
+## Backend changes
+
+- **New edge function `collection-sellout-buyback`** (`supabase/functions/collection-sellout-buyback/index.ts`): triggered when `collections.minted` reaches `total_supply`. Service-role:
+  1. Reads `buyback_enabled`, `buyback_contribution_pct`, totals mint revenue from `mint_transactions`/`minted_nfts`.
+  2. Inserts a `collection_buyback_contributions` row (`pending`).
+  3. Calls existing `queue_buyback` RPC with the active Solana `buyback_programs.id` and `contribution_sol`.
+  4. Updates the row to `queued` with the event id; existing scheduler picks up execution and swap via Jupiter (`src/chains/solana/buyback.ts` already implemented).
+- **Trigger source:** a Postgres `AFTER UPDATE` trigger on `collections` that fires `pg_net.http_post` to the edge function when `minted` crosses `total_supply` and `buyback_enabled = true`. Included in the migration.
+- **Treasury transfer:** for v1, contribution is logged and queued — the actual SOL transfer from the mint-collecting wallet to the buyback pool is handled by the same service-role function using the existing `TREASURY_PRIVATE_KEY` secret and protocol memo `TheLilyPad:v1:buyback-contribution`.
+
+---
+
+## Out of scope (follow-ups)
+
+- Marketplace secondary-sale buyback contributions (separate plan).
+- Monad / XRPL chains.
+- Per-creator dashboards beyond the read-only collection panel.
+- Refunds / partial sellouts.
+
+---
+
+## Technical notes
+
+- Reuses: `buyback_programs`, `buyback_events`, `queue_buyback`, `claim_next_buyback`, `complete_buyback_event`, `src/chains/solana/buyback.ts`, `buyback-trigger` edge function.
+- A Solana `buyback_programs` row with the platform token mint must exist (one-time seed `INSERT` if missing — handled by the migration).
+- All amounts in SOL (numeric); BigInt lamports only inside the swap call (existing helper).
+- Memo on the contribution SOL transfer: `TheLilyPad:v1:buyback-contribution` (per project convention).
+
+After you approve, I'll run the migration through the approval flow — you'll see the exact SQL again and can choose to apply it via the migration tool or paste it into the SQL editor yourself.

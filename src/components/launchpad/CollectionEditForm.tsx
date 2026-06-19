@@ -99,6 +99,8 @@ interface Collection {
   trait_rules?: unknown;
   artworks_metadata?: unknown;
   chain?: string;
+  buyback_enabled?: boolean | null;
+  buyback_contribution_pct?: number | null;
 }
 
 interface CollectionEditFormProps {
@@ -150,6 +152,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [royaltyPercent, setRoyaltyPercent] = useState(0);
   const [status, setStatus] = useState("upcoming");
   const [ipfsBaseCid, setIpfsBaseCid] = useState("");
+  const [buybackEnabled, setBuybackEnabled] = useState(false);
+  const [buybackPct, setBuybackPct] = useState(50);
 
   // Social links
   const [socialTwitter, setSocialTwitter] = useState("");
@@ -190,6 +194,12 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       setRoyaltyPercent(collection.royalty_percent);
       setStatus(collection.status);
       setIpfsBaseCid(collection.ipfs_base_cid || "");
+      setBuybackEnabled(!!collection.buyback_enabled);
+      setBuybackPct(
+        typeof collection.buyback_contribution_pct === "number"
+          ? collection.buyback_contribution_pct
+          : 50
+      );
 
       // Social links
       setSocialTwitter(collection.social_twitter || "");
@@ -547,6 +557,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           social_website: socialWebsite.trim() || null,
           social_telegram: socialTelegram.trim() || null,
           ipfs_base_cid: ipfsBaseCid.trim() || null,
+          buyback_enabled: buybackEnabled,
+          buyback_contribution_pct: buybackEnabled ? buybackPct : null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", collection.id);
@@ -1216,7 +1228,75 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
               </div>
             </CardContent>
           </Card>
+
+          {/* Buyback Contribution */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Buyback Contribution</CardTitle>
+              <CardDescription>
+                Route a portion of your mint revenue into the platform buyback pool when your collection sells out.
+                Funds are swapped into the platform token via Jupiter, supporting long-term token value for all holders.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-1">
+                  <Label htmlFor="buyback-enabled" className="text-base">Enable buyback contribution</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Triggered automatically when minted reaches total supply.
+                  </p>
+                </div>
+                <Switch
+                  id="buyback-enabled"
+                  checked={buybackEnabled}
+                  onCheckedChange={setBuybackEnabled}
+                  disabled={isLive}
+                />
+              </div>
+
+              {buybackEnabled && (
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="buyback-pct">Contribution percentage</Label>
+                    <Badge variant="secondary">{buybackPct}%</Badge>
+                  </div>
+                  <Input
+                    id="buyback-pct"
+                    type="range"
+                    min={50}
+                    max={100}
+                    step={5}
+                    value={buybackPct}
+                    onChange={(e) => setBuybackPct(parseInt(e.target.value, 10))}
+                    disabled={isLive}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Estimated contribution at sellout:{" "}
+                    <span className="font-medium text-foreground">
+                      {(() => {
+                        const firstPrice = parseFloat(String(phases[0]?.price ?? "0")) || 0;
+                        const total = firstPrice * totalSupply * (buybackPct / 100);
+                        return `~${total.toFixed(2)} ${chainSymbol}`;
+                      })()}
+                    </span>
+                    {" "}(based on phase 1 price × supply)
+                  </p>
+                  {isLive && (
+                    <p className="text-xs text-amber-500">
+                      Contribution percentage is locked once the collection is live.
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
+
 
         {/* Artwork / Layers Tab */}
         <TabsContent value="artwork" className="space-y-6 mt-6">
