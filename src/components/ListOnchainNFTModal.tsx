@@ -46,11 +46,14 @@ export function ListOnchainNFTModal({ nft, open, onOpenChange, onSuccess }: Prop
 
   const [price, setPrice] = useState("");
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(addDays(new Date(), 7));
+  const [buybackOn, setBuybackOn] = useState(false);
+  const [buybackPct, setBuybackPct] = useState<number>(5);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     setPrice(""); setExpiresAt(addDays(new Date(), 7));
+    setBuybackOn(false); setBuybackPct(5);
     setBusy(false); setError(null);
   };
 
