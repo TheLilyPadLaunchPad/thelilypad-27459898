@@ -192,7 +192,7 @@ export default function Launchpad() {
 
   const continueDraft = () => {
     if (selectedChain === 'xrpl') {
-      navigate('/launchpad/xrpl-generator');
+      navigate('/launchpad/xrpl-trait-generator');
       return;
     }
     if (localDraft) {
