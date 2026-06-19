@@ -7,6 +7,7 @@ import { setStoredChain } from "@/config/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithSolana } from "@/auth/supabaseWeb3";
 import { connectJoeyWallet, disconnectJoeyWallet, isJoeyWalletConnected } from "@/lib/joeyWalletConnection";
+import { connectXRPLWallet, type XRPLWalletProvider } from "@/lib/xrplWalletConnect";
 
 // Reown AppKit Imports
 import { createAppKit, useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
@@ -73,6 +74,7 @@ interface WalletContextType extends WalletState {
   discoveredWallets: any[];
   connection: Connection;
   connectXRPL: () => Promise<void>;
+  connectXRPLNonCustodial: (provider: XRPLWalletProvider) => Promise<void>;
   signXRPLTransaction: (txJson: any, network?: 'mainnet' | 'testnet') => Promise<any>;
 }
 
@@ -237,6 +239,35 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw error;
     }
   }, []);
+  // Non-custodial XRPL wallets (Crossmark, GemWallet) — user controls keys.
+  const connectXRPLNonCustodial = useCallback(async (provider: XRPLWalletProvider) => {
+    const label = provider === 'crossmark' ? 'Crossmark' : 'GemWallet';
+    try {
+      setState(prev => ({ ...prev, isConnecting: true }));
+      toast.loading(`Connecting to ${label}...`, { id: 'xrpl-nc' });
+
+      const result = await connectXRPLWallet(provider);
+
+      setState(prev => ({
+        ...prev,
+        address: result.address,
+        isConnected: true,
+        isConnecting: false,
+        walletType: provider as any,
+        chainType: 'xrpl',
+      }));
+      try { localStorage.setItem('walletConnected', 'true'); } catch {}
+      try { localStorage.setItem('xrplNetwork', result.network); } catch {}
+
+      toast.success(`Connected to ${label}`, { id: 'xrpl-nc' });
+    } catch (error: any) {
+      console.error(`${label} connection failed:`, error);
+      setState(prev => ({ ...prev, isConnecting: false }));
+      toast.error(error.message || `Failed to connect to ${label}`, { id: 'xrpl-nc' });
+      throw error;
+    }
+  }, []);
+
 
   // Main connect function opens Reown AppKit Modal or Joey Wallet
   const connect = useCallback(async (walletType?: WalletType, _chainType?: ChainType) => {
@@ -332,6 +363,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         discoveredWallets: [],
         connection,
         connectXRPL,
+        connectXRPLNonCustodial,
         signXRPLTransaction,
       }}
     >

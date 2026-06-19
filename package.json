@@ -16,6 +16,8 @@
     "@capacitor/cli": "^8.0.1",
     "@capacitor/core": "^8.0.0",
     "@coral-xyz/anchor": "^0.30.1",
+    "@crossmarkio/sdk": "^0.4.0",
+    "@gemwallet/api": "^3.8.0",
     "@gsap/react": "^2.1.2",
     "@hookform/resolvers": "^3.10.0",
     "@irys/web-upload": "^0.0.15",

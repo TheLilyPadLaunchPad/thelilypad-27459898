@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
-type SelectedChain = "solana" | "monad";
+type SelectedChain = "solana" | "monad" | "xrpl";
 
 
 
@@ -31,14 +31,23 @@ const MonadIcon = () => (
   </svg>
 );
 
+// XRPL icon — black X-style square
+const XrplIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="26" fill="#000" />
+    <path d="M34 38l30 30 30-30M34 90l30-30 30 30" stroke="#fff" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  </svg>
+);
+
 const CHAINS: { id: SelectedChain; label: string; Icon: React.FC }[] = [
   { id: "solana", label: "Solana", Icon: MonadIcon },
   { id: "monad", label: "Monad", Icon: MonadIcon },
+  { id: "xrpl", label: "XRPL", Icon: XrplIcon },
 ];
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { connect, isConnecting } = useWallet();
+  const { connect, isConnecting, connectXRPLNonCustodial } = useWallet();
   const { state } = useAuth();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
@@ -83,13 +92,24 @@ export default function Auth() {
     }
   };
 
+  const handleXRPLConnect = async (provider: "crossmark" | "gem") => {
+    setIsConnectingWallet(true);
+    try {
+      await connectXRPLNonCustodial(provider);
+    } catch (error) {
+      console.error("XRPL connect error:", error);
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  };
+
 
   const isLoading = isConnecting || isConnectingWallet;
 
-  // Tab indicator position: divide in half
+  // Tab indicator position: divide evenly across CHAINS
   const tabIndex = CHAINS.findIndex(c => c.id === selectedChain);
-  const indicatorLeft = `calc(${tabIndex} * (100% / 2) + 4px)`;
-  const indicatorWidth = "calc(100% / 2 - 8px)";
+  const indicatorLeft = `calc(${tabIndex} * (100% / ${CHAINS.length}) + 4px)`;
+  const indicatorWidth = `calc(100% / ${CHAINS.length} - 8px)`;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -227,6 +247,55 @@ export default function Auth() {
                   </div>
                 </motion.div>
               )}
+
+              {selectedChain === "xrpl" && (
+                <motion.div
+                  key="xrpl"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  {/* XRPL badge */}
+                  <div className="flex items-center justify-center">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-foreground/5 text-foreground text-xs font-medium border border-foreground/20">
+                      ✕ XRPL Network · Non-Custodial
+                    </span>
+                  </div>
+
+                  <Button
+                    onClick={() => handleXRPLConnect("crossmark")}
+                    disabled={isLoading}
+                    className="w-full h-14 text-base font-medium bg-gradient-to-r from-[#1a1a1a] to-[#3a3a3a] hover:from-[#000] hover:to-[#222] text-white"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin mr-3" />
+                    ) : (
+                      <span className="mr-3 text-xl">✕</span>
+                    )}
+                    Connect Crossmark
+                  </Button>
+
+                  <Button
+                    onClick={() => handleXRPLConnect("gem")}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="w-full h-14 text-base font-medium border-2"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin mr-3" />
+                    ) : (
+                      <span className="mr-3 text-xl">💎</span>
+                    )}
+                    Connect GemWallet
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground text-center">
+                    You hold your own keys. We never see or store them.
+                  </p>
+                </motion.div>
+              )}
             </AnimatePresence>
           </CardContent>
         </Card>
@@ -244,6 +313,13 @@ export default function Auth() {
               >
                 Documentation
               </a>
+            </p>
+          ) : selectedChain === "xrpl" ? (
+            <p>
+              Don't have one?{" "}
+              <a href="https://crossmark.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Crossmark</a>
+              {" · "}
+              <a href="https://gemwallet.app" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">GemWallet</a>
             </p>
           ) : (
             <p>
