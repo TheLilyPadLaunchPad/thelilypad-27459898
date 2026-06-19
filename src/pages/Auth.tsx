@@ -17,6 +17,19 @@ const fallbackAuthBranding = "/auth-branding.webp";
 type SelectedChain = "solana" | "monad" | "xrpl";
 
 
+// Solana icon — purple/green gradient circle with ◎ glyph
+const SolanaIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="26" fill="url(#paint0_sol)" />
+    <path d="M30 86h58l10-10H40zM30 64h58l10-10H40zM30 42h58l10-10H40z" fill="#fff" />
+    <defs>
+      <linearGradient id="paint0_sol" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#9945FF" />
+        <stop offset="1" stopColor="#14F195" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
 
 // Monad icon — purple diamond
 const MonadIcon = () => (
@@ -42,7 +55,7 @@ const XrplIcon = () => (
 );
 
 const CHAINS: { id: SelectedChain; label: string; Icon: React.FC }[] = [
-  { id: "solana", label: "Solana", Icon: MonadIcon },
+  { id: "solana", label: "Solana", Icon: SolanaIcon },
   { id: "monad", label: "Monad", Icon: MonadIcon },
   { id: "xrpl", label: "XRPL", Icon: XrplIcon },
 ];
