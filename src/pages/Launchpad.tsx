@@ -80,7 +80,7 @@ const PRIMARY_TYPES: CollectionTypeTile[] = [
     description: "Upload pre-made assets or import trait layers for procedural generation with custom rarity weights.",
     icon: Layers,
     highlight: true,
-    chains: ["solana", "monad"],
+    chains: ["solana", "monad", "xrpl"],
     tag: "Most Popular",
   },
   {
