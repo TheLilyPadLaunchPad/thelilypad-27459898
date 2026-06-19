@@ -63,29 +63,16 @@ export async function connectGemWallet(): Promise<XRPLConnectResult> {
 }
 
 export async function connectColdStorage(address: string, network: 'mainnet' | 'testnet' = 'mainnet'): Promise<XRPLConnectResult> {
-    // Validate XRPL address format (starts with 'r' and is 25-35 characters, base58)
     if (!address || typeof address !== 'string') {
         throw new Error('Address is required');
     }
-
-    // Basic XRPL address validation
-    if (!address.startsWith('r')) {
-        throw new Error('Invalid XRPL address: must start with "r"');
+    const trimmed = address.trim();
+    // Use xrpl checksum validation for correctness.
+    const { isValidClassicAddress } = await import('xrpl');
+    if (!isValidClassicAddress(trimmed)) {
+        throw new Error('Invalid XRPL address (failed checksum). Must be a valid classic r-address.');
     }
-
-    if (address.length < 25 || address.length > 35) {
-        throw new Error('Invalid XRPL address: must be 25-35 characters');
-    }
-
-    // Base58 character check (XRPL uses base58)
-    const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    for (const char of address) {
-        if (!base58Chars.includes(char)) {
-            throw new Error('Invalid XRPL address: contains invalid characters');
-        }
-    }
-
-    return { provider: 'cold', address, network };
+    return { provider: 'cold', address: trimmed, network };
 }
 
 export async function connectXRPLWallet(provider: XRPLWalletProvider, address?: string, network?: 'mainnet' | 'testnet'): Promise<XRPLConnectResult> {
