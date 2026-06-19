@@ -476,6 +476,13 @@ export default function Auth() {
           )}
         </div>
       </div>
+
+      <CreateXRPLWalletDialog
+        open={createWalletOpen}
+        onOpenChange={setCreateWalletOpen}
+        defaultNetwork={coldStorageNetwork}
+      />
+      <UnlockXRPLWalletDialog open={unlockWalletOpen} onOpenChange={setUnlockWalletOpen} />
     </div>
   );
 }
