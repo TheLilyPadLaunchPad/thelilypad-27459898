@@ -5,7 +5,8 @@ import { useAuth } from "@/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Loader2, Shield } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
 import { motion, AnimatePresence } from "framer-motion";
@@ -51,6 +52,9 @@ export default function Auth() {
   const { state } = useAuth();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
+  const [coldStorageDialogOpen, setColdStorageDialogOpen] = useState(false);
+  const [coldStorageAddress, setColdStorageAddress] = useState("");
+  const [coldStorageNetwork, setColdStorageNetwork] = useState<'mainnet' | 'testnet'>('mainnet');
   // Fetch dynamic auth branding from site_assets, fallback to local
   const { assetUrl: authBranding } = useSiteAsset('auth_branding', fallbackAuthBranding);
 
@@ -92,12 +96,32 @@ export default function Auth() {
     }
   };
 
-  const handleXRPLConnect = async (provider: "crossmark" | "gem") => {
+  const handleXRPLConnect = async (provider: "crossmark" | "gem" | "cold") => {
+    if (provider === "cold") {
+      setColdStorageDialogOpen(true);
+      return;
+    }
     setIsConnectingWallet(true);
     try {
       await connectXRPLNonCustodial(provider);
     } catch (error) {
       console.error("XRPL connect error:", error);
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  };
+
+  const handleColdStorageConnect = async () => {
+    if (!coldStorageAddress.trim()) {
+      return;
+    }
+    setIsConnectingWallet(true);
+    setColdStorageDialogOpen(false);
+    try {
+      await connectXRPLNonCustodial("cold", coldStorageAddress.trim(), coldStorageNetwork);
+      setColdStorageAddress("");
+    } catch (error) {
+      console.error("Cold storage connect error:", error);
     } finally {
       setIsConnectingWallet(false);
     }
@@ -290,6 +314,73 @@ export default function Auth() {
                     )}
                     Connect GemWallet
                   </Button>
+
+                  <Dialog open={coldStorageDialogOpen} onOpenChange={setColdStorageDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        disabled={isLoading}
+                        variant="ghost"
+                        className="w-full h-12 text-sm font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        <Shield className="w-4 h-4 mr-2" />
+                        Cold Storage (Hardware Wallet)
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Connect Cold Storage</DialogTitle>
+                        <DialogDescription>
+                          Enter your XRPL address from a hardware wallet or paper wallet. Your keys never leave your device.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">XRPL Address</label>
+                          <Input
+                            placeholder="r..."
+                            value={coldStorageAddress}
+                            onChange={(e) => setColdStorageAddress(e.target.value)}
+                            className="font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Network</label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={coldStorageNetwork === 'mainnet' ? 'default' : 'outline'}
+                              onClick={() => setColdStorageNetwork('mainnet')}
+                              className="flex-1"
+                            >
+                              Mainnet
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={coldStorageNetwork === 'testnet' ? 'default' : 'outline'}
+                              onClick={() => setColdStorageNetwork('testnet')}
+                              className="flex-1"
+                            >
+                              Testnet
+                            </Button>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleColdStorageConnect}
+                          disabled={!coldStorageAddress.trim() || isLoading}
+                          className="w-full"
+                        >
+                          {isLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (
+                            "Connect Cold Storage"
+                          )}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
 
                   <p className="text-xs text-muted-foreground text-center">
                     You hold your own keys. We never see or store them.

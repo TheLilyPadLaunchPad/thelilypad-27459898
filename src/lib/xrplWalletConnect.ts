@@ -8,7 +8,7 @@
  * No seeds, no custody — the wallet signs in its own UI.
  */
 
-export type XRPLWalletProvider = 'crossmark' | 'gem';
+export type XRPLWalletProvider = 'crossmark' | 'gem' | 'cold';
 
 export interface XRPLConnectResult {
     provider: XRPLWalletProvider;
@@ -62,8 +62,38 @@ export async function connectGemWallet(): Promise<XRPLConnectResult> {
     return { provider: 'gem', address, network };
 }
 
-export async function connectXRPLWallet(provider: XRPLWalletProvider): Promise<XRPLConnectResult> {
+export async function connectColdStorage(address: string, network: 'mainnet' | 'testnet' = 'mainnet'): Promise<XRPLConnectResult> {
+    // Validate XRPL address format (starts with 'r' and is 25-35 characters, base58)
+    if (!address || typeof address !== 'string') {
+        throw new Error('Address is required');
+    }
+
+    // Basic XRPL address validation
+    if (!address.startsWith('r')) {
+        throw new Error('Invalid XRPL address: must start with "r"');
+    }
+
+    if (address.length < 25 || address.length > 35) {
+        throw new Error('Invalid XRPL address: must be 25-35 characters');
+    }
+
+    // Base58 character check (XRPL uses base58)
+    const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    for (const char of address) {
+        if (!base58Chars.includes(char)) {
+            throw new Error('Invalid XRPL address: contains invalid characters');
+        }
+    }
+
+    return { provider: 'cold', address, network };
+}
+
+export async function connectXRPLWallet(provider: XRPLWalletProvider, address?: string, network?: 'mainnet' | 'testnet'): Promise<XRPLConnectResult> {
     if (provider === 'crossmark') return connectCrossmark();
     if (provider === 'gem') return connectGemWallet();
+    if (provider === 'cold') {
+        if (!address) throw new Error('Address is required for cold storage connection');
+        return connectColdStorage(address, network);
+    }
     throw new Error(`Unknown XRPL wallet provider: ${provider}`);
 }

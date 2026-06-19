@@ -74,7 +74,7 @@ interface WalletContextType extends WalletState {
   discoveredWallets: any[];
   connection: Connection;
   connectXRPL: () => Promise<void>;
-  connectXRPLNonCustodial: (provider: XRPLWalletProvider) => Promise<void>;
+  connectXRPLNonCustodial: (provider: XRPLWalletProvider, address?: string, network?: 'mainnet' | 'testnet') => Promise<void>;
   signXRPLTransaction: (txJson: any, network?: 'mainnet' | 'testnet') => Promise<any>;
 }
 
@@ -239,14 +239,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw error;
     }
   }, []);
-  // Non-custodial XRPL wallets (Crossmark, GemWallet) — user controls keys.
-  const connectXRPLNonCustodial = useCallback(async (provider: XRPLWalletProvider) => {
-    const label = provider === 'crossmark' ? 'Crossmark' : 'GemWallet';
+  // Non-custodial XRPL wallets (Crossmark, GemWallet, Cold Storage) — user controls keys.
+  const connectXRPLNonCustodial = useCallback(async (provider: XRPLWalletProvider, address?: string, network?: 'mainnet' | 'testnet') => {
+    const label = provider === 'crossmark' ? 'Crossmark' : provider === 'gem' ? 'GemWallet' : 'Cold Storage';
     try {
       setState(prev => ({ ...prev, isConnecting: true }));
       toast.loading(`Connecting to ${label}...`, { id: 'xrpl-nc' });
 
-      const result = await connectXRPLWallet(provider);
+      const result = await connectXRPLWallet(provider, address, network);
 
       setState(prev => ({
         ...prev,
@@ -255,6 +255,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isConnecting: false,
         walletType: provider as any,
         chainType: 'xrpl',
+        network: result.network,
       }));
       try { localStorage.setItem('walletConnected', 'true'); } catch {}
       try { localStorage.setItem('xrplNetwork', result.network); } catch {}
