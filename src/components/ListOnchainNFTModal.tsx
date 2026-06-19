@@ -80,6 +80,7 @@ export function ListOnchainNFTModal({ nft, open, onOpenChange, onSuccess }: Prop
           currency,
           expires_at: expiresAt?.toISOString() ?? null,
           status: "active",
+          buyback_pct: buybackOn && chainType !== "monad" ? buybackPct : 0,
         });
       if (insErr) {
         if (insErr.code === "23505") {
