@@ -47,7 +47,7 @@ const CHAINS: { id: SelectedChain; label: string; Icon: React.FC }[] = [
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { connect, isConnecting } = useWallet();
+  const { connect, isConnecting, connectXRPLNonCustodial } = useWallet();
   const { state } = useAuth();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
