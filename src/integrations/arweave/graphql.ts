@@ -66,11 +66,21 @@ export async function queryArweaveByTags(
     }`;
 
   try {
-    const res = await fetch(ARWEAVE_GQL_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    });
+    // Hard timeout so a slow/unresponsive Arweave gateway never blocks
+    // higher-level flows (profile discovery, route guards, etc.).
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    let res: Response;
+    try {
+      res = await fetch(ARWEAVE_GQL_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) throw new Error(`Arweave GQL failed: ${res.statusText}`);
     const json = await res.json();
     const edges = json?.data?.transactions?.edges ?? [];
@@ -88,7 +98,7 @@ export async function queryArweaveByTags(
       },
     }));
   } catch (err) {
-    console.error("[Arweave] GraphQL error:", err);
+    console.warn("[Arweave] GraphQL error (returning empty):", err);
     return [];
   }
 }
