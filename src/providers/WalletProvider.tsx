@@ -363,6 +363,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         discoveredWallets: [],
         connection,
         connectXRPL,
+        connectXRPLNonCustodial,
         signXRPLTransaction,
       }}
     >
