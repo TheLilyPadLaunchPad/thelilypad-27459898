@@ -106,7 +106,7 @@ export default function XRPLTraitGenerator() {
     useSEO({
         title: "XRPL Trait Generator | The Lily Pad",
         description:
-            "Generative XLS-20 collections on XRP Ledger. Upload layers, set rarity, mint to mainnet or testnet via Pinata IPFS.",
+            "Generative XLS-20 collections on XRP Ledger. Upload layers, set rarity, mint to mainnet or testnet via Pinata IPFS or permanent Arweave.",
     });
 
     const computedFlags =
