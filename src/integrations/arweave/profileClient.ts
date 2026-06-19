@@ -51,7 +51,14 @@ export async function getDecentralizedProfile(walletAddress: string): Promise<Us
         if (!rootTxId) return null;
 
         const url = getIrysMutableUrl(rootTxId);
-        const response = await fetch(url);
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 6000);
+        let response: Response;
+        try {
+            response = await fetch(url, { signal: controller.signal });
+        } finally {
+            clearTimeout(t);
+        }
         if (!response.ok) return null;
 
         return await response.json();
