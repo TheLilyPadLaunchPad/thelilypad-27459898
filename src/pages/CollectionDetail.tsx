@@ -352,9 +352,15 @@ export default function CollectionDetail() {
               isTestnet={isCollectionTestnet}
               walletAddress={address}
             />
+
+            <CollectionBuybackCard
+              collectionId={collection.id}
+              chainSymbol={collection.chain === "monad" ? "MON" : "SOL"}
+            />
           </div>
         </div>
       </main>
+
 
       {/* Modals */}
       <NFTRevealModal
