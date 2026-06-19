@@ -1,68 +1,44 @@
 ## Goal
 
-Bring back the layered **trait generator** flow for XRPL (the generative/PFP path that currently exists for Solana/Monad), and make sure XRPL launches push assets through **Pinata IPFS** on both testnet and mainnet.
+Let XRPL creators choose **Pinata IPFS** (current default) or **Arweave** (permanent) for trait images, per-NFT metadata, and the collection-level JSON written into the AccountSet `Domain`. The choice is a per-launch toggle in `XRPLTraitGenerator`.
 
-## What exists today
+## Important constraint
 
-- `src/pages/XRPLEasyGenerator.tsx` — only handles 1-of-1 style uploads (pick N images → pin each → mint). No layer/trait engine.
-- `src/pages/ArtGenerator.tsx` — full generative pipeline (LayerManager, TraitRarityEditor, TraitRulesManager, `assetGenerator`) but it only outputs a ZIP and is gated to Solana/Monad.
-- `src/integrations/pinata/client.ts` already exposes `pinFile` / `pinJson` and goes through the `pinata-upload` edge function — works for any network.
-- `src/hooks/useXRPLConnectedLaunch.ts` signs `AccountSet` + `NFTokenMint` through the connected Joey Wallet on the chosen XRPL network.
-- Launchpad tiles in `src/pages/Launchpad.tsx`: the `generative` and `art-generator` tiles are restricted to `chains: ["solana", "monad"]`, so XRPL users never see a trait generator. XRPL clicks short-circuit to `/launchpad/xrpl-generator`.
+Arweave uploads in this project go through **Irys, funded in SOL by the connected Solana wallet (Phantom)** — see `src/integrations/arweave/nativeClient.ts` (`uploadBytes`). There is no AR/XRP funding path. So when an XRPL user picks Arweave, they must also have a Solana wallet connected to pay for the bundle. Pinata stays the zero-extra-wallet default.
 
-## Plan
+## Changes
 
-### 1. New page: `src/pages/XRPLTraitGenerator.tsx`
+### 1. `src/pages/XRPLTraitGenerator.tsx`
+- Add storage state: `const [storage, setStorage] = useState<'pinata' | 'arweave'>('pinata')`.
+- Setup step: add a `Select` ("Storage provider") with two options:
+  - **Pinata IPFS** — "Free, fast, requires no extra wallet"
+  - **Arweave (permanent)** — "Permanent storage, paid in SOL via your Solana wallet"
+- When `storage === 'arweave'`: show a small notice + read `solanaAddress` from `useWallet()`; disable the "Continue" button on the review step if no Solana wallet is connected, with a toast prompting the user to connect Phantom.
+- Replace the hard-coded `pinFile` / `pinJson` calls in the mint loop with a small local helper:
+  ```ts
+  async function uploadImage(blob: Blob, name: string): Promise<string> {
+    if (storage === 'arweave') {
+      const { uploadBlob } = await import('@/integrations/arweave/nativeClient');
+      const { url } = await uploadBlob(blob, { contentType: blob.type, tags: [{ name: 'Content-Type', value: blob.type }] });
+      return url; // https://arweave.net/<id>
+    }
+    const cid = await pinFile(new File([blob], name, { type: blob.type }));
+    return ipfsUri(cid);
+  }
+  async function uploadJson(obj: unknown): Promise<string> { /* same branching */ }
+  ```
+- Use the returned URI for both per-NFT `URI` (still passed through `convertStringToHex` in `useXRPLConnectedLaunch`) and the collection `Domain` URI. Both `ipfs://…` and `https://arweave.net/…` already pass `validateXRPLUri` (256-byte limit) — keep that check.
+- Review step: show a "Storage: Pinata IPFS" or "Storage: Arweave (permanent)" badge so the tester can confirm the active choice before signing.
 
-A trait-driven wizard for XRPL, modeled on `ArtGenerator` but ending in an on-ledger mint instead of a ZIP download.
+### 2. No backend / schema changes
+- Pinata path keeps using the `pinata-upload` edge function.
+- Arweave path reuses the existing Irys-backed `uploadBytes/uploadBlob/uploadJson` in `nativeClient.ts` — no new secrets, no new edge function.
+- `useXRPLConnectedLaunch` is untouched; it already accepts any string URI.
 
-Steps:
-1. **Setup** — collection name, description, symbol, network (`testnet` default, `mainnet`), taxon, transfer fee, XLS-20 flags (reuse the UI from `XRPLEasyGenerator`).
-2. **Layers** — `LayerManager` + `TraitRarityEditor` + `TraitRulesManager` (same components ArtGenerator uses).
-3. **Generate** — call `generateAssets(...)` from `src/lib/assetGenerator.ts` to produce N composited PNG `Blob`s + per-NFT trait arrays. Show progress + preview grid.
-4. **Review & Mint** — show first ~20 previews, supply count, network, fee, expected pin count.
-5. **Minting** — for each generated asset:
-   - `pinFile(blob)` → image CID
-   - `pinJson({ name, description, image: ipfs://<cid>, attributes: traits.map(t => ({trait_type, value})), collection: { name, family } })` → metadata CID
-   Then `pinJson(collectionMeta)` for the AccountSet Domain. All pinning uses the existing Pinata edge function, which already serves testnet identically to mainnet.
-6. **Complete** — pass `{ network, collection, items }` to `useXRPLConnectedLaunch().launch(...)`, then show tx hashes (link to `livenet.xrpl.org` or `testnet.xrpl.org` based on `network`).
+### 3. Memory
+- Update `mem://features/xrpl-xls20-integration` to note that XRPL launches now support a Pinata-or-Arweave toggle, and that the Arweave path requires a connected Solana wallet for Irys funding.
 
-Guardrails reused from `XRPLEasyGenerator`:
-- Require `isConnected && chainType === 'xrpl'`; otherwise call `connectXRPL()` and stop.
-- Block `transferFee > 0` when the Transferable flag is off.
-- Validate URI length via existing `validateXRPLUri` inside `useXRPLConnectedLaunch`.
-
-### 2. Routing — `src/App.tsx`
-
-Add a lazy route:
-```
-/launchpad/xrpl-trait-generator → XRPLTraitGenerator (ProtectedRoute)
-```
-Keep `/launchpad/xrpl-generator` (Easy/1-of-1 flow) as-is.
-
-### 3. Launchpad tiles — `src/pages/Launchpad.tsx`
-
-- Add `"xrpl"` to the `chains` array of the **generative** tile and the **art-generator** tile so they appear when XRPL is selected.
-- In `handleTileClick`, when `selectedChain === 'xrpl'`:
-  - `generative` or `art-generator` → `navigate('/launchpad/xrpl-trait-generator')`
-  - `1of1` (and the existing fallback) → keep navigating to `/launchpad/xrpl-generator`
-- Update `continueDraft` similarly so XRPL generative drafts land on the trait generator.
-
-### 4. Pinata IPFS confirmation
-
-No code change needed in `src/integrations/pinata/client.ts` — `pinFile`/`pinJson` already work on every network because the `pinata-upload` edge function holds the JWT. Both the existing `XRPLEasyGenerator` and the new `XRPLTraitGenerator` will pin via Pinata for testnet **and** mainnet, satisfying the "link XRPL launchpad to Pinata IPFS testnet" requirement.
-
-If users want a visible confirmation, the Review step will show a "Storage: Pinata IPFS" badge so it's obvious which backend is being used.
-
-## Technical notes
-
-- Reuse `generateAssets` from `src/lib/assetGenerator.ts` — it already returns composited image bytes plus trait arrays, no new compositor needed.
-- XRPL `NFTokenMint` URI is limited to 256 bytes; `ipfs://<cid>` (~53 chars) and `ipfs://<cid>/0.json` style URIs both fit.
-- We pin per-NFT JSON individually (not a directory) to mirror the existing XRPL Easy flow and avoid a new edge-function code path.
-- No backend / schema / RLS changes.
-
-## Files touched
-
-- **New**: `src/pages/XRPLTraitGenerator.tsx`
-- **Edit**: `src/App.tsx` (add route)
-- **Edit**: `src/pages/Launchpad.tsx` (tile chains + routing)
+## Out of scope
+- No changes to the 1-of-1 `XRPLEasyGenerator` flow (can be done in a follow-up if desired).
+- No new AR/XRP payment path for Irys.
+- No change to mainnet vs testnet selection — both storage options work on both XRPL networks.

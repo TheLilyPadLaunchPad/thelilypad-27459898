@@ -48,6 +48,11 @@ import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
 import { useXRPLConnectedLaunch } from "@/hooks/useXRPLConnectedLaunch";
 import { useWallet } from "@/providers/WalletProvider";
 import { pinFile, pinJson, ipfsUri } from "@/integrations/pinata/client";
+import {
+    uploadBlob as arweaveUploadBlob,
+    uploadJson as arweaveUploadJson,
+    isArweaveWalletAvailable,
+} from "@/integrations/arweave/nativeClient";
 import { useSEO } from "@/hooks/useSEO";
 import { cn } from "@/lib/utils";
 import {
@@ -74,6 +79,7 @@ export default function XRPLTraitGenerator() {
     const [symbol, setSymbol] = useState("");
     const [description, setDescription] = useState("");
     const [network, setNetwork] = useState<"mainnet" | "testnet">("testnet");
+    const [storage, setStorage] = useState<"pinata" | "arweave">("pinata");
     const [transferFee, setTransferFee] = useState(0);
     const [taxon, setTaxon] = useState(Math.floor(Date.now() / 1000));
     const [targetSupply, setTargetSupply] = useState(50);
@@ -100,7 +106,7 @@ export default function XRPLTraitGenerator() {
     useSEO({
         title: "XRPL Trait Generator | The Lily Pad",
         description:
-            "Generative XLS-20 collections on XRP Ledger. Upload layers, set rarity, mint to mainnet or testnet via Pinata IPFS.",
+            "Generative XLS-20 collections on XRP Ledger. Upload layers, set rarity, mint to mainnet or testnet via Pinata IPFS or permanent Arweave.",
     });
 
     const computedFlags =
@@ -147,6 +153,26 @@ export default function XRPLTraitGenerator() {
         }
     };
 
+    const storageLabel = storage === "arweave" ? "Arweave (permanent)" : "Pinata IPFS";
+
+    async function uploadImage(blob: Blob, filename: string): Promise<{ uri: string; cid?: string }> {
+        if (storage === "arweave") {
+            const res = await arweaveUploadBlob(blob, { filename });
+            return { uri: res.url };
+        }
+        const r = await pinFile(blob, filename);
+        return { uri: ipfsUri(r.cid), cid: r.cid };
+    }
+
+    async function uploadMetadata(obj: unknown, filename: string): Promise<string> {
+        if (storage === "arweave") {
+            const res = await arweaveUploadJson(obj);
+            return res.url;
+        }
+        const r = await pinJson(obj, filename);
+        return ipfsUri(r.cid);
+    }
+
     const handleMint = async () => {
         if (!isConnected || chainType !== "xrpl" || !address) {
             toast.error("Connect your XRPL wallet first");
@@ -157,54 +183,59 @@ export default function XRPLTraitGenerator() {
             return toast.error("Transfer Fee requires the Transferable flag");
         }
         if (generatedAssets.length === 0) return toast.error("Generate assets first");
+        if (storage === "arweave" && !isArweaveWalletAvailable()) {
+            return toast.error(
+                "Arweave uploads are funded in SOL. Connect a Solana wallet (Phantom) too, or switch storage to Pinata IPFS."
+            );
+        }
 
         try {
             setCurrentStep("minting");
             const total = generatedAssets.length;
-            setPinProgress({ current: 0, total, label: "Pinning to IPFS…" });
+            setPinProgress({ current: 0, total, label: `Uploading to ${storageLabel}…` });
 
             const pinnedItems: { name: string; uri: string }[] = [];
-            let firstImageCid: string | null = null;
+            let firstImageUri: string | null = null;
 
             for (let i = 0; i < generatedAssets.length; i++) {
                 const asset = generatedAssets[i];
                 setPinProgress({
                     current: i,
                     total,
-                    label: `Pinning image ${i + 1}/${total} to Pinata IPFS…`,
+                    label: `Uploading image ${i + 1}/${total} to ${storageLabel}…`,
                 });
 
                 if (!asset.preview) throw new Error(`Asset ${asset.name} has no preview`);
                 const imgBlob = await dataUrlToBlob(asset.preview);
-                const img = await pinFile(imgBlob, `${i}.webp`);
-                if (!firstImageCid) firstImageCid = img.cid;
+                const img = await uploadImage(imgBlob, `${i}.webp`);
+                if (!firstImageUri) firstImageUri = img.uri;
 
                 setPinProgress({
                     current: i,
                     total,
-                    label: `Pinning metadata ${i + 1}/${total} to Pinata IPFS…`,
+                    label: `Uploading metadata ${i + 1}/${total} to ${storageLabel}…`,
                 });
-                const meta = await pinJson(
+                const metaUri = await uploadMetadata(
                     {
                         name: asset.metadata.name,
                         description: asset.metadata.description,
-                        image: ipfsUri(img.cid),
+                        image: img.uri,
                         attributes: asset.metadata.attributes,
                         collection: { name, family: symbol || name },
                     },
                     `${i}.json`
                 );
 
-                pinnedItems.push({ name: asset.metadata.name, uri: ipfsUri(meta.cid) });
+                pinnedItems.push({ name: asset.metadata.name, uri: metaUri });
             }
 
-            setPinProgress({ current: total, total, label: "Pinning collection metadata…" });
-            const collectionMeta = await pinJson(
+            setPinProgress({ current: total, total, label: "Uploading collection metadata…" });
+            const collectionUri = await uploadMetadata(
                 {
                     name,
                     description,
                     symbol: symbol || undefined,
-                    image: firstImageCid ? ipfsUri(firstImageCid) : undefined,
+                    image: firstImageUri ?? undefined,
                 },
                 `${name || "collection"}.json`
             );
@@ -214,7 +245,7 @@ export default function XRPLTraitGenerator() {
                 collection: {
                     name,
                     description,
-                    uri: ipfsUri(collectionMeta.cid),
+                    uri: collectionUri,
                     taxon,
                     transferFeePct: transferFee,
                     flags: computedFlags,
@@ -255,7 +286,7 @@ export default function XRPLTraitGenerator() {
                         <Palette className="w-3 h-3" />
                         <span>XRPL Trait Generator</span>
                         <Badge variant="outline" className="ml-2 text-[10px]">
-                            Pinata IPFS · {network}
+                            {storageLabel} · {network}
                         </Badge>
                     </div>
                     <h1 className="text-4xl md:text-5xl font-black tracking-tight gradient-text">
@@ -316,7 +347,7 @@ export default function XRPLTraitGenerator() {
                                     <CardHeader className="px-0 pt-0">
                                         <CardTitle className="text-xl">Collection Details</CardTitle>
                                         <CardDescription>
-                                            XLS-20 collection grouped by taxon. Pinned via Pinata IPFS.
+                                            XLS-20 collection grouped by taxon. Stored on Pinata IPFS or permanent Arweave.
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="px-0 space-y-6">
@@ -398,6 +429,31 @@ export default function XRPLTraitGenerator() {
                                                     step={0.1}
                                                 />
                                             </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Storage Provider</Label>
+                                            <Select
+                                                value={storage}
+                                                onValueChange={(v: any) => setStorage(v)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="pinata">
+                                                        Pinata IPFS — Free, no extra wallet
+                                                    </SelectItem>
+                                                    <SelectItem value="arweave">
+                                                        Arweave (permanent) — Paid in SOL via Solana wallet
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {storage === "arweave" && (
+                                                <p className="text-[11px] text-amber-500/90">
+                                                    Permanent storage. Requires a connected Solana wallet (Phantom) to fund the Irys bundle in SOL.
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="space-y-2">
@@ -635,8 +691,10 @@ export default function XRPLTraitGenerator() {
                                             {generatedAssets.length} NFTs ready · {network}
                                         </CardTitle>
                                         <CardDescription>
-                                            Storage backend: <strong>Pinata IPFS</strong> (both
-                                            testnet + mainnet)
+                                            Storage backend: <strong>{storageLabel}</strong>
+                                            {storage === "arweave"
+                                                ? " — funded in SOL via your Solana wallet"
+                                                : " (works on both testnet + mainnet)"}
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="px-0">
