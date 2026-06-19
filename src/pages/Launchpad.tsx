@@ -241,9 +241,13 @@ export default function Launchpad() {
   const secondaryTiles = SECONDARY_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
-    // XRPL doesn't use Metaplex/Candy Machine — route to the dedicated XLS-20 generator.
+    // XRPL doesn't use Metaplex/Candy Machine — route to dedicated XLS-20 flows.
     if (selectedChain === 'xrpl') {
-      navigate('/launchpad/xrpl-generator');
+      if (tile.id === 'generative' || tile.id === 'art-generator') {
+        navigate('/launchpad/xrpl-trait-generator');
+      } else {
+        navigate('/launchpad/xrpl-generator');
+      }
       return;
     }
     if (tile.id === "hybrid-404") {
