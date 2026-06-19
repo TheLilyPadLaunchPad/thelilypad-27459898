@@ -153,6 +153,26 @@ export default function XRPLTraitGenerator() {
         }
     };
 
+    const storageLabel = storage === "arweave" ? "Arweave (permanent)" : "Pinata IPFS";
+
+    async function uploadImage(blob: Blob, filename: string): Promise<{ uri: string; cid?: string }> {
+        if (storage === "arweave") {
+            const res = await arweaveUploadBlob(blob, { filename });
+            return { uri: res.url };
+        }
+        const r = await pinFile(blob, filename);
+        return { uri: ipfsUri(r.cid), cid: r.cid };
+    }
+
+    async function uploadMetadata(obj: unknown, filename: string): Promise<string> {
+        if (storage === "arweave") {
+            const res = await arweaveUploadJson(obj);
+            return res.url;
+        }
+        const r = await pinJson(obj, filename);
+        return ipfsUri(r.cid);
+    }
+
     const handleMint = async () => {
         if (!isConnected || chainType !== "xrpl" || !address) {
             toast.error("Connect your XRPL wallet first");
@@ -163,54 +183,59 @@ export default function XRPLTraitGenerator() {
             return toast.error("Transfer Fee requires the Transferable flag");
         }
         if (generatedAssets.length === 0) return toast.error("Generate assets first");
+        if (storage === "arweave" && !isArweaveWalletAvailable()) {
+            return toast.error(
+                "Arweave uploads are funded in SOL. Connect a Solana wallet (Phantom) too, or switch storage to Pinata IPFS."
+            );
+        }
 
         try {
             setCurrentStep("minting");
             const total = generatedAssets.length;
-            setPinProgress({ current: 0, total, label: "Pinning to IPFS…" });
+            setPinProgress({ current: 0, total, label: `Uploading to ${storageLabel}…` });
 
             const pinnedItems: { name: string; uri: string }[] = [];
-            let firstImageCid: string | null = null;
+            let firstImageUri: string | null = null;
 
             for (let i = 0; i < generatedAssets.length; i++) {
                 const asset = generatedAssets[i];
                 setPinProgress({
                     current: i,
                     total,
-                    label: `Pinning image ${i + 1}/${total} to Pinata IPFS…`,
+                    label: `Uploading image ${i + 1}/${total} to ${storageLabel}…`,
                 });
 
                 if (!asset.preview) throw new Error(`Asset ${asset.name} has no preview`);
                 const imgBlob = await dataUrlToBlob(asset.preview);
-                const img = await pinFile(imgBlob, `${i}.webp`);
-                if (!firstImageCid) firstImageCid = img.cid;
+                const img = await uploadImage(imgBlob, `${i}.webp`);
+                if (!firstImageUri) firstImageUri = img.uri;
 
                 setPinProgress({
                     current: i,
                     total,
-                    label: `Pinning metadata ${i + 1}/${total} to Pinata IPFS…`,
+                    label: `Uploading metadata ${i + 1}/${total} to ${storageLabel}…`,
                 });
-                const meta = await pinJson(
+                const metaUri = await uploadMetadata(
                     {
                         name: asset.metadata.name,
                         description: asset.metadata.description,
-                        image: ipfsUri(img.cid),
+                        image: img.uri,
                         attributes: asset.metadata.attributes,
                         collection: { name, family: symbol || name },
                     },
                     `${i}.json`
                 );
 
-                pinnedItems.push({ name: asset.metadata.name, uri: ipfsUri(meta.cid) });
+                pinnedItems.push({ name: asset.metadata.name, uri: metaUri });
             }
 
-            setPinProgress({ current: total, total, label: "Pinning collection metadata…" });
-            const collectionMeta = await pinJson(
+            setPinProgress({ current: total, total, label: "Uploading collection metadata…" });
+            const collectionUri = await uploadMetadata(
                 {
                     name,
                     description,
                     symbol: symbol || undefined,
-                    image: firstImageCid ? ipfsUri(firstImageCid) : undefined,
+                    image: firstImageUri ?? undefined,
                 },
                 `${name || "collection"}.json`
             );
@@ -220,7 +245,7 @@ export default function XRPLTraitGenerator() {
                 collection: {
                     name,
                     description,
-                    uri: ipfsUri(collectionMeta.cid),
+                    uri: collectionUri,
                     taxon,
                     transferFeePct: transferFee,
                     flags: computedFlags,
