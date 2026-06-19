@@ -99,6 +99,8 @@ interface Collection {
   trait_rules?: unknown;
   artworks_metadata?: unknown;
   chain?: string;
+  buyback_enabled?: boolean | null;
+  buyback_contribution_pct?: number | null;
 }
 
 interface CollectionEditFormProps {
