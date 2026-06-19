@@ -6,16 +6,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Shield } from "lucide-react";
+import { Loader2, Shield, AlertTriangle } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
 type SelectedChain = "solana" | "monad" | "xrpl";
 
 
+// Solana icon — purple/green gradient circle with ◎ glyph
+const SolanaIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="26" fill="url(#paint0_sol)" />
+    <path d="M30 86h58l10-10H40zM30 64h58l10-10H40zM30 42h58l10-10H40z" fill="#fff" />
+    <defs>
+      <linearGradient id="paint0_sol" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#9945FF" />
+        <stop offset="1" stopColor="#14F195" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
 
 // Monad icon — purple diamond
 const MonadIcon = () => (
@@ -41,14 +55,14 @@ const XrplIcon = () => (
 );
 
 const CHAINS: { id: SelectedChain; label: string; Icon: React.FC }[] = [
-  { id: "solana", label: "Solana", Icon: MonadIcon },
+  { id: "solana", label: "Solana", Icon: SolanaIcon },
   { id: "monad", label: "Monad", Icon: MonadIcon },
   { id: "xrpl", label: "XRPL", Icon: XrplIcon },
 ];
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { connect, isConnecting, connectXRPLNonCustodial } = useWallet();
+  const { connect, isConnecting, connectXRPLNonCustodial, connectMonad } = useWallet();
   const { state } = useAuth();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
@@ -61,13 +75,13 @@ export default function Auth() {
 
   useSEO({
     title: "Connect Wallet | The Lily Pad",
-    description: "Connect your wallet to access The Lily Pad. Choose Solana or Monad."
+    description: "Connect your Solana, Monad, or XRPL wallet to access The Lily Pad."
   });
 
   // Redirect when authenticated or needs profile setup
   useEffect(() => {
     if (state === "AUTHENTICATED") {
-      navigate("/");
+      navigate("/streams");
     } else if (state === "NEEDS_PROFILE") {
       navigate("/profile-setup");
     }
@@ -77,8 +91,9 @@ export default function Auth() {
     setIsConnectingWallet(true);
     try {
       await connect("reown", "solana");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Solana connect error:", error);
+      toast.error(error?.message || "Failed to connect Solana wallet");
     } finally {
       setIsConnectingWallet(false);
     }
@@ -88,7 +103,7 @@ export default function Auth() {
   const handleMonadConnect = async () => {
     setIsConnectingWallet(true);
     try {
-      await connect(undefined, "monad");
+      await connectMonad();
     } catch (error) {
       console.error("Monad connect error:", error);
     } finally {
@@ -175,10 +190,14 @@ export default function Auth() {
 
           <CardContent className="space-y-5">
             {/* Chain Toggle — 3 tabs */}
-            <div className="relative flex items-center bg-muted rounded-xl p-1 gap-1">
+            <div role="tablist" aria-label="Select blockchain" className="relative flex items-center bg-muted rounded-xl p-1 gap-1">
               {CHAINS.map(({ id, label, Icon }) => (
                 <button
                   key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedChain === id}
+                  aria-controls={`chain-panel-${id}`}
                   onClick={() => setSelectedChain(id)}
                   className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors duration-200 ${selectedChain === id
                     ? "text-foreground"
@@ -223,7 +242,7 @@ export default function Auth() {
                     {isLoading ? (
                       <Loader2 className="w-5 h-5 animate-spin mr-3" />
                     ) : (
-                      <span className="mr-3"><MonadIcon /></span>
+                      <span className="mr-3"><SolanaIcon /></span>
                     )}
                     Connect Wallet
                   </Button>
@@ -334,6 +353,10 @@ export default function Auth() {
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
+                        <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                          <span>Watch-only mode. You can browse and view holdings, but signing (mints, offers, transfers) requires a signing wallet like Crossmark or GemWallet.</span>
+                        </div>
                         <div className="space-y-2">
                           <label className="text-sm font-medium">XRPL Address</label>
                           <Input
