@@ -353,6 +353,10 @@ export default function Auth() {
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
+                        <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                          <span>Watch-only mode. You can browse and view holdings, but signing (mints, offers, transfers) requires a signing wallet like Crossmark or GemWallet.</span>
+                        </div>
                         <div className="space-y-2">
                           <label className="text-sm font-medium">XRPL Address</label>
                           <Input
