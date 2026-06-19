@@ -557,6 +557,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           social_website: socialWebsite.trim() || null,
           social_telegram: socialTelegram.trim() || null,
           ipfs_base_cid: ipfsBaseCid.trim() || null,
+          buyback_enabled: buybackEnabled,
+          buyback_contribution_pct: buybackEnabled ? buybackPct : null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", collection.id);
