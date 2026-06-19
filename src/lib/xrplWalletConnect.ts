@@ -82,5 +82,9 @@ export async function connectXRPLWallet(provider: XRPLWalletProvider, address?: 
         if (!address) throw new Error('Address is required for cold storage connection');
         return connectColdStorage(address, network);
     }
+    if (provider === 'generated') {
+        if (!address) throw new Error('Address is required for generated wallet connection');
+        return { provider: 'generated', address, network: network || 'mainnet' };
+    }
     throw new Error(`Unknown XRPL wallet provider: ${provider}`);
 }
