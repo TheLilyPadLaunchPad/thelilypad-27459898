@@ -92,7 +92,7 @@ export async function encryptSeed(seed: string, password: string): Promise<Encry
 export async function decryptSeed(payload: EncryptedSeed, password: string): Promise<string> {
     const key = await deriveKey(password, ub64(payload.salt));
     const pt = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: ub64(payload.iv) }, key, ub64(payload.ct)
+        { name: 'AES-GCM', iv: ub64(payload.iv) as BufferSource }, key, ub64(payload.ct) as BufferSource
     );
     return dec.decode(pt);
 }
