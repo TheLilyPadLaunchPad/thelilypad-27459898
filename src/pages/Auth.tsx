@@ -242,7 +242,7 @@ export default function Auth() {
                     {isLoading ? (
                       <Loader2 className="w-5 h-5 animate-spin mr-3" />
                     ) : (
-                      <span className="mr-3"><MonadIcon /></span>
+                      <span className="mr-3"><SolanaIcon /></span>
                     )}
                     Connect Wallet
                   </Button>
