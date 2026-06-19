@@ -117,6 +117,7 @@ const CreatorApply = lazy(() => import("./pages/CreatorApply"));
 const InterviewRoom = lazy(() => import("./pages/InterviewRoom"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
+const XRPLTraitGenerator = lazy(() => import("./pages/XRPLTraitGenerator"));
 const WaitRoom = lazy(() => import("./pages/WaitRoom"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const StreamerApply = lazy(() => import("./pages/StreamerApply"));
@@ -195,6 +196,7 @@ const AppContent = () => {
           <Route path="/launchpad/create/:chain/:type" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreateCollectionPage /></Suspense></ProtectedRoute>} />
           <Route path="/launchpad/art-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ArtGenerator /></Suspense></ProtectedRoute>} />
           <Route path="/launchpad/xrpl-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLEasyGenerator /></Suspense></ProtectedRoute>} />
+          <Route path="/launchpad/xrpl-trait-generator" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><XRPLTraitGenerator /></Suspense></ProtectedRoute>} />
           <Route path="/creator/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CreatorApply /></Suspense></ProtectedRoute>} />
           <Route path="/interview/:applicationId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InterviewRoom /></Suspense></ProtectedRoute>} />
           <Route path="/u/:identifier" element={<Suspense fallback={<PageLoader />}><PublicProfile /></Suspense>} />

@@ -1,67 +1,68 @@
-# Plan: Create New XRPL Wallet on Auth Page
+## Goal
 
-Generate a brand-new non-custodial XRPL account directly in the browser for users without Crossmark/GemWallet. Uses `xrpl.js` `Wallet.generate()` — no admin RPC, no server seed exposure.
+Bring back the layered **trait generator** flow for XRPL (the generative/PFP path that currently exists for Solana/Monad), and make sure XRPL launches push assets through **Pinata IPFS** on both testnet and mainnet.
 
-## Scope
+## What exists today
 
-1. New "Create New Wallet" CTA in the XRPL tab on `/auth`, below the existing connect buttons.
-2. Two-step modal:
-   - **Step 1 — Backup**: show address + master seed once, with copy buttons, "Download backup .txt", and a "I saved my backup" checkbox required to proceed.
-   - **Step 2 — Optional encrypted cache**: user can set a password to store the seed encrypted in `localStorage` for quick re-sign-in on this device, OR skip (true zero-storage).
-3. **Funding**:
-   - Testnet → call the official XRPL testnet faucet (`https://faucet.altnet.rippletest.net/accounts`) and show the funded balance.
-   - Mainnet → show the 10 XRP reserve notice + "Send XRP to this address from your exchange" instructions.
-4. Sign the user in via the existing non-custodial XRPL flow (extend `connectXRPLWallet` with a `'generated'` provider).
-5. New "Unlock saved wallet" button appears when an encrypted seed is detected in localStorage — prompts for password, decrypts, signs in.
+- `src/pages/XRPLEasyGenerator.tsx` — only handles 1-of-1 style uploads (pick N images → pin each → mint). No layer/trait engine.
+- `src/pages/ArtGenerator.tsx` — full generative pipeline (LayerManager, TraitRarityEditor, TraitRulesManager, `assetGenerator`) but it only outputs a ZIP and is gated to Solana/Monad.
+- `src/integrations/pinata/client.ts` already exposes `pinFile` / `pinJson` and goes through the `pinata-upload` edge function — works for any network.
+- `src/hooks/useXRPLConnectedLaunch.ts` signs `AccountSet` + `NFTokenMint` through the connected Joey Wallet on the chosen XRPL network.
+- Launchpad tiles in `src/pages/Launchpad.tsx`: the `generative` and `art-generator` tiles are restricted to `chains: ["solana", "monad"]`, so XRPL users never see a trait generator. XRPL clicks short-circuit to `/launchpad/xrpl-generator`.
 
-## Files
+## Plan
 
-```text
-src/lib/xrplGeneratedWallet.ts      NEW  generate / encrypt / decrypt / faucet helpers
-src/lib/xrplWalletConnect.ts        EDIT add 'generated' provider variant
-src/providers/WalletProvider.tsx    EDIT pass-through (generated reuses connectXRPLNonCustodial)
-src/components/auth/CreateXRPLWalletDialog.tsx  NEW  two-step modal
-src/components/auth/UnlockXRPLWalletDialog.tsx  NEW  password unlock modal
-src/pages/Auth.tsx                  EDIT add "Create New Wallet" + "Unlock saved" buttons in XRPL tab
+### 1. New page: `src/pages/XRPLTraitGenerator.tsx`
+
+A trait-driven wizard for XRPL, modeled on `ArtGenerator` but ending in an on-ledger mint instead of a ZIP download.
+
+Steps:
+1. **Setup** — collection name, description, symbol, network (`testnet` default, `mainnet`), taxon, transfer fee, XLS-20 flags (reuse the UI from `XRPLEasyGenerator`).
+2. **Layers** — `LayerManager` + `TraitRarityEditor` + `TraitRulesManager` (same components ArtGenerator uses).
+3. **Generate** — call `generateAssets(...)` from `src/lib/assetGenerator.ts` to produce N composited PNG `Blob`s + per-NFT trait arrays. Show progress + preview grid.
+4. **Review & Mint** — show first ~20 previews, supply count, network, fee, expected pin count.
+5. **Minting** — for each generated asset:
+   - `pinFile(blob)` → image CID
+   - `pinJson({ name, description, image: ipfs://<cid>, attributes: traits.map(t => ({trait_type, value})), collection: { name, family } })` → metadata CID
+   Then `pinJson(collectionMeta)` for the AccountSet Domain. All pinning uses the existing Pinata edge function, which already serves testnet identically to mainnet.
+6. **Complete** — pass `{ network, collection, items }` to `useXRPLConnectedLaunch().launch(...)`, then show tx hashes (link to `livenet.xrpl.org` or `testnet.xrpl.org` based on `network`).
+
+Guardrails reused from `XRPLEasyGenerator`:
+- Require `isConnected && chainType === 'xrpl'`; otherwise call `connectXRPL()` and stop.
+- Block `transferFee > 0` when the Transferable flag is off.
+- Validate URI length via existing `validateXRPLUri` inside `useXRPLConnectedLaunch`.
+
+### 2. Routing — `src/App.tsx`
+
+Add a lazy route:
 ```
-
-## Technical Details
-
-**Generation** — pure client-side, no network:
-```ts
-import { Wallet } from 'xrpl';
-const w = Wallet.generate();            // { address, seed, publicKey, privateKey }
+/launchpad/xrpl-trait-generator → XRPLTraitGenerator (ProtectedRoute)
 ```
-Equivalent to `wallet_propose` but runs locally — never exposes the seed off-device.
+Keep `/launchpad/xrpl-generator` (Easy/1-of-1 flow) as-is.
 
-**Encryption (optional cache)** — Web Crypto AES-GCM with PBKDF2-derived key:
-- 250k PBKDF2-SHA256 iterations, 16-byte random salt, 12-byte random IV.
-- Stored as JSON `{ v: 1, salt, iv, ct }` under `xrpl:enc:<address>`.
-- Index of saved addresses kept under `xrpl:saved`.
+### 3. Launchpad tiles — `src/pages/Launchpad.tsx`
 
-**Faucet (testnet only)**:
-```ts
-POST https://faucet.altnet.rippletest.net/accounts
-body: { destination: address }
-```
-Show balance after, then proceed. Faucet failures are non-blocking (user can retry).
+- Add `"xrpl"` to the `chains` array of the **generative** tile and the **art-generator** tile so they appear when XRPL is selected.
+- In `handleTileClick`, when `selectedChain === 'xrpl'`:
+  - `generative` or `art-generator` → `navigate('/launchpad/xrpl-trait-generator')`
+  - `1of1` (and the existing fallback) → keep navigating to `/launchpad/xrpl-generator`
+- Update `continueDraft` similarly so XRPL generative drafts land on the trait generator.
 
-**Sign-in path** — after generation/unlock, call `connectXRPLNonCustodial('generated', address, network)`. The provider stores the address + network in `WalletState` exactly like Crossmark/Gem; subsequent signing uses the in-memory `Wallet` instance held by a small `xrplSigner` singleton (kept only in memory, cleared on disconnect). `signXRPLTransaction` gains a branch for `walletType === 'generated'` that signs locally with `wallet.sign(tx)` and submits via the existing XRPL client.
+### 4. Pinata IPFS confirmation
 
-**Security guardrails**:
-- Seed string never logged, never sent to console, never included in toast text.
-- Backup download is a `Blob` URL revoked immediately after click.
-- "I saved my backup" checkbox required before Continue enables.
-- Password requirement when caching: min 10 chars, zxcvbn-style hint optional (skip dependency, just min-length).
-- Clear in-memory `Wallet` on `disconnect()` and on tab close (`beforeunload`).
-- No `dangerouslySetInnerHTML`; all input via controlled `<Input>` with maxLength.
+No code change needed in `src/integrations/pinata/client.ts` — `pinFile`/`pinJson` already work on every network because the `pinata-upload` edge function holds the JWT. Both the existing `XRPLEasyGenerator` and the new `XRPLTraitGenerator` will pin via Pinata for testnet **and** mainnet, satisfying the "link XRPL launchpad to Pinata IPFS testnet" requirement.
 
-**UI**:
-- Reuses existing shadcn `Dialog`, `Input`, `Button`, `Checkbox` primitives.
-- Matches the XRPL tab's black/white branding.
-- Strong amber warning banner on Step 1: "This is the only time you will see your seed. Lose it = lose access. No password reset."
+If users want a visible confirmation, the Review step will show a "Storage: Pinata IPFS" badge so it's obvious which backend is being used.
 
-## Out of scope (will note for follow-up)
-- XRPL → Supabase session (SIWX edge function) — still deferred.
-- Hardware wallet (Ledger XRP app) signing — separate plan.
-- Multi-sig / regular key setup.
+## Technical notes
+
+- Reuse `generateAssets` from `src/lib/assetGenerator.ts` — it already returns composited image bytes plus trait arrays, no new compositor needed.
+- XRPL `NFTokenMint` URI is limited to 256 bytes; `ipfs://<cid>` (~53 chars) and `ipfs://<cid>/0.json` style URIs both fit.
+- We pin per-NFT JSON individually (not a directory) to mirror the existing XRPL Easy flow and avoid a new edge-function code path.
+- No backend / schema / RLS changes.
+
+## Files touched
+
+- **New**: `src/pages/XRPLTraitGenerator.tsx`
+- **Edit**: `src/App.tsx` (add route)
+- **Edit**: `src/pages/Launchpad.tsx` (tile chains + routing)

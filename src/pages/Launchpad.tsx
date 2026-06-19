@@ -80,7 +80,7 @@ const PRIMARY_TYPES: CollectionTypeTile[] = [
     description: "Upload pre-made assets or import trait layers for procedural generation with custom rarity weights.",
     icon: Layers,
     highlight: true,
-    chains: ["solana", "monad"],
+    chains: ["solana", "monad", "xrpl"],
     tag: "Most Popular",
   },
   {
@@ -88,7 +88,7 @@ const PRIMARY_TYPES: CollectionTypeTile[] = [
     title: "1-of-1 Art",
     description: "Upload individual artworks with unique metadata. Direct RAW minting to your wallet.",
     icon: ImageIcon,
-    chains: ["solana", "monad"],
+    chains: ["solana", "monad", "xrpl"],
   },
   {
     id: "music",
@@ -106,7 +106,7 @@ const SECONDARY_TYPES: CollectionTypeTile[] = [
     title: "Art Generator (ZIP)",
     description: "No-code tool: generate high-res assets with metadata and download as a ZIP.",
     icon: Palette,
-    chains: ["solana", "monad"],
+    chains: ["solana", "monad", "xrpl"],
     tag: "No-Code",
   },
   {
@@ -192,7 +192,7 @@ export default function Launchpad() {
 
   const continueDraft = () => {
     if (selectedChain === 'xrpl') {
-      navigate('/launchpad/xrpl-generator');
+      navigate('/launchpad/xrpl-trait-generator');
       return;
     }
     if (localDraft) {
@@ -241,9 +241,13 @@ export default function Launchpad() {
   const secondaryTiles = SECONDARY_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
-    // XRPL doesn't use Metaplex/Candy Machine — route to the dedicated XLS-20 generator.
+    // XRPL doesn't use Metaplex/Candy Machine — route to dedicated XLS-20 flows.
     if (selectedChain === 'xrpl') {
-      navigate('/launchpad/xrpl-generator');
+      if (tile.id === 'generative' || tile.id === 'art-generator') {
+        navigate('/launchpad/xrpl-trait-generator');
+      } else {
+        navigate('/launchpad/xrpl-generator');
+      }
       return;
     }
     if (tile.id === "hybrid-404") {
