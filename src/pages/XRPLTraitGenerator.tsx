@@ -347,7 +347,7 @@ export default function XRPLTraitGenerator() {
                                     <CardHeader className="px-0 pt-0">
                                         <CardTitle className="text-xl">Collection Details</CardTitle>
                                         <CardDescription>
-                                            XLS-20 collection grouped by taxon. Pinned via Pinata IPFS.
+                                            XLS-20 collection grouped by taxon. Stored on Pinata IPFS or permanent Arweave.
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="px-0 space-y-6">
