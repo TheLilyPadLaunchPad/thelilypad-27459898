@@ -691,8 +691,10 @@ export default function XRPLTraitGenerator() {
                                             {generatedAssets.length} NFTs ready · {network}
                                         </CardTitle>
                                         <CardDescription>
-                                            Storage backend: <strong>Pinata IPFS</strong> (both
-                                            testnet + mainnet)
+                                            Storage backend: <strong>{storageLabel}</strong>
+                                            {storage === "arweave"
+                                                ? " — funded in SOL via your Solana wallet"
+                                                : " (works on both testnet + mainnet)"}
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="px-0">
