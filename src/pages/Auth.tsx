@@ -190,10 +190,14 @@ export default function Auth() {
 
           <CardContent className="space-y-5">
             {/* Chain Toggle — 3 tabs */}
-            <div className="relative flex items-center bg-muted rounded-xl p-1 gap-1">
+            <div role="tablist" aria-label="Select blockchain" className="relative flex items-center bg-muted rounded-xl p-1 gap-1">
               {CHAINS.map(({ id, label, Icon }) => (
                 <button
                   key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedChain === id}
+                  aria-controls={`chain-panel-${id}`}
                   onClick={() => setSelectedChain(id)}
                   className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors duration-200 ${selectedChain === id
                     ? "text-foreground"
