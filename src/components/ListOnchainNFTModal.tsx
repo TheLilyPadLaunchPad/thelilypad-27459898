@@ -168,6 +168,42 @@ export function ListOnchainNFTModal({ nft, open, onOpenChange, onSuccess }: Prop
             </Popover>
           </div>
 
+          {chainType !== "monad" && (
+            <div className="space-y-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <Sparkles className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <Label htmlFor="buyback-toggle" className="cursor-pointer">
+                      Donate to collection buyback
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Route part of your sale proceeds into the platform buyback pool.
+                    </p>
+                  </div>
+                </div>
+                <Switch id="buyback-toggle" checked={buybackOn}
+                  onCheckedChange={setBuybackOn} disabled={busy} />
+              </div>
+
+              {buybackOn && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Contribution</span>
+                    <span className="font-medium">{buybackPct}%</span>
+                  </div>
+                  <Slider value={[buybackPct]} min={1} max={50} step={1}
+                    onValueChange={(v) => setBuybackPct(v[0] ?? 5)} disabled={busy} />
+                  {price && parseFloat(price) > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      ≈ {(parseFloat(price) * buybackPct / 100).toFixed(4)} {currency} to buyback on sale
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
