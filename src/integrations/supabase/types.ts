@@ -723,10 +723,89 @@ export type Database = {
           },
         ]
       }
+      collection_buyback_contributions: {
+        Row: {
+          chain: string
+          collection_id: string
+          contribution_pct: number
+          contribution_sol: number
+          created_at: string
+          error: string | null
+          event_id: string | null
+          id: string
+          mint_revenue_sol: number
+          program_id: string | null
+          status: string
+          tx_signature: string | null
+          updated_at: string
+        }
+        Insert: {
+          chain?: string
+          collection_id: string
+          contribution_pct: number
+          contribution_sol: number
+          created_at?: string
+          error?: string | null
+          event_id?: string | null
+          id?: string
+          mint_revenue_sol: number
+          program_id?: string | null
+          status?: string
+          tx_signature?: string | null
+          updated_at?: string
+        }
+        Update: {
+          chain?: string
+          collection_id?: string
+          contribution_pct?: number
+          contribution_sol?: number
+          created_at?: string
+          error?: string | null
+          event_id?: string | null
+          id?: string
+          mint_revenue_sol?: number
+          program_id?: string | null
+          status?: string
+          tx_signature?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_buyback_contributions_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_buyback_contributions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "buyback_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_buyback_contributions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "buyback_events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_buyback_contributions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "buyback_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collections: {
         Row: {
           artworks_metadata: Json | null
           banner_url: string | null
+          buyback_contribution_pct: number | null
+          buyback_enabled: boolean
           candy_guard_address: string | null
           candy_machine_address: string | null
           chain: string
@@ -772,6 +851,8 @@ export type Database = {
         Insert: {
           artworks_metadata?: Json | null
           banner_url?: string | null
+          buyback_contribution_pct?: number | null
+          buyback_enabled?: boolean
           candy_guard_address?: string | null
           candy_machine_address?: string | null
           chain?: string
@@ -817,6 +898,8 @@ export type Database = {
         Update: {
           artworks_metadata?: Json | null
           banner_url?: string | null
+          buyback_contribution_pct?: number | null
+          buyback_enabled?: boolean
           candy_guard_address?: string | null
           candy_machine_address?: string | null
           chain?: string
