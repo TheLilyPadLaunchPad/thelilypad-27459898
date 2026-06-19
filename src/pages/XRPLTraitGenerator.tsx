@@ -272,9 +272,7 @@ export default function XRPLTraitGenerator() {
                     <div className="w-full max-w-3xl mb-10 flex justify-between relative px-2">
                         <div className="absolute top-5 left-0 w-full h-0.5 bg-muted z-0" />
                         {stepDefs.map((s) => {
-                            const active =
-                                currentStep === s.id ||
-                                (currentStep === "minting" && s.id === "review");
+                            const active = currentStep === s.id;
                             return (
                                 <div
                                     key={s.id}
