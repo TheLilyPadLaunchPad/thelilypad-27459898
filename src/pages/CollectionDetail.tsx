@@ -31,6 +31,7 @@ import { CollectionAboutCard } from "@/components/collection-detail/CollectionAb
 import { CollectionPhasesCard } from "@/components/collection-detail/CollectionPhasesCard";
 import { CollectionSupplyCard } from "@/components/collection-detail/CollectionSupplyCard";
 import { CollectionMintCard } from "@/components/collection-detail/CollectionMintCard";
+import { CollectionBuybackCard } from "@/components/collection-detail/CollectionBuybackCard";
 
 export default function CollectionDetail() {
   const {
