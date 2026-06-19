@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Shield, AlertTriangle } from "lucide-react";
+import { Loader2, Shield, AlertTriangle, Sparkles, Lock } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import CreateXRPLWalletDialog from "@/components/auth/CreateXRPLWalletDialog";
+import UnlockXRPLWalletDialog from "@/components/auth/UnlockXRPLWalletDialog";
+import { listSavedWallets } from "@/lib/xrplGeneratedWallet";
 
 const fallbackAuthBranding = "/auth-branding.webp";
 
