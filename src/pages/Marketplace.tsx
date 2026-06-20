@@ -35,6 +35,7 @@ import {
   HomepageFeaturedCollections,
 } from "@/components/marketplace";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
+import { MarketPulseWidget } from "@/components/marketplace/MarketPulseWidget";
 
 
 
@@ -239,6 +240,11 @@ export default function Marketplace() {
 
         {/* Content Sections */}
         <div className="space-y-10">
+          {/* Market Pulse — cross-marketplace top collections */}
+          <section>
+            <MarketPulseWidget />
+          </section>
+
           {/* Analytics Section */}
           {showAnalytics && (
             <section>

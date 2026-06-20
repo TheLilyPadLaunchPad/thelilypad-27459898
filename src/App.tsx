@@ -92,6 +92,7 @@ const ClipViewer = lazy(() => import("./pages/ClipViewer"));
 const Moderation = lazy(() => import("./pages/Moderation"));
 const Launchpad = lazy(() => import("./pages/Launchpad"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
+const MarketPulse = lazy(() => import("./pages/MarketPulse"));
 const StickerPackDetail = lazy(() => import("./pages/StickerPackDetail"));
 const CreatorStickerPacks = lazy(() => import("./pages/CreatorStickerPacks"));
 const ChannelEmotes = lazy(() => import("./pages/ChannelEmotes"));
@@ -171,6 +172,7 @@ const AppContent = () => {
           <Route path="/clip/:clipId" element={<ProtectedRoute><ClipViewer /></ProtectedRoute>} />
           <Route path="/moderation" element={<ProtectedRoute><Moderation /></ProtectedRoute>} />
           <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
+          <Route path="/market-pulse" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><MarketPulse /></Suspense></ProtectedRoute>} />
           <Route path="/marketplace/sticker/:packId" element={<ProtectedRoute><StickerPackDetail /></ProtectedRoute>} />
           <Route path="/my-sticker-packs" element={<ProtectedRoute><CreatorStickerPacks /></ProtectedRoute>} />
           <Route path="/channel-emotes" element={<ProtectedRoute><ChannelEmotes /></ProtectedRoute>} />

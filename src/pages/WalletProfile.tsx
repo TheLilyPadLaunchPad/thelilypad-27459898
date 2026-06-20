@@ -22,6 +22,7 @@ import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
 import { PortfolioValueCard } from "@/components/wallet/PortfolioValueCard";
 import { CreateNftModal } from "@/components/CreateNftModal";
 import { NFTFilters, filterAndSortNFTs, SortOption } from "@/components/wallet/NFTFilters";
+import { HoldingsFolderGrid } from "@/components/profile/holdings/HoldingsFolderGrid";
 import { CHAINS, getExplorerUrl, SupportedChain } from "@/config/chains";
 import {
   Wallet,
@@ -172,6 +173,15 @@ export default function WalletProfile() {
   const handleNFTClick = (nft: NFT) => {
     setSelectedNFT(nft);
     setIsNFTModalOpen(true);
+  };
+
+  const handleSetAsPfp = async (nft: NFT) => {
+    if (!nft.image) throw new Error("NFT has no image");
+    await updateProfile({
+      avatar_url: nft.image,
+      // Extra fields stored via passthrough update; ignored if columns absent.
+      ...({ avatar_source: "nft", avatar_nft_mint: nft.contractAddress } as any),
+    });
   };
 
   // Filter and sort NFTs
@@ -730,60 +740,13 @@ export default function WalletProfile() {
                   </div>
                 ) : nfts.length > 0 ? (
                   <>
-                    {filteredNFTs.length > 0 ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
-                        {filteredNFTs.map((nft) => (
-                          <div
-                            key={`${nft.contractAddress}-${nft.tokenId}`}
-                            className="rounded-lg sm:rounded-xl overflow-hidden bg-muted/50 hover:bg-muted transition-colors cursor-pointer group relative"
-                            onClick={() => handleNFTClick(nft)}
-                          >
-                            {nft.image ? (
-                              <div className="aspect-square overflow-hidden">
-                                <img
-                                  src={nft.image}
-                                  alt={nft.name}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                                  }}
-                                />
-                                <div className="hidden aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                                  <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50" />
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                                <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground/50 group-hover:scale-110 transition-transform" />
-                              </div>
-                            )}
-
-                            {/* Standard Badge */}
-                            {nft.standard && nft.standard !== "Standard" && (
-                              <div className="absolute top-2 right-2">
-                                <Badge variant="secondary" className="backdrop-blur-md bg-background/50 text-[10px] px-1.5 h-5">
-                                  {nft.standard}
-                                </Badge>
-                              </div>
-                            )}
-
-                            <div className="p-2.5 sm:p-4">
-                              <h3 className="font-semibold text-xs sm:text-base truncate">{nft.name}</h3>
-                              <p className="text-[10px] sm:text-sm text-muted-foreground truncate">{nft.collection}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 sm:py-12 text-muted-foreground">
-                        <Search className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
-                        <p className="text-sm sm:text-base">No NFTs match your filters</p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Try adjusting your search or filters
-                        </p>
-                      </div>
-                    )}
+                    <HoldingsFolderGrid
+                      nfts={filteredNFTs}
+                      currency={portfolioCurrency}
+                      network={selectedNetwork}
+                      onSetAsPfp={handleSetAsPfp}
+                      onView={handleNFTClick}
+                    />
                     {hasMore && (
                       <div className="mt-4 text-center">
                         <Button
