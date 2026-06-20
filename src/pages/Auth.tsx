@@ -173,7 +173,7 @@ export default function Auth() {
       </div>
 
       {/* Right side - Wallet Connect */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 bg-background">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 bg-background">
         {/* Mobile Branding */}
         <div className="lg:hidden mb-6 w-full max-w-[280px]">
           <img
@@ -475,7 +475,7 @@ export default function Auth() {
             </p>
           )}
         </div>
-      </div>
+      </main>
 
       <CreateXRPLWalletDialog
         open={createWalletOpen}
