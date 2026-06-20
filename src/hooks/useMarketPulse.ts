@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type MarketPulseChain = "solana" | "ethereum" | "monad";
+export type MarketPulseChain = "solana" | "monad";
 
 export interface MarketPulseRow {
   rank: number;
