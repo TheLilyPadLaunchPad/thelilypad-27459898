@@ -155,12 +155,13 @@ const AppContent = () => {
   return (
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/auth" element={<AuthPageGuard />} />
-          <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
-          <Route path="/profile-setup" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense></ProtectedRoute>} />
-          <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-          <Route path="/wallet" element={<ProtectedRoute><WalletProfile /></ProtectedRoute>} />
+        <div className="md:pl-16">
+          <Routes>
+            <Route path="/auth" element={<AuthPageGuard />} />
+            <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
+            <Route path="/profile-setup" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/wallet" element={<ProtectedRoute><WalletProfile /></ProtectedRoute>} />
           <Route path="/streams" element={<ProtectedRoute><Streams /></ProtectedRoute>} />
           <Route path="/streamers" element={<ProtectedRoute><Streamers /></ProtectedRoute>} />
           <Route path="/go-live" element={<ProtectedRoute><GoLive /></ProtectedRoute>} />
