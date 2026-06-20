@@ -11,7 +11,6 @@ import type { MarketPulseChain } from "@/hooks/useMarketPulse";
 
 const CHAINS: { id: MarketPulseChain; label: string }[] = [
   { id: "solana", label: "Solana" },
-  { id: "ethereum", label: "Ethereum" },
   { id: "monad", label: "Monad" },
 ];
 
