@@ -64,7 +64,7 @@ const TIERS = [
     supply: 250,
     minted: 98,
     maxPerWallet: 2,
-    benefits: ["Silver Benefits", "Governance Voting", "Airdrop Eligibility"],
+    benefits: ["Silver Benefits", "Airdrop Eligibility"],
     color: "from-yellow-500 to-yellow-700",
     borderColor: "border-yellow-500",
     bgColor: "bg-yellow-600/20",
