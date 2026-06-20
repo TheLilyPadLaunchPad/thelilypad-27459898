@@ -71,9 +71,9 @@ async function fetchEmpty(_limit: number): Promise<Row[]> {
 
 const fetchers: Record<Chain, (n: number) => Promise<Row[]>> = {
   solana: fetchSolana,
-  ethereum: fetchEmpty,
   monad: fetchEmpty,
 };
+
 
 
 
