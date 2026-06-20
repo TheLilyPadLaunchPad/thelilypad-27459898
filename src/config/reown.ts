@@ -6,7 +6,7 @@
  * only ever read inside edge functions.
  */
 
-export const REOWN_PROJECT_ID = "5e4ce893f182b6d3ce88d68fd23b2512";
+export const REOWN_PROJECT_ID = "85d41848a86d101a418384c0008c501e";
 
 /** App metadata shown in the WalletConnect modal and remote wallet pairings. */
 export const REOWN_APP_METADATA = {
