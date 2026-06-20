@@ -30,9 +30,12 @@ interface Row {
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+// Solana: Magic Eden v2 popular_collections (public, no key).
+// Ethereum/Monad: public RTP/Reservoir endpoints are blocked in this runtime,
+// so we return [] gracefully until an API key is wired up.
 async function fetchSolana(limit: number): Promise<Row[]> {
-  // Magic Eden public popular collections endpoint
-  const url = `https://api-mainnet.magiceden.dev/v2/marketplace/popular_collections?timeRange=1d&limit=${limit}`;
+  // limit must be 50 or 100 per ME docs; we fetch 50 and slice client-side.
+  const url = `https://api-mainnet.magiceden.dev/v2/marketplace/popular_collections?timeRange=1d&limit=50`;
   const res = await fetch(url, { headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`magiceden solana ${res.status}`);
   const data = await res.json();
@@ -40,91 +43,38 @@ async function fetchSolana(limit: number): Promise<Row[]> {
   return items.slice(0, limit).map((c, i) => ({
     rank: i + 1,
     chain: "solana",
-    name: c.name ?? c.symbol ?? c.collectionSymbol ?? "Unknown",
-    image: c.image ?? c.img ?? null,
-    symbol: c.symbol ?? c.collectionSymbol ?? null,
-    slug: c.symbol ?? c.collectionSymbol ?? null,
+    name: c.name ?? c.symbol ?? "Unknown",
+    image: c.image ?? null,
+    symbol: c.symbol ?? null,
+    slug: c.symbol ?? null,
+    // floorPrice is in lamports; volumeAll is already in SOL.
     floor: typeof c.floorPrice === "number" ? c.floorPrice / 1e9 : null,
     currency: "SOL",
     volume24h:
       typeof c.volume24hr === "number"
-        ? c.volume24hr / 1e9
+        ? c.volume24hr
         : typeof c.volume === "number"
-        ? c.volume / 1e9
+        ? c.volume
         : null,
-    volumeTotal:
-      typeof c.volumeAll === "number" ? c.volumeAll / 1e9 : null,
+    volumeTotal: typeof c.volumeAll === "number" ? c.volumeAll : null,
     listed: c.listedCount ?? null,
     marketplace: "Magic Eden",
-    url: c.symbol
-      ? `https://magiceden.io/marketplace/${c.symbol}`
-      : null,
+    url: c.symbol ? `https://magiceden.io/marketplace/${c.symbol}` : null,
   }));
 }
 
-async function fetchEthereum(limit: number): Promise<Row[]> {
-  // Reservoir free public endpoint (no key for basic usage; may rate-limit)
-  const url = `https://api.reservoir.tools/collections/v7?limit=${Math.min(
-    limit,
-    20,
-  )}&sortBy=24DayVolume`;
-  const res = await fetch(url, { headers: { accept: "*/*" } });
-  if (!res.ok) throw new Error(`reservoir ${res.status}`);
-  const data = await res.json();
-  const items: any[] = data?.collections ?? [];
-  return items.slice(0, limit).map((c, i) => ({
-    rank: i + 1,
-    chain: "ethereum",
-    name: c.name ?? "Unknown",
-    image: c.image ?? null,
-    symbol: c.symbol ?? null,
-    slug: c.slug ?? null,
-    floor: c.floorAsk?.price?.amount?.native ?? null,
-    currency: "ETH",
-    volume24h: c.volume?.["1day"] ?? null,
-    volumeTotal: c.volume?.allTime ?? null,
-    listed: c.onSaleCount ? Number(c.onSaleCount) : null,
-    marketplace: "Reservoir / OpenSea",
-    url: c.slug ? `https://opensea.io/collection/${c.slug}` : null,
-  }));
-}
-
-async function fetchMonad(limit: number): Promise<Row[]> {
-  // Magic Eden Monad collection stats — fall back gracefully
-  try {
-    const url = `https://api-mainnet.magiceden.dev/v3/rtp/monad/collections/v7?limit=${Math.min(
-      limit,
-      20,
-    )}&sortBy=1DayVolume`;
-    const res = await fetch(url, { headers: { accept: "application/json" } });
-    if (!res.ok) throw new Error(`me monad ${res.status}`);
-    const data = await res.json();
-    const items: any[] = data?.collections ?? [];
-    return items.slice(0, limit).map((c, i) => ({
-      rank: i + 1,
-      chain: "monad",
-      name: c.name ?? "Unknown",
-      image: c.image ?? null,
-      symbol: c.symbol ?? null,
-      slug: c.slug ?? c.id ?? null,
-      floor: c.floorAsk?.price?.amount?.native ?? null,
-      currency: "MON",
-      volume24h: c.volume?.["1day"] ?? null,
-      volumeTotal: c.volume?.allTime ?? null,
-      listed: c.onSaleCount ? Number(c.onSaleCount) : null,
-      marketplace: "Magic Eden",
-      url: c.slug ? `https://magiceden.io/collections/monad/${c.slug}` : null,
-    }));
-  } catch {
-    return [];
-  }
+async function fetchEmpty(_limit: number): Promise<Row[]> {
+  // Upstream API not reachable from this edge runtime without an API key.
+  return [];
 }
 
 const fetchers: Record<Chain, (n: number) => Promise<Row[]>> = {
   solana: fetchSolana,
-  ethereum: fetchEthereum,
-  monad: fetchMonad,
+  ethereum: fetchEmpty,
+  monad: fetchEmpty,
 };
+
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -181,9 +131,11 @@ Deno.serve(async (req) => {
     }
 
     let rows: Row[] = [];
+    let upstreamError: string | null = null;
     try {
       rows = await fetchers[chain](limit);
     } catch (e) {
+      upstreamError = String((e as Error)?.message ?? e);
       // Serve stale cache if upstream fails
       if (cached) {
         return new Response(
@@ -193,13 +145,24 @@ Deno.serve(async (req) => {
             fetched_at: cached.fetched_at,
             cached: true,
             stale: true,
-            error: String(e),
+            error: upstreamError,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      throw e;
+      // No cache + upstream down: return empty rows with 200 so UI doesn't blank
+      return new Response(
+        JSON.stringify({
+          chain,
+          rows: [],
+          fetched_at: new Date().toISOString(),
+          cached: false,
+          error: upstreamError,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
+
 
     await supabase
       .from("market_pulse_cache")
