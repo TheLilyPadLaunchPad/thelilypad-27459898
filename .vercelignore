@@ -1,0 +1,15 @@
+anchor
+contracts
+scripts
+reference-supabase-auth
+docs
+*.md
+test_*.ts
+test_*.js
+sync_nfts.js
+check_apis.js
+check_rpcs.js
+build_err2.txt
+build_out.txt
+errors.txt
+supabase
