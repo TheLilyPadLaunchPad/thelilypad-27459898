@@ -475,7 +475,7 @@ export default function Auth() {
             </p>
           )}
         </div>
-      </div>
+      </main>
 
       <CreateXRPLWalletDialog
         open={createWalletOpen}
