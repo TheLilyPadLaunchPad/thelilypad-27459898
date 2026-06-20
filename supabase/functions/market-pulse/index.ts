@@ -1,5 +1,5 @@
 // Market Pulse: aggregate top NFT collections from external marketplaces
-// Sources: Magic Eden (Solana + Monad), Reservoir (Ethereum)
+// Sources: Magic Eden (Solana + Monad)
 // 5-minute cache per chain in public.market_pulse_cache
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -10,7 +10,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-type Chain = "solana" | "ethereum" | "monad";
+type Chain = "solana" | "monad";
+
 
 interface Row {
   rank: number;
@@ -70,9 +71,9 @@ async function fetchEmpty(_limit: number): Promise<Row[]> {
 
 const fetchers: Record<Chain, (n: number) => Promise<Row[]>> = {
   solana: fetchSolana,
-  ethereum: fetchEmpty,
   monad: fetchEmpty,
 };
+
 
 
 
@@ -89,7 +90,7 @@ Deno.serve(async (req) => {
       30,
     );
 
-    if (!["solana", "ethereum", "monad"].includes(chainParam)) {
+    if (!["solana", "monad"].includes(chainParam)) {
       return new Response(
         JSON.stringify({ error: "invalid chain" }),
         {

@@ -11,7 +11,6 @@ import type { MarketPulseChain } from "@/hooks/useMarketPulse";
 
 const CHAINS: { id: MarketPulseChain; label: string }[] = [
   { id: "solana", label: "Solana" },
-  { id: "ethereum", label: "Ethereum" },
   { id: "monad", label: "Monad" },
 ];
 
@@ -21,7 +20,7 @@ export default function MarketPulse() {
   useSEO({
     title: "Market Pulse | Top NFT Collections vs Lily Pad",
     description:
-      "Top 20 NFT collections by 24h volume across Solana, Ethereum, and Monad. Compare floor, volume, and trading activity against the Lily Pad advantage — buyback-fueled volume and enforced royalties.",
+      "Top 20 NFT collections by 24h volume across Solana and Monad. Compare floor, volume, and trading activity against the Lily Pad advantage — buyback-fueled volume and enforced royalties.",
   });
 
   return (
