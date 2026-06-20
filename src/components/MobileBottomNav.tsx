@@ -10,7 +10,7 @@ interface NavItem {
   icon: React.ElementType;
   label: string;
   href: string;
-  matchPrefix?: string; // for startsWith active matching
+  matchPrefix?: string;
 }
 
 const baseNavItems: NavItem[] = [
@@ -35,14 +35,10 @@ export const MobileBottomNav: React.FC = () => {
   const { isConnected } = useWallet();
   const { profile } = useUserProfile();
 
-  // Only show on mobile
-  if (!isMobile) return null;
-
   // Hide on auth, profile setup, and suspended pages
   const hiddenPaths = ["/auth", "/profile-setup", "/profile-suspended"];
   if (hiddenPaths.includes(location.pathname)) return null;
 
-  // Use streamer nav for creators, base nav for everyone else
   const navItems = profile?.is_streamer ? streamerNavItems : baseNavItems;
 
   const isActive = (item: NavItem) => {
@@ -51,75 +47,119 @@ export const MobileBottomNav: React.FC = () => {
     return location.pathname === item.href;
   };
 
-  // Redirect unauthenticated taps (except Home) to /auth
   const resolveHref = (item: NavItem) => {
     if (!isConnected && item.href !== "/") return "/auth";
     return item.href;
   };
 
+  // Mobile: fixed bottom pill nav
+  if (isMobile) {
+    return (
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom"
+        role="navigation"
+        aria-label="Mobile navigation"
+      >
+        <div className="flex items-center justify-around px-1" style={{ height: "64px" }}>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item);
+            const href = resolveHref(item);
+
+            return (
+              <Link
+                key={item.href}
+                to={href}
+                className={cn(
+                  "relative flex flex-col items-center justify-center flex-1 py-1.5 px-0.5",
+                  "transition-all duration-150 active:scale-90 select-none",
+                  "-webkit-tap-highlight-color: transparent"
+                )}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
+              >
+                {active && (
+                  <span
+                    className="absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/12 pointer-events-none"
+                    style={{
+                      animation: "nav-pill-appear 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    }}
+                  />
+                )}
+                <Icon
+                  className={cn(
+                    "relative z-10 mb-0.5 transition-all duration-200",
+                    active
+                      ? "w-5 h-5 text-primary scale-110"
+                      : "w-5 h-5 text-muted-foreground"
+                  )}
+                  strokeWidth={active ? 2.5 : 1.75}
+                />
+                <span
+                  className={cn(
+                    "relative z-10 text-[10px] font-semibold tracking-tight leading-none transition-colors duration-200",
+                    active ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  {item.label}
+                </span>
+                {active && (
+                  <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-primary opacity-60" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    );
+  }
+
+  // Desktop: slim fixed left sidebar nav
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom"
+      className="fixed left-0 top-0 bottom-0 z-40 flex flex-col items-center py-4 gap-1 bg-background/80 backdrop-blur-xl border-r border-border/50 w-16"
       role="navigation"
-      aria-label="Mobile navigation"
+      aria-label="Desktop navigation"
     >
-      <div className="flex items-center justify-around px-1" style={{ height: "64px" }}>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item);
-          const href = resolveHref(item);
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item);
+        const href = resolveHref(item);
 
-          return (
-            <Link
-              key={item.href}
-              to={href}
+        return (
+          <Link
+            key={item.href}
+            to={href}
+            className={cn(
+              "relative flex flex-col items-center justify-center w-12 h-12 rounded-xl",
+              "transition-all duration-150 hover:scale-105 select-none group",
+              active && "bg-primary/10"
+            )}
+            aria-label={item.label}
+            aria-current={active ? "page" : undefined}
+            title={item.label}
+          >
+            <Icon
               className={cn(
-                "relative flex flex-col items-center justify-center flex-1 py-1.5 px-0.5",
-                "transition-all duration-150 active:scale-90 select-none",
-                "-webkit-tap-highlight-color: transparent"
+                "transition-all duration-200",
+                active
+                  ? "w-5 h-5 text-primary scale-110"
+                  : "w-5 h-5 text-muted-foreground group-hover:text-foreground"
               )}
-              aria-label={item.label}
-              aria-current={active ? "page" : undefined}
+              strokeWidth={active ? 2.5 : 1.75}
+            />
+            <span
+              className={cn(
+                "text-[9px] font-semibold mt-0.5 transition-colors",
+                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+              )}
             >
-              {/* Active pill background */}
-              {active && (
-                <span
-                  className="absolute inset-x-2 top-1 bottom-1 rounded-xl bg-primary/12 pointer-events-none"
-                  style={{
-                    animation: "nav-pill-appear 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                  }}
-                />
-              )}
-
-              {/* Icon */}
-              <Icon
-                className={cn(
-                  "relative z-10 mb-0.5 transition-all duration-200",
-                  active
-                    ? "w-5 h-5 text-primary scale-110"
-                    : "w-5 h-5 text-muted-foreground"
-                )}
-                strokeWidth={active ? 2.5 : 1.75}
-              />
-
-              {/* Label */}
-              <span
-                className={cn(
-                  "relative z-10 text-[10px] font-semibold tracking-tight leading-none transition-colors duration-200",
-                  active ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                {item.label}
-              </span>
-
-              {/* Active dot */}
-              {active && (
-                <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-primary opacity-60" />
-              )}
-            </Link>
-          );
-        })}
-      </div>
+              {item.label}
+            </span>
+          </Link>
+        );
+      })}
     </nav>
   );
 };
+
