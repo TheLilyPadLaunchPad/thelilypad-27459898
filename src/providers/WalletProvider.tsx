@@ -9,41 +9,15 @@ import { signInWithSolana } from "@/auth/supabaseWeb3";
 import { connectJoeyWallet, disconnectJoeyWallet, isJoeyWalletConnected } from "@/lib/joeyWalletConnection";
 import { connectXRPLWallet, type XRPLWalletProvider } from "@/lib/xrplWalletConnect";
 
-// Reown AppKit Imports
-import { createAppKit, useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
-import { SolanaAdapter } from '@reown/appkit-adapter-solana/react';
-import { solana, solanaTestnet, solanaDevnet } from '@reown/appkit/networks';
+// Reown AppKit React hooks. The AppKit singleton is initialised exactly once
+// in `src/integrations/reown/appkit.ts` (called from `src/main.tsx`). Do NOT
+// call `createAppKit()` here — duplicate inits trigger the "WalletConnect
+// Core is already initialized" warning and break pairing.
+import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
 import type { Provider } from '@reown/appkit-adapter-solana/react';
+import { solana, solanaTestnet, solanaDevnet } from '@reown/appkit/networks';
+import "@/integrations/reown/appkit"; // ensures the singleton module is loaded
 
-// Setup Reown AppKit Outside of React
-const solanaWeb3JsAdapter = new SolanaAdapter();
-const projectId = import.meta.env.VITE_REOWN_PROJECT_ID as string | undefined;
-
-if (!projectId) {
-  console.warn(
-    "[Reown] VITE_REOWN_PROJECT_ID is not set. The wallet modal is using a shared demo projectId — " +
-    "create your own at https://cloud.reown.com and set VITE_REOWN_PROJECT_ID before going live."
-  );
-}
-
-const metadata = {
-  name: 'The Lily Pad',
-  description: 'The Lily Pad — multi-chain NFT launchpad, marketplace, and streaming platform.',
-  url: typeof window !== 'undefined' ? window.location.origin : 'https://thelilypad.lovable.app',
-  icons: ['https://thelilypad.lovable.app/icon-512.png'],
-};
-
-createAppKit({
-  adapters: [solanaWeb3JsAdapter],
-  networks: [solana, solanaTestnet, solanaDevnet],
-  metadata,
-  projectId: projectId || 'b56e18d47c72ab683b10814fe9495694',
-  features: {
-    analytics: true,
-    email: true,
-    socials: ['google', 'x', 'discord', 'apple']
-  }
-});
 
 // Types
 export type WalletType = "reown" | "joey";
