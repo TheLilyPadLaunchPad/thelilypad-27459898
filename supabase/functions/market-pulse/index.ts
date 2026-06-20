@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       30,
     );
 
-    if (!["solana", "ethereum", "monad"].includes(chainParam)) {
+    if (!["solana", "monad"].includes(chainParam)) {
       return new Response(
         JSON.stringify({ error: "invalid chain" }),
         {
