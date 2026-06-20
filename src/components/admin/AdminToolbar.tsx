@@ -159,25 +159,17 @@ export const AdminToolbar: React.FC = () => {
     }, [queryClient]);
 
     const handleDeleteCollection = useCallback(async (id: string) => {
-        if (!confirm('Delete this collection? This will hide it from the marketplace and launchpad.')) return;
+        if (!confirm('Permanently delete this collection and ALL related NFTs, listings, mints, allowlists, buyback rows, etc.? This cannot be undone.')) return;
 
-        // Use soft delete (setting deleted_at) to align with app architecture
-        const { error } = await supabase
-            .from('collections')
-            .update({
-                deleted_at: new Date().toISOString(),
-                status: 'deleted'
-            })
-            .eq('id', id);
+        const { error } = await supabase.rpc('admin_hard_delete_collection', { p_collection_id: id });
 
         if (error) {
             console.error('Delete error:', error);
             toast.error('Failed to delete collection: ' + error.message);
         } else {
-            toast.success('Collection moved to trash');
+            toast.success('Collection permanently deleted');
             queryClient.invalidateQueries({ queryKey: ['admin-toolbar-collections'] });
             queryClient.invalidateQueries({ queryKey: ['admin-toolbar-stats'] });
-            // Invalidate marketplace queries too
             queryClient.invalidateQueries({ queryKey: ['marketplace-collections'] });
         }
     }, [queryClient]);

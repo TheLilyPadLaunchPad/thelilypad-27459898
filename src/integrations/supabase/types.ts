@@ -4016,6 +4016,10 @@ export type Database = {
         Args: { expires_at?: string; reason: string; target_user_id: string }
         Returns: undefined
       }
+      admin_hard_delete_collection: {
+        Args: { p_collection_id: string }
+        Returns: undefined
+      }
       admin_revoke_user_role: {
         Args: {
           reason?: string

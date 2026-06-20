@@ -246,23 +246,20 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteCollection = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this collection?')) return;
+    if (!confirm('Permanently delete this collection and ALL related NFTs, listings, mints, allowlists, buyback rows, etc.? This cannot be undone.')) return;
 
-    const { error } = await supabase
-      .from('collections')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.rpc('admin_hard_delete_collection', { p_collection_id: id });
 
     if (error) {
       toast({
         title: 'Error',
-        description: 'Failed to delete collection',
+        description: error.message || 'Failed to delete collection',
         variant: 'destructive'
       });
     } else {
       toast({
         title: 'Success',
-        description: 'Collection deleted successfully'
+        description: 'Collection permanently deleted'
       });
       fetchCollections();
     }
