@@ -1820,6 +1820,24 @@ export type Database = {
           },
         ]
       }
+      market_pulse_cache: {
+        Row: {
+          chain: string
+          fetched_at: string
+          payload: Json
+        }
+        Insert: {
+          chain: string
+          fetched_at?: string
+          payload: Json
+        }
+        Update: {
+          chain?: string
+          fetched_at?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       marketplace_applications: {
         Row: {
           collection_address: string
@@ -3656,6 +3674,8 @@ export type Database = {
       user_profiles: {
         Row: {
           auth_user_id: string | null
+          avatar_nft_mint: string | null
+          avatar_source: string | null
           avatar_url: string | null
           banner_url: string | null
           bio: string | null
@@ -3686,6 +3706,8 @@ export type Database = {
         }
         Insert: {
           auth_user_id?: string | null
+          avatar_nft_mint?: string | null
+          avatar_source?: string | null
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
@@ -3716,6 +3738,8 @@ export type Database = {
         }
         Update: {
           auth_user_id?: string | null
+          avatar_nft_mint?: string | null
+          avatar_source?: string | null
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
