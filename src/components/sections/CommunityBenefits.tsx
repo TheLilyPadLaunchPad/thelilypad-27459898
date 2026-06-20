@@ -1,5 +1,5 @@
 import React from "react";
-import { Gift, Coins, Ticket, Award, Vote, Star } from "lucide-react";
+import { Gift, Coins, Ticket, Award, Star } from "lucide-react";
 
 const benefits = [
   {
@@ -16,11 +16,6 @@ const benefits = [
     icon: Award,
     title: "VIP Livestream Badges",
     description: "Stand out in creator streams.",
-  },
-  {
-    icon: Vote,
-    title: "Governance Rights",
-    description: "Shape the future roadmap.",
   },
   {
     icon: Star,
