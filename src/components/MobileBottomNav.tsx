@@ -117,7 +117,7 @@ export const MobileBottomNav: React.FC = () => {
   // Desktop: slim fixed left sidebar nav
   return (
     <nav
-      className="fixed left-0 top-0 bottom-0 z-40 flex flex-col items-center py-4 gap-1 bg-background/80 backdrop-blur-xl border-r border-border/50 w-16"
+      className="fixed left-0 top-0 md:top-20 bottom-0 z-40 flex flex-col items-center py-4 gap-1 bg-background/80 backdrop-blur-xl border-r border-border/50 w-16"
       role="navigation"
       aria-label="Desktop navigation"
     >
