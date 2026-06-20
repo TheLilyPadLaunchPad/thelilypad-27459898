@@ -30,101 +30,60 @@ interface Row {
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-async function fetchSolana(limit: number): Promise<Row[]> {
-  // Magic Eden public popular collections endpoint
-  const url = `https://api-mainnet.magiceden.dev/v2/marketplace/popular_collections?timeRange=1d&limit=${limit}`;
-  const res = await fetch(url, { headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`magiceden solana ${res.status}`);
-  const data = await res.json();
-  const items: any[] = Array.isArray(data) ? data : data?.collections ?? [];
-  return items.slice(0, limit).map((c, i) => ({
-    rank: i + 1,
-    chain: "solana",
-    name: c.name ?? c.symbol ?? c.collectionSymbol ?? "Unknown",
-    image: c.image ?? c.img ?? null,
-    symbol: c.symbol ?? c.collectionSymbol ?? null,
-    slug: c.symbol ?? c.collectionSymbol ?? null,
-    floor: typeof c.floorPrice === "number" ? c.floorPrice / 1e9 : null,
-    currency: "SOL",
-    volume24h:
-      typeof c.volume24hr === "number"
-        ? c.volume24hr / 1e9
-        : typeof c.volume === "number"
-        ? c.volume / 1e9
-        : null,
-    volumeTotal:
-      typeof c.volumeAll === "number" ? c.volumeAll / 1e9 : null,
-    listed: c.listedCount ?? null,
-    marketplace: "Magic Eden",
-    url: c.symbol
-      ? `https://magiceden.io/marketplace/${c.symbol}`
-      : null,
-  }));
-}
+// Magic Eden RTP v3 covers solana / ethereum / monad with one schema.
+const ME_CHAIN_PATH: Record<Chain, string> = {
+  solana: "solana",
+  ethereum: "ethereum",
+  monad: "monad",
+};
 
-async function fetchEthereum(limit: number): Promise<Row[]> {
-  // Reservoir free public endpoint (no key for basic usage; may rate-limit)
-  const url = `https://api.reservoir.tools/collections/v7?limit=${Math.min(
+const CURRENCY: Record<Chain, string> = {
+  solana: "SOL",
+  ethereum: "ETH",
+  monad: "MON",
+};
+
+const COLLECTION_URL: Record<Chain, (slug: string) => string> = {
+  solana: (s) => `https://magiceden.io/marketplace/${s}`,
+  ethereum: (s) => `https://magiceden.io/collections/ethereum/${s}`,
+  monad: (s) => `https://magiceden.io/collections/monad/${s}`,
+};
+
+async function fetchFromMagicEden(chain: Chain, limit: number): Promise<Row[]> {
+  const url = `https://api-mainnet.magiceden.dev/v3/rtp/${ME_CHAIN_PATH[chain]}/collections/v7?limit=${Math.min(
     limit,
     20,
-  )}&sortBy=24DayVolume`;
-  const res = await fetch(url, { headers: { accept: "*/*" } });
-  if (!res.ok) throw new Error(`reservoir ${res.status}`);
+  )}&sortBy=1DayVolume`;
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`magiceden ${chain} ${res.status}`);
   const data = await res.json();
   const items: any[] = data?.collections ?? [];
-  return items.slice(0, limit).map((c, i) => ({
-    rank: i + 1,
-    chain: "ethereum",
-    name: c.name ?? "Unknown",
-    image: c.image ?? null,
-    symbol: c.symbol ?? null,
-    slug: c.slug ?? null,
-    floor: c.floorAsk?.price?.amount?.native ?? null,
-    currency: "ETH",
-    volume24h: c.volume?.["1day"] ?? null,
-    volumeTotal: c.volume?.allTime ?? null,
-    listed: c.onSaleCount ? Number(c.onSaleCount) : null,
-    marketplace: "Reservoir / OpenSea",
-    url: c.slug ? `https://opensea.io/collection/${c.slug}` : null,
-  }));
-}
-
-async function fetchMonad(limit: number): Promise<Row[]> {
-  // Magic Eden Monad collection stats — fall back gracefully
-  try {
-    const url = `https://api-mainnet.magiceden.dev/v3/rtp/monad/collections/v7?limit=${Math.min(
-      limit,
-      20,
-    )}&sortBy=1DayVolume`;
-    const res = await fetch(url, { headers: { accept: "application/json" } });
-    if (!res.ok) throw new Error(`me monad ${res.status}`);
-    const data = await res.json();
-    const items: any[] = data?.collections ?? [];
-    return items.slice(0, limit).map((c, i) => ({
+  return items.slice(0, limit).map((c, i) => {
+    const slug = c.slug ?? c.id ?? c.symbol ?? null;
+    return {
       rank: i + 1,
-      chain: "monad",
+      chain,
       name: c.name ?? "Unknown",
-      image: c.image ?? null,
+      image: c.image ?? c.imageUrl ?? null,
       symbol: c.symbol ?? null,
-      slug: c.slug ?? c.id ?? null,
+      slug,
       floor: c.floorAsk?.price?.amount?.native ?? null,
-      currency: "MON",
+      currency: CURRENCY[chain],
       volume24h: c.volume?.["1day"] ?? null,
       volumeTotal: c.volume?.allTime ?? null,
       listed: c.onSaleCount ? Number(c.onSaleCount) : null,
       marketplace: "Magic Eden",
-      url: c.slug ? `https://magiceden.io/collections/monad/${c.slug}` : null,
-    }));
-  } catch {
-    return [];
-  }
+      url: slug ? COLLECTION_URL[chain](slug) : null,
+    };
+  });
 }
 
 const fetchers: Record<Chain, (n: number) => Promise<Row[]>> = {
-  solana: fetchSolana,
-  ethereum: fetchEthereum,
-  monad: fetchMonad,
+  solana: (n) => fetchFromMagicEden("solana", n),
+  ethereum: (n) => fetchFromMagicEden("ethereum", n),
+  monad: (n) => fetchFromMagicEden("monad", n),
 };
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -181,9 +140,11 @@ Deno.serve(async (req) => {
     }
 
     let rows: Row[] = [];
+    let upstreamError: string | null = null;
     try {
       rows = await fetchers[chain](limit);
     } catch (e) {
+      upstreamError = String((e as Error)?.message ?? e);
       // Serve stale cache if upstream fails
       if (cached) {
         return new Response(
@@ -193,13 +154,24 @@ Deno.serve(async (req) => {
             fetched_at: cached.fetched_at,
             cached: true,
             stale: true,
-            error: String(e),
+            error: upstreamError,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      throw e;
+      // No cache + upstream down: return empty rows with 200 so UI doesn't blank
+      return new Response(
+        JSON.stringify({
+          chain,
+          rows: [],
+          fetched_at: new Date().toISOString(),
+          cached: false,
+          error: upstreamError,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
+
 
     await supabase
       .from("market_pulse_cache")
