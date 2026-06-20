@@ -30,59 +30,50 @@ interface Row {
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// Magic Eden RTP v3 covers solana / ethereum / monad with one schema.
-const ME_CHAIN_PATH: Record<Chain, string> = {
-  solana: "solana",
-  ethereum: "ethereum",
-  monad: "monad",
-};
-
-const CURRENCY: Record<Chain, string> = {
-  solana: "SOL",
-  ethereum: "ETH",
-  monad: "MON",
-};
-
-const COLLECTION_URL: Record<Chain, (slug: string) => string> = {
-  solana: (s) => `https://magiceden.io/marketplace/${s}`,
-  ethereum: (s) => `https://magiceden.io/collections/ethereum/${s}`,
-  monad: (s) => `https://magiceden.io/collections/monad/${s}`,
-};
-
-async function fetchFromMagicEden(chain: Chain, limit: number): Promise<Row[]> {
-  const url = `https://api-mainnet.magiceden.dev/v3/rtp/${ME_CHAIN_PATH[chain]}/collections/v7?limit=${Math.min(
-    limit,
-    20,
-  )}&sortBy=1DayVolume`;
+// Solana: Magic Eden v2 popular_collections (public, no key).
+// Ethereum/Monad: public RTP/Reservoir endpoints are blocked in this runtime,
+// so we return [] gracefully until an API key is wired up.
+async function fetchSolana(limit: number): Promise<Row[]> {
+  // limit must be 50 or 100 per ME docs; we fetch 50 and slice client-side.
+  const url = `https://api-mainnet.magiceden.dev/v2/marketplace/popular_collections?timeRange=1d&limit=50`;
   const res = await fetch(url, { headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`magiceden ${chain} ${res.status}`);
+  if (!res.ok) throw new Error(`magiceden solana ${res.status}`);
   const data = await res.json();
-  const items: any[] = data?.collections ?? [];
-  return items.slice(0, limit).map((c, i) => {
-    const slug = c.slug ?? c.id ?? c.symbol ?? null;
-    return {
-      rank: i + 1,
-      chain,
-      name: c.name ?? "Unknown",
-      image: c.image ?? c.imageUrl ?? null,
-      symbol: c.symbol ?? null,
-      slug,
-      floor: c.floorAsk?.price?.amount?.native ?? null,
-      currency: CURRENCY[chain],
-      volume24h: c.volume?.["1day"] ?? null,
-      volumeTotal: c.volume?.allTime ?? null,
-      listed: c.onSaleCount ? Number(c.onSaleCount) : null,
-      marketplace: "Magic Eden",
-      url: slug ? COLLECTION_URL[chain](slug) : null,
-    };
-  });
+  const items: any[] = Array.isArray(data) ? data : data?.collections ?? [];
+  return items.slice(0, limit).map((c, i) => ({
+    rank: i + 1,
+    chain: "solana",
+    name: c.name ?? c.symbol ?? "Unknown",
+    image: c.image ?? null,
+    symbol: c.symbol ?? null,
+    slug: c.symbol ?? null,
+    // floorPrice is in lamports; volumeAll is already in SOL.
+    floor: typeof c.floorPrice === "number" ? c.floorPrice / 1e9 : null,
+    currency: "SOL",
+    volume24h:
+      typeof c.volume24hr === "number"
+        ? c.volume24hr
+        : typeof c.volume === "number"
+        ? c.volume
+        : null,
+    volumeTotal: typeof c.volumeAll === "number" ? c.volumeAll : null,
+    listed: c.listedCount ?? null,
+    marketplace: "Magic Eden",
+    url: c.symbol ? `https://magiceden.io/marketplace/${c.symbol}` : null,
+  }));
+}
+
+async function fetchEmpty(_limit: number): Promise<Row[]> {
+  // Upstream API not reachable from this edge runtime without an API key.
+  return [];
 }
 
 const fetchers: Record<Chain, (n: number) => Promise<Row[]>> = {
-  solana: (n) => fetchFromMagicEden("solana", n),
-  ethereum: (n) => fetchFromMagicEden("ethereum", n),
-  monad: (n) => fetchFromMagicEden("monad", n),
+  solana: fetchSolana,
+  ethereum: fetchEmpty,
+  monad: fetchEmpty,
 };
+
 
 
 Deno.serve(async (req) => {
