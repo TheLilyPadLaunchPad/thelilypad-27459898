@@ -22,6 +22,8 @@ import { AdminToolbar } from "./components/admin/AdminToolbar";
 import { DevConsole } from "./components/admin/DevConsole";
 import { DeploymentDebugPanel } from "./components/launchpad/DeploymentDebugPanel";
 import { setupGlobalErrorHandlers } from "./lib/errorLogging";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 // Lazy load ALL pages to reduce initial bundle and improve FID
 const Index = lazy(() => import("./pages/Index"));
@@ -233,6 +235,8 @@ const App = () => (
                   <Toaster />
                   <Sonner />
                   <AppContent />
+                  <Analytics />
+                  <SpeedInsights />
                 </TooltipProvider>
               </AudioPlayerProvider>
             </IpfsProvider>
