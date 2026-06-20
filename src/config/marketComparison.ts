@@ -25,6 +25,5 @@ export const LILY_PAD_ADVANTAGE: AdvantageMetrics = {
 // Per-chain comparison rows (used in the AdvantageCell).
 export const COMPETITOR_FEES = {
   solana: { name: "Magic Eden", fee: 2, royaltyEnforced: false },
-  ethereum: { name: "OpenSea", fee: 2.5, royaltyEnforced: false },
   monad: { name: "Magic Eden", fee: 2, royaltyEnforced: false },
 } as const;
