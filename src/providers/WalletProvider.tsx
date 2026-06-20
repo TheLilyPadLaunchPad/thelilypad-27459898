@@ -15,6 +15,7 @@ import { connectXRPLWallet, type XRPLWalletProvider } from "@/lib/xrplWalletConn
 // Core is already initialized" warning and break pairing.
 import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
 import type { Provider } from '@reown/appkit-adapter-solana/react';
+import { solana, solanaTestnet, solanaDevnet } from '@reown/appkit/networks';
 import "@/integrations/reown/appkit"; // ensures the singleton module is loaded
 
 
