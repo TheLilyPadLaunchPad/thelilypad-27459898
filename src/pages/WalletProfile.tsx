@@ -22,6 +22,7 @@ import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
 import { PortfolioValueCard } from "@/components/wallet/PortfolioValueCard";
 import { CreateNftModal } from "@/components/CreateNftModal";
 import { NFTFilters, filterAndSortNFTs, SortOption } from "@/components/wallet/NFTFilters";
+import { HoldingsFolderGrid } from "@/components/profile/holdings/HoldingsFolderGrid";
 import { CHAINS, getExplorerUrl, SupportedChain } from "@/config/chains";
 import {
   Wallet,
@@ -172,6 +173,15 @@ export default function WalletProfile() {
   const handleNFTClick = (nft: NFT) => {
     setSelectedNFT(nft);
     setIsNFTModalOpen(true);
+  };
+
+  const handleSetAsPfp = async (nft: NFT) => {
+    if (!nft.image) throw new Error("NFT has no image");
+    await updateProfile({
+      avatar_url: nft.image,
+      // Extra fields stored via passthrough update; ignored if columns absent.
+      ...({ avatar_source: "nft", avatar_nft_mint: nft.contractAddress } as any),
+    });
   };
 
   // Filter and sort NFTs
