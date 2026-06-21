@@ -107,53 +107,81 @@
     background: var(--gradient-premium);
   }
 
-  /* Fancy NFT frame with glass shine + highlight on hover */
+  /* Museum-grade glass display case for NFT / collection cards */
   .nft-frame {
-    @apply relative overflow-hidden rounded-2xl border border-border/60 bg-card/40 backdrop-blur-xl transition-all duration-500;
+    @apply relative rounded-2xl transition-all duration-500;
+    /* Beveled "case" frame: subtle metallic gradient border + inner glass surface */
+    background:
+      linear-gradient(180deg, hsl(var(--card) / 0.55) 0%, hsl(var(--card) / 0.35) 100%) padding-box,
+      linear-gradient(
+        160deg,
+        hsl(0 0% 100% / 0.35) 0%,
+        hsl(var(--primary) / 0.25) 30%,
+        hsl(0 0% 100% / 0.05) 55%,
+        hsl(var(--primary) / 0.25) 80%,
+        hsl(0 0% 100% / 0.3) 100%
+      ) border-box;
+    border: 1.5px solid transparent;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     box-shadow:
-      0 1px 0 0 hsl(0 0% 100% / 0.08) inset,
-      0 0 0 1px hsl(0 0% 100% / 0.03) inset,
-      0 10px 30px -12px hsl(0 0% 0% / 0.5);
+      /* inner top highlight (glass edge catching light) */
+      0 1px 0 0 hsl(0 0% 100% / 0.22) inset,
+      0 2px 1px -1px hsl(0 0% 100% / 0.18) inset,
+      /* inner bottom shadow (interior depth) */
+      0 -10px 24px -10px hsl(0 0% 0% / 0.55) inset,
+      /* outer ambient + pedestal shadow */
+      0 10px 28px -14px hsl(0 0% 0% / 0.55),
+      0 28px 40px -24px hsl(0 0% 0% / 0.6);
+    isolation: isolate;
+    overflow: hidden;
   }
+  /* Top glass reflection sheen (the "case" highlight) */
   .nft-frame::before {
     content: "";
     position: absolute;
     inset: 0;
     pointer-events: none;
     border-radius: inherit;
-    background: linear-gradient(135deg, hsl(0 0% 100% / 0.18) 0%, hsl(0 0% 100% / 0.04) 28%, transparent 55%);
-    mix-blend-mode: overlay;
-    opacity: 0.9;
-    z-index: 2;
+    background:
+      /* diagonal top-left glare */
+      linear-gradient(135deg, hsl(0 0% 100% / 0.22) 0%, hsl(0 0% 100% / 0.06) 22%, transparent 48%),
+      /* soft bottom interior reflection */
+      linear-gradient(0deg, hsl(var(--primary) / 0.08) 0%, transparent 35%);
+    mix-blend-mode: screen;
+    opacity: 0.95;
+    z-index: 4;
   }
+  /* Traveling specular streak — the "wipe" across the glass */
   .nft-frame::after {
     content: "";
     position: absolute;
     top: 0;
     left: -150%;
-    width: 75%;
+    width: 70%;
     height: 100%;
     background: linear-gradient(
       115deg,
       transparent 0%,
-      hsl(0 0% 100% / 0.06) 35%,
-      hsl(0 0% 100% / 0.35) 50%,
-      hsl(0 0% 100% / 0.06) 65%,
+      hsl(0 0% 100% / 0.05) 30%,
+      hsl(0 0% 100% / 0.4) 50%,
+      hsl(0 0% 100% / 0.05) 70%,
       transparent 100%
     );
     transform: skewX(-18deg);
-    transition: left 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: left 1s cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
-    z-index: 3;
+    z-index: 5;
   }
   .nft-frame:hover {
-    transform: translateY(-3px);
-    border-color: hsl(var(--primary) / 0.55);
+    transform: translateY(-4px);
     box-shadow:
-      0 1px 0 0 hsl(0 0% 100% / 0.12) inset,
-      0 0 0 1px hsl(var(--primary) / 0.25) inset,
-      0 0 30px -4px hsl(var(--primary) / 0.45),
-      0 22px 50px -16px hsl(0 0% 0% / 0.65);
+      0 1px 0 0 hsl(0 0% 100% / 0.3) inset,
+      0 2px 1px -1px hsl(0 0% 100% / 0.22) inset,
+      0 -12px 28px -10px hsl(var(--primary) / 0.35) inset,
+      0 0 0 1px hsl(var(--primary) / 0.35),
+      0 0 36px -6px hsl(var(--primary) / 0.5),
+      0 30px 50px -20px hsl(0 0% 0% / 0.7);
   }
   .nft-frame:hover::after {
     left: 150%;
