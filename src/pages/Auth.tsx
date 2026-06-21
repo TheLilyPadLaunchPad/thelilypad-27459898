@@ -164,7 +164,7 @@ export default function Auth() {
           src={authBranding || fallbackAuthBranding}
           alt="The Lily Pad"
           className="w-full h-full object-contain"
-          fetchPriority="high"
+          fetchpriority="high"
           loading="eager"
           decoding="async"
           width={1920}
@@ -180,7 +180,7 @@ export default function Auth() {
             src={authBranding || fallbackAuthBranding}
             alt="The Lily Pad"
             className="w-full h-auto rounded-lg"
-            fetchPriority="high"
+            fetchpriority="high"
             loading="eager"
             decoding="async"
             width={280}
