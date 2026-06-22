@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { motion, AnimatePresence } from "framer-motion";
+import { SECONDARY_MARKETPLACE_ENABLED } from "@/config/featureFlags";
+import { ComingSoon } from "@/components/ComingSoon";
 
 interface MakeOfferModalProps {
   open: boolean;
@@ -156,6 +158,20 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({
       }, 1500);
     }
   };
+
+  if (!SECONDARY_MARKETPLACE_ENABLED) {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+        <DialogContent className="sm:max-w-[425px]">
+          <ComingSoon
+            inline
+            title="Offers Coming Soon"
+            description="Making offers requires the on-chain escrow program, which is launching shortly."
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
