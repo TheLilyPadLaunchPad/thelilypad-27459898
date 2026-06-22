@@ -26,7 +26,11 @@ export const joeyWalletConfig: Config = {
    * If the network is changed, a new chain will need to be set (ie. setActive)
    * Defaults to first detected chain in namespaces
    */
-  defaultChain: chains.xrpl.testnet.id, // Default to testnet for safety
+  // Default to mainnet; override with `VITE_XRPL_NETWORK=testnet` for dev.
+  defaultChain:
+    (import.meta.env.VITE_XRPL_NETWORK || 'mainnet').toLowerCase() === 'testnet'
+      ? chains.xrpl.testnet.id
+      : chains.xrpl.mainnet.id,
   
   /**
    * Wallet details for the preferred wallets for the modal and other interactions

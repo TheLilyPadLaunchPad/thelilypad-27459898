@@ -22,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/providers/WalletProvider";
+import { SECONDARY_MARKETPLACE_ENABLED } from "@/config/featureFlags";
+import { ComingSoon } from "@/components/ComingSoon";
 // ── Types ─────────────────────────────────────────────────────────────────────
 // ... existing types ...
 
@@ -198,6 +200,14 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           </DialogDescription>
         </DialogHeader>
 
+        {!SECONDARY_MARKETPLACE_ENABLED ? (
+          <ComingSoon
+            inline
+            title="Marketplace Coming Soon"
+            description="Secondary-market listings are launching once the on-chain escrow program is deployed. Your NFTs remain safe in your wallet."
+          />
+        ) : (
+
         <div className="space-y-4">
           {/* Chain indicator */}
           <div className="flex items-center gap-2">
@@ -346,6 +356,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
             </Button>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );
