@@ -459,8 +459,18 @@ export default function XRPLEasyGenerator() {
                                                     <p className="text-sm text-muted-foreground">
                                                         {isUploading ? "Uploading..." : "Click to upload images or drag and drop"}
                                                     </p>
+                                                    <p className="text-[11px] text-muted-foreground mt-2">
+                                                        Square images only · {MIN_DIM}x{MIN_DIM} to {MAX_DIM}x{MAX_DIM} px · max {MAX_NFTS.toLocaleString()} NFTs
+                                                    </p>
                                                 </label>
                                             </div>
+
+                                            {nftItems.length > 0 && (
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label>Uploaded NFTs ({nftItems.length.toLocaleString()} / {MAX_NFTS.toLocaleString()})</Label>
+                                                        <Badge variant="outline">{nftItems.length} items</Badge>
+                                                    </div>
 
                                             {nftItems.length > 0 && (
                                                 <div className="space-y-4">
