@@ -1,63 +1,52 @@
-## Goal
+# UI/UX & Performance Improvements — Desktop + Mobile
 
-Prepare The Lily Pad for Vercel auto-deployment from GitHub, with Vercel Web Analytics and Speed Insights wired into the React app.
+Audit found a handful of clear mismatches and runtime issues. This plan only changes what's needed to fix them — no redesigns.
 
-## What you'll do in Vercel (manual, one-time)
+## Critical layout fixes (visible on every page)
 
-1. Push the project to GitHub via Lovable's GitHub integration (Plus menu → GitHub → Connect).
-2. In Vercel: **Add New → Project → Import** your GitHub repo (using your project ID to link to the existing Vercel project if applicable).
-3. Framework preset: **Vite**. Build command `npm run build`, output `dist`.
-4. Add environment variables in Vercel → Settings → Environment Variables (copy from local `.env`):
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY`
-   - `VITE_SUPABASE_PROJECT_ID`
-   - any other `VITE_*` vars the app uses (Helius, etc.)
-5. After first deploy, every push to the default branch auto-deploys; PRs get preview URLs.
+1. **Hoist `<Navbar />` out of the `md:pl-16` wrapper in `src/App.tsx`.**
+   Currently the fixed navbar lives inside the desktop-sidebar offset wrapper, which causes a hydration flash and offsets it incorrectly. Render `<Navbar />` and `<MobileBottomNav />` at the same level, with only `<Routes>` inside the `md:pl-16` div.
 
-## What I'll change in the codebase
+2. **Fix the desktop sidebar starting position in `src/components/MobileBottomNav.tsx`.**
+   Change the desktop branch from `top-0 md:top-20` to a clean `top-20` (the branch only renders when `!isMobile`, so the responsive override is unnecessary and causes a brief overlap with the navbar).
 
-### 1. `vercel.json` (new)
-SPA rewrite so client-side routes (`/admin`, `/launchpad/...`, etc.) don't 404 on refresh, plus security headers and a long cache for hashed assets.
+3. **Replace `pt-16` with `pt-20 sm:pt-24` in:**
+   - `src/pages/ArtistProfile.tsx:276`
+   - `src/pages/LaunchpadCreate.tsx:1118`
+   Navbar is `h-20` on desktop, so `pt-16` hides 16 px of content behind it.
 
-```json
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }],
-  "headers": [
-    { "source": "/assets/(.*)", "headers": [
-      { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-    ]}
-  ]
-}
-```
+4. **`src/pages/Streams.tsx:149`** — change hero from `px-6` to `px-4 sm:px-6 lg:px-8` so it scales like the rest of the site once the desktop sidebar offset is applied.
 
-### 2. Install Vercel packages
-```
-bun add @vercel/analytics @vercel/speed-insights
-```
+## Runtime performance
 
-### 3. Wire Analytics + Speed Insights into `src/App.tsx`
-Add the React components near the root so they only load in production on Vercel:
+5. **Make the mobile/desktop nav split CSS-only** in `src/components/MobileBottomNav.tsx` — render both branches and toggle with `flex md:hidden` / `hidden md:flex`. Removes the `useIsMobile()` JS gate and the first-paint flash.
 
-```tsx
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/react";
-// ...inside the root render tree:
-<Analytics />
-<SpeedInsights />
-```
+6. **Optimize `.nft-frame::after` hover animation in `src/index.css`.**
+   - Animate `transform: translateX()` instead of `left` (compositor-only, no layout/paint).
+   - Add `will-change: transform` only on hover.
+   - Wrap motion in `@media (prefers-reduced-motion: reduce) { … none }`.
+   This removes scroll jank on Marketplace grids.
 
-### 4. `.vercelignore` (new)
-Skip files Vercel doesn't need (anchor program, contracts source, scripts, test files, docs, reference projects) to keep deploy uploads small.
+7. **Gate the Supabase token purge in `src/main.tsx:35–43`** behind a single check so it only runs when needed (or move it into a post-mount effect). Stops 1–5 ms of sync localStorage work on every cold load.
 
-## Notes / non-goals
+8. **Split `vendor-motion` chunk in `vite.config.ts:185`** into `vendor-framer` (framer-motion) and `vendor-gsap` (gsap). GSAP is only used on a few pages and shouldn't ship with framer-motion everywhere.
 
-- I won't touch `src/integrations/supabase/client.ts` or `.env` (auto-managed).
-- No changes to the Reown/WalletConnect singleton work from the last turn.
-- Vercel project ID itself doesn't need to be committed; it's used inside Vercel's dashboard when importing the GitHub repo. If you'd rather use the Vercel CLI (`vercel link --project <id>`) instead of dashboard import, say so and I'll add a CLI section.
-- Lovable Cloud's edge functions stay on Lovable Cloud; Vercel only hosts the frontend.
+9. **Dedupe `useIsAdmin()` calls.** It runs three times per render (`AppContent`, `AdminRoute`, `Navbar`). Lift it into a small `AdminContext` provider in `src/App.tsx` and consume from there.
 
-Approve and I'll implement.
+## Polish
+
+10. **Add `loading="lazy"`, `decoding="async"`, and explicit `width`/`height`** to `<img>` tags on the heaviest pages: `src/pages/Streams.tsx`, `src/components/sections/TopCollectionsHighlights.tsx`, `src/pages/StreamerCollections.tsx`. Biggest CLS/LCP win.
+
+11. **Swap hardcoded Tailwind colors for semantic tokens** in `src/components/Navbar.tsx:282–284` (the chain indicator badge) — use `--primary` / `--accent` / chain-theme tokens already defined in `src/index.css`.
+
+12. **Hoist `<Navbar />` above the conditional branches in `src/pages/CollectionDetail.tsx`** so it isn't unmounted/remounted on loading/error/success state changes.
+
+## Out of scope (flagged but not changed)
+
+- Heavy blockchain libs (Metaplex/Solana/XRPL) bundle weight — would need deeper refactor.
+- Auth flow / wallet-only mode redesign.
+- The new glass-frame visual itself — only the animation property is changed for perf.
+
+## Verification
+
+After changes: load `/`, `/marketplace`, `/streams`, `/artist/:id`, `/launchpad/create` on desktop (≥1024 px) and mobile (375 px) preview, confirm no navbar overlap, no content cut off, and scroll stays smooth on the marketplace grid.
