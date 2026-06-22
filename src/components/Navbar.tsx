@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAdmin } from "@/contexts/AdminContext";
 import { useMockMode } from "@/hooks/useMockMode";
 import { BuyTokensModal } from "@/components/shop/BuyTokensModal";
 import { supabase } from "@/integrations/supabase/client";
