@@ -279,8 +279,8 @@ export const Navbar: React.FC = () => {
 
             {isConnected && chainType && (
               <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${chainType === 'monad'
-                  ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-                  : 'bg-green-500/10 text-green-400 border-green-500/30'
+                  ? 'bg-secondary/10 text-secondary border-secondary/30'
+                  : 'bg-primary/10 text-primary border-primary/30'
                 }`}>
                 <span>{chainType === 'monad' ? '◈' : '◎'}</span>
                 <span className="hidden md:inline">{chainType === 'monad' ? 'Monad' : 'Solana'}</span>

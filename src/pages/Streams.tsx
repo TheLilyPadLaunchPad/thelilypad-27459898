@@ -146,7 +146,7 @@ const Streams: React.FC = () => {
       <h1 className="sr-only">Live Creator Streams on The Lily Pad</h1>
 
       {/* Hero / Featured Stream */}
-      <section className="pt-24 pb-8 px-6">
+      <section className="pt-24 pb-8 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto">
           {featuredStream ? (
             <div className="grid lg:grid-cols-3 gap-6">

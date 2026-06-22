@@ -1115,7 +1115,7 @@ export default function LaunchpadCreate() {
     return (
         <div className="min-h-screen bg-muted/40 flex flex-col">
             <Navbar />
-            <main className="flex-1 pt-16 px-3 sm:px-6 lg:px-10 pb-6 lg:pb-10">
+            <main className="flex-1 pt-20 sm:pt-24 px-3 sm:px-6 lg:px-10 pb-6 lg:pb-10">
                 <div className="mx-auto w-full max-w-[1400px] bg-card rounded-[28px] lg:rounded-[40px] shadow-[0_30px_80px_-30px_hsl(var(--foreground)/0.15)] border border-border/60 overflow-hidden flex flex-col lg:flex-row min-h-[calc(100vh-7rem)]">
 
                     {/* ─── CONFIG PANEL ─────────────────────────────────────── */}

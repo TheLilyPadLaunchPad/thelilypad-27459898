@@ -31,15 +31,23 @@ if (typeof window !== "undefined") {
 (globalThis as any).Buffer = (globalThis as any).Buffer ?? Buffer;
 
 // Wallet-only auth: purge any stale Supabase auth tokens so the client never
-// attempts to POST /auth/v1/token (which fails through the Lovable Preview proxy).
-try {
-  for (const key of Object.keys(localStorage)) {
-    if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
-      localStorage.removeItem(key);
+// attempts to POST /auth/v1/token. Deferred to idle time so it never blocks
+// first paint.
+const purgeStaleAuthTokens = () => {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        localStorage.removeItem(key);
+      }
     }
+  } catch {
+    // Ignore — localStorage may be unavailable in some sandboxed contexts.
   }
-} catch {
-  // Ignore — localStorage may be unavailable in some sandboxed contexts.
+};
+if (typeof window !== "undefined") {
+  const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void) => void);
+  if (ric) ric(purgeStaleAuthTokens);
+  else setTimeout(purgeStaleAuthTokens, 0);
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

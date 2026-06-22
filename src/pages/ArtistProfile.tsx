@@ -273,7 +273,7 @@ export default function ArtistProfile() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <main className="pt-16">
+      <main className="pt-20 sm:pt-24">
         {/* Banner */}
         <div className="relative h-48 md:h-64 bg-gradient-to-br from-primary/20 via-primary/10 to-background overflow-hidden">
           {artist.banner ? (
