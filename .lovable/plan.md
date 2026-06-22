@@ -1,52 +1,83 @@
-# UI/UX & Performance Improvements — Desktop + Mobile
+# Mainnet Stabilization Plan
 
-Audit found a handful of clear mismatches and runtime issues. This plan only changes what's needed to fix them — no redesigns.
+Audit-only on bundle/runtime. For unfinished features, add feature flags so the mainnet build only exposes what's fully wired.
 
-## Critical layout fixes (visible on every page)
+## Part 1 — Heavy Code Audit (report, no code changes)
 
-1. **Hoist `<Navbar />` out of the `md:pl-16` wrapper in `src/App.tsx`.**
-   Currently the fixed navbar lives inside the desktop-sidebar offset wrapper, which causes a hydration flash and offsets it incorrectly. Render `<Navbar />` and `<MobileBottomNav />` at the same level, with only `<Routes>` inside the `md:pl-16` div.
+### Initial-bundle offenders (forced eager by import chain)
+| File:Line | Issue |
+|---|---|
+| `src/config/solana.ts:1–5` | Metaplex umi + mpl-core + mpl-core-candy-machine + mpl-toolbox imported at module scope; pulled in via `WalletProvider` → lands in initial chunk (~700KB) |
+| `src/integrations/arweave/nativeClient.ts:26–28` | `arweave` + `@irys/web-upload` + `@irys/web-upload-solana` hoisted via same chain (~700KB) |
+| `src/providers/WalletProvider.tsx:4` | `@solana/web3.js` eager (~900KB) |
+| `src/components/FrogLoader.tsx:1` | `framer-motion` in a statically-imported loader — pulls full framer into initial JS |
+| `src/App.tsx:13,16,18,20,21,22,23` | `NetworkStatusIndicator`, `MiniPlayer`, `FrogLoader`, `PWAUpdateNotification`, `AdminToolbar` (629 ln), `DevConsole`, `DeploymentDebugPanel` all static |
 
-2. **Fix the desktop sidebar starting position in `src/components/MobileBottomNav.tsx`.**
-   Change the desktop branch from `top-0 md:top-20` to a clean `top-20` (the branch only renders when `!isMobile`, so the responsive override is unnecessary and causes a brief overlap with the navbar).
+### Dead / redundant deps
+- `@coral-xyz/anchor` (~500KB) in `package.json`, zero imports in `src/`.
+- `ethers` + `viem` both shipped for EVM (`useMonadPayment.ts:1` vs `chains/monad/shop.ts:1`).
 
-3. **Replace `pt-16` with `pt-20 sm:pt-24` in:**
-   - `src/pages/ArtistProfile.tsx:276`
-   - `src/pages/LaunchpadCreate.tsx:1118`
-   Navbar is `h-20` on desktop, so `pt-16` hides 16 px of content behind it.
+### vite.config.ts manualChunks gaps
+Missing chunks: `xrpl` (~900KB), `viem`+`ethers`, `arweave`+`@irys/*`, `@reown/appkit*`, 5 of 8 `@metaplex-foundation/*` packages, ~14 Radix packages.
 
-4. **`src/pages/Streams.tsx:149`** — change hero from `px-6` to `px-4 sm:px-6 lg:px-8` so it scales like the rest of the site once the desktop sidebar offset is applied.
+### Mega-components (split candidates)
+`AllowlistManager.tsx` 1603, `MyNFTs.tsx` 1725, `LaunchpadCreate.tsx` 1642, `CollectionEditForm.tsx` 1506, `ArtworkUploader.tsx` 1360, `AdminDashboard.tsx` 1347.
 
-## Runtime performance
+### Runtime hot spot
+`src/pages/MyNFTs.tsx:286–323` — 3 sequential Supabase round-trips for floor price; should be parallelised.
 
-5. **Make the mobile/desktop nav split CSS-only** in `src/components/MobileBottomNav.tsx` — render both branches and toggle with `flex md:hidden` / `hidden md:flex`. Removes the `useIsMobile()` JS gate and the first-paint flash.
+> No code changes from Part 1 — surfaced for a follow-up pass.
 
-6. **Optimize `.nft-frame::after` hover animation in `src/index.css`.**
-   - Animate `transform: translateX()` instead of `left` (compositor-only, no layout/paint).
-   - Add `will-change: transform` only on hover.
-   - Wrap motion in `@media (prefers-reduced-motion: reduce) { … none }`.
-   This removes scroll jank on Marketplace grids.
+## Part 2 — Mainnet Component Status
 
-7. **Gate the Supabase token purge in `src/main.tsx:35–43`** behind a single check so it only runs when needed (or move it into a post-mount effect). Stops 1–5 ms of sync localStorage work on every cold load.
+### Fully built (keep visible)
+- Solana: Candy Machine deploy, CM mint, SOL payments, protocol memo, Arweave bundle deploy, cart checkout, shop SOL purchase tx.
+- XRPL: XLS-20 mint/list/buy via `chains/xrpl/*`, Pinata IPFS via edge function, `useXRPLConnectedLaunch` (Joey-signed path).
+- Shop: `useShopMint.purchasePackOnChain` SOL+cNFT mint, `MyPurchases`.
+- Streaming/chat: `useStreamPresence`, Supabase chat (LiveChat / WaitRoom / InterviewRoom), `ClipViewer`.
 
-8. **Split `vendor-motion` chunk in `vite.config.ts:185`** into `vendor-framer` (framer-motion) and `vendor-gsap` (gsap). GSAP is only used on a few pages and shouldn't ship with framer-motion everywhere.
+### Unfinished (gate behind feature flags)
+| Feature | Evidence |
+|---|---|
+| Solana Marketplace / Escrow | `useMarketplaceContract.ts` + `useEscrowProgram.ts` are stubs; placeholder program ID; `isDeployed:false` |
+| LimitedEditionMint donor tiers | Hardcoded supply, SOL paid but no NFT minted |
+| Livepeer RTMP streaming | No SDK; `Watch.tsx` only renders local MediaStream — remote viewers cannot watch |
+| `useXRPLLaunch` (seed-based) | Raw seed path, dev-only — must not be reachable from UI on mainnet |
+| Decentralized Arweave chat | Already gated (`DECENTRALIZED_CHAT_ENABLED=false`) — leave |
+| XRPL Joey `defaultChain` | Hardcoded `xrpl.testnet.id` in `src/config/joeyWallet.ts:31` |
 
-9. **Dedupe `useIsAdmin()` calls.** It runs three times per render (`AppContent`, `AdminRoute`, `Navbar`). Lift it into a small `AdminContext` provider in `src/App.tsx` and consume from there.
+## Part 3 — Changes to Make (build mode)
 
-## Polish
+1. **Extend `src/config/featureFlags.ts`** with mainnet flags:
+   ```ts
+   export const SECONDARY_MARKETPLACE_ENABLED = false; // escrow stub
+   export const DONOR_TIER_MINT_ENABLED = false;       // no on-chain backing
+   export const LIVEPEER_STREAMING_ENABLED = false;    // not wired
+   export const XRPL_SEED_LAUNCH_ENABLED = false;      // dev-only
+   ```
+   All default `false`; can be flipped per-env later.
 
-10. **Add `loading="lazy"`, `decoding="async"`, and explicit `width`/`height`** to `<img>` tags on the heaviest pages: `src/pages/Streams.tsx`, `src/components/sections/TopCollectionsHighlights.tsx`, `src/pages/StreamerCollections.tsx`. Biggest CLS/LCP win.
+2. **Gate UI entry points** (hide nav links, list/buy buttons, CTA cards — no logic deletion):
+   - `src/components/Navbar.tsx` / `MobileBottomNav.tsx` — hide Marketplace secondary-sale entry when `!SECONDARY_MARKETPLACE_ENABLED`.
+   - `src/pages/Marketplace.tsx` + `CollectionDetail.tsx` listing/buy buttons → render disabled "Coming soon" badge.
+   - `src/pages/LimitedEditionMint.tsx` — wrap mint CTA with flag; show "Coming soon" panel.
+   - `src/pages/Streams.tsx`, `Watch.tsx`, `GoLive.tsx` — when `!LIVEPEER_STREAMING_ENABLED`, show "Streaming beta — coming soon" placeholder and hide Go Live CTA. Keep `ClipViewer` and `WaitRoom` visible (they don't depend on Livepeer).
+   - Any UI entry to `useXRPLLaunch` (seed path) — remove from UI, keep file.
 
-11. **Swap hardcoded Tailwind colors for semantic tokens** in `src/components/Navbar.tsx:282–284` (the chain indicator badge) — use `--primary` / `--accent` / chain-theme tokens already defined in `src/index.css`.
+3. **Route guards** in `src/App.tsx`: when flag is off, the route renders a small "Coming soon" component instead of redirecting (preserves SEO + back-button).
 
-12. **Hoist `<Navbar />` above the conditional branches in `src/pages/CollectionDetail.tsx`** so it isn't unmounted/remounted on loading/error/success state changes.
+4. **XRPL default chain**: change `src/config/joeyWallet.ts:31` to read from `import.meta.env.VITE_XRPL_NETWORK` with fallback `mainnet`. Document `VITE_XRPL_NETWORK=testnet` for dev.
 
-## Out of scope (flagged but not changed)
-
-- Heavy blockchain libs (Metaplex/Solana/XRPL) bundle weight — would need deeper refactor.
-- Auth flow / wallet-only mode redesign.
-- The new glass-frame visual itself — only the animation property is changed for perf.
+5. **No other code touched.** No bundle splitting, no lazy-loading, no provider refactor — those land in a separate pass once flags are in.
 
 ## Verification
+- `bun run build` succeeds.
+- `/marketplace` shows collections but list/buy buttons render "Coming soon".
+- `/limited-edition-mint` shows Coming soon panel.
+- `/streams` and `/watch/:id` show Coming soon; `/clips/:id` and `/waitroom/:id` still work.
+- XRPL Easy Generator still mints via Joey connected flow; no seed input is reachable.
 
-After changes: load `/`, `/marketplace`, `/streams`, `/artist/:id`, `/launchpad/create` on desktop (≥1024 px) and mobile (375 px) preview, confirm no navbar overlap, no content cut off, and scroll stays smooth on the marketplace grid.
+## Out of Scope
+- Heavy-code refactor (Part 1 is informational only).
+- Building the escrow Anchor program or Livepeer integration.
+- Touching the `feature_locks` admin system.
