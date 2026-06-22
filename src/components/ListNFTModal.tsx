@@ -359,5 +359,3 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
     </Dialog>
   );
 }
-  );
-}
