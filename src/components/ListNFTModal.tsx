@@ -198,6 +198,14 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           </DialogDescription>
         </DialogHeader>
 
+        {!SECONDARY_MARKETPLACE_ENABLED ? (
+          <ComingSoon
+            inline
+            title="Marketplace Coming Soon"
+            description="Secondary-market listings are launching once the on-chain escrow program is deployed. Your NFTs remain safe in your wallet."
+          />
+        ) : (
+
         <div className="space-y-4">
           {/* Chain indicator */}
           <div className="flex items-center gap-2">
