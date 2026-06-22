@@ -107,58 +107,56 @@ export default function CollectionDetail() {
       : undefined,
   });
 
+  // Render Navbar once at the top so it isn't torn down between loading/error/edit/success branches.
+  let body: React.ReactNode;
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <main className="container mx-auto px-4 pt-24 pb-12">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-48 w-full" />
-            </div>
-            <Skeleton className="h-96 w-full" />
+    body = (
+      <main className="container mx-auto px-4 pt-24 pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-48 w-full" />
           </div>
-        </main>
-      </div>
+          <Skeleton className="h-96 w-full" />
+        </div>
+      </main>
+    );
+  } else if (!collection) {
+    body = (
+      <main className="container mx-auto px-4 pt-24 pb-12 flex flex-col items-center text-center">
+        <Rocket className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
+        <h1 className="text-2xl font-bold mb-2">Collection Not Found</h1>
+        <p className="text-muted-foreground mb-6">This collection doesn't exist or has been removed.</p>
+        <Button onClick={() => window.history.back()} variant="outline">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Go Back
+        </Button>
+      </main>
+    );
+  } else if (isEditMode) {
+    body = (
+      <main className="container mx-auto px-4 pt-24 pb-12">
+        <Button variant="ghost" size="sm" onClick={() => setIsEditMode(false)} className="mb-6">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Collection
+        </Button>
+        <CollectionEditForm
+          collection={collection as any}
+          onSave={() => {
+            setIsEditMode(false);
+            fetchCollection();
+          }}
+          onCancel={() => setIsEditMode(false)}
+        />
+      </main>
     );
   }
 
-  if (!collection) {
-    return (
-      <div className="min-h-screen bg-background text-center">
-        <Navbar />
-        <main className="container mx-auto px-4 pt-24 pb-12 flex flex-col items-center">
-          <Rocket className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
-          <h1 className="text-2xl font-bold mb-2">Collection Not Found</h1>
-          <p className="text-muted-foreground mb-6">This collection doesn't exist or has been removed.</p>
-          <Button onClick={() => window.history.back()} variant="outline">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Go Back
-          </Button>
-        </main>
-      </div>
-    );
-  }
-
-  if (isEditMode) {
+  if (body) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <main className="container mx-auto px-4 pt-24 pb-12">
-          <Button variant="ghost" size="sm" onClick={() => setIsEditMode(false)} className="mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Collection
-          </Button>
-          <CollectionEditForm
-            collection={collection as any}
-            onSave={() => {
-              setIsEditMode(false);
-              fetchCollection();
-            }}
-            onCancel={() => setIsEditMode(false)}
-          />
-        </main>
+        {body}
       </div>
     );
   }
@@ -167,6 +165,8 @@ export default function CollectionDetail() {
     <div className="min-h-screen bg-background relative overflow-x-hidden">
       <MistBackground />
       <Navbar />
+
+
 
       <CollectionHero
         collection={collection as any}
