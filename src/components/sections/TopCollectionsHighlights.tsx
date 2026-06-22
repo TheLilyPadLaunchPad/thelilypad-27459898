@@ -179,6 +179,10 @@ export const TopCollectionsHighlights: React.FC = () => {
                                   <img
                                     src={ipfsToHttp(collection.image_url)}
                                     alt={collection.name}
+                                    width={40}
+                                    height={40}
+                                    loading="lazy"
+                                    decoding="async"
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                                     onError={(e) => {
                                       e.currentTarget.onerror = null;
