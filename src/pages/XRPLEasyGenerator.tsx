@@ -471,13 +471,6 @@ export default function XRPLEasyGenerator() {
                                                         <Label>Uploaded NFTs ({nftItems.length.toLocaleString()} / {MAX_NFTS.toLocaleString()})</Label>
                                                         <Badge variant="outline">{nftItems.length} items</Badge>
                                                     </div>
-
-                                            {nftItems.length > 0 && (
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label>Uploaded NFTs ({nftItems.length})</Label>
-                                                        <Badge variant="outline">{nftItems.length} items</Badge>
-                                                    </div>
                                                     <div className="grid grid-cols-4 gap-4">
                                                         {nftItems.map((item, index) => (
                                                             <div key={index} className="relative group">
