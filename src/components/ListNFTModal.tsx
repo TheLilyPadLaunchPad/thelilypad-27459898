@@ -22,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@/providers/WalletProvider";
+import { SECONDARY_MARKETPLACE_ENABLED } from "@/config/featureFlags";
+import { ComingSoon } from "@/components/ComingSoon";
 // ── Types ─────────────────────────────────────────────────────────────────────
 // ... existing types ...
 
