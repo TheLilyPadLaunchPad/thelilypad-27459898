@@ -17,7 +17,7 @@ export const LilyPadLogo: React.FC<LilyPadLogoProps> = ({ className = "", size =
       alt="The Lily Pad"
       width={size}
       height={size}
-      fetchpriority="high"
+      fetchPriority="high"
       className={className}
     />
   );
