@@ -1,7 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, Store, Rocket, Radio, Wallet, LayoutDashboard } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { cn } from "@/lib/utils";
@@ -30,7 +29,6 @@ const streamerNavItems: NavItem[] = [
 ];
 
 export const MobileBottomNav: React.FC = () => {
-  const isMobile = useIsMobile();
   const location = useLocation();
   const { isConnected } = useWallet();
   const { profile } = useUserProfile();
@@ -52,11 +50,11 @@ export const MobileBottomNav: React.FC = () => {
     return item.href;
   };
 
-  // Mobile: fixed bottom pill nav
-  if (isMobile) {
-    return (
+  return (
+    <>
+      {/* Mobile: fixed bottom pill nav (CSS-gated, no JS flash) */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border/50 safe-area-bottom"
         role="navigation"
         aria-label="Mobile navigation"
       >
@@ -71,9 +69,8 @@ export const MobileBottomNav: React.FC = () => {
                 key={item.href}
                 to={href}
                 className={cn(
-                  "relative flex flex-col items-center justify-center flex-1 py-1.5 px-0.5",
-                  "transition-all duration-150 active:scale-90 select-none",
-                  "-webkit-tap-highlight-color: transparent"
+                  "relative flex flex-col items-center justify-center flex-1 min-h-[44px] py-1.5 px-0.5",
+                  "transition-all duration-150 active:scale-90 select-none"
                 )}
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
@@ -88,10 +85,8 @@ export const MobileBottomNav: React.FC = () => {
                 )}
                 <Icon
                   className={cn(
-                    "relative z-10 mb-0.5 transition-all duration-200",
-                    active
-                      ? "w-5 h-5 text-primary scale-110"
-                      : "w-5 h-5 text-muted-foreground"
+                    "relative z-10 mb-0.5 transition-all duration-200 w-5 h-5",
+                    active ? "text-primary scale-110" : "text-muted-foreground"
                   )}
                   strokeWidth={active ? 2.5 : 1.75}
                 />
@@ -111,55 +106,52 @@ export const MobileBottomNav: React.FC = () => {
           })}
         </div>
       </nav>
-    );
-  }
 
-  // Desktop: slim fixed left sidebar nav
-  return (
-    <nav
-      className="fixed left-0 top-0 md:top-20 bottom-0 z-40 flex flex-col items-center py-4 gap-1 bg-background/80 backdrop-blur-xl border-r border-border/50 w-16"
-      role="navigation"
-      aria-label="Desktop navigation"
-    >
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const active = isActive(item);
-        const href = resolveHref(item);
+      {/* Desktop: slim fixed left sidebar nav (CSS-gated) */}
+      <nav
+        className="hidden md:flex fixed left-0 top-20 bottom-0 z-40 flex-col items-center py-4 gap-1 bg-background/80 backdrop-blur-xl border-r border-border/50 w-16"
+        role="navigation"
+        aria-label="Desktop navigation"
+      >
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item);
+          const href = resolveHref(item);
 
-        return (
-          <Link
-            key={item.href}
-            to={href}
-            className={cn(
-              "relative flex flex-col items-center justify-center w-12 h-12 rounded-xl",
-              "transition-all duration-150 hover:scale-105 select-none group",
-              active && "bg-primary/10"
-            )}
-            aria-label={item.label}
-            aria-current={active ? "page" : undefined}
-            title={item.label}
-          >
-            <Icon
+          return (
+            <Link
+              key={item.href}
+              to={href}
               className={cn(
-                "transition-all duration-200",
-                active
-                  ? "w-5 h-5 text-primary scale-110"
-                  : "w-5 h-5 text-muted-foreground group-hover:text-foreground"
+                "relative flex flex-col items-center justify-center w-12 h-12 min-h-[44px] rounded-xl",
+                "transition-all duration-150 hover:scale-105 select-none group",
+                active && "bg-primary/10"
               )}
-              strokeWidth={active ? 2.5 : 1.75}
-            />
-            <span
-              className={cn(
-                "text-[9px] font-semibold mt-0.5 transition-colors",
-                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-              )}
+              aria-label={item.label}
+              aria-current={active ? "page" : undefined}
+              title={item.label}
             >
-              {item.label}
-            </span>
-          </Link>
-        );
-      })}
-    </nav>
+              <Icon
+                className={cn(
+                  "transition-all duration-200 w-5 h-5",
+                  active
+                    ? "text-primary scale-110"
+                    : "text-muted-foreground group-hover:text-foreground"
+                )}
+                strokeWidth={active ? 2.5 : 1.75}
+              />
+              <span
+                className={cn(
+                  "text-[9px] font-semibold mt-0.5 transition-colors",
+                  active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                )}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 };
-

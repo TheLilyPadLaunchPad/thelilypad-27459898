@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAdmin } from "@/contexts/AdminContext";
 import { useMockMode } from "@/hooks/useMockMode";
 import { BuyTokensModal } from "@/components/shop/BuyTokensModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,7 +66,7 @@ export const Navbar: React.FC = () => {
   const { network, isConnected, chainType } = useWallet();
   const { chain, setChain } = useChain();
   const { profile, loading: profileLoading } = useUserProfile();
-  const { isAdmin, loading: isAdminLoading } = useIsAdmin();
+  const { isAdmin, loading: isAdminLoading } = useAdmin();
   const showAdmin = !isAdminLoading && isAdmin;
   const navigate = useNavigate();
   const location = useLocation();
@@ -279,8 +279,8 @@ export const Navbar: React.FC = () => {
 
             {isConnected && chainType && (
               <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${chainType === 'monad'
-                  ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-                  : 'bg-green-500/10 text-green-400 border-green-500/30'
+                  ? 'bg-secondary/10 text-secondary border-secondary/30'
+                  : 'bg-primary/10 text-primary border-primary/30'
                 }`}>
                 <span>{chainType === 'monad' ? '◈' : '◎'}</span>
                 <span className="hidden md:inline">{chainType === 'monad' ? 'Monad' : 'Solana'}</span>

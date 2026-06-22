@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { WalletProvider, useWallet } from "@/providers/WalletProvider";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { ChainProvider } from "@/providers/ChainProvider";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { AdminProvider, useAdmin } from "@/contexts/AdminContext";
 
 import ErrorBoundary from "@/components/ErrorBoundary";
 import NetworkStatusIndicator from "@/components/NetworkStatusIndicator";
@@ -55,7 +55,7 @@ const AuthPageGuard = () => {
  * non-admins after its own useIsAdmin hook settles.
  */
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAdmin, loading } = useIsAdmin();
+  const { isAdmin, loading } = useAdmin();
 
   if (loading) {
     return (
@@ -148,7 +148,7 @@ const queryClient = new QueryClient({
 setupGlobalErrorHandlers();
 
 const AppContent = () => {
-  const { isAdmin } = useIsAdmin();
+  const { isAdmin } = useAdmin();
   const { state } = useAuth();
   const isFullyAuthenticated = state === "AUTHENTICATED";
 
@@ -230,18 +230,20 @@ const App = () => (
       <QueryClientProvider client={queryClient}>
         <WalletProvider>
           <AuthProvider>
-            <IpfsProvider>
-              <AudioPlayerProvider>
-                <TooltipProvider>
-                  <NetworkStatusIndicator />
-                  <Toaster />
-                  <Sonner />
-                  <AppContent />
-                  <Analytics />
-                  <SpeedInsights />
-                </TooltipProvider>
-              </AudioPlayerProvider>
-            </IpfsProvider>
+            <AdminProvider>
+              <IpfsProvider>
+                <AudioPlayerProvider>
+                  <TooltipProvider>
+                    <NetworkStatusIndicator />
+                    <Toaster />
+                    <Sonner />
+                    <AppContent />
+                    <Analytics />
+                    <SpeedInsights />
+                  </TooltipProvider>
+                </AudioPlayerProvider>
+              </IpfsProvider>
+            </AdminProvider>
           </AuthProvider>
         </WalletProvider>
       </QueryClientProvider>

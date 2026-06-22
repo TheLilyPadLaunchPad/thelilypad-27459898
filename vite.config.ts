@@ -171,7 +171,8 @@ export default defineConfig(({ mode }) => ({
           // Separate heavy vendor libraries into their own chunks
           "vendor-react": ["react", "react-dom", "react-router-dom"],
           "vendor-charts": ["recharts"],
-          "vendor-motion": ["framer-motion", "gsap"],
+          "vendor-framer": ["framer-motion"],
+          "vendor-gsap": ["gsap"],
           "vendor-solana": [
             "@solana/web3.js",
             "@solana/spl-token",

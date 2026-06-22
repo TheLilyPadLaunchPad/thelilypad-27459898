@@ -152,12 +152,12 @@
     opacity: 0.95;
     z-index: 4;
   }
-  /* Traveling specular streak — the "wipe" across the glass */
+  /* Traveling specular streak — animated via transform (compositor-only) */
   .nft-frame::after {
     content: "";
     position: absolute;
     top: 0;
-    left: -150%;
+    left: 0;
     width: 70%;
     height: 100%;
     background: linear-gradient(
@@ -168,13 +168,14 @@
       hsl(0 0% 100% / 0.05) 70%,
       transparent 100%
     );
-    transform: skewX(-18deg);
-    transition: left 1s cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateX(-215%) skewX(-18deg);
+    transition: transform 1s cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
     z-index: 5;
   }
   .nft-frame:hover {
     transform: translateY(-4px);
+    will-change: transform;
     box-shadow:
       0 1px 0 0 hsl(0 0% 100% / 0.3) inset,
       0 2px 1px -1px hsl(0 0% 100% / 0.22) inset,
@@ -184,7 +185,20 @@
       0 30px 50px -20px hsl(0 0% 0% / 0.7);
   }
   .nft-frame:hover::after {
-    left: 150%;
+    transform: translateX(215%) skewX(-18deg);
+    will-change: transform;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nft-frame,
+    .nft-frame::after {
+      transition: none !important;
+    }
+    .nft-frame:hover {
+      transform: none;
+    }
+    .nft-frame:hover::after {
+      transform: translateX(-215%) skewX(-18deg);
+    }
   }
 }
 
