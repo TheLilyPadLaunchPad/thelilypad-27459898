@@ -79,29 +79,74 @@ export default function XRPLEasyGenerator() {
         description: "Create and launch NFT collections on XRP Ledger with our easy-to-use generator."
     });
 
+    const MAX_NFTS = 10000;
+    const MIN_DIM = 400;
+    const MAX_DIM = 512;
+
+    const getImageDimensions = (file: File): Promise<{ width: number; height: number; url: string }> =>
+        new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight, url });
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error("Could not read image"));
+            };
+            img.src = url;
+        });
+
     const handleFileUpload = async (files: FileList | null) => {
         if (!files) return;
 
         setIsUploading(true);
+        const remaining = MAX_NFTS - nftItems.length;
+        if (remaining <= 0) {
+            toast.error(`Collection cap reached (max ${MAX_NFTS.toLocaleString()} NFTs)`);
+            setIsUploading(false);
+            return;
+        }
+
         const newItems: NFTItem[] = [];
+        let rejectedSize = 0;
+        let rejectedRatio = 0;
+        let truncated = false;
 
         for (let i = 0; i < files.length; i++) {
+            if (newItems.length >= remaining) {
+                truncated = true;
+                break;
+            }
             const file = files[i];
-            const preview = URL.createObjectURL(file);
-
-            // Pinning happens at mint time so users can still re-order /
-            // remove items before paying for uploads. Stage locally for now.
-            newItems.push({
-                name: file.name.replace(/\.[^/.]+$/, ""),
-                uri: "",
-                file,
-                preview,
-            });
+            try {
+                const { width, height, url } = await getImageDimensions(file);
+                if (width !== height) {
+                    rejectedRatio++;
+                    URL.revokeObjectURL(url);
+                    continue;
+                }
+                if (width < MIN_DIM || width > MAX_DIM) {
+                    rejectedSize++;
+                    URL.revokeObjectURL(url);
+                    continue;
+                }
+                newItems.push({
+                    name: file.name.replace(/\.[^/.]+$/, ""),
+                    uri: "",
+                    file,
+                    preview: url,
+                });
+            } catch {
+                rejectedSize++;
+            }
         }
 
         setNftItems(prev => [...prev, ...newItems]);
         setIsUploading(false);
-        toast.success(`Added ${newItems.length} NFTs`);
+
+        if (newItems.length > 0) toast.success(`Added ${newItems.length} NFTs`);
+        if (rejectedRatio > 0) toast.error(`${rejectedRatio} image(s) skipped — must be square (1:1)`);
+        if (rejectedSize > 0) toast.error(`${rejectedSize} image(s) skipped — must be ${MIN_DIM}x${MIN_DIM} to ${MAX_DIM}x${MAX_DIM}`);
+        if (truncated) toast.error(`Stopped at ${MAX_NFTS.toLocaleString()} NFT cap`);
     };
 
     const removeItem = (index: number) => {
@@ -414,13 +459,16 @@ export default function XRPLEasyGenerator() {
                                                     <p className="text-sm text-muted-foreground">
                                                         {isUploading ? "Uploading..." : "Click to upload images or drag and drop"}
                                                     </p>
+                                                    <p className="text-[11px] text-muted-foreground mt-2">
+                                                        Square images only · {MIN_DIM}x{MIN_DIM} to {MAX_DIM}x{MAX_DIM} px · max {MAX_NFTS.toLocaleString()} NFTs
+                                                    </p>
                                                 </label>
                                             </div>
 
                                             {nftItems.length > 0 && (
                                                 <div className="space-y-4">
                                                     <div className="flex items-center justify-between">
-                                                        <Label>Uploaded NFTs ({nftItems.length})</Label>
+                                                        <Label>Uploaded NFTs ({nftItems.length.toLocaleString()} / {MAX_NFTS.toLocaleString()})</Label>
                                                         <Badge variant="outline">{nftItems.length} items</Badge>
                                                     </div>
                                                     <div className="grid grid-cols-4 gap-4">
