@@ -452,7 +452,10 @@ serve(async (req) => {
     }
 
     const walletKey = `wallet:${network}:${walletAddress}:${page ?? 1}:${pageKey ?? ""}`;
-    const { body, cached } = await withCache(walletKey, CACHE_TTL_MS.wallet, async () => {
+    type WalletResult =
+      | { body: string; cached: boolean }
+      | { __error: { status: number; message: string } };
+    const result: WalletResult = await withCache(walletKey, CACHE_TTL_MS.wallet, async () => {
       console.log(`Fetching NFTs for ${walletAddress} on ${network}`);
 
       if (network === "solana-mainnet" || network === "solana-devnet") {
@@ -479,16 +482,16 @@ serve(async (req) => {
         return { __error: { status: 400, message: `Unsupported network: ${msg.split(":")[1]}` } };
       }
       throw err;
-    }) as { body: string; cached: boolean } | { __error: { status: number; message: string } };
+    });
 
-    if ("__error" in body) {
+    if ("__error" in result) {
       return new Response(
-        JSON.stringify({ error: body.__error.message }),
-        { status: body.__error.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: result.__error.message }),
+        { status: result.__error.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    return cachedJson(body.body, body.cached, CACHE_TTL_MS.wallet);
+    return cachedJson(result.body, result.cached, CACHE_TTL_MS.wallet);
   } catch (error) {
     console.error("Error in fetch-nfts function:", error);
     return new Response(
