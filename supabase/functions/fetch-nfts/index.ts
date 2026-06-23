@@ -451,7 +451,7 @@ serve(async (req) => {
       );
     }
 
-    const walletKey = `wallet:${network}:${walletAddress}:${page ?? 1}:${pageKey ?? ""}`;
+    const walletKey = `wallet:${network}:${walletAddress}:${isDevnet ?? false}:${page ?? 1}:${pageKey ?? ""}`;
     type WalletResult =
       | { body: string; cached: boolean }
       | { __error: { status: number; message: string } };
