@@ -6,6 +6,80 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ---- In-memory response cache (per-isolate) -----------------------------
+// Reduces repeated Alchemy/DAS calls when users scroll back and forth, and
+// when multiple components request the same wallet/collection concurrently.
+// TTLs are intentionally short — NFT ownership changes on-chain.
+const CACHE_TTL_MS = {
+  wallet: 30_000,      // owner -> nft list
+  asset: 120_000,      // single asset metadata (rarely changes)
+  collection: 300_000, // collection metadata (rarely changes)
+};
+const MAX_CACHE_ENTRIES = 500;
+
+type CacheEntry = { body: string; expiresAt: number };
+const responseCache = new Map<string, CacheEntry>();
+const inflight = new Map<string, Promise<string>>();
+
+function cacheGet(key: string): string | null {
+  const hit = responseCache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt < Date.now()) {
+    responseCache.delete(key);
+    return null;
+  }
+  // refresh LRU position
+  responseCache.delete(key);
+  responseCache.set(key, hit);
+  return hit.body;
+}
+
+function cacheSet(key: string, body: string, ttlMs: number) {
+  if (responseCache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = responseCache.keys().next().value;
+    if (oldest) responseCache.delete(oldest);
+  }
+  responseCache.set(key, { body, expiresAt: Date.now() + ttlMs });
+}
+
+async function withCache(
+  key: string,
+  ttlMs: number,
+  producer: () => Promise<unknown>,
+): Promise<{ body: string; cached: boolean }> {
+  const cached = cacheGet(key);
+  if (cached) return { body: cached, cached: true };
+
+  const existing = inflight.get(key);
+  if (existing) return { body: await existing, cached: true };
+
+  const promise = (async () => {
+    const value = await producer();
+    const body = JSON.stringify(value);
+    cacheSet(key, body, ttlMs);
+    return body;
+  })();
+  inflight.set(key, promise);
+  try {
+    const body = await promise;
+    return { body, cached: false };
+  } finally {
+    inflight.delete(key);
+  }
+}
+
+function cachedJson(body: string, cached: boolean, ttlMs: number) {
+  const maxAge = Math.floor(ttlMs / 1000);
+  return new Response(body, {
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=${maxAge * 2}`,
+      "X-Cache": cached ? "HIT" : "MISS",
+    },
+  });
+}
+
 // Supported EVM networks
 const EVM_NETWORKS = [
   "eth-mainnet",
