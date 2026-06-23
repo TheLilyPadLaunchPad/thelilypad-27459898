@@ -314,28 +314,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // --- Auth guard ---
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Authentication required" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const supabaseAuth = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-  );
-  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(
-    authHeader.replace("Bearer ", "")
-  );
-  if (authError || !user) {
-    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  // --- End auth guard ---
+  // Public read-only endpoint: wallet-connected users have no Supabase JWT,
+  // and the data returned is on-chain public NFT metadata. No auth required.
 
   try {
     const {
