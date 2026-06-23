@@ -80,6 +80,58 @@ function cachedJson(body: string, cached: boolean, ttlMs: number) {
   });
 }
 
+// Invalidate cache entries matching a pattern
+// pattern can be:
+// - "wallet:{walletAddress}" - invalidates all wallet entries for this address across all networks
+// - "wallet:{network}:{walletAddress}" - invalidates all wallet entries for this address on specific network
+// - "collection:{network}:{collectionAddress}" - invalidates collection metadata
+// - "asset:{network}:{assetAddress}" - invalidates single asset metadata
+//
+// Usage examples:
+// After minting a new NFT to a wallet:
+//   await supabase.functions.invoke("fetch-nfts", { body: { invalidate: "wallet:{walletAddress}" } })
+//
+// After updating NFT metadata:
+//   await supabase.functions.invoke("fetch-nfts", { body: { invalidate: "asset:solana-mainnet:{assetAddress}" } })
+//
+// After collection metadata changes:
+//   await supabase.functions.invoke("fetch-nfts", { body: { invalidate: "collection:solana-mainnet:{collectionAddress}" } })
+function cacheInvalidate(pattern: string): number {
+  let invalidated = 0;
+  const keysToDelete: string[] = [];
+
+  for (const key of responseCache.keys()) {
+    if (key.startsWith(pattern)) {
+      keysToDelete.push(key);
+    }
+  }
+
+  for (const key of keysToDelete) {
+    responseCache.delete(key);
+    inflight.delete(key);
+    invalidated++;
+  }
+
+  console.log(`Cache invalidation: pattern="${pattern}", invalidated=${invalidated} entries`);
+  return invalidated;
+}
+
+// Helper functions for common invalidation scenarios
+function invalidateWallet(walletAddress: string, network?: string): number {
+  if (network) {
+    return cacheInvalidate(`wallet:${network}:${walletAddress}`);
+  }
+  return cacheInvalidate(`wallet:${walletAddress}`);
+}
+
+function invalidateAsset(assetAddress: string, network: string): number {
+  return cacheInvalidate(`asset:${network}:${assetAddress}`);
+}
+
+function invalidateCollection(collectionAddress: string, network: string): number {
+  return cacheInvalidate(`collection:${network}:${collectionAddress}`);
+}
+
 // Supported EVM networks
 const EVM_NETWORKS = [
   "eth-mainnet",
@@ -401,7 +453,19 @@ serve(async (req) => {
       collectionAddress,
       isDevnet = true,
       page = 1,
+      // Cache invalidation
+      invalidate,
     } = await req.json();
+
+    // Handle cache invalidation request
+    if (invalidate) {
+      const pattern = invalidate;
+      const invalidated = cacheInvalidate(pattern);
+      return new Response(
+        JSON.stringify({ invalidated, pattern }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Handle single asset fetch (Solana)
     if (assetAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
