@@ -405,19 +405,13 @@ serve(async (req) => {
 
     // Handle single asset fetch (Solana)
     if (assetAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
-      console.log(`Fetching single Solana asset: ${assetAddress}`);
-      const asset = await fetchSolanaAsset(assetAddress, network === "solana-devnet");
-
-      if (!asset) {
-        return new Response(
-          JSON.stringify({ error: "Asset not found" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const metadata = asset.content?.metadata;
-      return new Response(
-        JSON.stringify({
+      const key = `asset:${network}:${assetAddress}`;
+      const { body, cached } = await withCache(key, CACHE_TTL_MS.asset, async () => {
+        console.log(`Fetching single Solana asset: ${assetAddress}`);
+        const asset = await fetchSolanaAsset(assetAddress, network === "solana-devnet");
+        if (!asset) return { __notFound: true };
+        const metadata = asset.content?.metadata;
+        return {
           asset: {
             tokenId: asset.id,
             contractAddress: asset.id,
@@ -427,20 +421,26 @@ serve(async (req) => {
             owner: asset.ownership?.owner || "",
             attributes: metadata?.attributes || [],
           },
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+        };
+      });
+      if (body.includes('"__notFound":true')) {
+        return new Response(
+          JSON.stringify({ error: "Asset not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      return cachedJson(body, cached, CACHE_TTL_MS.asset);
     }
 
     // Handle collection fetch (Solana)
     if (collectionAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
-      console.log(`Fetching Solana collection: ${collectionAddress}`);
-      const collection = await fetchSolanaCollection(collectionAddress, network === "solana-devnet");
-
-      return new Response(
-        JSON.stringify({ collection }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const key = `collection:${network}:${collectionAddress}`;
+      const { body, cached } = await withCache(key, CACHE_TTL_MS.collection, async () => {
+        console.log(`Fetching Solana collection: ${collectionAddress}`);
+        const collection = await fetchSolanaCollection(collectionAddress, network === "solana-devnet");
+        return { collection };
+      });
+      return cachedJson(body, cached, CACHE_TTL_MS.collection);
     }
 
     // Handle wallet NFTs fetch
@@ -451,40 +451,44 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Fetching NFTs for ${walletAddress} on ${network}`);
+    const walletKey = `wallet:${network}:${walletAddress}:${page ?? 1}:${pageKey ?? ""}`;
+    const { body, cached } = await withCache(walletKey, CACHE_TTL_MS.wallet, async () => {
+      console.log(`Fetching NFTs for ${walletAddress} on ${network}`);
 
-    let result;
-
-    if (network === "solana-mainnet" || network === "solana-devnet") {
-      // Use DAS API for Solana
-      result = await fetchSolanaAssetsByOwner(
-        walletAddress,
-        network === "solana-devnet",
-        page
-      );
-    } else if (EVM_NETWORKS.includes(network)) {
-      const ALCHEMY_API_KEY = Deno.env.get("ALCHEMY_API_KEY");
-      if (!ALCHEMY_API_KEY) {
-        console.error("ALCHEMY_API_KEY is not configured");
-        return new Response(
-          JSON.stringify({ error: "Alchemy API key not configured" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      if (network === "solana-mainnet" || network === "solana-devnet") {
+        return await fetchSolanaAssetsByOwner(
+          walletAddress,
+          network === "solana-devnet",
+          page,
         );
       }
-      result = await fetchEVMNFTs(ALCHEMY_API_KEY, walletAddress, network, pageKey);
-    } else {
+      if (EVM_NETWORKS.includes(network)) {
+        const ALCHEMY_API_KEY = Deno.env.get("ALCHEMY_API_KEY");
+        if (!ALCHEMY_API_KEY) {
+          throw new Error("ALCHEMY_API_KEY_MISSING");
+        }
+        return await fetchEVMNFTs(ALCHEMY_API_KEY, walletAddress, network, pageKey);
+      }
+      throw new Error(`UNSUPPORTED_NETWORK:${network}`);
+    }).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === "ALCHEMY_API_KEY_MISSING") {
+        return { __error: { status: 500, message: "Alchemy API key not configured" } };
+      }
+      if (msg.startsWith("UNSUPPORTED_NETWORK:")) {
+        return { __error: { status: 400, message: `Unsupported network: ${msg.split(":")[1]}` } };
+      }
+      throw err;
+    }) as { body: string; cached: boolean } | { __error: { status: number; message: string } };
+
+    if ("__error" in body) {
       return new Response(
-        JSON.stringify({ error: `Unsupported network: ${network}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: body.__error.message }),
+        { status: body.__error.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Found ${result.totalCount} total NFTs, returning ${result.nfts.length}`);
-
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return cachedJson(body.body, body.cached, CACHE_TTL_MS.wallet);
   } catch (error) {
     console.error("Error in fetch-nfts function:", error);
     return new Response(
