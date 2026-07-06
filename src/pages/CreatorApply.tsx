@@ -69,10 +69,9 @@ const CreatorApply: React.FC = () => {
             if (!user) { setCheckingExisting(false); return; }
 
             const { data } = await (supabase as any)
-                .from('my_creator_beta_application')
-                .select('*')
-                .eq('user_id', user.id)
+                .rpc('get_my_creator_beta_application')
                 .maybeSingle();
+
 
             if (data) setExistingApp(data);
             setCheckingExisting(false);

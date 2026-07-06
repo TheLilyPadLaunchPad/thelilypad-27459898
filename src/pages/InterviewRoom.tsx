@@ -37,11 +37,11 @@ const InterviewRoom: React.FC = () => {
                 return;
             }
 
-            const { data: app, error } = await (supabase as any)
-                .from(isAdmin ? 'creator_beta_applications' : 'my_creator_beta_application')
-                .select('*')
-                .eq('id', applicationId)
-                .single();
+            const query = isAdmin
+                ? (supabase as any).from('creator_beta_applications').select('*').eq('id', applicationId).single()
+                : (supabase as any).rpc('get_my_creator_beta_application').eq('id', applicationId).maybeSingle();
+            const { data: app, error } = await query;
+
 
             if (error || !app) {
                 toast({ title: 'Not Found', description: 'Interview not found.', variant: 'destructive' });
