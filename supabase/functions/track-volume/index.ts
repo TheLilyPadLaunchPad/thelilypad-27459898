@@ -93,24 +93,18 @@ Deno.serve(async (req) => {
     const { action, data } = await req.json();
     console.log(`Processing action: ${action}`);
 
-    // Check if action requires authentication
-    if (AUTHENTICATED_ACTIONS.includes(action)) {
-      const { userId, error: authError } = await authenticateRequest(req, supabaseAuth);
-
-      if (authError || !userId) {
-        console.warn(`Unauthorized attempt for action: ${action}`);
+    // Write actions require the service-role key. This prevents any
+    // authenticated end-user from inserting arbitrary platform_fees /
+    // volume_tracking rows and inflating the buyback pool or leaderboard.
+    if (SERVICE_ROLE_ACTIONS.includes(action)) {
+      const authHeader = req.headers.get('Authorization') ?? '';
+      const token = authHeader.replace('Bearer ', '').trim();
+      if (!token || token !== supabaseServiceKey) {
+        console.warn(`Blocked non-service-role attempt for action: ${action}`);
         return new Response(
-          JSON.stringify({ error: 'Unauthorized', details: authError }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Forbidden: service role required' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      }
-
-      console.log(`Authenticated user ${userId} for action: ${action}`);
-
-      // For write operations, always overwrite user_id with the authenticated caller's ID
-      // to prevent spoofing volume credit to other users.
-      if (data) {
-        data.user_id = userId;
       }
     }
 
