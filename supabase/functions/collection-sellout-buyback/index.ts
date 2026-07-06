@@ -27,6 +27,47 @@ Deno.serve(async (req) => {
     });
   }
 
+  // AuthN/Z — only the service role (used by the sellout DB trigger),
+  // an admin, or a buyback operator may queue collection buybacks. This
+  // prevents anonymous actors from forcing buyback events against any
+  // fully-minted, buyback-enabled collection.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!bearer) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const isServiceRole = bearer === SERVICE_KEY;
+  if (!isServiceRole) {
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authedClient = createClient(SUPABASE_URL, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = await authedClient.auth.getUser(bearer);
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userId = userData.user.id;
+    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+    const [{ data: isAdmin }, { data: isOperator }] = await Promise.all([
+      adminClient.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      adminClient.rpc("has_role", { _user_id: userId, _role: "buyback_operator" }),
+    ]);
+    if (!isAdmin && !isOperator) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+
   let body: unknown;
   try {
     body = await req.json();
