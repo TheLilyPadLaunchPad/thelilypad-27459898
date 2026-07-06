@@ -37,7 +37,7 @@ export default function StreamerApply() {
     if (!profile?.user_id) return;
     const check = async () => {
       const { data } = await (supabase as any)
-      const { data } = await (supabase as any)
+
         .rpc('get_my_streamer_application')
         .maybeSingle();
 
