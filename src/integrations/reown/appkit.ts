@@ -21,8 +21,7 @@ import { MONAD_NETWORKS } from "@/config/monad";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
-  BackpackWalletAdapter,
-} from "@solana/wallet-adapter-wallets";
+} from "@solana/wallet-adapter-phantom" as any;
 
 const monadMainnet: AppKitNetwork = {
   id: MONAD_NETWORKS.mainnet.chainId,
