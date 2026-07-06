@@ -58,14 +58,8 @@ export function initReownAppKit(): AppKit {
     throw new Error("Reown AppKit must be initialised in the browser.");
   }
 
-  // Configure Solana adapter with multiple wallet connectors for better compatibility
-  const solanaAdapter = new SolanaAdapter({
-    wallets: [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-      new BackpackWalletAdapter(),
-    ],
-  });
+  // Reown AppKit auto-detects injected Solana wallets via Wallet Standard.
+  const solanaAdapter = new SolanaAdapter({});
 
   appKitInstance = createAppKit({
     adapters: [new EthersAdapter(), solanaAdapter],
