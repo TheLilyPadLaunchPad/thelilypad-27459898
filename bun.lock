@@ -147,7 +147,6 @@
     "glob": "^11.0.0",
     "minimatch": "^9.0.5",
     "picomatch": "^4.0.2",
-    "protobufjs": "^7.5.3",
     "react-router": "^7.9.4",
     "react-router-dom": "^7.9.4",
     "serialize-javascript": "^7.0.7",
