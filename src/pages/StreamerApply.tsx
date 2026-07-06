@@ -36,8 +36,8 @@ export default function StreamerApply() {
   useEffect(() => {
     if (!profile?.user_id) return;
     const check = async () => {
-      const { data } = await supabase
-        .from('streamer_applications')
+      const { data } = await (supabase as any)
+        .from('my_streamer_application')
         .select('*')
         .eq('user_id', profile.user_id)
         .maybeSingle();
