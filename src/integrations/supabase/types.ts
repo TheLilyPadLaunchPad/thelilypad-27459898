@@ -3971,6 +3971,105 @@ export type Database = {
           },
         ]
       }
+      my_creator_beta_application: {
+        Row: {
+          content_type: string | null
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          id: string | null
+          interview_room_id: string | null
+          interview_scheduled_at: string | null
+          motivation: string | null
+          portfolio_urls: string[] | null
+          reviewed_at: string | null
+          social_links: Json | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string | null
+          interview_room_id?: string | null
+          interview_scheduled_at?: string | null
+          motivation?: string | null
+          portfolio_urls?: string[] | null
+          reviewed_at?: string | null
+          social_links?: Json | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string | null
+          interview_room_id?: string | null
+          interview_scheduled_at?: string | null
+          motivation?: string | null
+          portfolio_urls?: string[] | null
+          reviewed_at?: string | null
+          social_links?: Json | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      my_streamer_application: {
+        Row: {
+          content_type: string | null
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          id: string | null
+          motivation: string | null
+          platform_links: string[] | null
+          reviewed_at: string | null
+          schedule_description: string | null
+          social_links: Json | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string | null
+          motivation?: string | null
+          platform_links?: string[] | null
+          reviewed_at?: string | null
+          schedule_description?: string | null
+          social_links?: Json | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string | null
+          motivation?: string | null
+          platform_links?: string[] | null
+          reviewed_at?: string | null
+          schedule_description?: string | null
+          social_links?: Json | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       streamer_profiles_public: {
         Row: {
           avatar_url: string | null

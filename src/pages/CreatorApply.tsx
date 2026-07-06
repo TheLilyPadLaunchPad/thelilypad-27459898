@@ -68,8 +68,8 @@ const CreatorApply: React.FC = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) { setCheckingExisting(false); return; }
 
-            const { data } = await supabase
-                .from('creator_beta_applications')
+            const { data } = await (supabase as any)
+                .from('my_creator_beta_application')
                 .select('*')
                 .eq('user_id', user.id)
                 .maybeSingle();
