@@ -45,6 +45,29 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
     try {
+        // Require authenticated caller — prevents anonymous actors from
+        // linking cheap transactions to expensive shop items to unlock content.
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader?.startsWith('Bearer ')) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'content-type': 'application/json' },
+            });
+        }
+        const authClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
+            global: { headers: { Authorization: authHeader } },
+        });
+        const { data: userData, error: userErr } = await authClient.auth.getUser(
+            authHeader.replace('Bearer ', ''),
+        );
+        if (userErr || !userData?.user) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'content-type': 'application/json' },
+            });
+        }
+        const callerUserId = userData.user.id;
+
         const body = (await req.json()) as Body;
         if (!body.reference || !body.recipient || !body.amountSol || !body.action) {
             return new Response(JSON.stringify({ error: 'Missing required fields' }), {
