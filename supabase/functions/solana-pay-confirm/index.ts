@@ -169,6 +169,39 @@ Deno.serve(async (req) => {
                 }
             }
         } else if (body.action.startsWith('shop:')) {
+            const itemId = (body.context?.item_id as string) ?? null;
+            if (!itemId) {
+                return new Response(
+                    JSON.stringify({ error: 'shop action requires context.item_id' }),
+                    { status: 400, headers: { ...corsHeaders, 'content-type': 'application/json' } },
+                );
+            }
+
+            // Server-side price validation — never trust the caller-supplied amount.
+            const { data: item, error: itemErr } = await supabase
+                .from('shop_items')
+                .select('id, price_mon, is_active')
+                .eq('id', itemId)
+                .maybeSingle();
+            if (itemErr || !item) {
+                return new Response(
+                    JSON.stringify({ error: 'Shop item not found' }),
+                    { status: 404, headers: { ...corsHeaders, 'content-type': 'application/json' } },
+                );
+            }
+            const expectedPrice = Number(item.price_mon ?? 0);
+            // Allow tiny rounding tolerance (< 0.1%) but never below the expected price.
+            const tolerance = Math.max(1e-6, expectedPrice * 0.001);
+            if (!(body.amountSol + tolerance >= expectedPrice)) {
+                return new Response(
+                    JSON.stringify({
+                        error: 'Paid amount below item price',
+                        signature: candidate.signature,
+                    }),
+                    { status: 422, headers: { ...corsHeaders, 'content-type': 'application/json' } },
+                );
+            }
+
             const { data: existing } = await supabase
                 .from('shop_purchases')
                 .select('id')
@@ -176,21 +209,13 @@ Deno.serve(async (req) => {
                 .maybeSingle();
 
             if (!existing) {
-                // Look up buyer profile by wallet
-                let buyerUserId: string | null = null;
-                if (payerAddress) {
-                    const { data: buyerProfile } = await supabase
-                        .from('user_profiles')
-                        .select('user_id')
-                        .eq('wallet_address', payerAddress)
-                        .maybeSingle();
-                    buyerUserId = buyerProfile?.user_id ?? null;
-                }
-
+                // Attribute the purchase to the authenticated caller, not to a
+                // wallet address supplied in the request. This prevents an
+                // attacker from binding someone else's tx to their own account.
                 await supabase.from('shop_purchases').insert({
-                    user_id: buyerUserId,
-                    item_id: (body.context?.item_id as string) ?? null,
-                    price_paid: body.amountSol,
+                    user_id: callerUserId,
+                    item_id: itemId,
+                    price_paid: expectedPrice,
                     currency: 'SOL',
                     tx_hash: candidate.signature,
                     from_address: payerAddress,
