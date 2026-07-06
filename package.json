@@ -158,7 +158,8 @@
     "@isaacs/brace-expansion": "^5.0.0",
     "@xmldom/xmldom": "^0.9.8",
     "react-router": "^7.9.4",
-    "react-router-dom": "^7.9.4"
+    "react-router-dom": "^7.9.4",
+    "protobufjs": "^7.5.3"
   },
   "resolutions": {
     "ws": "^8.18.3",
@@ -173,6 +174,7 @@
     "@isaacs/brace-expansion": "^5.0.0",
     "@xmldom/xmldom": "^0.9.8",
     "react-router": "^7.9.4",
-    "react-router-dom": "^7.9.4"
+    "react-router-dom": "^7.9.4",
+    "protobufjs": "^7.5.3"
   }
 }
