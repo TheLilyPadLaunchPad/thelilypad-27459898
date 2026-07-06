@@ -2252,7 +2252,7 @@
 
     "starknet": ["starknet@6.24.1", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/starknet/-/starknet-6.24.1.tgz", { "dependencies": { "@noble/curves": "1.7.0", "@noble/hashes": "1.6.0", "@scure/base": "1.2.1", "@scure/starknet": "1.1.0", "abi-wan-kanabi": "^2.2.3", "fetch-cookie": "~3.0.0", "isomorphic-fetch": "~3.0.0", "lossless-json": "^4.0.1", "pako": "^2.0.4", "starknet-types-07": "npm:@starknet-io/types-js@^0.7.10", "ts-mixer": "^6.0.3" } }, ""],
 
-    "starknet-types-07": ["@starknet-io/types-js@0.7.10", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/starknet-types-07/-/starknet-types-07-0.7.10.tgz", {}, ""],
+    "starknet-types-07": ["@starknet-io/types-js@0.7.10", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@starknet-io/types-js/-/types-js-0.7.10.tgz", {}, ""],
 
     "stop-iteration-iterator": ["stop-iteration-iterator@1.1.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/stop-iteration-iterator/-/stop-iteration-iterator-1.1.0.tgz", { "dependencies": { "es-errors": "^1.3.0", "internal-slot": "^1.1.0" } }, ""],
 
