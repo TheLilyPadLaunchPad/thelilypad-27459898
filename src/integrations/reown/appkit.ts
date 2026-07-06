@@ -18,10 +18,9 @@ import { solana, solanaTestnet, solanaDevnet } from "@reown/appkit/networks";
 import type { AppKitNetwork } from "@reown/appkit/networks";
 import { REOWN_APP_METADATA, REOWN_PROJECT_ID } from "@/config/reown";
 import { MONAD_NETWORKS } from "@/config/monad";
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-} from "@solana/wallet-adapter-phantom" as any;
+// Reown AppKit auto-detects injected Solana wallets (Phantom, Solflare, Backpack, etc.)
+// via the Wallet Standard, so we no longer bundle @solana/wallet-adapter-wallets
+// (which pulled in a vulnerable protobufjs via @trezor/*).
 
 const monadMainnet: AppKitNetwork = {
   id: MONAD_NETWORKS.mainnet.chainId,
