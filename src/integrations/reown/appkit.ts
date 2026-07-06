@@ -18,11 +18,9 @@ import { solana, solanaTestnet, solanaDevnet } from "@reown/appkit/networks";
 import type { AppKitNetwork } from "@reown/appkit/networks";
 import { REOWN_APP_METADATA, REOWN_PROJECT_ID } from "@/config/reown";
 import { MONAD_NETWORKS } from "@/config/monad";
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-  BackpackWalletAdapter,
-} from "@solana/wallet-adapter-wallets";
+// Reown AppKit auto-detects injected Solana wallets (Phantom, Solflare, Backpack, etc.)
+// via the Wallet Standard, so we no longer bundle @solana/wallet-adapter-wallets
+// (which pulled in a vulnerable protobufjs via @trezor/*).
 
 const monadMainnet: AppKitNetwork = {
   id: MONAD_NETWORKS.mainnet.chainId,
@@ -60,14 +58,8 @@ export function initReownAppKit(): AppKit {
     throw new Error("Reown AppKit must be initialised in the browser.");
   }
 
-  // Configure Solana adapter with multiple wallet connectors for better compatibility
-  const solanaAdapter = new SolanaAdapter({
-    wallets: [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-      new BackpackWalletAdapter(),
-    ],
-  });
+  // Reown AppKit auto-detects injected Solana wallets via Wallet Standard.
+  const solanaAdapter = new SolanaAdapter({});
 
   appKitInstance = createAppKit({
     adapters: [new EthersAdapter(), solanaAdapter],
