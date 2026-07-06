@@ -20,8 +20,12 @@ const VOLUME_WEIGHTS: Record<string, number> = {
 const PLATFORM_FEE_BPS = 250; // 2.5%
 const BUYBACK_ALLOCATION_BPS = 5000; // 50% of platform fee
 
-// Actions that require authentication (write operations)
-const AUTHENTICATED_ACTIONS = ['record_volume', 'record_fee', 'record_transaction'];
+// Write actions are service-role only. Client callers must go through
+// server-side verified flows (on-chain tx verification edge functions) that
+// then invoke this endpoint with the service-role key. This prevents
+// authenticated users from fabricating fees / volume to inflate the buyback
+// pool or leaderboard rewards.
+const SERVICE_ROLE_ACTIONS = ['record_volume', 'record_fee', 'record_transaction'];
 
 interface VolumeEvent {
   source_type: 'nft_sell' | 'nft_buy' | 'offer' | 'listing' | 'sticker' | 'emote' | 'emoji';
@@ -89,24 +93,18 @@ Deno.serve(async (req) => {
     const { action, data } = await req.json();
     console.log(`Processing action: ${action}`);
 
-    // Check if action requires authentication
-    if (AUTHENTICATED_ACTIONS.includes(action)) {
-      const { userId, error: authError } = await authenticateRequest(req, supabaseAuth);
-
-      if (authError || !userId) {
-        console.warn(`Unauthorized attempt for action: ${action}`);
+    // Write actions require the service-role key. This prevents any
+    // authenticated end-user from inserting arbitrary platform_fees /
+    // volume_tracking rows and inflating the buyback pool or leaderboard.
+    if (SERVICE_ROLE_ACTIONS.includes(action)) {
+      const authHeader = req.headers.get('Authorization') ?? '';
+      const token = authHeader.replace('Bearer ', '').trim();
+      if (!token || token !== supabaseServiceKey) {
+        console.warn(`Blocked non-service-role attempt for action: ${action}`);
         return new Response(
-          JSON.stringify({ error: 'Unauthorized', details: authError }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Forbidden: service role required' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      }
-
-      console.log(`Authenticated user ${userId} for action: ${action}`);
-
-      // For write operations, always overwrite user_id with the authenticated caller's ID
-      // to prevent spoofing volume credit to other users.
-      if (data) {
-        data.user_id = userId;
       }
     }
 
