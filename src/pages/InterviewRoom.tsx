@@ -37,8 +37,8 @@ const InterviewRoom: React.FC = () => {
                 return;
             }
 
-            const { data: app, error } = await supabase
-                .from('creator_beta_applications')
+            const { data: app, error } = await (supabase as any)
+                .from(isAdmin ? 'creator_beta_applications' : 'my_creator_beta_application')
                 .select('*')
                 .eq('id', applicationId)
                 .single();
