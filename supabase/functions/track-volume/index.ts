@@ -20,8 +20,12 @@ const VOLUME_WEIGHTS: Record<string, number> = {
 const PLATFORM_FEE_BPS = 250; // 2.5%
 const BUYBACK_ALLOCATION_BPS = 5000; // 50% of platform fee
 
-// Actions that require authentication (write operations)
-const AUTHENTICATED_ACTIONS = ['record_volume', 'record_fee', 'record_transaction'];
+// Write actions are service-role only. Client callers must go through
+// server-side verified flows (on-chain tx verification edge functions) that
+// then invoke this endpoint with the service-role key. This prevents
+// authenticated users from fabricating fees / volume to inflate the buyback
+// pool or leaderboard rewards.
+const SERVICE_ROLE_ACTIONS = ['record_volume', 'record_fee', 'record_transaction'];
 
 interface VolumeEvent {
   source_type: 'nft_sell' | 'nft_buy' | 'offer' | 'listing' | 'sticker' | 'emote' | 'emoji';
