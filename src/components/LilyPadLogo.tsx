@@ -1,6 +1,7 @@
 import React from "react";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
-import lilypadLogoFallback from "@/assets/lilypad-logo.png";
+import lilypadLogoAsset from "@/assets/lilypad-logo.png.asset.json";
+const lilypadLogoFallback = lilypadLogoAsset.url;
 
 interface LilyPadLogoProps {
   className?: string;

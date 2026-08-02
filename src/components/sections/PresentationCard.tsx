@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import presentationCard from "@/assets/lilypad-presentation-card.png";
+import presentationCardAsset from "@/assets/lilypad-presentation-card.png.asset.json";
+const presentationCard = presentationCardAsset.url;
 
 export const PresentationCard: React.FC = () => {
   const containerRef = useRef<HTMLElement>(null);

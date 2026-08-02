@@ -14,8 +14,9 @@ import { toast } from "sonner";
 import CreateXRPLWalletDialog from "@/components/auth/CreateXRPLWalletDialog";
 import UnlockXRPLWalletDialog from "@/components/auth/UnlockXRPLWalletDialog";
 import { listSavedWallets } from "@/lib/xrplGeneratedWallet";
+import authBrandingAsset from "@/assets/auth-branding.webp.asset.json";
 
-const fallbackAuthBranding = "/auth-branding.webp";
+const fallbackAuthBranding = authBrandingAsset.url;
 
 type SelectedChain = "solana" | "monad" | "xrpl";
 

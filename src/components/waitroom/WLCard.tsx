@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { LilyPadLogo } from '@/components/LilyPadLogo';
-import wlCardBg from '@/assets/wl-card-bg.png';
-import wlFrog from '@/assets/wl-frog.png';
+import wlCardBgAsset from '@/assets/wl-card-bg.png.asset.json';
+import wlFrogAsset from '@/assets/wl-frog.png.asset.json';
+const wlCardBg = wlCardBgAsset.url;
+const wlFrog = wlFrogAsset.url;
 
 interface WLCardProps {
   displayName: string;
