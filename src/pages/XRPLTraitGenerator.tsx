@@ -78,7 +78,7 @@ export default function XRPLTraitGenerator() {
     const [name, setName] = useState("");
     const [symbol, setSymbol] = useState("");
     const [description, setDescription] = useState("");
-    const [network, setNetwork] = useState<"mainnet" | "testnet">("testnet");
+    const [network] = useState<"mainnet" | "testnet">("mainnet");
     const [storage, setStorage] = useState<"pinata" | "arweave">("pinata");
     const [transferFee, setTransferFee] = useState(0);
     const [taxon, setTaxon] = useState(Math.floor(Date.now() / 1000));
@@ -409,7 +409,6 @@ export default function XRPLTraitGenerator() {
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="testnet">Testnet</SelectItem>
                                                         <SelectItem value="mainnet">Mainnet</SelectItem>
                                                     </SelectContent>
                                                 </Select>

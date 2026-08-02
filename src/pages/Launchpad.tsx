@@ -159,7 +159,7 @@ export default function Launchpad() {
 
   const [selectedChain, setSelectedChain] = useState<SupportedChain>(getStoredChain);
   const currentChain = CHAINS[selectedChain];
-  const isTestnet = network === "testnet";
+  const isTestnet = false;
 
   const [activeTab, setActiveTab] = useState("all");
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);

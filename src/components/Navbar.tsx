@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Ticket, Package, LogOut, LogIn, Music, Coins } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
-import { NetworkSwitch } from "@/components/wallet/NetworkSwitch";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
 import { ChainSelector } from "@/components/launchpad/ChainSelector";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -70,7 +69,6 @@ export const Navbar: React.FC = () => {
   const showAdmin = !isAdminLoading && isAdmin;
   const navigate = useNavigate();
   const location = useLocation();
-  const isTestnet = network === "testnet";
   const isWaitRoom = location.pathname === '/waitroom';
 
   const { isMockMode } = useMockMode();
@@ -247,7 +245,6 @@ export const Navbar: React.FC = () => {
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 border-t border-border/50 bg-background">
                   <div className="flex items-center justify-center gap-2">
-                    {chain.id === 'solana' && <NetworkSwitch />}
                     <RpcSettings variant="icon" />
                   </div>
                   <ConnectWallet className="w-full justify-center" />
