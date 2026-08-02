@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { ipfsToHttp } from "@/lib/ipfs";
-import {
 import { SmartImage } from "@/components/ui/smart-image";
+import {
   Carousel,
   CarouselContent,
   CarouselItem,
