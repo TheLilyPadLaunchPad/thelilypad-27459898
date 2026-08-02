@@ -39,21 +39,22 @@ export const SmartImage: React.FC<SmartImageProps> = ({
     onLoad,
     ...rest
 }) => {
-    const [failed, setFailed] = useState(false);
+    // "variant" -> optimized srcSet, "raw" -> original URL, "failed" -> fallback
+    const [stage, setStage] = useState<"variant" | "raw" | "failed">("variant");
     const [loaded, setLoaded] = useState(false);
 
     const url = src || "";
 
     const srcSet = useMemo(
-        () => (failed ? undefined : buildSrcSet(url, widths, quality)),
-        [url, widths, quality, failed],
+        () => (stage === "variant" ? buildSrcSet(url, widths, quality) : undefined),
+        [url, widths, quality, stage],
     );
 
     const resolvedSrc = useMemo(() => {
-        if (!url) return fallbackSrc;
-        if (failed) return fallbackSrc;
+        if (!url || stage === "failed") return fallbackSrc;
+        if (stage === "raw") return url;
         return thumbnailUrl(url, displayWidth, quality);
-    }, [url, displayWidth, quality, failed, fallbackSrc]);
+    }, [url, displayWidth, quality, stage, fallbackSrc]);
 
     return (
         <img
@@ -75,8 +76,9 @@ export const SmartImage: React.FC<SmartImageProps> = ({
                 onLoad?.(e);
             }}
             onError={(e) => {
-                setLoaded(true);
-                if (!failed) setFailed(true);
+                // Optimized variant failed -> retry original -> then placeholder
+                setStage((prev) => (prev === "variant" ? "raw" : "failed"));
+                if (stage !== "variant") setLoaded(true);
                 onError?.(e);
             }}
         />
