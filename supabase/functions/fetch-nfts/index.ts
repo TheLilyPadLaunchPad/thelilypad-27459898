@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // ---- In-memory response cache (per-isolate) -----------------------------
-// Reduces repeated Alchemy/DAS calls when users scroll back and forth, and
+// Reduces repeated Solana DAS calls when users scroll back and forth, and
 // when multiple components request the same wallet/collection concurrently.
 // TTLs are intentionally short — NFT ownership changes on-chain.
 const CACHE_TTL_MS = {
@@ -132,15 +132,6 @@ function invalidateCollection(collectionAddress: string, network: string): numbe
   return cacheInvalidate(`collection:${network}:${collectionAddress}`);
 }
 
-// Supported EVM networks
-const EVM_NETWORKS = [
-  "eth-mainnet",
-  "polygon-mainnet",
-  "arb-mainnet",
-  "opt-mainnet",
-  "base-mainnet",
-];
-
 // Solana RPC endpoints
 const SOLANA_RPC = {
   devnet: "https://api.devnet.solana.com",
@@ -152,34 +143,6 @@ interface NFTMetadata {
   description?: string;
   image?: string;
   attributes?: Array<{ trait_type: string; value: string }>;
-}
-
-interface AlchemyNFT {
-  tokenId: string;
-  contract: {
-    address: string;
-    name?: string;
-    symbol?: string;
-  };
-  name?: string;
-  description?: string;
-  image?: {
-    cachedUrl?: string;
-    originalUrl?: string;
-    thumbnailUrl?: string;
-  };
-  raw?: {
-    metadata?: NFTMetadata;
-  };
-  collection?: {
-    name?: string;
-  };
-}
-
-interface AlchemyResponse {
-  ownedNfts: AlchemyNFT[];
-  totalCount: number;
-  pageKey?: string;
 }
 
 // DAS API response types for Solana
@@ -221,53 +184,6 @@ interface DASResponse {
   error?: {
     code: number;
     message: string;
-  };
-}
-
-async function fetchEVMNFTs(
-  apiKey: string,
-  walletAddress: string,
-  network: string,
-  pageKey?: string
-) {
-  const baseUrl = `https://${network}.g.alchemy.com/nft/v3/${apiKey}/getNFTsForOwner`;
-
-  const params = new URLSearchParams({
-    owner: walletAddress,
-    withMetadata: "true",
-    pageSize: "20",
-  });
-
-  if (pageKey) {
-    params.append("pageKey", pageKey);
-  }
-
-  const response = await fetch(`${baseUrl}?${params.toString()}`, {
-    method: "GET",
-    headers: { "Accept": "application/json" },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Alchemy API error: ${response.status} - ${errorText}`);
-  }
-
-  const data: AlchemyResponse = await response.json();
-
-  const nfts = data.ownedNfts.map((nft) => ({
-    tokenId: nft.tokenId,
-    contractAddress: nft.contract.address,
-    name: nft.name || nft.raw?.metadata?.name || `#${nft.tokenId}`,
-    description: nft.description || nft.raw?.metadata?.description || "",
-    image: nft.image?.cachedUrl || nft.image?.thumbnailUrl || nft.image?.originalUrl || nft.raw?.metadata?.image || "",
-    collection: nft.collection?.name || nft.contract.name || "Unknown Collection",
-    attributes: nft.raw?.metadata?.attributes || [],
-  }));
-
-  return {
-    nfts,
-    totalCount: data.totalCount,
-    pageKey: data.pageKey,
   };
 }
 
@@ -446,7 +362,7 @@ serve(async (req) => {
   try {
     const {
       walletAddress,
-      network = "eth-mainnet",
+      network = "solana-mainnet",
       pageKey,
       // Solana specific params
       assetAddress,
@@ -468,7 +384,7 @@ serve(async (req) => {
     }
 
     // Handle single asset fetch (Solana)
-    if (assetAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
+    if (assetAddress) {
       const key = `asset:${network}:${assetAddress}`;
       const { body, cached } = await withCache(key, CACHE_TTL_MS.asset, async () => {
         console.log(`Fetching single Solana asset: ${assetAddress}`);
@@ -497,7 +413,7 @@ serve(async (req) => {
     }
 
     // Handle collection fetch (Solana)
-    if (collectionAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
+    if (collectionAddress) {
       const key = `collection:${network}:${collectionAddress}`;
       const { body, cached } = await withCache(key, CACHE_TTL_MS.collection, async () => {
         console.log(`Fetching Solana collection: ${collectionAddress}`);
@@ -522,30 +438,14 @@ serve(async (req) => {
     const result: WalletResult = await withCache(walletKey, CACHE_TTL_MS.wallet, async () => {
       console.log(`Fetching NFTs for ${walletAddress} on ${network}`);
 
-      if (network === "solana-mainnet" || network === "solana-devnet") {
-        return await fetchSolanaAssetsByOwner(
-          walletAddress,
-          network === "solana-devnet",
-          page,
-        );
-      }
-      if (EVM_NETWORKS.includes(network)) {
-        const ALCHEMY_API_KEY = Deno.env.get("ALCHEMY_API_KEY");
-        if (!ALCHEMY_API_KEY) {
-          throw new Error("ALCHEMY_API_KEY_MISSING");
-        }
-        return await fetchEVMNFTs(ALCHEMY_API_KEY, walletAddress, network, pageKey);
-      }
-      throw new Error(`UNSUPPORTED_NETWORK:${network}`);
+      return await fetchSolanaAssetsByOwner(
+        walletAddress,
+        network === "solana-devnet",
+        page,
+      );
     }).catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg === "ALCHEMY_API_KEY_MISSING") {
-        return { __error: { status: 500, message: "Alchemy API key not configured" } };
-      }
-      if (msg.startsWith("UNSUPPORTED_NETWORK:")) {
-        return { __error: { status: 400, message: `Unsupported network: ${msg.split(":")[1]}` } };
-      }
       throw err;
+
     });
 
     if ("__error" in result) {

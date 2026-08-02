@@ -17,12 +17,10 @@ import {
   Hash,
   FileText,
   Layers,
-  Sparkles,
-  Send
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import type { NFT } from "@/hooks/useWalletNFTs";
-import { NFTTransferModal } from "./NFTTransferModal";
 
 interface WalletNFTDetailModalProps {
   isOpen: boolean;
@@ -33,58 +31,12 @@ interface WalletNFTDetailModalProps {
 }
 
 const NETWORK_CONFIG: Record<string, {
-  openSeaUrl: string;
   explorerUrl: string;
   explorerName: string;
-  openSeaSupported: boolean;
 }> = {
-  "eth-mainnet": {
-    openSeaUrl: "https://opensea.io/assets/ethereum",
-    explorerUrl: "https://etherscan.io/nft",
-    explorerName: "Etherscan",
-    openSeaSupported: true
-  },
-  "polygon-mainnet": {
-    openSeaUrl: "https://opensea.io/assets/matic",
-    explorerUrl: "https://polygonscan.com/nft",
-    explorerName: "PolygonScan",
-    openSeaSupported: true
-  },
-  "arb-mainnet": {
-    openSeaUrl: "https://opensea.io/assets/arbitrum",
-    explorerUrl: "https://arbiscan.io/nft",
-    explorerName: "Arbiscan",
-    openSeaSupported: true
-  },
-  "opt-mainnet": {
-    openSeaUrl: "https://opensea.io/assets/optimism",
-    explorerUrl: "https://optimistic.etherscan.io/nft",
-    explorerName: "Optimism Explorer",
-    openSeaSupported: true
-  },
-  "base-mainnet": {
-    openSeaUrl: "https://opensea.io/assets/base",
-    explorerUrl: "https://basescan.org/nft",
-    explorerName: "BaseScan",
-    openSeaSupported: true
-  },
   "solana-mainnet": {
-    openSeaUrl: "",
     explorerUrl: "https://solscan.io/token",
     explorerName: "Solscan",
-    openSeaSupported: false
-  },
-  "solana-devnet": {
-    openSeaUrl: "",
-    explorerUrl: "https://solscan.io/token",
-    explorerName: "Solscan (Devnet)",
-    openSeaSupported: false
-  },
-  "solana-testnet": {
-    openSeaUrl: "",
-    explorerUrl: "https://solscan.io/token",
-    explorerName: "Solscan (Testnet)",
-    openSeaSupported: false
   },
 };
 
@@ -96,19 +48,12 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
   onTransferSuccess,
 }) => {
   const [copied, setCopied] = React.useState(false);
-  const [isTransferModalOpen, setIsTransferModalOpen] = React.useState(false);
 
   if (!nft) return null;
 
-  const config = NETWORK_CONFIG[network] || NETWORK_CONFIG["eth-mainnet"];
+  const config = NETWORK_CONFIG[network] || NETWORK_CONFIG["solana-mainnet"];
 
-  const openSeaLink = config.openSeaSupported
-    ? `${config.openSeaUrl}/${nft.contractAddress}/${nft.tokenId}`
-    : null;
-
-  const explorerLink = network.includes("solana")
-    ? `${config.explorerUrl}/${nft.contractAddress}?cluster=${network.includes("devnet") ? "devnet" : network.includes("testnet") ? "testnet" : "mainnet"}`
-    : `${config.explorerUrl}/${nft.contractAddress}/${nft.tokenId}`;
+  const explorerLink = `${config.explorerUrl}/${nft.contractAddress}`;
 
   const handleCopyAddress = async () => {
     await navigator.clipboard.writeText(nft.contractAddress);
@@ -235,30 +180,8 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
 
           <Separator />
 
-          {/* Transfer Button - Only for EVM networks */}
-          {network !== "solana-mainnet" && (
-            <Button
-              className="w-full"
-              onClick={() => setIsTransferModalOpen(true)}
-            >
-              <Send className="w-4 h-4 mr-2" />
-              Transfer NFT
-            </Button>
-          )}
-
           {/* External Links */}
           <div className="flex gap-2">
-            {openSeaLink && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => window.open(openSeaLink, "_blank")}
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                OpenSea
-              </Button>
-            )}
             <Button
               variant="outline"
               size="sm"
@@ -270,18 +193,6 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
             </Button>
           </div>
         </div>
-
-        {/* Transfer Modal */}
-        <NFTTransferModal
-          isOpen={isTransferModalOpen}
-          onClose={() => setIsTransferModalOpen(false)}
-          nft={nft}
-          network={network}
-          onTransferSuccess={() => {
-            setIsTransferModalOpen(false);
-            onTransferSuccess?.();
-          }}
-        />
       </DialogContent>
     </Dialog>
   );

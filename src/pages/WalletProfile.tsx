@@ -12,14 +12,11 @@ import { Input } from "@/components/ui/input";
 import { useSEO } from "@/hooks/useSEO";
 import { useCryptoPrice } from "@/hooks/useCryptoPrice";
 import { useWalletNFTs, NFT } from "@/hooks/useWalletNFTs";
-import { useNFTFloorPrices } from "@/hooks/useNFTFloorPrices";
 import { useHeliusTransactions, useParseHeliusTransaction } from "@/hooks/useHeliusTransactions";
 import { toast } from "sonner";
 import { WalletAvatar } from "@/components/wallet/WalletAvatar";
 import { PublicBadgeShowcase } from "@/components/PublicBadgeShowcase";
-import { NFTNetworkSelector, NFT_NETWORKS } from "@/components/wallet/NFTNetworkSelector";
 import { WalletNFTDetailModal } from "@/components/wallet/WalletNFTDetailModal";
-import { PortfolioValueCard } from "@/components/wallet/PortfolioValueCard";
 import { CreateNftModal } from "@/components/CreateNftModal";
 import { NFTFilters, filterAndSortNFTs, SortOption } from "@/components/wallet/NFTFilters";
 import { HoldingsFolderGrid } from "@/components/profile/holdings/HoldingsFolderGrid";
@@ -69,7 +66,7 @@ export default function WalletProfile() {
   const [walletName, setWalletName] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempWalletName, setTempWalletName] = useState("");
-  const [selectedNetwork, setSelectedNetwork] = useState("solana-mainnet");
+  const selectedNetwork = "solana-mainnet";
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
   const [historyType, setHistoryType] = useState<"app" | "chain" | "lookup">("app");
@@ -94,7 +91,7 @@ export default function WalletProfile() {
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [nftSortBy, setNftSortBy] = useState<SortOption>("name-asc");
 
-  // Fetch real NFTs from Alchemy based on selected network
+  // Fetch real NFTs (Solana mainnet)
   const {
     nfts,
     totalCount: nftCount,
@@ -149,26 +146,10 @@ export default function WalletProfile() {
   const { data: onChainTxs = [], isLoading: heliusLoading, refetch: refetchHelius } = useHeliusTransactions();
   const { data: lookupTx, isLoading: lookupLoading, refetch: refetchLookup } = useParseHeliusTransaction(activeTxSignature);
 
-  // Fetch floor prices for portfolio value estimation
-  const {
-    totalValue,
-    isLoading: floorPricesLoading,
-    error: floorPricesError,
-    currency: portfolioCurrency,
-    refresh: refreshFloorPrices,
-  } = useNFTFloorPrices(nfts, selectedNetwork);
-
   // Get unique collection count
   const uniqueCollections = useMemo(() => {
     return [...new Set(nfts.map(nft => nft.contractAddress))].length;
   }, [nfts]);
-
-  const handleNetworkChange = (selectedNetworkParam: string) => {
-    setSelectedNetwork(selectedNetworkParam);
-    // Reset filters when network changes
-    setNftSearchQuery("");
-    setSelectedCollections([]);
-  };
 
   const handleNFTClick = (nft: NFT) => {
     setSelectedNFT(nft);
@@ -189,7 +170,6 @@ export default function WalletProfile() {
     return filterAndSortNFTs(nfts, nftSearchQuery, selectedCollections, nftSortBy);
   }, [nfts, nftSearchQuery, selectedCollections, nftSortBy]);
 
-  const selectedNetworkInfo = NFT_NETWORKS.find(n => n.id === selectedNetwork);
 
   // Load wallet name: prefer Supabase display_name, fall back to localStorage
   useEffect(() => {
@@ -660,31 +640,11 @@ export default function WalletProfile() {
 
           {/* NFTs Tab */}
           <TabsContent value="nfts">
-            {/* Portfolio Value Card */}
-            {nfts.length > 0 && selectedNetwork !== "solana-mainnet" && (
-              <div className="mb-4">
-                <PortfolioValueCard
-                  totalValue={totalValue}
-                  currency={portfolioCurrency}
-                  nftCount={nfts.length}
-                  collectionCount={uniqueCollections}
-                  isLoading={floorPricesLoading}
-                  error={floorPricesError}
-                  onRefresh={refreshFloorPrices}
-                />
-              </div>
-            )}
-
             <Card className="glass-card border-border/50">
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <CardTitle className="text-base sm:text-lg">NFT Holdings</CardTitle>
                   <div className="flex items-center gap-2">
-                    <NFTNetworkSelector
-                      value={selectedNetwork}
-                      onValueChange={handleNetworkChange}
-                      disabled={nftsLoading}
-                    />
                     <Button
                       size="sm"
                       variant="ghost"
@@ -699,12 +659,6 @@ export default function WalletProfile() {
                     </Button>
                   </div>
                 </div>
-                {selectedNetworkInfo && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Showing NFTs on {selectedNetworkInfo.name}
-                    {selectedNetwork === "solana-mainnet" && " (Note: Requires Solana wallet address)"}
-                  </p>
-                )}
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                 <div className="mb-4 flex justify-end">
@@ -742,7 +696,7 @@ export default function WalletProfile() {
                   <>
                     <HoldingsFolderGrid
                       nfts={filteredNFTs}
-                      currency={portfolioCurrency}
+                      currency="SOL"
                       network={selectedNetwork}
                       onSetAsPfp={handleSetAsPfp}
                       onView={handleNFTClick}
@@ -771,7 +725,7 @@ export default function WalletProfile() {
                     <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
                     <p className="text-sm sm:text-base">No NFTs in your wallet</p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      NFTs on {selectedNetworkInfo?.name || "this network"} will appear here
+                      NFTs on Solana mainnet will appear here
                     </p>
                   </div>
                 )}
