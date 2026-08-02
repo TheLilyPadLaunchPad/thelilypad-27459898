@@ -41,7 +41,7 @@ const getNetworkType = (network: string): NetworkType => {
 
 export function useWalletNFTs(
   walletAddress: string | null,
-  network: string = "eth-mainnet"
+  network: string = "solana-mainnet"
 ): UseWalletNFTsResult {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [totalCount, setTotalCount] = useState(0);

@@ -69,7 +69,7 @@ export default function WalletProfile() {
   const [walletName, setWalletName] = useState<string>("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempWalletName, setTempWalletName] = useState("");
-  const [selectedNetwork, setSelectedNetwork] = useState("eth-mainnet");
+  const [selectedNetwork, setSelectedNetwork] = useState("solana-mainnet");
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
   const [historyType, setHistoryType] = useState<"app" | "chain" | "lookup">("app");
