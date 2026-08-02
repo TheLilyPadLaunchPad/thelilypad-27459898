@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { AdvantageCell } from "./AdvantageCell";
 import { ExternalLink, ImageIcon } from "lucide-react";
+import { SmartImage } from "@/components/ui/smart-image";
 
 interface Props {
   chain: MarketPulseChain;
@@ -69,14 +70,15 @@ export function MarketPulseTable({ chain, limit = 20, compact = false }: Props) 
               <td className="px-3 py-2">
                 <div className="flex items-center gap-2">
                   {row.image ? (
-                    <img
+                    <SmartImage
                       src={row.image}
                       alt={row.name}
                       className="w-8 h-8 rounded object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.visibility =
-                          "hidden";
-                      }}
+                      displayWidth={64}
+                      widths={[32, 64, 128]}
+                      sizes="32px"
+                      width={32}
+                      height={32}
                     />
                   ) : (
                     <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">

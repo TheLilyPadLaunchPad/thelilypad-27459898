@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { ipfsToHttp } from "@/lib/ipfs";
 import {
+import { SmartImage } from "@/components/ui/smart-image";
   Carousel,
   CarouselContent,
   CarouselItem,
@@ -137,12 +138,12 @@ export const HomepageFeaturedCollections: React.FC = () => {
               <Link to={`/collection/${featured.collection.id}`}>
                 <Card className="group cursor-pointer overflow-hidden border-2 border-primary/20 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10">
                   <div className="relative aspect-square overflow-hidden">
-                    <img
+                    <SmartImage
                       src={ipfsToHttp(featured.collection.image_url) || "/placeholder.svg"}
                       alt={featured.collection.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
+                      displayWidth={480}
+                      sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 30vw"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                     <div className="absolute top-2 left-2">

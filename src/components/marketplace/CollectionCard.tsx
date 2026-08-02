@@ -8,6 +8,7 @@ import { useBuybackProgram } from "@/hooks/useBuybackProgram";
 import { Rocket, Clock, CheckCircle, Sparkles, TrendingUp, Flame, Ban, Image as ImageIcon } from "lucide-react";
 import { type Collection, getCollectionPrice, isCollectionNew } from "@/hooks/useMarketplaceData";
 import { ipfsToHttp, resolveNftImageUrl } from "@/lib/ipfs";
+import { SmartImage } from "@/components/ui/smart-image";
 
 const statusColors = {
   live: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -66,14 +67,14 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
     >
       <div className="aspect-square relative overflow-hidden bg-muted">
         {collection.image_url ? (
-          <img
+          <SmartImage
             src={resolveNftImageUrl(collection.image_url) || "/placeholder.svg"}
             alt={collection.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-            width="199"
-            height="199"
-            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
+            displayWidth={400}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            width={199}
+            height={199}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">

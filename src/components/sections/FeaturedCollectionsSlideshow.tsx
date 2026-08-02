@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { ipfsToHttp } from "@/lib/ipfs";
+import { SmartImage } from "@/components/ui/smart-image";
 
 interface FeaturedCollection {
   id: string;
@@ -204,11 +205,12 @@ export const FeaturedCollectionsSlideshow: React.FC<FeaturedCollectionsSlideshow
                     {/* Collection Image */}
                     <div className="relative w-full md:w-80 h-48 md:h-64 overflow-hidden">
                       {currentCollection.collection.image_url ? (
-                        <img
+                        <SmartImage
                           src={ipfsToHttp(currentCollection.collection.image_url)}
                           alt={currentCollection.collection.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
+                          displayWidth={640}
+                          sizes="(max-width: 768px) 100vw, 320px"
                         />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
