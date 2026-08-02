@@ -132,15 +132,6 @@ function invalidateCollection(collectionAddress: string, network: string): numbe
   return cacheInvalidate(`collection:${network}:${collectionAddress}`);
 }
 
-// Supported EVM networks
-const EVM_NETWORKS = [
-  "eth-mainnet",
-  "polygon-mainnet",
-  "arb-mainnet",
-  "opt-mainnet",
-  "base-mainnet",
-];
-
 // Solana RPC endpoints
 const SOLANA_RPC = {
   devnet: "https://api.devnet.solana.com",
@@ -152,34 +143,6 @@ interface NFTMetadata {
   description?: string;
   image?: string;
   attributes?: Array<{ trait_type: string; value: string }>;
-}
-
-interface AlchemyNFT {
-  tokenId: string;
-  contract: {
-    address: string;
-    name?: string;
-    symbol?: string;
-  };
-  name?: string;
-  description?: string;
-  image?: {
-    cachedUrl?: string;
-    originalUrl?: string;
-    thumbnailUrl?: string;
-  };
-  raw?: {
-    metadata?: NFTMetadata;
-  };
-  collection?: {
-    name?: string;
-  };
-}
-
-interface AlchemyResponse {
-  ownedNfts: AlchemyNFT[];
-  totalCount: number;
-  pageKey?: string;
 }
 
 // DAS API response types for Solana
@@ -221,53 +184,6 @@ interface DASResponse {
   error?: {
     code: number;
     message: string;
-  };
-}
-
-async function fetchEVMNFTs(
-  apiKey: string,
-  walletAddress: string,
-  network: string,
-  pageKey?: string
-) {
-  const baseUrl = `https://${network}.g.alchemy.com/nft/v3/${apiKey}/getNFTsForOwner`;
-
-  const params = new URLSearchParams({
-    owner: walletAddress,
-    withMetadata: "true",
-    pageSize: "20",
-  });
-
-  if (pageKey) {
-    params.append("pageKey", pageKey);
-  }
-
-  const response = await fetch(`${baseUrl}?${params.toString()}`, {
-    method: "GET",
-    headers: { "Accept": "application/json" },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Alchemy API error: ${response.status} - ${errorText}`);
-  }
-
-  const data: AlchemyResponse = await response.json();
-
-  const nfts = data.ownedNfts.map((nft) => ({
-    tokenId: nft.tokenId,
-    contractAddress: nft.contract.address,
-    name: nft.name || nft.raw?.metadata?.name || `#${nft.tokenId}`,
-    description: nft.description || nft.raw?.metadata?.description || "",
-    image: nft.image?.cachedUrl || nft.image?.thumbnailUrl || nft.image?.originalUrl || nft.raw?.metadata?.image || "",
-    collection: nft.collection?.name || nft.contract.name || "Unknown Collection",
-    attributes: nft.raw?.metadata?.attributes || [],
-  }));
-
-  return {
-    nfts,
-    totalCount: data.totalCount,
-    pageKey: data.pageKey,
   };
 }
 
