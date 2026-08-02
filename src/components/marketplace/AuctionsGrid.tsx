@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Gavel, Image as ImageIcon, Clock } from "lucide-react";
 import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 import { resolveNftImageUrl } from "@/lib/ipfs";
+import { SmartImage } from "@/components/ui/smart-image";
 
 export interface AuctionRow {
   id: string;
@@ -78,13 +79,14 @@ export const AuctionsGrid: React.FC<Props> = ({ auctions, isLoading, onSelect })
             >
               <div className="aspect-square relative overflow-hidden bg-muted">
                 {a.image_url ? (
-                  <img
+                  <SmartImage
                     src={resolveNftImageUrl(a.image_url)}
                     alt={a.name ?? "Auction NFT"}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                    width="199"
-                    height="199"
+                    displayWidth={400}
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    width={199}
+                    height={199}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

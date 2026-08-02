@@ -8,6 +8,7 @@ import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 import { EmptyState } from "@/components/common";
 import { type ShopItem } from "@/hooks/useMarketplaceData";
 import { ipfsToHttp, resolveNftImageUrl } from "@/lib/ipfs";
+import { SmartImage } from "@/components/ui/smart-image";
 
 interface StickerPacksGridProps {
   stickerPacks: ShopItem[];
@@ -70,11 +71,12 @@ export const StickerPacksGrid: React.FC<StickerPacksGridProps> = ({
           >
             <div className="aspect-square relative overflow-hidden bg-muted">
               {pack.image_url ? (
-                <img
+                <SmartImage
                   src={resolveNftImageUrl(pack.image_url)}
                   alt={pack.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  displayWidth={400}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

@@ -8,6 +8,7 @@ import { MarketplaceCardSkeleton } from "@/components/LoadingSkeletons";
 import { EmptyState } from "@/components/common";
 import { type NFTListing } from "@/hooks/useMarketplaceData";
 import { ipfsToHttp, resolveNftImageUrl } from "@/lib/ipfs";
+import { SmartImage } from "@/components/ui/smart-image";
 
 interface ListingsGridProps {
   listings: NFTListing[];
@@ -66,13 +67,14 @@ export const ListingsGrid: React.FC<ListingsGridProps> = ({
           >
             <div className="aspect-square relative overflow-hidden bg-muted">
               {listing.nft.image_url ? (
-                <img
+                <SmartImage
                   src={resolveNftImageUrl(listing.nft.image_url || "")}
                   alt={listing.nft.name || `Token #${listing.nft.token_id}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
-                  width="199"
-                  height="199"
+                  displayWidth={400}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  width={199}
+                  height={199}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

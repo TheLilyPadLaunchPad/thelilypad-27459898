@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ipfsToHttp } from "@/lib/ipfs";
 import { getCurrencySymbol } from "@/lib/chainUtils";
+import { SmartImage } from "@/components/ui/smart-image";
 
 interface Collection {
   id: string;
@@ -107,11 +108,12 @@ export const MarketplacePreview: React.FC = () => {
                 {/* Image area */}
                 <div className="aspect-square bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center relative overflow-hidden">
                   {collection.image_url ? (
-                    <img
+                    <SmartImage
                       src={ipfsToHttp(collection.image_url)}
                       alt={collection.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
+                      displayWidth={480}
+                      sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 30vw"
                     />
                   ) : (
                     <ImageIcon className="w-16 h-16 text-muted-foreground" />

@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { ipfsToHttp } from "@/lib/ipfs";
+import { SmartImage } from "@/components/ui/smart-image";
 
 interface CollectionStat {
   id: string;
@@ -176,18 +177,15 @@ export const TopCollectionsHighlights: React.FC = () => {
                               </div>
                               <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                                 {collection.image_url ? (
-                                  <img
+                                  <SmartImage
                                     src={ipfsToHttp(collection.image_url)}
                                     alt={collection.name}
                                     width={40}
                                     height={40}
-                                    loading="lazy"
-                                    decoding="async"
+                                    displayWidth={80}
+                                    widths={[40, 80, 160]}
+                                    sizes="40px"
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                                    onError={(e) => {
-                                      e.currentTarget.onerror = null;
-                                      e.currentTarget.src = "/placeholder.svg";
-                                    }}
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs font-bold">
