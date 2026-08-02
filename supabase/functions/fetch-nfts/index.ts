@@ -438,30 +438,14 @@ serve(async (req) => {
     const result: WalletResult = await withCache(walletKey, CACHE_TTL_MS.wallet, async () => {
       console.log(`Fetching NFTs for ${walletAddress} on ${network}`);
 
-      if (network === "solana-mainnet" || network === "solana-devnet") {
-        return await fetchSolanaAssetsByOwner(
-          walletAddress,
-          network === "solana-devnet",
-          page,
-        );
-      }
-      if (EVM_NETWORKS.includes(network)) {
-        const ALCHEMY_API_KEY = Deno.env.get("ALCHEMY_API_KEY");
-        if (!ALCHEMY_API_KEY) {
-          throw new Error("ALCHEMY_API_KEY_MISSING");
-        }
-        return await fetchEVMNFTs(ALCHEMY_API_KEY, walletAddress, network, pageKey);
-      }
-      throw new Error(`UNSUPPORTED_NETWORK:${network}`);
+      return await fetchSolanaAssetsByOwner(
+        walletAddress,
+        network === "solana-devnet",
+        page,
+      );
     }).catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg === "ALCHEMY_API_KEY_MISSING") {
-        return { __error: { status: 500, message: "Alchemy API key not configured" } };
-      }
-      if (msg.startsWith("UNSUPPORTED_NETWORK:")) {
-        return { __error: { status: 400, message: `Unsupported network: ${msg.split(":")[1]}` } };
-      }
       throw err;
+
     });
 
     if ("__error" in result) {
