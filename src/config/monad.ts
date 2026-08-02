@@ -33,7 +33,7 @@ export const MONAD_NETWORKS = {
 export type MonadNetwork = keyof typeof MONAD_NETWORKS;
 
 // Default network
-export const DEFAULT_MONAD_NETWORK: MonadNetwork = 'testnet';
+export const DEFAULT_MONAD_NETWORK: MonadNetwork = 'mainnet';
 
 // Contract addresses (to be deployed)
 export const MONAD_CONTRACTS = {
