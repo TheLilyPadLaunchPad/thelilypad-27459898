@@ -17,8 +17,7 @@ import {
   Hash,
   FileText,
   Layers,
-  Sparkles,
-  Send
+  Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 import type { NFT } from "@/hooks/useWalletNFTs";
@@ -49,7 +48,6 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
   onTransferSuccess,
 }) => {
   const [copied, setCopied] = React.useState(false);
-  const [isTransferModalOpen, setIsTransferModalOpen] = React.useState(false);
 
   if (!nft) return null;
 
@@ -195,8 +193,6 @@ export const WalletNFTDetailModal: React.FC<WalletNFTDetailModalProps> = ({
             </Button>
           </div>
         </div>
-
-        {/* Transfer Modal */}
       </DialogContent>
     </Dialog>
   );
