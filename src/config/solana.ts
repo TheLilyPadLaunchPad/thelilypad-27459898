@@ -54,7 +54,7 @@ export const SOLANA_MAINNET_RPC = MAINNET_RPC_LIST[0];
 // Metaplex Core Program ID (used for Candy Machine minting)
 export const CORE_CANDY_MACHINE_ADDRESS = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
 
-export type NetworkType = "mainnet";
+export type NetworkType = "mainnet" | "devnet" | "testnet";
 
 // Simple health check for Solana RPC
 export interface RpcHealthStatus {
