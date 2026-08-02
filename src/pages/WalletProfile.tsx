@@ -696,7 +696,7 @@ export default function WalletProfile() {
                   <>
                     <HoldingsFolderGrid
                       nfts={filteredNFTs}
-                      currency={portfolioCurrency}
+                      currency="SOL"
                       network={selectedNetwork}
                       onSetAsPfp={handleSetAsPfp}
                       onView={handleNFTClick}
