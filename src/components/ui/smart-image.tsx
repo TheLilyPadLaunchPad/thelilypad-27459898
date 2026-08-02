@@ -65,7 +65,7 @@ export const SmartImage: React.FC<SmartImageProps> = ({
             alt={alt}
             loading={priority ? "eager" : "lazy"}
             decoding={priority ? "sync" : "async"}
-            fetchPriority={priority ? "high" : "auto"}
+            {...(priority ? { fetchPriority: "high" as const } : {})}
             className={cn(
                 "transition-opacity duration-300",
                 loaded ? "opacity-100" : "opacity-0",
