@@ -23,7 +23,7 @@ export const formatPriceWithCurrency = (
   return `${numPrice} ${getCurrencySymbol(chain)}`;
 };
 
-export const getExplorerUrl = (chain: string, network: 'mainnet' | 'testnet' | 'devnet' = 'testnet'): string => {
+export const getExplorerUrl = (chain: string, network: 'mainnet' | 'testnet' | 'devnet' = 'mainnet'): string => {
   const baseChain = (chain || '').split('-')[0] as SupportedChain;
   const config = CHAINS[baseChain] || CHAINS.solana;
   const net = network === 'testnet' ? 'testnet' : network === 'devnet' ? 'devnet' : 'mainnet';
@@ -33,7 +33,7 @@ export const getExplorerUrl = (chain: string, network: 'mainnet' | 'testnet' | '
 export const getTxExplorerUrl = (
   txHash: string,
   chain: string,
-  network: 'mainnet' | 'testnet' | 'devnet' = 'testnet'
+  network: 'mainnet' | 'testnet' | 'devnet' = 'mainnet'
 ): string => {
   const baseChain = (chain || '').split('-')[0] as SupportedChain;
   const config = CHAINS[baseChain] || CHAINS.solana;
@@ -59,7 +59,7 @@ export const isTestnet = (chain: string): boolean => {
     normalizedChain.includes('devnet');
 };
 
-export const getNetworkDisplayName = (chain: string, network: 'mainnet' | 'testnet' | 'devnet' = 'testnet'): string => {
+export const getNetworkDisplayName = (chain: string, network: 'mainnet' | 'testnet' | 'devnet' = 'mainnet'): string => {
   const baseChain = (chain || '').split('-')[0] as SupportedChain;
   const config = CHAINS[baseChain] || CHAINS.solana;
   const netLabel = network === 'mainnet' ? 'Mainnet' : network === 'devnet' ? 'Devnet' : 'Testnet';

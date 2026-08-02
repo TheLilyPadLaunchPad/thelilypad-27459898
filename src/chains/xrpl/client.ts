@@ -38,7 +38,7 @@ export function getXRPLHttpEndpoint(network: XRPLNetwork): string {
 /**
  * Create XRPL client
  */
-export async function createXRPLClient(network: XRPLNetwork = 'testnet'): Promise<Client> {
+export async function createXRPLClient(network: XRPLNetwork = 'mainnet'): Promise<Client> {
     const endpoint = getXRPLEndpoint(network);
     const client = new Client(endpoint);
     await client.connect();
@@ -64,8 +64,7 @@ export function generateXRPLWallet(): Wallet {
  */
 export function getXRPLNetwork(network: string): XRPLNetwork {
     if (network === 'mainnet' || network === 'xrpl') return 'mainnet';
-    if (network === 'testnet' || network === 'xrpl-testnet') return 'testnet';
-    return 'testnet'; // Default to testnet for safety
+    return 'mainnet'; // Mainnet-only platform
 }
 
 /**

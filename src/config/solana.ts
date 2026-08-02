@@ -54,7 +54,7 @@ export const SOLANA_MAINNET_RPC = MAINNET_RPC_LIST[0];
 // Metaplex Core Program ID (used for Candy Machine minting)
 export const CORE_CANDY_MACHINE_ADDRESS = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
 
-export type NetworkType = "mainnet" | "devnet" | "testnet";
+export type NetworkType = "mainnet";
 
 // Simple health check for Solana RPC
 export interface RpcHealthStatus {
@@ -102,7 +102,8 @@ export const getSolanaRpcList = (network: NetworkType): string[] => {
 
         case "devnet":
         default:
-            return DEVNET_RPC_LIST;
+            // Mainnet-only platform — devnet requests fall back to mainnet.
+            return MAINNET_RPC_LIST;
     }
 };
 
@@ -149,7 +150,7 @@ export const getBestRpc = async (network: NetworkType): Promise<string> => {
 };
 
 // Get preferred RPC from localStorage
-export const getPreferredRpcUrl = (network: NetworkType = "devnet"): string | null => {
+export const getPreferredRpcUrl = (network: NetworkType = "mainnet"): string | null => {
     if (typeof window !== 'undefined') {
         const saved = localStorage.getItem(`preferredRpc_${network}`);
         // Auto-migrate: Alchemy endpoints have been removed because the demo keys are
@@ -165,7 +166,7 @@ export const getPreferredRpcUrl = (network: NetworkType = "devnet"): string | nu
 };
 
 // Get RPC URL based on network type
-export const getRpcUrl = (network: NetworkType = "devnet"): string => {
+export const getRpcUrl = (network: NetworkType = "mainnet"): string => {
     const preferred = getPreferredRpcUrl(network);
     if (preferred) return preferred;
     return getSolanaRpcUrl(network);
@@ -193,7 +194,7 @@ export const initializeUmi = (network: NetworkType) => {
  */
 export const fetchSolanaAsset = async (
     nftAddress: string,
-    network: NetworkType = 'devnet'
+    network: NetworkType = "mainnet"
 ): Promise<any> => {
     const rpcUrl = getSolanaRpcUrl(network);
 
@@ -222,7 +223,7 @@ export const fetchSolanaAsset = async (
  */
 export const fetchSolanaAssets = async (
     nftAddresses: string[],
-    network: NetworkType = 'devnet'
+    network: NetworkType = "mainnet"
 ): Promise<any[]> => {
     const rpcUrl = getSolanaRpcUrl(network);
 
