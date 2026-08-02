@@ -58,7 +58,7 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
 }) => {
   const [price, setPrice] = useState(defaultPrice);
   const [quantity, setQuantity] = useState(defaultQuantity);
-  const [isTestnet, setIsTestnet] = useState(true);
+  const isTestnet = false;
   const [gasScenario, setGasScenario] = useState<GasScenario>("average");
 
   const calculations = useMemo(() => {
@@ -187,27 +187,6 @@ export const FeeCalculator: React.FC<FeeCalculatorProps> = ({
         </div>
 
         {/* Network Toggle */}
-        {showNetworkToggle && (
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Fuel className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">Network</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`text-sm ${!isTestnet ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                Mainnet
-              </span>
-              <Switch
-                checked={isTestnet}
-                onCheckedChange={setIsTestnet}
-              />
-              <span className={`text-sm ${isTestnet ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                Testnet
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Gas Price Scenario */}
         <div className="space-y-2">
           <Label className="text-sm flex items-center gap-1">

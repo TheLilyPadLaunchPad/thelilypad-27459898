@@ -29,7 +29,7 @@ export default function CreateXRPLWalletDialog({ open, onOpenChange, defaultNetw
     const { connectXRPLNonCustodial } = useWallet();
     const [step, setStep] = useState<Step>("warn");
     const [wallet, setWallet] = useState<GeneratedXRPLWallet | null>(null);
-    const [network, setNetwork] = useState<"mainnet" | "testnet">(defaultNetwork);
+    const [network] = useState<"mainnet" | "testnet">("mainnet");
     const [showSeed, setShowSeed] = useState(false);
     const [backedUp, setBackedUp] = useState(false);
     const [password, setPassword] = useState("");
@@ -143,18 +143,9 @@ export default function CreateXRPLWalletDialog({ open, onOpenChange, defaultNetw
                                     <p>Lose it = lose access. There is no password reset and no support recovery. Back it up safely before continuing.</p>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Network</label>
-                                <div className="flex gap-2">
-                                    <Button type="button" variant={network === "mainnet" ? "default" : "outline"} className="flex-1" onClick={() => setNetwork("mainnet")}>Mainnet</Button>
-                                    <Button type="button" variant={network === "testnet" ? "default" : "outline"} className="flex-1" onClick={() => setNetwork("testnet")}>Testnet</Button>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {network === "testnet"
-                                        ? "We'll auto-fund the new account from the XRPL testnet faucet."
-                                        : "Mainnet accounts require ~10 XRP reserve. Send XRP from an exchange after creation."}
-                                </p>
-                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Mainnet accounts require ~10 XRP reserve. Send XRP from an exchange after creation.
+                            </p>
                             <Button className="w-full" onClick={handleGenerate}>
                                 Generate Wallet
                             </Button>

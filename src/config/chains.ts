@@ -132,7 +132,7 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         walletType: 'evm',
         nftStandard: 'ERC-721',
         isActive: true,
-        isTestnetOnly: true,
+        isTestnetOnly: false,
         description: 'High-performance EVM-compatible chain with parallel execution',
     },
 
@@ -193,7 +193,7 @@ export function getExplorerUrl(
     chainId: SupportedChain,
     hash: string,
     type: 'tx' | 'address' | 'nft' = 'tx',
-    network: 'mainnet' | 'testnet' | 'devnet' = 'testnet'
+    network: 'mainnet' | 'testnet' | 'devnet' = 'mainnet'
 ): string {
     const chain = CHAINS[chainId];
     const networkConfig = chain.networks[network] || chain.networks.testnet;
@@ -237,11 +237,11 @@ export function setStoredChain(chain: SupportedChain): void {
 
 export function getDbChainValue(
     chain: SupportedChain,
-    network: 'mainnet' | 'testnet' = 'testnet'
+    network: 'mainnet' | 'testnet' = 'mainnet'
 ): string {
     if (network === 'mainnet') return chain;
-    if (chain === 'solana') return 'solana-devnet';
-    return `${chain}-testnet`;
+    if (chain === 'solana') return 'solana-mainnet';
+    return `${chain}-mainnet`;
 }
 
 export function getDbChainValues(chain: SupportedChain): string[] {

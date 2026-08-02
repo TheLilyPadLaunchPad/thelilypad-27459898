@@ -55,7 +55,7 @@ export default function XRPLEasyGenerator() {
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [symbol, setSymbol] = useState("");
-    const [network, setNetwork] = useState<"mainnet" | "testnet">("testnet");
+    const [network] = useState<"mainnet" | "testnet">("mainnet");
     const [transferFee, setTransferFee] = useState(0);
     const [taxon, setTaxon] = useState(Math.floor(Date.now() / 1000));
 
@@ -346,15 +346,7 @@ export default function XRPLEasyGenerator() {
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <Label>Network</Label>
-                                                    <Select value={network} onValueChange={(val: any) => setNetwork(val)}>
-                                                        <SelectTrigger>
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="testnet">Testnet</SelectItem>
-                                                            <SelectItem value="mainnet">Mainnet</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
+                                                    <div className="h-10 flex items-center px-3 rounded-md border border-input bg-muted/40 text-sm">XRPL Mainnet</div>
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label>Transfer Fee (%)</Label>

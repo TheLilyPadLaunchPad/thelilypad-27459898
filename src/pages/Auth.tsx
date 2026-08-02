@@ -72,7 +72,7 @@ export default function Auth() {
   const [selectedChain, setSelectedChain] = useState<SelectedChain>("solana");
   const [coldStorageDialogOpen, setColdStorageDialogOpen] = useState(false);
   const [coldStorageAddress, setColdStorageAddress] = useState("");
-  const [coldStorageNetwork, setColdStorageNetwork] = useState<'mainnet' | 'testnet'>('mainnet');
+  const [coldStorageNetwork] = useState<'mainnet' | 'testnet'>('mainnet');
   const [createWalletOpen, setCreateWalletOpen] = useState(false);
   const [unlockWalletOpen, setUnlockWalletOpen] = useState(false);
   const hasSavedXrpl = listSavedWallets().length > 0;
@@ -403,24 +403,7 @@ export default function Auth() {
                         </div>
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Network</label>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant={coldStorageNetwork === 'mainnet' ? 'default' : 'outline'}
-                              onClick={() => setColdStorageNetwork('mainnet')}
-                              className="flex-1"
-                            >
-                              Mainnet
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={coldStorageNetwork === 'testnet' ? 'default' : 'outline'}
-                              onClick={() => setColdStorageNetwork('testnet')}
-                              className="flex-1"
-                            >
-                              Testnet
-                            </Button>
-                          </div>
+                          <p className="text-sm text-muted-foreground">XRPL Mainnet</p>
                         </div>
                         <Button
                           onClick={handleColdStorageConnect}

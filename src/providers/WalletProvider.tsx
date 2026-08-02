@@ -15,7 +15,7 @@ import { connectXRPLWallet, type XRPLWalletProvider } from "@/lib/xrplWalletConn
 // Core is already initialized" warning and break pairing.
 import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
 import type { Provider } from '@reown/appkit-adapter-solana/react';
-import { solana, solanaTestnet, solanaDevnet } from '@reown/appkit/networks';
+import { solana } from '@reown/appkit/networks';
 import "@/integrations/reown/appkit"; // ensures the singleton module is loaded
 
 
@@ -84,7 +84,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isConnecting: false,
       isTransactionPending: false,
       balance: null,
-      network: ((localStorage.getItem("solanaNetwork") === "testnet" ? "devnet" : localStorage.getItem("solanaNetwork")) as NetworkType) || "mainnet",
+      // Mainnet-only platform: devnet/testnet are not selectable.
+      network: "mainnet" as NetworkType,
       walletType: "reown",
       chainType: "solana",
     };
@@ -190,9 +191,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const id = String((caipNetwork as any).id ?? '').toLowerCase();
     const name = String((caipNetwork as any).name ?? '').toLowerCase();
     let next: NetworkType | null = null;
-    if (id.includes('devnet') || name.includes('devnet')) next = 'devnet';
-    else if (id.includes('testnet') || name.includes('testnet')) next = 'devnet';
-    else if (name === 'solana' || id.includes('mainnet') || id.includes('5eykt4')) next = 'mainnet';
+    // Mainnet-only: never adopt a test network from the wallet.
+    if (id.includes('devnet') || name.includes('devnet') || id.includes('testnet') || name.includes('testnet')) next = null;
+    else next = 'mainnet';
     if (next) {
       const target = next;
       setState(prev => prev.network === target ? prev : { ...prev, network: target });
@@ -356,16 +357,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [reownDisconnect]);
 
 
-  const switchNetwork = useCallback(async (network: NetworkType) => {
+  // Mainnet-only platform: switching networks is intentionally a no-op.
+  const switchNetwork = useCallback(async (_network: NetworkType) => {
     try {
-      const target = network === 'mainnet' ? solana : network === 'testnet' ? solanaTestnet : solanaDevnet;
-      await reownSwitchNetwork(target);
+      await reownSwitchNetwork(solana);
     } catch (e) {
       console.error('Reown switchNetwork failed:', e);
     }
-    setState(prev => ({ ...prev, network }));
-    localStorage.setItem("solanaNetwork", network);
-    toast.success(`Switched to ${network}`);
+    setState(prev => (prev.network === 'mainnet' ? prev : { ...prev, network: 'mainnet' }));
+    localStorage.setItem("solanaNetwork", "mainnet");
   }, [reownSwitchNetwork]);
 
   // Returns the Reown Solana Provider for Umi/Metaplex hooks
@@ -380,8 +380,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const signXRPLTransaction = useCallback(async (txJson: any, network?: 'mainnet' | 'testnet') => {
     try {
       // Resolve XRPL network: explicit arg > stored toggle > current wallet network.
-      const stored = (typeof window !== 'undefined' && localStorage.getItem('xrplNetwork')) as 'mainnet' | 'testnet' | null;
-      const net: 'mainnet' | 'testnet' = network || stored || (state.network === 'mainnet' ? 'mainnet' : 'testnet');
+      const net: 'mainnet' | 'testnet' = 'mainnet';
 
       // Generated (in-browser) wallet: sign locally with the in-memory Wallet.
       if (state.walletType === ('generated' as any)) {
