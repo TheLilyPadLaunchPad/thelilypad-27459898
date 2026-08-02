@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // ---- In-memory response cache (per-isolate) -----------------------------
-// Reduces repeated Alchemy/DAS calls when users scroll back and forth, and
+// Reduces repeated Solana DAS calls when users scroll back and forth, and
 // when multiple components request the same wallet/collection concurrently.
 // TTLs are intentionally short — NFT ownership changes on-chain.
 const CACHE_TTL_MS = {
@@ -362,7 +362,7 @@ serve(async (req) => {
   try {
     const {
       walletAddress,
-      network = "eth-mainnet",
+      network = "solana-mainnet",
       pageKey,
       // Solana specific params
       assetAddress,
@@ -384,7 +384,7 @@ serve(async (req) => {
     }
 
     // Handle single asset fetch (Solana)
-    if (assetAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
+    if (assetAddress) {
       const key = `asset:${network}:${assetAddress}`;
       const { body, cached } = await withCache(key, CACHE_TTL_MS.asset, async () => {
         console.log(`Fetching single Solana asset: ${assetAddress}`);
@@ -413,7 +413,7 @@ serve(async (req) => {
     }
 
     // Handle collection fetch (Solana)
-    if (collectionAddress && (network === "solana-mainnet" || network === "solana-devnet")) {
+    if (collectionAddress) {
       const key = `collection:${network}:${collectionAddress}`;
       const { body, cached } = await withCache(key, CACHE_TTL_MS.collection, async () => {
         console.log(`Fetching Solana collection: ${collectionAddress}`);
