@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@/providers/WalletProvider';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DECENTRALIZED_CHAT_ENABLED } from '@/config/featureFlags';
-import {
 import { PUBLIC_CHAT_MESSAGE_COLUMNS } from '@/integrations/supabase/columns';
+import {
     getDecentralizedMessages,
     sendDecentralizedMessage,
     DecentralizedMessage
