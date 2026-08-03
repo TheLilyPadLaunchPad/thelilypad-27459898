@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+
 import { useAuth } from "@/providers/AuthProvider";
 import { useBetaMode } from "@/hooks/useBetaMode";
 import FrogLoader from "./FrogLoader";
@@ -28,6 +30,15 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // as a loading state instead of redirecting to /auth immediately.
   const hadPreviousSession = typeof window !== 'undefined' && localStorage.getItem('walletConnected') === 'true';
 
+  // Bounded wait: if auto-reconnect never completes, stop showing the loader
+  // forever and fall through to the /auth redirect.
+  const [reconnectTimedOut, setReconnectTimedOut] = useState(false);
+  useEffect(() => {
+    if (state !== "DISCONNECTED" || !hadPreviousSession) return;
+    const t = setTimeout(() => setReconnectTimedOut(true), 4000);
+    return () => clearTimeout(t);
+  }, [state, hadPreviousSession]);
+
   // Show loader while wallet connecting, handshaking, or profile loading
   if (state === "CONNECTING_WALLET" || state === "WALLET_CONNECTED" || state === "LOADING_PROFILE") {
     return (
@@ -38,13 +49,14 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // If disconnected but a previous session exists, wait for auto-reconnect
-  if (state === "DISCONNECTED" && hadPreviousSession) {
+  if (state === "DISCONNECTED" && hadPreviousSession && !reconnectTimedOut) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <FrogLoader size="lg" />
       </div>
     );
   }
+
 
   // Redirect to auth if truly disconnected (no prior session)
   if (state === "DISCONNECTED") {

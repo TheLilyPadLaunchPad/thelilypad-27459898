@@ -201,6 +201,18 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [caipNetwork]);
 
+  // WATCHDOG: Reown can stay in 'connecting'/'reconnecting' indefinitely when no
+  // wallet responds. Every route gates on isConnecting, so that would freeze the
+  // whole app on a loader. Force-clear the flag after a short grace period.
+  useEffect(() => {
+    if (!state.isConnecting) return;
+    const t = setTimeout(() => {
+      setState(prev => (prev.isConnecting && !prev.isConnected ? { ...prev, isConnecting: false } : prev));
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [state.isConnecting, state.isConnected]);
+
+
   // XRPL Connection using Joey Wallet
   const connectXRPL = useCallback(async () => {
     try {
