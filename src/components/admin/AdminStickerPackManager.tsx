@@ -126,23 +126,14 @@ export const AdminStickerPackManager: React.FC = () => {
 
       let imageUrl: string | null = null;
 
-      // Upload image if provided
+      // Upload image via signed upload URL (platform folder, admin-only)
       if (imageFile) {
         const fileExt = imageFile.name.split(".").pop();
         const fileName = `platform/${Date.now()}-${brand}-cover.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("shop-items")
-          .upload(fileName, imageFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("shop-items")
-          .getPublicUrl(fileName);
-
-        imageUrl = publicUrl;
+        const storedPath = await uploadShopItemFile(fileName, imageFile);
+        imageUrl = getShopItemUrl(storedPath);
       }
+
 
       // Create the pack with platform creator_type
       const packName = brand === "lilypad"
