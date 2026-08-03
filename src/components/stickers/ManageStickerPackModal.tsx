@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { uploadShopItemFile, getShopItemUrl } from "@/lib/shopItemsUpload";
+
 import {
   Dialog,
   DialogContent,
