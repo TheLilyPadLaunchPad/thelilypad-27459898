@@ -147,7 +147,7 @@ export const useUserProfile = () => {
                     ...updates,
                     user_id: authUser?.id || null,
                 }, { onConflict: 'wallet_address' })
-                .select()
+                .select(PUBLIC_PROFILE_COLUMNS)
                 .single();
 
             if (!insertError) {
@@ -183,7 +183,7 @@ export const useUserProfile = () => {
                 .from('user_profiles')
                 .update(updates as Record<string, unknown>)
                 .eq('wallet_address', address)
-                .select()
+                .select(PUBLIC_PROFILE_COLUMNS)
                 .single();
 
             if (!updateError) {
