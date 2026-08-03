@@ -209,22 +209,15 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
         const contentFile = contentFiles[i];
         const filePath = `${userId}/${itemData.id}/${crypto.randomUUID()}.${contentFile.file.name.split(".").pop()}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("shop-items")
-          .upload(filePath, contentFile.file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: fileData } = supabase.storage
-          .from("shop-items")
-          .getPublicUrl(filePath);
+        const storedPath = await uploadShopItemFile(filePath, contentFile.file);
 
         // Insert content record
         const { error: contentError } = await supabase
           .from("shop_item_contents")
           .insert({
             item_id: itemData.id,
-            file_url: fileData.publicUrl,
+            file_url: getShopItemUrl(storedPath),
+
             name: contentFile.name,
             display_order: i,
           });
