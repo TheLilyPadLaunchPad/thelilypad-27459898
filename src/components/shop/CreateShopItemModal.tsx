@@ -169,22 +169,14 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
     setUploadProgress(0);
 
     try {
-      // Upload cover image
+      // Upload cover image via signed upload URL
       let coverUrl = "";
       if (coverImage) {
         const coverPath = `${userId}/${crypto.randomUUID()}-cover.${coverImage.name.split(".").pop()}`;
-        const { error: coverError } = await supabase.storage
-          .from("shop-items")
-          .upload(coverPath, coverImage);
-
-        if (coverError) throw coverError;
-
-        const { data: coverData } = supabase.storage
-          .from("shop-items")
-          .getPublicUrl(coverPath);
-
-        coverUrl = coverData.publicUrl;
+        const storedPath = await uploadShopItemFile(coverPath, coverImage);
+        coverUrl = getShopItemUrl(storedPath);
       }
+
 
       setUploadProgress(20);
 
