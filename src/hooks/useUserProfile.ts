@@ -51,12 +51,19 @@ export const useUserProfile = () => {
             // 2. Fetch from Supabase (Secondary)
             let supabaseProfile: UserProfile | null = null;
             try {
-                const { data, error: fetchError } = await supabase
-                    .from('user_profiles')
-                    .select('*')
-                    .eq('wallet_address', address)
-                    .maybeSingle();
-                if (!fetchError && data) supabaseProfile = data as UserProfile;
+                // Own full profile (includes balance) via secure definer RPC
+                const { data: mine } = await supabase.rpc('get_my_profile');
+                const mineRow = Array.isArray(mine) ? mine[0] : mine;
+                if (mineRow && (mineRow as any).wallet_address === address) {
+                    supabaseProfile = mineRow as unknown as UserProfile;
+                } else {
+                    const { data, error: fetchError } = await supabase
+                        .from('user_profiles')
+                        .select(PUBLIC_PROFILE_COLUMNS)
+                        .eq('wallet_address', address)
+                        .maybeSingle();
+                    if (!fetchError && data) supabaseProfile = data as unknown as UserProfile;
+                }
             } catch (e) {
                 console.warn("Supabase profile fetch failed", e);
             }
