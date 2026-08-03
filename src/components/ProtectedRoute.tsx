@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+
 import { useAuth } from "@/providers/AuthProvider";
 import { useBetaMode } from "@/hooks/useBetaMode";
 import FrogLoader from "./FrogLoader";
