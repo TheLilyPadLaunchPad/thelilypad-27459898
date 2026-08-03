@@ -4144,6 +4144,10 @@ export type Database = {
           wallet_address: string
         }[]
       }
+      get_dashboard_analytics: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
       get_launchpad_stats: { Args: never; Returns: Json }
       get_my_creator_beta_application: {
         Args: never
