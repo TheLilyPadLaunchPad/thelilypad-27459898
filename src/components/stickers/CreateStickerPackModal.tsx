@@ -71,23 +71,14 @@ export const CreateStickerPackModal: React.FC<CreateStickerPackModalProps> = ({
     try {
       let imageUrl: string | null = null;
 
-      // Upload image if provided
+      // Upload image via signed upload URL if provided
       if (imageFile) {
         const fileExt = imageFile.name.split(".").pop();
         const fileName = `${userId}/${Date.now()}-pack-cover.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("shop-items")
-          .upload(fileName, imageFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("shop-items")
-          .getPublicUrl(fileName);
-
-        imageUrl = publicUrl;
+        const storedPath = await uploadShopItemFile(fileName, imageFile);
+        imageUrl = getShopItemUrl(storedPath);
       }
+
 
       // Create the sticker pack
       const { error } = await supabase.from("shop_items").insert({
