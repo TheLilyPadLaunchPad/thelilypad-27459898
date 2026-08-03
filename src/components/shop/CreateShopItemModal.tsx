@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadShopItemFile, getShopItemUrl } from "@/lib/shopItemsUpload";
+
 import {
   Dialog,
   DialogContent,
@@ -169,22 +171,14 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
     setUploadProgress(0);
 
     try {
-      // Upload cover image
+      // Upload cover image via signed upload URL
       let coverUrl = "";
       if (coverImage) {
         const coverPath = `${userId}/${crypto.randomUUID()}-cover.${coverImage.name.split(".").pop()}`;
-        const { error: coverError } = await supabase.storage
-          .from("shop-items")
-          .upload(coverPath, coverImage);
-
-        if (coverError) throw coverError;
-
-        const { data: coverData } = supabase.storage
-          .from("shop-items")
-          .getPublicUrl(coverPath);
-
-        coverUrl = coverData.publicUrl;
+        const storedPath = await uploadShopItemFile(coverPath, coverImage);
+        coverUrl = getShopItemUrl(storedPath);
       }
+
 
       setUploadProgress(20);
 
@@ -215,22 +209,15 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
         const contentFile = contentFiles[i];
         const filePath = `${userId}/${itemData.id}/${crypto.randomUUID()}.${contentFile.file.name.split(".").pop()}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("shop-items")
-          .upload(filePath, contentFile.file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: fileData } = supabase.storage
-          .from("shop-items")
-          .getPublicUrl(filePath);
+        const storedPath = await uploadShopItemFile(filePath, contentFile.file);
 
         // Insert content record
         const { error: contentError } = await supabase
           .from("shop_item_contents")
           .insert({
             item_id: itemData.id,
-            file_url: fileData.publicUrl,
+            file_url: getShopItemUrl(storedPath),
+
             name: contentFile.name,
             display_order: i,
           });

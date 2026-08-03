@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { uploadShopItemFile, getShopItemUrl } from "@/lib/shopItemsUpload";
+
 import {
   Dialog,
   DialogContent,
@@ -121,19 +123,13 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
 
     setIsUploading(true);
     try {
-      // Upload to Supabase Storage (fallback / preview URL)
+      // Upload via signed upload URL (fallback / preview URL)
       const fileExt = selectedFile.name.split(".").pop();
       const fileName = `${pack.creator_id}/${pack.id}/${Date.now()}-sticker.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from("shop-items")
-        .upload(fileName, selectedFile);
 
-      if (uploadError) throw uploadError;
+      const storedPath = await uploadShopItemFile(fileName, selectedFile);
+      const publicUrl = getShopItemUrl(storedPath);
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("shop-items")
-        .getPublicUrl(fileName);
 
       // Optionally upload to Arweave for on-chain cNFT backing
       let arweaveUri: string | null = null;
