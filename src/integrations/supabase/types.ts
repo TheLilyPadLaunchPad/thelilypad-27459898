@@ -4236,7 +4236,7 @@ export type Database = {
       }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
       promote_to_creator: {
-        Args: { p_admin_id: string; p_application_id: string }
+        Args: { p_application_id: string }
         Returns: undefined
       }
       queue_buyback: {
