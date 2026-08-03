@@ -165,9 +165,11 @@ export const CreatorApplicationsManager: React.FC = () => {
     const handlePromote = async (appId: string) => {
         if (!confirm('Are you sure you want to approve this creator? This will grant them creator privileges.')) return;
         setActionLoading(true);
+        try {
             const { error } = await supabase.rpc('promote_to_creator' as any, {
                 p_application_id: appId,
             });
+
 
 
             if (error) throw error;
