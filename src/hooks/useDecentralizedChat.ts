@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@/providers/WalletProvider';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DECENTRALIZED_CHAT_ENABLED } from '@/config/featureFlags';
+import { PUBLIC_CHAT_MESSAGE_COLUMNS } from '@/integrations/supabase/columns';
 import {
     getDecentralizedMessages,
     sendDecentralizedMessage,
@@ -29,7 +30,7 @@ export const useDecentralizedChat = (contextId: string) => {
                 // Fetch from Supabase (Centralized Cache)
                 const { data: supabaseMsgs } = await supabase
                     .from('stream_chat_messages')
-                    .select('*')
+                    .select(PUBLIC_CHAT_MESSAGE_COLUMNS)
                     .eq('playback_id', contextId)
                     .order('created_at', { ascending: true })
                     .limit(50);

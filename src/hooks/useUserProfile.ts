@@ -4,6 +4,7 @@ import { useWallet } from '@/providers/WalletProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { getDecentralizedProfile, saveDecentralizedProfile } from '@/integrations/arweave/profileClient';
 import { useChain } from '@/providers/ChainProvider';
+import { PUBLIC_PROFILE_COLUMNS } from '@/integrations/supabase/columns';
 
 export interface UserProfile {
     id: string;
@@ -51,12 +52,19 @@ export const useUserProfile = () => {
             // 2. Fetch from Supabase (Secondary)
             let supabaseProfile: UserProfile | null = null;
             try {
-                const { data, error: fetchError } = await supabase
-                    .from('user_profiles')
-                    .select('*')
-                    .eq('wallet_address', address)
-                    .maybeSingle();
-                if (!fetchError && data) supabaseProfile = data as UserProfile;
+                // Own full profile (includes balance) via secure definer RPC
+                const { data: mine } = await supabase.rpc('get_my_profile');
+                const mineRow = Array.isArray(mine) ? mine[0] : mine;
+                if (mineRow && (mineRow as any).wallet_address === address) {
+                    supabaseProfile = mineRow as unknown as UserProfile;
+                } else {
+                    const { data, error: fetchError } = await supabase
+                        .from('user_profiles')
+                        .select(PUBLIC_PROFILE_COLUMNS)
+                        .eq('wallet_address', address)
+                        .maybeSingle();
+                    if (!fetchError && data) supabaseProfile = data as unknown as UserProfile;
+                }
             } catch (e) {
                 console.warn("Supabase profile fetch failed", e);
             }
@@ -139,7 +147,7 @@ export const useUserProfile = () => {
                     ...updates,
                     user_id: authUser?.id || null,
                 }, { onConflict: 'wallet_address' })
-                .select()
+                .select(PUBLIC_PROFILE_COLUMNS)
                 .single();
 
             if (!insertError) {
@@ -175,7 +183,7 @@ export const useUserProfile = () => {
                 .from('user_profiles')
                 .update(updates as Record<string, unknown>)
                 .eq('wallet_address', address)
-                .select()
+                .select(PUBLIC_PROFILE_COLUMNS)
                 .single();
 
             if (!updateError) {
@@ -216,7 +224,7 @@ export const useUserProfile = () => {
             const { data, error: upsertError } = await (supabase
                 .from('user_profiles') as any)
                 .upsert(upsertData, { onConflict: 'wallet_address' })
-                .select()
+                .select(PUBLIC_PROFILE_COLUMNS)
                 .single();
 
             if (!upsertError) {

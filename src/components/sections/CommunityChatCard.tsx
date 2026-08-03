@@ -12,6 +12,7 @@ import { Send, MessageCircle, Users, Loader2, LogIn, SmilePlus, MoreVertical, Tr
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { PUBLIC_CHAT_MESSAGE_COLUMNS } from '@/integrations/supabase/columns';
 
 const COMMUNITY_CHAT_ID = 'community-lounge';
 
@@ -99,7 +100,7 @@ export const CommunityChatCard: React.FC = () => {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('stream_chat_messages')
-        .select('*')
+        .select(PUBLIC_CHAT_MESSAGE_COLUMNS)
         .eq('playback_id', COMMUNITY_CHAT_ID)
         .order('created_at', { ascending: true })
         .limit(50);
