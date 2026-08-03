@@ -4168,6 +4168,47 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_my_profile: {
+        Args: never
+        Returns: {
+          auth_user_id: string | null
+          avatar_nft_mint: string | null
+          avatar_source: string | null
+          avatar_url: string | null
+          banner_url: string | null
+          bio: string | null
+          categories: string[] | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          is_collector: boolean | null
+          is_creator: boolean | null
+          is_private: boolean
+          is_streamer: boolean | null
+          is_verified: boolean | null
+          native_token_balance: number
+          playlist_ids: string[] | null
+          profile_setup_completed: boolean | null
+          referred_by: string | null
+          schedule: Json | null
+          social_discord: string | null
+          social_instagram: string | null
+          social_tiktok: string | null
+          social_twitter: string | null
+          social_youtube: string | null
+          updated_at: string | null
+          user_id: string | null
+          verification_attestation: string | null
+          verification_attestation_network: string | null
+          wallet_address: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "user_profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_my_streamer_application: {
         Args: never
         Returns: {
