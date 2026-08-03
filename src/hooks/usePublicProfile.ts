@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getDecentralizedProfile } from '@/integrations/arweave/profileClient';
 import type { UserProfile } from './useUserProfile';
 import type { LinkedWallet } from './useLinkedWallets';
+import { PUBLIC_PROFILE_COLUMNS } from '@/integrations/supabase/columns';
 
 interface PublicProfileData {
   profile: UserProfile | null;
@@ -33,7 +34,7 @@ export function usePublicProfile(identifier: string | undefined): PublicProfileD
         // Try by display_name first, then wallet_address, then id
         let query = supabase
           .from('user_profiles')
-          .select('*');
+          .select(PUBLIC_PROFILE_COLUMNS);
 
         // Check if it's a UUID
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
@@ -57,7 +58,7 @@ export function usePublicProfile(identifier: string | undefined): PublicProfileD
             // 2. Fallback to Supabase
             const walletResult = await supabase
               .from('user_profiles')
-              .select('*')
+              .select(PUBLIC_PROFILE_COLUMNS)
               .eq('wallet_address', identifier)
               .maybeSingle();
 
@@ -87,7 +88,7 @@ export function usePublicProfile(identifier: string | undefined): PublicProfileD
         if (!(data as any).is_private) {
           const { data: wallets } = await supabase
             .from('linked_wallets')
-            .select('*')
+            .select(PUBLIC_PROFILE_COLUMNS)
             .eq('profile_id', (data as any).id)
             .order('is_primary', { ascending: false });
 
