@@ -4,6 +4,7 @@ import { useWallet } from '@/providers/WalletProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { getDecentralizedProfile, saveDecentralizedProfile } from '@/integrations/arweave/profileClient';
 import { useChain } from '@/providers/ChainProvider';
+import { PUBLIC_PROFILE_COLUMNS } from '@/integrations/supabase/columns';
 
 export interface UserProfile {
     id: string;
@@ -223,7 +224,7 @@ export const useUserProfile = () => {
             const { data, error: upsertError } = await (supabase
                 .from('user_profiles') as any)
                 .upsert(upsertData, { onConflict: 'wallet_address' })
-                .select()
+                .select(PUBLIC_PROFILE_COLUMNS)
                 .single();
 
             if (!upsertError) {

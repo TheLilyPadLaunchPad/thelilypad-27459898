@@ -82,13 +82,13 @@ export function usePublicProfile(identifier: string | undefined): PublicProfileD
           return;
         }
 
-        setProfile(data as UserProfile);
+        setProfile(data as unknown as UserProfile);
 
         // Fetch linked wallets if profile is public
         if (!(data as any).is_private) {
           const { data: wallets } = await supabase
             .from('linked_wallets')
-            .select(PUBLIC_PROFILE_COLUMNS)
+            .select('*')
             .eq('profile_id', (data as any).id)
             .order('is_primary', { ascending: false });
 

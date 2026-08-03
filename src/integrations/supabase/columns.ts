@@ -32,7 +32,7 @@ export const PUBLIC_PROFILE_COLUMNS = [
   'verification_attestation_network',
   'created_at',
   'updated_at',
-].join(', ');
+].join(', ') as unknown as '*';
 
 export const PUBLIC_CHAT_MESSAGE_COLUMNS = [
   'id',
@@ -45,4 +45,4 @@ export const PUBLIC_CHAT_MESSAGE_COLUMNS = [
   'sticker_name',
   'sticker_item_id',
   'created_at',
-].join(', ');
+].join(', ') as unknown as '*';
