@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadShopItemFile, getShopItemUrl } from "@/lib/shopItemsUpload";
+
 import {
   Dialog,
   DialogContent,
