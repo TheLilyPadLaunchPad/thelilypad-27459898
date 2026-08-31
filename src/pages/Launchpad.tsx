@@ -18,7 +18,8 @@ import {
   Layers, Globe, ChevronRight, Palette, Music, BarChart3, ShoppingCart,
   TrendingUp, Repeat,
 } from "lucide-react";
-import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
+import { CuratedCategoryRail } from "@/components/sections/CuratedCategoryRail";
+import { CURATION_CATEGORIES } from "@/config/curation";
 import { ImportCollectionModal } from "@/components/launchpad/ImportCollectionModal";
 import { CollectionCsvImportModal } from "@/components/launchpad/CollectionCsvImportModal";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
