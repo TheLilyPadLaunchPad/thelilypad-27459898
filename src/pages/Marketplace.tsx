@@ -132,12 +132,13 @@ export default function Marketplace() {
   // Filter collections
   const filteredCollections = useMemo(() => {
     return collections.filter(c => {
+      if (category && !curatedIds.has(c.id)) return false;
       if (verifiedOnly && !c.contract_address) return false;
       if (showHotOnly && !hotCollectionMints.has(c.id)) return false;
       if (showNewOnly && !isCollectionNew(c)) return false;
       return true;
     });
-  }, [collections, verifiedOnly, showHotOnly, showNewOnly, hotCollectionMints]);
+  }, [collections, category, curatedIds, verifiedOnly, showHotOnly, showNewOnly, hotCollectionMints]);
 
   // Filter listings
   const filteredListings = useMemo(() => {
