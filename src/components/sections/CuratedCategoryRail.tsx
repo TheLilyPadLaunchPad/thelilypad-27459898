@@ -14,7 +14,7 @@ import {
     CarouselNext,
     CarouselPrevious,
 } from "@/components/ui/carousel";
-import { useCuratedCollections } from "@/hooks/useCuratedCollections";
+import { useCuratedCollections, collectionMintPrice } from "@/hooks/useCuratedCollections";
 import type { CurationCategoryMeta } from "@/config/curation";
 import { getDbChainValues, type SupportedChain } from "@/config/chains";
 import { cn } from "@/lib/utils";
