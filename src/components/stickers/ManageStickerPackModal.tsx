@@ -65,6 +65,8 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [uploadToChain, setUploadToChain] = useState(true);
+  const [preparingId, setPreparingId] = useState<string | null>(null);
+
   const { uploadStickerToArweave } = useShopMint();
 
   const fetchStickers = useCallback(async () => {
