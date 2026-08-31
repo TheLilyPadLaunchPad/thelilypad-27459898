@@ -32,10 +32,13 @@ import {
   AuctionsGrid,
   type AuctionRow,
   StickerPacksGrid,
-  HomepageFeaturedCollections,
 } from "@/components/marketplace";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
 import { MarketPulseWidget } from "@/components/marketplace/MarketPulseWidget";
+import { CuratedCategoryRail } from "@/components/sections/CuratedCategoryRail";
+import { useCuratedCollections } from "@/hooks/useCuratedCollections";
+import { CURATION_CATEGORIES, isCurationCategory, type CurationCategory } from "@/config/curation";
+import { useSearchParams } from "react-router-dom";
 
 
 
@@ -54,6 +57,22 @@ export default function Marketplace() {
   const [selectedChain, setSelectedChain] = useState<ChainFilter>(() => {
     return (chain?.id as ChainFilter) || 'all';
   });
+
+  // Curated category filter (?category=featured_nft|utility_nft|memecoin_nft)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get("category");
+  const category: CurationCategory | null = isCurationCategory(categoryParam) ? categoryParam : null;
+  const setCategory = (next: CurationCategory | null) => {
+    const params = new URLSearchParams(searchParams);
+    if (next) params.set("category", next);
+    else params.delete("category");
+    setSearchParams(params, { replace: true });
+  };
+  const { data: curatedForCategory } = useCuratedCollections(category ?? "featured_nft");
+  const curatedIds = useMemo(
+    () => new Set((category ? curatedForCategory ?? [] : []).map((c) => c.collection_id)),
+    [category, curatedForCategory]
+  );
 
   // Use the custom hook for data fetching with infinite scroll and chain filter
   const {
@@ -113,12 +132,13 @@ export default function Marketplace() {
   // Filter collections
   const filteredCollections = useMemo(() => {
     return collections.filter(c => {
+      if (category && !curatedIds.has(c.id)) return false;
       if (verifiedOnly && !c.contract_address) return false;
       if (showHotOnly && !hotCollectionMints.has(c.id)) return false;
       if (showNewOnly && !isCollectionNew(c)) return false;
       return true;
     });
-  }, [collections, verifiedOnly, showHotOnly, showNewOnly, hotCollectionMints]);
+  }, [collections, category, curatedIds, verifiedOnly, showHotOnly, showNewOnly, hotCollectionMints]);
 
   // Filter listings
   const filteredListings = useMemo(() => {
@@ -158,7 +178,7 @@ export default function Marketplace() {
   }, []);
 
   // Only enable infinite scroll when no filters are applied
-  const canLoadMore = hasMore && !verifiedOnly && !showHotOnly && !showNewOnly;
+  const canLoadMore = hasMore && !category && !verifiedOnly && !showHotOnly && !showNewOnly;
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -200,12 +220,33 @@ export default function Marketplace() {
           ))}
         </div>
 
-
-
-        {/* Homepage Featured Collections - Admin curated (up to 5) */}
-        <div className="mb-8">
-          <HomepageFeaturedCollections />
+        {/* Curated category tabs */}
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+          {[{ id: 'all', short: 'All Launches' }, ...CURATION_CATEGORIES].map((cat: any) => (
+            <button
+              key={cat.id}
+              aria-pressed={category === cat.id}
+              onClick={() => setCategory(cat.id === 'all' ? null : cat.id)}
+              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium whitespace-nowrap border transition-all ${
+                (category ?? 'all') === cat.id
+                  ? 'bg-primary/15 text-primary border-primary/30'
+                  : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+              }`}
+            >
+              {cat.short}
+            </button>
+          ))}
         </div>
+
+        {/* Curated rails (only on the "All" view) */}
+        {!category && (
+          <div className="mb-8 divide-y divide-border/60">
+            {CURATION_CATEGORIES.map((meta) => (
+              <CuratedCategoryRail key={meta.id} meta={meta} showChainFilter={false} />
+            ))}
+          </div>
+        )}
+
 
         {/* Featured Card Stack */}
         <FeaturedCardStack />

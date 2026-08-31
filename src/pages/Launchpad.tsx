@@ -18,7 +18,8 @@ import {
   Layers, Globe, ChevronRight, Palette, Music, BarChart3, ShoppingCart,
   TrendingUp, Repeat,
 } from "lucide-react";
-import { HomepageFeaturedCollections } from "@/components/sections/HomepageFeaturedCollections";
+import { CuratedCategoryRail } from "@/components/sections/CuratedCategoryRail";
+import { CURATION_CATEGORIES } from "@/config/curation";
 import { ImportCollectionModal } from "@/components/launchpad/ImportCollectionModal";
 import { CollectionCsvImportModal } from "@/components/launchpad/CollectionCsvImportModal";
 import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
@@ -164,6 +165,7 @@ export default function Launchpad() {
   const [activeTab, setActiveTab] = useState("all");
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [showHybridForm, setShowHybridForm] = useState(false);
+  const [buildMode, setBuildMode] = useState<"simple" | "advanced">("simple");
 
   const {
     collections, isLoading,
@@ -413,7 +415,34 @@ export default function Launchpad() {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Start Building</h3>
+                    <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Start Building</h3>
+                      <div className="inline-flex items-center rounded-full border border-border p-0.5 bg-muted/40">
+                        {([
+                          { id: "simple" as const, label: "Simple Launch" },
+                          { id: "advanced" as const, label: "Advanced" },
+                        ]).map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => setBuildMode(m.id)}
+                            aria-pressed={buildMode === m.id}
+                            className={cn(
+                              "px-3 py-1.5 text-xs font-semibold rounded-full transition-colors",
+                              buildMode === m.id
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      {buildMode === "simple"
+                        ? "Three steps: details, assets, review. Everything else is set up for you."
+                        : "All power tools — generators, hybrid escrows and manual configuration."}
+                    </p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                       {primaryTiles.map((tile) => {
                         const Icon = tile.icon;
@@ -446,7 +475,7 @@ export default function Launchpad() {
                     </div>
 
                     {/* Secondary tools */}
-                    {secondaryTiles.length > 0 && (
+                    {buildMode === "advanced" && secondaryTiles.length > 0 && (
                       <>
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">More Tools</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -511,7 +540,7 @@ export default function Launchpad() {
 
                 {/* ── Featured collections ────────────────────────────────────── */}
                 <section>
-                  <HomepageFeaturedCollections />
+                  <CuratedCategoryRail meta={CURATION_CATEGORIES[0]} showChainFilter={false} viewAllHref="/marketplace?category=featured_nft" />
                 </section>
 
                 {/* ── Recent Sales ───────────────────────────────────────────── */}
