@@ -80,6 +80,8 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
   const [tier, setTier] = useState<"free" | "basic" | "premium" | "exclusive">("basic");
   const [priceMon, setPriceMon] = useState("0");
   const [requiredCollectionId, setRequiredCollectionId] = useState<string>("");
+  const [linkedCollectionId, setLinkedCollectionId] = useState<string>("");
+
   const [isActive, setIsActive] = useState(true);
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string>("");
