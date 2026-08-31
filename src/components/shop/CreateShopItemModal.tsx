@@ -196,6 +196,8 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
           tier,
           price_mon: tier === "free" ? 0 : Number(priceMon),
           required_collection_id: requiredCollectionId || null,
+          collection_id: linkedCollectionId || null,
+
           is_active: isActive,
         })
         .select()
