@@ -58,6 +58,22 @@ export default function Marketplace() {
     return (chain?.id as ChainFilter) || 'all';
   });
 
+  // Curated category filter (?category=featured_nft|utility_nft|memecoin_nft)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get("category");
+  const category: CurationCategory | null = isCurationCategory(categoryParam) ? categoryParam : null;
+  const setCategory = (next: CurationCategory | null) => {
+    const params = new URLSearchParams(searchParams);
+    if (next) params.set("category", next);
+    else params.delete("category");
+    setSearchParams(params, { replace: true });
+  };
+  const { data: curatedForCategory } = useCuratedCollections(category ?? "featured_nft");
+  const curatedIds = useMemo(
+    () => new Set((category ? curatedForCategory ?? [] : []).map((c) => c.collection_id)),
+    [category, curatedForCategory]
+  );
+
   // Use the custom hook for data fetching with infinite scroll and chain filter
   const {
     collections,
