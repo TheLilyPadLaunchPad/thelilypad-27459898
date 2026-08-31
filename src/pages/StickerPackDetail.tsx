@@ -106,6 +106,20 @@ export default function StickerPackDetail() {
 
         setPack(packData);
 
+        // Funnel context: which launch collection this pack belongs to
+        const parentId = (packData as { collection_id?: string | null }).collection_id;
+        if (parentId) {
+          const { data: parent } = await supabase
+            .from("collections")
+            .select("id, name")
+            .eq("id", parentId)
+            .maybeSingle();
+          setParentCollection(parent ?? null);
+        } else {
+          setParentCollection(null);
+        }
+
+
         // Fetch stickers in the pack
         const { data: stickersData, error: stickersError } = await supabase
           .from("shop_item_contents")
