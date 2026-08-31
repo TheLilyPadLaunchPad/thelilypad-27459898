@@ -49,7 +49,9 @@ async function fetchCurated(rail: FeatureRail): Promise<CuratedCollection[]> {
         status,
         minted,
         total_supply,
-        chain
+        chain,
+        phases
+
       )
     `)
         .eq("feature_type", rail)
