@@ -503,7 +503,7 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
               )}
 
               <div>
-              <div>
+
                 <Label>Part of a Collection Launch (Optional)</Label>
                 <p className="text-sm text-muted-foreground mb-2">
                   Show this pack on a collection's page so minters can buy it right after minting.
