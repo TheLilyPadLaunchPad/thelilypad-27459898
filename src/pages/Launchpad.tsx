@@ -539,7 +539,7 @@ export default function Launchpad() {
 
                 {/* ── Featured collections ────────────────────────────────────── */}
                 <section>
-                  <HomepageFeaturedCollections />
+                  <CuratedCategoryRail meta={CURATION_CATEGORIES[0]} showChainFilter={false} viewAllHref="/marketplace?category=featured_nft" />
                 </section>
 
                 {/* ── Recent Sales ───────────────────────────────────────────── */}
