@@ -428,12 +428,28 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
                         <p className="text-xs font-medium truncate text-center">
                           {sticker.name}
                         </p>
-                        {sticker.arweave_uri && (
+                        {sticker.metadata_uri ? (
                           <Badge variant="outline" className="w-full justify-center text-[9px] mt-1 gap-1 text-green-500 border-green-500/30">
                             <Globe className="w-2.5 h-2.5" />
-                            On-Chain
+                            Mintable
                           </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-6 mt-1 text-[9px] gap-1"
+                            disabled={!!preparingId}
+                            onClick={() => handleMakeOnChain(sticker)}
+                          >
+                            {preparingId === sticker.id ? (
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            ) : (
+                              <Globe className="w-2.5 h-2.5" />
+                            )}
+                            Make on-chain
+                          </Button>
                         )}
+
                       </div>
                       <button
                         onClick={() => handleDeleteSticker(sticker)}
