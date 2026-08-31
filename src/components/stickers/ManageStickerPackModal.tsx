@@ -180,7 +180,59 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
     }
   };
 
-  const handleDeleteSticker = async (sticker: StickerContent) => {
+  /**
+   * Backfill: take a sticker that was stored off-chain only and push its
+   * artwork + metadata to Arweave so it can be minted as a cNFT on purchase.
+   */
+  const handleMakeOnChain = async (sticker: StickerContent) => {
+    setPreparingId(sticker.id);
+    try {
+      toast.loading(`Preparing ${sticker.name} for on-chain…`, { id: "prep-sticker" });
+      const res = await fetch(sticker.file_url);
+      if (!res.ok) throw new Error("Could not read sticker image");
+      const blob = await res.blob();
+      const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      const file = new File([blob], `${sticker.name}.${ext}`, { type: blob.type });
+
+      const { arweaveUri, metadataUri } = await uploadStickerToArweave(
+        file,
+        sticker.name,
+        pack.name,
+        pack.category,
+      );
+
+      const { error } = await supabase
+        .from("shop_item_contents")
+        .update({ arweave_uri: arweaveUri, metadata_uri: metadataUri })
+        .eq("id", sticker.id);
+      if (error) throw error;
+
+      setStickers((prev) =>
+        prev.map((s) =>
+          s.id === sticker.id ? { ...s, arweave_uri: arweaveUri, metadata_uri: metadataUri } : s,
+        ),
+      );
+      toast.success(`${sticker.name} is now on-chain ready`, { id: "prep-sticker" });
+      onUpdate();
+    } catch (err) {
+      console.error("Make on-chain failed:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to prepare sticker", {
+        id: "prep-sticker",
+      });
+    } finally {
+      setPreparingId(null);
+    }
+  };
+
+  const handlePrepareAll = async () => {
+    const pending = stickers.filter((s) => !s.metadata_uri);
+    for (const s of pending) {
+      // sequential: each upload needs its own wallet-funded Irys transaction
+      await handleMakeOnChain(s);
+    }
+  };
+
+
     if (!confirm("Delete this sticker?")) return;
 
     try {
