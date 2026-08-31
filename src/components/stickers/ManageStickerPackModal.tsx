@@ -232,8 +232,9 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
     }
   };
 
-
+  const handleDeleteSticker = async (sticker: StickerContent) => {
     if (!confirm("Delete this sticker?")) return;
+
 
     try {
       const { error } = await supabase
