@@ -172,7 +172,7 @@ export default function StickerPackDetail() {
 
     if (!pack) return;
 
-    // Free sticker pack - just record purchase
+    // Free sticker pack — still mint on-chain when the pack is deployed
     if (pack.price_mon <= 0) {
       setIsPurchasing(true);
       try {
@@ -182,6 +182,37 @@ export default function StickerPackDetail() {
         if (!purchaseUserId) {
           throw new Error("User profile not found. Please connect your wallet.");
         }
+
+        const freeDeliverable = stickers.filter((s) => s.metadata_uri);
+        if (pack.collection_address && pack.tree_address && freeDeliverable.length > 0) {
+          const results = await purchasePackOnChain(
+            {
+              id: pack.id,
+              name: pack.name,
+              description: pack.description,
+              image_url: pack.image_url,
+              category: pack.category,
+              price_sol: 0,
+              price_mon: 0,
+              collection_address: pack.collection_address,
+              tree_address: pack.tree_address,
+            },
+            freeDeliverable.map((s) => ({
+              id: s.id,
+              name: s.name,
+              file_url: s.file_url,
+              arweave_uri: s.arweave_uri ?? undefined,
+              metadata_uri: s.metadata_uri ?? undefined,
+              display_order: s.display_order,
+            })),
+            purchaseUserId,
+            { skipPayment: true },
+          );
+
+          if (results.some((r) => r.success)) setHasPurchased(true);
+          return;
+        }
+
 
         const { error } = await supabase.from("shop_purchases").insert({
           item_id: pack.id,
