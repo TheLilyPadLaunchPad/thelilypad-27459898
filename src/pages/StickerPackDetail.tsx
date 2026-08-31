@@ -187,7 +187,7 @@ export default function StickerPackDetail() {
           item_id: pack.id,
           user_id: purchaseUserId,
           price_paid: 0,
-          currency: "USDC",
+          currency: "SOL",
           tx_hash: "free_claim",
         });
 
@@ -511,7 +511,7 @@ export default function StickerPackDetail() {
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Price</span>
                     <span className="font-bold text-lg">
-                      {pack.price_mon > 0 ? `${pack.price_mon} USDC` : "Free"}
+                      {pack.price_mon > 0 ? `${pack.price_sol ?? pack.price_mon} SOL` : "Free"}
                     </span>
                   </div>
                 </div>
@@ -531,10 +531,10 @@ export default function StickerPackDetail() {
                 ) : (
                   <Button
                     onClick={handlePurchase}
-                    disabled={isPurchasing}
+                    disabled={isPurchasing || isMinting}
                     className="w-full gap-2"
                   >
-                    {isPurchasing ? (
+                    {isPurchasing || isMinting ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : isMockMode ? (
                       <Coins className="w-4 h-4" />
@@ -544,7 +544,7 @@ export default function StickerPackDetail() {
                     {isMockMode ? (
                       pack.price_mon > 0 ? `Buy for ${pack.price_mon} LPT` : "Get for Free"
                     ) : (
-                      pack.price_mon > 0 ? `Buy for ${pack.price_mon} USDC` : "Get for Free"
+                      pack.price_mon > 0 ? `Buy for ${pack.price_sol ?? pack.price_mon} SOL` : "Get for Free"
                     )}
                   </Button>
                 )}
