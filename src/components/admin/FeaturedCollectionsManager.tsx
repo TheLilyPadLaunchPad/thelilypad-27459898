@@ -11,12 +11,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, Calendar, Plus, Trash2, Edit, Sparkles, Search, Eye, Home, AlertCircle } from "lucide-react";
+import { Crown, Plus, Trash2, Edit, Sparkles, Search, Eye, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { FeaturedCollectionsSlideshow } from "@/components/sections/FeaturedCollectionsSlideshow";
+import { CuratedCategoryRail } from "@/components/sections/CuratedCategoryRail";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ALL_RAILS, CURATION_CATEGORIES, MONTHLY_RAIL } from "@/config/curation";
+import { cn } from "@/lib/utils";
 
-const MAX_HOMEPAGE_FEATURED = 5;
+const MAX_MONTHLY_FEATURED = 1;
 
 interface Collection {
   id: string;
@@ -24,6 +27,7 @@ interface Collection {
   symbol: string;
   image_url: string | null;
   status: string;
+  chain: string | null;
 }
 
 interface FeaturedCollection {
@@ -49,7 +53,7 @@ export const FeaturedCollectionsManager: React.FC = () => {
 
   // Form state
   const [selectedCollectionId, setSelectedCollectionId] = useState("");
-  const [featureType, setFeatureType] = useState<string>("monthly");
+  const [featureType, setFeatureType] = useState<string>("featured_nft");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [displayOrder, setDisplayOrder] = useState(0);
@@ -76,14 +80,15 @@ export const FeaturedCollectionsManager: React.FC = () => {
             name,
             symbol,
             image_url,
-            status
+            status,
+            chain
           )
         `)
         .order("feature_type", { ascending: true })
         .order("display_order", { ascending: true });
 
       if (error) throw error;
-      setFeaturedCollections(data || []);
+      setFeaturedCollections((data || []) as unknown as FeaturedCollection[]);
     } catch (error) {
       console.error("Error fetching featured collections:", error);
       toast({
@@ -98,12 +103,12 @@ export const FeaturedCollectionsManager: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from("collections")
-        .select("id, name, symbol, image_url, status")
+        .select("id, name, symbol, image_url, status, chain")
         .is("deleted_at", null)
         .order("name", { ascending: true });
 
       if (error) throw error;
-      setAvailableCollections(data || []);
+      setAvailableCollections((data || []) as unknown as Collection[]);
     } catch (error) {
       console.error("Error fetching collections:", error);
     }
@@ -111,7 +116,7 @@ export const FeaturedCollectionsManager: React.FC = () => {
 
   const resetForm = () => {
     setSelectedCollectionId("");
-    setFeatureType("monthly");
+    setFeatureType("featured_nft");
     setStartDate("");
     setEndDate("");
     setDisplayOrder(0);
@@ -119,18 +124,16 @@ export const FeaturedCollectionsManager: React.FC = () => {
     setEditingId(null);
   };
 
-  const openAddModal = () => {
+  const openAddModal = (presetType?: string) => {
     resetForm();
-    // Set default dates
+    if (presetType) setFeatureType(presetType);
     const today = new Date();
     setStartDate(today.toISOString().split("T")[0]);
-    if (featureType === "monthly") {
-      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      setEndDate(nextMonth.toISOString().split("T")[0]);
-    } else {
-      const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-      setEndDate(nextWeek.toISOString().split("T")[0]);
-    }
+    const end =
+      presetType === "monthly"
+        ? new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        : new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+    setEndDate(end.toISOString().split("T")[0]);
     setModalOpen(true);
   };
 
@@ -181,20 +184,12 @@ export const FeaturedCollectionsManager: React.FC = () => {
           .eq("id", editingId);
 
         if (error) throw error;
-        toast({
-          title: "Success",
-          description: "Featured collection updated",
-        });
+        toast({ title: "Success", description: "Curated pick updated" });
       } else {
-        const { error } = await supabase
-          .from("featured_collections")
-          .insert(payload);
+        const { error } = await supabase.from("featured_collections").insert(payload);
 
         if (error) throw error;
-        toast({
-          title: "Success",
-          description: "Collection added to featured",
-        });
+        toast({ title: "Success", description: "Collection added to the rail" });
       }
 
       setModalOpen(false);
@@ -211,19 +206,12 @@ export const FeaturedCollectionsManager: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Remove this collection from featured?")) return;
+    if (!confirm("Remove this collection from the rail?")) return;
 
     try {
-      const { error } = await supabase
-        .from("featured_collections")
-        .delete()
-        .eq("id", id);
-
+      const { error } = await supabase.from("featured_collections").delete().eq("id", id);
       if (error) throw error;
-      toast({
-        title: "Success",
-        description: "Collection removed from featured",
-      });
+      toast({ title: "Success", description: "Collection removed" });
       fetchFeaturedCollections();
     } catch (error) {
       console.error("Error deleting featured collection:", error);
@@ -243,10 +231,6 @@ export const FeaturedCollectionsManager: React.FC = () => {
         .eq("id", featured.id);
 
       if (error) throw error;
-      toast({
-        title: "Success",
-        description: `Collection ${featured.is_active ? "deactivated" : "activated"}`,
-      });
       fetchFeaturedCollections();
     } catch (error) {
       console.error("Error toggling active status:", error);
@@ -260,20 +244,22 @@ export const FeaturedCollectionsManager: React.FC = () => {
 
   const filteredFeatured = featuredCollections.filter(
     (f) =>
+      !collectionSearchTerm ||
       f.collection?.name.toLowerCase().includes(collectionSearchTerm.toLowerCase()) ||
-      f.collection?.symbol.toLowerCase().includes(collectionSearchTerm.toLowerCase())
+      f.collection?.symbol?.toLowerCase().includes(collectionSearchTerm.toLowerCase())
   );
 
-  const homepageFeatured = filteredFeatured.filter((f) => f.feature_type === "homepage");
-  const monthlyFeatured = filteredFeatured.filter((f) => f.feature_type === "monthly");
-  const weeklyFeatured = filteredFeatured.filter((f) => f.feature_type === "weekly");
+  const byRail = (railId: string) => filteredFeatured.filter((f) => f.feature_type === railId);
 
-  const canAddHomepage = homepageFeatured.filter(f => f.is_active).length < MAX_HOMEPAGE_FEATURED;
+  const activeMonthly = featuredCollections.filter(
+    (f) => f.feature_type === "monthly" && f.is_active
+  ).length;
 
   const filteredAvailableCollections = availableCollections.filter(
     (c) =>
+      !collectionSearchTerm ||
       c.name.toLowerCase().includes(collectionSearchTerm.toLowerCase()) ||
-      c.symbol.toLowerCase().includes(collectionSearchTerm.toLowerCase())
+      c.symbol?.toLowerCase().includes(collectionSearchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -290,6 +276,83 @@ export const FeaturedCollectionsManager: React.FC = () => {
     );
   }
 
+  const renderRailTable = (railId: string) => {
+    const rows = byRail(railId);
+    if (rows.length === 0) {
+      return <p className="text-muted-foreground text-sm">No collections in this rail yet</p>;
+    }
+    return (
+      <ScrollArea className="h-[220px]">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Collection</TableHead>
+              <TableHead>Chain</TableHead>
+              <TableHead>Date Range</TableHead>
+              <TableHead>Order</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((featured) => (
+              <TableRow key={featured.id}>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    {featured.collection?.image_url ? (
+                      <img
+                        src={featured.collection.image_url}
+                        alt={featured.collection.name}
+                        className="w-10 h-10 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
+                        {featured.collection?.symbol?.slice(0, 2) || "?"}
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-medium">{featured.collection?.name || "Deleted"}</p>
+                      <p className="text-xs text-muted-foreground">{featured.collection?.symbol}</p>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="capitalize text-sm">
+                  {(featured.collection?.chain || "solana").split("-")[0]}
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm">
+                    {format(new Date(featured.start_date), "MMM d")} -{" "}
+                    {format(new Date(featured.end_date), "MMM d, yyyy")}
+                  </span>
+                </TableCell>
+                <TableCell>{featured.display_order}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={featured.is_active ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => toggleActive(featured)}
+                  >
+                    {featured.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => openEditModal(featured)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(featured.id)}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </ScrollArea>
+    );
+  };
+
   return (
     <>
       <Card>
@@ -298,10 +361,10 @@ export const FeaturedCollectionsManager: React.FC = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
-                Featured Collections
+                Curated Launches
               </CardTitle>
               <CardDescription>
-                Manage monthly and weekly featured collections for the landing page
+                Hand-pick the collections shown on the homepage and marketplace rails
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -309,9 +372,9 @@ export const FeaturedCollectionsManager: React.FC = () => {
                 <Eye className="w-4 h-4" />
                 Preview
               </Button>
-              <Button onClick={openAddModal} className="gap-2">
+              <Button onClick={() => openAddModal()} className="gap-2">
                 <Plus className="w-4 h-4" />
-                Add Featured
+                Add Pick
               </Button>
             </div>
           </div>
@@ -321,272 +384,53 @@ export const FeaturedCollectionsManager: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search featured collections..."
+              placeholder="Search curated collections..."
               value={collectionSearchTerm}
               onChange={(e) => setCollectionSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
 
-          {/* Homepage Featured (Marketplace & Landing) */}
+          {/* Collection of the Month */}
           <div>
-            <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
-              <Home className="w-5 h-5 text-primary" />
-              Homepage Featured ({homepageFeatured.filter(f => f.is_active).length}/{MAX_HOMEPAGE_FEATURED})
-            </h3>
-            {!canAddHomepage && (
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <Crown className="w-5 h-5 text-amber-500" />
+                {MONTHLY_RAIL.label} ({activeMonthly}/{MAX_MONTHLY_FEATURED} active)
+              </h3>
+              <Button variant="outline" size="sm" onClick={() => openAddModal("monthly")}>
+                <Plus className="w-4 h-4 mr-1" /> Add
+              </Button>
+            </div>
+            {activeMonthly > MAX_MONTHLY_FEATURED && (
               <Alert className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Maximum of {MAX_HOMEPAGE_FEATURED} active homepage featured collections reached. Deactivate one to add another.
+                  More than one active monthly pick — only the first will read as the hero.
                 </AlertDescription>
               </Alert>
             )}
-            {homepageFeatured.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No homepage featured collections</p>
-            ) : (
-              <ScrollArea className="h-[200px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Collection</TableHead>
-                      <TableHead>Date Range</TableHead>
-                      <TableHead>Order</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {homepageFeatured.map((featured) => (
-                      <TableRow key={featured.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            {featured.collection?.image_url ? (
-                              <img
-                                src={featured.collection.image_url}
-                                alt={featured.collection.name}
-                                className="w-10 h-10 rounded-lg object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
-                                {featured.collection?.symbol?.slice(0, 2) || "?"}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium">{featured.collection?.name || "Deleted"}</p>
-                              <p className="text-xs text-muted-foreground">{featured.collection?.symbol}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {format(new Date(featured.start_date), "MMM d")} -{" "}
-                            {format(new Date(featured.end_date), "MMM d, yyyy")}
-                          </span>
-                        </TableCell>
-                        <TableCell>{featured.display_order}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={featured.is_active ? "default" : "outline"}
-                            className="cursor-pointer"
-                            onClick={() => toggleActive(featured)}
-                          >
-                            {featured.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditModal(featured)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(featured.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            )}
+            {renderRailTable("monthly")}
           </div>
 
-          {/* Monthly Featured */}
-          <div>
-            <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
-              <Crown className="w-5 h-5 text-amber-500" />
-              Monthly Featured ({monthlyFeatured.length})
-            </h3>
-            {monthlyFeatured.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No monthly featured collections</p>
-            ) : (
-              <ScrollArea className="h-[200px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Collection</TableHead>
-                      <TableHead>Date Range</TableHead>
-                      <TableHead>Order</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {monthlyFeatured.map((featured) => (
-                      <TableRow key={featured.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            {featured.collection?.image_url ? (
-                              <img
-                                src={featured.collection.image_url}
-                                alt={featured.collection.name}
-                                className="w-10 h-10 rounded-lg object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
-                                {featured.collection?.symbol?.slice(0, 2) || "?"}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium">{featured.collection?.name || "Deleted"}</p>
-                              <p className="text-xs text-muted-foreground">{featured.collection?.symbol}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {format(new Date(featured.start_date), "MMM d")} -{" "}
-                            {format(new Date(featured.end_date), "MMM d, yyyy")}
-                          </span>
-                        </TableCell>
-                        <TableCell>{featured.display_order}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={featured.is_active ? "default" : "outline"}
-                            className="cursor-pointer"
-                            onClick={() => toggleActive(featured)}
-                          >
-                            {featured.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditModal(featured)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(featured.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            )}
-          </div>
-
-          {/* Weekly Featured */}
-          <div>
-            <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
-              <Calendar className="w-5 h-5 text-violet-500" />
-              Weekly Featured ({weeklyFeatured.length})
-            </h3>
-            {weeklyFeatured.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No weekly featured collections</p>
-            ) : (
-              <ScrollArea className="h-[200px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Collection</TableHead>
-                      <TableHead>Date Range</TableHead>
-                      <TableHead>Order</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {weeklyFeatured.map((featured) => (
-                      <TableRow key={featured.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            {featured.collection?.image_url ? (
-                              <img
-                                src={featured.collection.image_url}
-                                alt={featured.collection.name}
-                                className="w-10 h-10 rounded-lg object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
-                                {featured.collection?.symbol?.slice(0, 2) || "?"}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium">{featured.collection?.name || "Deleted"}</p>
-                              <p className="text-xs text-muted-foreground">{featured.collection?.symbol}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {format(new Date(featured.start_date), "MMM d")} -{" "}
-                            {format(new Date(featured.end_date), "MMM d, yyyy")}
-                          </span>
-                        </TableCell>
-                        <TableCell>{featured.display_order}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={featured.is_active ? "default" : "outline"}
-                            className="cursor-pointer"
-                            onClick={() => toggleActive(featured)}
-                          >
-                            {featured.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditModal(featured)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(featured.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            )}
-          </div>
+          {/* Category rails */}
+          {CURATION_CATEGORIES.map((meta) => {
+            const Icon = meta.icon;
+            return (
+              <div key={meta.id}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Icon className={cn("w-5 h-5", meta.accent)} />
+                    {meta.label} ({byRail(meta.id).length})
+                  </h3>
+                  <Button variant="outline" size="sm" onClick={() => openAddModal(meta.id)}>
+                    <Plus className="w-4 h-4 mr-1" /> Add
+                  </Button>
+                </div>
+                {renderRailTable(meta.id)}
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
@@ -594,13 +438,11 @@ export const FeaturedCollectionsManager: React.FC = () => {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Edit Featured Collection" : "Add Featured Collection"}
-            </DialogTitle>
+            <DialogTitle>{editingId ? "Edit Curated Pick" : "Add Curated Pick"}</DialogTitle>
             <DialogDescription>
               {editingId
-                ? "Update the featured collection settings"
-                : "Select a collection to feature on the landing page"}
+                ? "Update where and when this collection is showcased"
+                : "Select a collection to showcase in a curated rail"}
             </DialogDescription>
           </DialogHeader>
 
@@ -614,7 +456,7 @@ export const FeaturedCollectionsManager: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <ScrollArea className="h-[200px]">
-                    {availableCollections.map((collection) => (
+                    {filteredAvailableCollections.map((collection) => (
                       <SelectItem key={collection.id} value={collection.id}>
                         <div className="flex items-center gap-2">
                           {collection.image_url ? (
@@ -642,30 +484,23 @@ export const FeaturedCollectionsManager: React.FC = () => {
 
             {/* Feature Type */}
             <div className="space-y-2">
-              <Label>Feature Type *</Label>
+              <Label>Rail *</Label>
               <Select value={featureType} onValueChange={setFeatureType}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="homepage" disabled={!canAddHomepage && featureType !== "homepage"}>
-                    <div className="flex items-center gap-2">
-                      <Home className="w-4 h-4 text-primary" />
-                      Homepage Featured (Max {MAX_HOMEPAGE_FEATURED})
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="monthly">
-                    <div className="flex items-center gap-2">
-                      <Crown className="w-4 h-4 text-amber-500" />
-                      Monthly Feature
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="weekly">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-violet-500" />
-                      Weekly Feature
-                    </div>
-                  </SelectItem>
+                  {ALL_RAILS.map((rail) => {
+                    const Icon = rail.icon;
+                    return (
+                      <SelectItem key={rail.id} value={rail.id}>
+                        <div className="flex items-center gap-2">
+                          <Icon className={cn("w-4 h-4", rail.accent)} />
+                          {rail.label}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -682,11 +517,7 @@ export const FeaturedCollectionsManager: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <Label>End Date *</Label>
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </div>
             </div>
 
@@ -700,9 +531,7 @@ export const FeaturedCollectionsManager: React.FC = () => {
                 onChange={(e) => setDisplayOrder(parseInt(e.target.value) || 0)}
                 placeholder="0 = first"
               />
-              <p className="text-xs text-muted-foreground">
-                Lower numbers appear first in the slideshow
-              </p>
+              <p className="text-xs text-muted-foreground">Lower numbers appear first</p>
             </div>
 
             {/* Active Toggle */}
@@ -723,9 +552,7 @@ export const FeaturedCollectionsManager: React.FC = () => {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
-              {editingId ? "Update" : "Add Featured"}
-            </Button>
+            <Button onClick={handleSubmit}>{editingId ? "Update" : "Add Pick"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -739,12 +566,11 @@ export const FeaturedCollectionsManager: React.FC = () => {
               Landing Page Preview
             </DialogTitle>
             <DialogDescription>
-              Preview how the featured collections will appear on the landing page
+              Preview how the curated rails will appear to visitors
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Monthly Preview */}
             <FeaturedCollectionsSlideshow
               featureType="monthly"
               title="Collection of the Month"
@@ -754,25 +580,9 @@ export const FeaturedCollectionsManager: React.FC = () => {
               gradientTo="to-orange-500/20"
               autoPlayInterval={6000}
             />
-
-            {/* Weekly Preview */}
-            <FeaturedCollectionsSlideshow
-              featureType="weekly"
-              title="Weekly Spotlight"
-              subtitle="This week's highlighted collections"
-              icon={<Calendar className="w-5 h-5" />}
-              gradientFrom="from-violet-500/20"
-              gradientTo="to-purple-500/20"
-              autoPlayInterval={4000}
-            />
-
-            {monthlyFeatured.length === 0 && weeklyFeatured.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium">No Active Featured Collections</p>
-                <p className="text-sm">Add some featured collections to see the preview</p>
-              </div>
-            )}
+            {CURATION_CATEGORIES.map((meta) => (
+              <CuratedCategoryRail key={meta.id} meta={meta} showChainFilter={false} />
+            ))}
           </div>
 
           <DialogFooter>
