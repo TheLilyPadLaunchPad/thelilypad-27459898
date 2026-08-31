@@ -221,6 +221,13 @@ export default function CollectionDetail() {
           </div>
         )}
 
+        {collection?.id && (
+          <div className="mt-10">
+            <CollectionPacksSection collectionId={collection.id} collectionName={collection.name} />
+          </div>
+        )}
+
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
           {/* Left Column: Details & Content */}
           <div className="lg:col-span-2 space-y-8">
