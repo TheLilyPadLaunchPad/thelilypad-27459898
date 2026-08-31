@@ -3034,6 +3034,7 @@ export type Database = {
       shop_items: {
         Row: {
           category: string
+          collection_id: string | null
           created_at: string
           creator_id: string
           creator_type: string
@@ -3052,6 +3053,7 @@ export type Database = {
         }
         Insert: {
           category?: string
+          collection_id?: string | null
           created_at?: string
           creator_id: string
           creator_type?: string
@@ -3070,6 +3072,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          collection_id?: string | null
           created_at?: string
           creator_id?: string
           creator_type?: string
@@ -3087,6 +3090,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shop_items_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shop_items_required_collection_id_fkey"
             columns: ["required_collection_id"]
