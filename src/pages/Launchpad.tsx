@@ -164,6 +164,7 @@ export default function Launchpad() {
   const [activeTab, setActiveTab] = useState("all");
   const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [showHybridForm, setShowHybridForm] = useState(false);
+  const [buildMode, setBuildMode] = useState<"simple" | "advanced">("simple");
 
   const {
     collections, isLoading,
