@@ -44,7 +44,9 @@ interface ShopItem {
   creator_id: string;
   is_active: boolean;
   created_at: string;
+  collection_id?: string | null;
 }
+
 
 interface StickerContent {
   id: string;
