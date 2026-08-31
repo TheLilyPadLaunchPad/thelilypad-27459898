@@ -44,7 +44,9 @@ interface ShopItem {
   creator_id: string;
   is_active: boolean;
   created_at: string;
+  collection_id?: string | null;
 }
+
 
 interface StickerContent {
   id: string;
@@ -69,6 +71,8 @@ export default function StickerPackDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
+  const [parentCollection, setParentCollection] = useState<{ id: string; name: string } | null>(null);
+
 
   useSEO({
     title: pack ? `${pack.name} | The Lily Pad` : "Sticker Pack | The Lily Pad",
@@ -101,6 +105,20 @@ export default function StickerPackDetail() {
         }
 
         setPack(packData);
+
+        // Funnel context: which launch collection this pack belongs to
+        const parentId = (packData as { collection_id?: string | null }).collection_id;
+        if (parentId) {
+          const { data: parent } = await supabase
+            .from("collections")
+            .select("id, name")
+            .eq("id", parentId)
+            .maybeSingle();
+          setParentCollection(parent ?? null);
+        } else {
+          setParentCollection(null);
+        }
+
 
         // Fetch stickers in the pack
         const { data: stickersData, error: stickersError } = await supabase
@@ -376,6 +394,22 @@ export default function StickerPackDetail() {
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
+            {parentCollection && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link
+                      to={`/collection/${parentCollection.id}`}
+                      className="hover:text-primary transition-colors truncate max-w-[160px]"
+                    >
+                      {parentCollection.name}
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+              </>
+            )}
+
             <BreadcrumbItem>
               <BreadcrumbPage className="truncate max-w-[200px]">{pack.name}</BreadcrumbPage>
             </BreadcrumbItem>

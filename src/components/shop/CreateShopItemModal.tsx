@@ -80,6 +80,8 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
   const [tier, setTier] = useState<"free" | "basic" | "premium" | "exclusive">("basic");
   const [priceMon, setPriceMon] = useState("0");
   const [requiredCollectionId, setRequiredCollectionId] = useState<string>("");
+  const [linkedCollectionId, setLinkedCollectionId] = useState<string>("");
+
   const [isActive, setIsActive] = useState(true);
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string>("");
@@ -194,6 +196,8 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
           tier,
           price_mon: tier === "free" ? 0 : Number(priceMon),
           required_collection_id: requiredCollectionId || null,
+          collection_id: linkedCollectionId || null,
+
           is_active: isActive,
         })
         .select()
@@ -499,7 +503,32 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
               )}
 
               <div>
+
+                <Label>Part of a Collection Launch (Optional)</Label>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Show this pack on a collection's page so minters can buy it right after minting.
+                </p>
+                <Select
+                  value={linkedCollectionId || "__none__"}
+                  onValueChange={(v) => setLinkedCollectionId(v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Standalone pack" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Standalone pack</SelectItem>
+                    {collections.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} ({c.symbol})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label>Holder Exclusive (Optional)</Label>
+
                 <p className="text-sm text-muted-foreground mb-2">
                   Restrict this pack to holders of one of your NFT collections.
                 </p>
