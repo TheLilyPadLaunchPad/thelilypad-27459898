@@ -23,13 +23,12 @@ import { useMockMode } from "@/hooks/useMockMode";
 import {
   Connection,
   PublicKey,
-  Transaction,
-  SystemProgram,
-  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
-import { TREASURY_CONFIG, getTransactionSplit } from "@/config/treasury";
+import { TREASURY_CONFIG } from "@/config/treasury";
+import { PLATFORM_WALLETS } from "@/config/treasury";
 import { getSolanaRpcUrl, type NetworkType } from "@/config/solana";
-import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
+import { buildStickerPackPurchaseTx } from "@/chains/solana/shop";
+import { useShopMint } from "@/hooks/useShopMint";
 
 interface ShopItem {
   id: string;
@@ -37,6 +36,7 @@ interface ShopItem {
   description: string | null;
   image_url: string | null;
   price_mon: number;
+  price_sol?: number | null;
   category: string;
   tier: string;
   total_sales: number;
@@ -45,6 +45,8 @@ interface ShopItem {
   is_active: boolean;
   created_at: string;
   collection_id?: string | null;
+  collection_address?: string | null;
+  tree_address?: string | null;
 }
 
 
@@ -55,6 +57,8 @@ interface StickerContent {
   file_url: string;
   display_order: number;
   created_at: string;
+  arweave_uri?: string | null;
+  metadata_uri?: string | null;
 }
 
 export default function StickerPackDetail() {
@@ -63,6 +67,7 @@ export default function StickerPackDetail() {
   const { isConnected, address, getSolanaProvider, network } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
   const { isMockMode } = useMockMode();
+  const { purchasePackOnChain, isMinting } = useShopMint();
   // Prefer auth.users ID if available (for standard auth), otherwise profile ID (for wallet-only)
   const userId = profile?.user_id || profile?.id || null;
 
@@ -182,7 +187,7 @@ export default function StickerPackDetail() {
           item_id: pack.id,
           user_id: purchaseUserId,
           price_paid: 0,
-          currency: "USDC",
+          currency: "SOL",
           tx_hash: "free_claim",
         });
 
@@ -268,49 +273,93 @@ export default function StickerPackDetail() {
         
         txSignature = `mock_lpt_purchase_${Date.now()}`;
       } else {
-        // Standard Solana logic
+        const priceSol = pack.price_sol ?? pack.price_mon;
+
+        // Deployed on-chain → pay SOL and mint the pack contents as cNFTs
+        // straight into the buyer's wallet (handles payment + DB records).
+        const deliverable = stickers.filter((s) => s.metadata_uri);
+        if (pack.collection_address && pack.tree_address && deliverable.length > 0) {
+          const results = await purchasePackOnChain(
+            {
+              id: pack.id,
+              name: pack.name,
+              description: pack.description,
+              image_url: pack.image_url,
+              category: pack.category,
+              price_sol: priceSol,
+              price_mon: pack.price_mon,
+              collection_address: pack.collection_address,
+              tree_address: pack.tree_address,
+            },
+            deliverable.map((s) => ({
+              id: s.id,
+              name: s.name,
+              file_url: s.file_url,
+              arweave_uri: s.arweave_uri ?? undefined,
+              metadata_uri: s.metadata_uri ?? undefined,
+              display_order: s.display_order,
+            })),
+            purchaseUserId,
+          );
+
+          if (!results.some((r) => r.success)) return;
+          setHasPurchased(true);
+          return;
+        }
+
+        // Not deployed on-chain → settle the SOL payment with the creator
+        // split + platform fee, then record the entitlement.
         const solanaProvider = getSolanaProvider();
-        if (!solanaProvider) {
+        if (!solanaProvider?.publicKey) {
           throw new Error("Solana wallet not available");
         }
 
         const rpcUrl = getSolanaRpcUrl(network as NetworkType);
         const connection = new Connection(rpcUrl, "confirmed");
-
         const fromPubkey = new PublicKey(address!);
-        const treasuryPubkey = new PublicKey(TREASURY_CONFIG.treasuryWallet);
 
-        const totalLamports = Math.floor(pack.price_mon * LAMPORTS_PER_SOL);
-        
-        const transaction = new Transaction();
-        transaction.add(
-          SystemProgram.transfer({
-            fromPubkey,
-            toPubkey: treasuryPubkey,
-            lamports: totalLamports,
-          })
-        );
-        transaction.add(
-          createProtocolMemoInstruction("shop:item_purchase", {
-            item: pack.id,
-            type: "sticker_pack",
-          })
+        // Resolve creator payout wallet, fall back to treasury
+        let creatorWallet = TREASURY_CONFIG.treasuryWallet || PLATFORM_WALLETS.solana.treasury;
+        if (pack.creator_id) {
+          const { data: creatorProfile } = await supabase
+            .from("user_profiles")
+            .select("wallet_address")
+            .eq("id", pack.creator_id)
+            .maybeSingle();
+          if (creatorProfile?.wallet_address) {
+            try {
+              new PublicKey(creatorProfile.wallet_address);
+              creatorWallet = creatorProfile.wallet_address;
+            } catch {
+              /* keep treasury fallback */
+            }
+          }
+        }
+
+        const transaction = buildStickerPackPurchaseTx(
+          fromPubkey,
+          creatorWallet,
+          priceSol,
+          pack.id,
         );
 
-        const { blockhash } = await connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = fromPubkey;
 
         const signedTx = await solanaProvider.signTransaction(transaction);
         txSignature = await connection.sendRawTransaction(signedTx.serialize());
-        await connection.confirmTransaction(txSignature, "confirmed");
+        await connection.confirmTransaction(
+          { signature: txSignature, blockhash, lastValidBlockHeight },
+          "confirmed",
+        );
       }
 
       const { error } = await supabase.from("shop_purchases").insert({
         item_id: pack.id,
         user_id: purchaseUserId,
-        price_paid: pack.price_mon,
-        currency: isMockMode ? "LPT" : "USDC",
+        price_paid: pack.price_sol ?? pack.price_mon,
+        currency: isMockMode ? "LPT" : "SOL",
         tx_hash: txSignature,
       });
 
@@ -462,7 +511,7 @@ export default function StickerPackDetail() {
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Price</span>
                     <span className="font-bold text-lg">
-                      {pack.price_mon > 0 ? `${pack.price_mon} USDC` : "Free"}
+                      {pack.price_mon > 0 ? `${pack.price_sol ?? pack.price_mon} SOL` : "Free"}
                     </span>
                   </div>
                 </div>
@@ -482,10 +531,10 @@ export default function StickerPackDetail() {
                 ) : (
                   <Button
                     onClick={handlePurchase}
-                    disabled={isPurchasing}
+                    disabled={isPurchasing || isMinting}
                     className="w-full gap-2"
                   >
-                    {isPurchasing ? (
+                    {isPurchasing || isMinting ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : isMockMode ? (
                       <Coins className="w-4 h-4" />
@@ -495,7 +544,7 @@ export default function StickerPackDetail() {
                     {isMockMode ? (
                       pack.price_mon > 0 ? `Buy for ${pack.price_mon} LPT` : "Get for Free"
                     ) : (
-                      pack.price_mon > 0 ? `Buy for ${pack.price_mon} USDC` : "Get for Free"
+                      pack.price_mon > 0 ? `Buy for ${pack.price_sol ?? pack.price_mon} SOL` : "Get for Free"
                     )}
                   </Button>
                 )}
