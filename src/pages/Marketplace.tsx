@@ -32,10 +32,13 @@ import {
   AuctionsGrid,
   type AuctionRow,
   StickerPacksGrid,
-  HomepageFeaturedCollections,
 } from "@/components/marketplace";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
 import { MarketPulseWidget } from "@/components/marketplace/MarketPulseWidget";
+import { CuratedCategoryRail } from "@/components/sections/CuratedCategoryRail";
+import { useCuratedCollections } from "@/hooks/useCuratedCollections";
+import { CURATION_CATEGORIES, isCurationCategory, type CurationCategory } from "@/config/curation";
+import { useSearchParams } from "react-router-dom";
 
 
 
