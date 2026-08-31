@@ -377,9 +377,33 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
 
           {/* Stickers List */}
           <div className="flex-1 overflow-hidden">
-            <h4 className="font-medium mb-3">
-              Stickers ({stickers.length})
-            </h4>
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <h4 className="font-medium">
+                Stickers ({stickers.length})
+                {stickers.some((s) => !s.metadata_uri) && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {stickers.filter((s) => !s.metadata_uri).length} not mintable
+                  </span>
+                )}
+              </h4>
+              {stickers.some((s) => !s.metadata_uri) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs"
+                  disabled={!!preparingId}
+                  onClick={handlePrepareAll}
+                >
+                  {preparingId ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Globe className="w-3 h-3" />
+                  )}
+                  Prepare all on-chain
+                </Button>
+              )}
+            </div>
+
             
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
