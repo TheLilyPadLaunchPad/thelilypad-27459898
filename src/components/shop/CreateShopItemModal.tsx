@@ -503,7 +503,32 @@ export const CreateShopItemModal: React.FC<CreateShopItemModalProps> = ({
               )}
 
               <div>
+              <div>
+                <Label>Part of a Collection Launch (Optional)</Label>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Show this pack on a collection's page so minters can buy it right after minting.
+                </p>
+                <Select
+                  value={linkedCollectionId || "__none__"}
+                  onValueChange={(v) => setLinkedCollectionId(v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Standalone pack" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Standalone pack</SelectItem>
+                    {collections.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} ({c.symbol})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <Label>Holder Exclusive (Optional)</Label>
+
                 <p className="text-sm text-muted-foreground mb-2">
                   Restrict this pack to holders of one of your NFT collections.
                 </p>
