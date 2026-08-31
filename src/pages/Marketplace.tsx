@@ -178,7 +178,7 @@ export default function Marketplace() {
   }, []);
 
   // Only enable infinite scroll when no filters are applied
-  const canLoadMore = hasMore && !verifiedOnly && !showHotOnly && !showNewOnly;
+  const canLoadMore = hasMore && !category && !verifiedOnly && !showHotOnly && !showNewOnly;
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
