@@ -556,7 +556,18 @@ export default function StickerPackDetail() {
                   </div>
                 </div>
 
+                {pack.collection_address && pack.tree_address && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
+                    <span className="font-medium text-primary">On-chain delivery.</span>{" "}
+                    {stickers.filter((s) => s.metadata_uri).length} item
+                    {stickers.filter((s) => s.metadata_uri).length === 1 ? "" : "s"} in this pack
+                    mint as compressed NFTs straight to your wallet, with artwork stored
+                    permanently on Arweave.
+                  </div>
+                )}
+
                 <Separator />
+
 
                 {pack.max_editions && pack.total_sales >= pack.max_editions ? (
                   <Button disabled className="w-full gap-2" variant="destructive">
