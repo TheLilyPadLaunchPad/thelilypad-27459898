@@ -338,8 +338,17 @@ export default function StickerPackDetail() {
           return;
         }
 
+        // Deployed on-chain but nothing mintable → don't take money for
+        // assets we can't deliver to the wallet.
+        if (pack.collection_address && pack.tree_address) {
+          throw new Error(
+            "This pack's items aren't ready for on-chain delivery yet. Please try again later.",
+          );
+        }
+
         // Not deployed on-chain → settle the SOL payment with the creator
         // split + platform fee, then record the entitlement.
+
         const solanaProvider = getSolanaProvider();
         if (!solanaProvider?.publicKey) {
           throw new Error("Solana wallet not available");
