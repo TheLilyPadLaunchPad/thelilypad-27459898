@@ -67,6 +67,7 @@ export default function StickerPackDetail() {
   const { isConnected, address, getSolanaProvider, network } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
   const { isMockMode } = useMockMode();
+  const { purchasePackOnChain, isMinting } = useShopMint();
   // Prefer auth.users ID if available (for standard auth), otherwise profile ID (for wallet-only)
   const userId = profile?.user_id || profile?.id || null;
 
