@@ -16,8 +16,20 @@ export interface CuratedCollection {
         minted: number;
         total_supply: number;
         chain: string | null;
+        phases: unknown;
     };
 }
+
+/** Lowest configured phase price for a collection, or null when unpriced. */
+export function collectionMintPrice(phases: unknown): number | null {
+    if (!Array.isArray(phases)) return null;
+    const prices = phases
+        .map((p) => Number((p as { price?: unknown } | null)?.price))
+        .filter((n) => Number.isFinite(n) && n >= 0);
+    if (prices.length === 0) return null;
+    return Math.min(...prices);
+}
+
 
 async function fetchCurated(rail: FeatureRail): Promise<CuratedCollection[]> {
     const today = new Date().toISOString().split("T")[0];
