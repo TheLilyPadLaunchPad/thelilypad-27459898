@@ -23,13 +23,12 @@ import { useMockMode } from "@/hooks/useMockMode";
 import {
   Connection,
   PublicKey,
-  Transaction,
-  SystemProgram,
-  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
-import { TREASURY_CONFIG, getTransactionSplit } from "@/config/treasury";
+import { TREASURY_CONFIG } from "@/config/treasury";
+import { PLATFORM_WALLETS } from "@/config/treasury";
 import { getSolanaRpcUrl, type NetworkType } from "@/config/solana";
-import { createProtocolMemoInstruction } from "@/lib/solanaProtocol";
+import { buildStickerPackPurchaseTx } from "@/chains/solana/shop";
+import { useShopMint } from "@/hooks/useShopMint";
 
 interface ShopItem {
   id: string;
@@ -37,6 +36,7 @@ interface ShopItem {
   description: string | null;
   image_url: string | null;
   price_mon: number;
+  price_sol?: number | null;
   category: string;
   tier: string;
   total_sales: number;
@@ -45,6 +45,8 @@ interface ShopItem {
   is_active: boolean;
   created_at: string;
   collection_id?: string | null;
+  collection_address?: string | null;
+  tree_address?: string | null;
 }
 
 
@@ -55,6 +57,8 @@ interface StickerContent {
   file_url: string;
   display_order: number;
   created_at: string;
+  arweave_uri?: string | null;
+  metadata_uri?: string | null;
 }
 
 export default function StickerPackDetail() {
