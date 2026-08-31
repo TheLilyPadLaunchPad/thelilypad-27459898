@@ -203,12 +203,33 @@ export default function Marketplace() {
           ))}
         </div>
 
-
-
-        {/* Homepage Featured Collections - Admin curated (up to 5) */}
-        <div className="mb-8">
-          <HomepageFeaturedCollections />
+        {/* Curated category tabs */}
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+          {[{ id: 'all', short: 'All Launches' }, ...CURATION_CATEGORIES].map((cat: any) => (
+            <button
+              key={cat.id}
+              aria-pressed={category === cat.id}
+              onClick={() => setCategory(cat.id === 'all' ? null : cat.id)}
+              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium whitespace-nowrap border transition-all ${
+                (category ?? 'all') === cat.id
+                  ? 'bg-primary/15 text-primary border-primary/30'
+                  : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+              }`}
+            >
+              {cat.short}
+            </button>
+          ))}
         </div>
+
+        {/* Curated rails (only on the "All" view) */}
+        {!category && (
+          <div className="mb-8 divide-y divide-border/60">
+            {CURATION_CATEGORIES.map((meta) => (
+              <CuratedCategoryRail key={meta.id} meta={meta} showChainFilter={false} />
+            ))}
+          </div>
+        )}
+
 
         {/* Featured Card Stack */}
         <FeaturedCardStack />
