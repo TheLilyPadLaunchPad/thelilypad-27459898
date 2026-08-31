@@ -71,6 +71,8 @@ export default function StickerPackDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
+  const [parentCollection, setParentCollection] = useState<{ id: string; name: string } | null>(null);
+
 
   useSEO({
     title: pack ? `${pack.name} | The Lily Pad` : "Sticker Pack | The Lily Pad",
