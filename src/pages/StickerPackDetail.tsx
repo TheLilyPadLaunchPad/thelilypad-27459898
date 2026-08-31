@@ -172,7 +172,7 @@ export default function StickerPackDetail() {
 
     if (!pack) return;
 
-    // Free sticker pack - just record purchase
+    // Free sticker pack — still mint on-chain when the pack is deployed
     if (pack.price_mon <= 0) {
       setIsPurchasing(true);
       try {
@@ -182,6 +182,37 @@ export default function StickerPackDetail() {
         if (!purchaseUserId) {
           throw new Error("User profile not found. Please connect your wallet.");
         }
+
+        const freeDeliverable = stickers.filter((s) => s.metadata_uri);
+        if (pack.collection_address && pack.tree_address && freeDeliverable.length > 0) {
+          const results = await purchasePackOnChain(
+            {
+              id: pack.id,
+              name: pack.name,
+              description: pack.description,
+              image_url: pack.image_url,
+              category: pack.category,
+              price_sol: 0,
+              price_mon: 0,
+              collection_address: pack.collection_address,
+              tree_address: pack.tree_address,
+            },
+            freeDeliverable.map((s) => ({
+              id: s.id,
+              name: s.name,
+              file_url: s.file_url,
+              arweave_uri: s.arweave_uri ?? undefined,
+              metadata_uri: s.metadata_uri ?? undefined,
+              display_order: s.display_order,
+            })),
+            purchaseUserId,
+            { skipPayment: true },
+          );
+
+          if (results.some((r) => r.success)) setHasPurchased(true);
+          return;
+        }
+
 
         const { error } = await supabase.from("shop_purchases").insert({
           item_id: pack.id,
@@ -307,8 +338,17 @@ export default function StickerPackDetail() {
           return;
         }
 
+        // Deployed on-chain but nothing mintable → don't take money for
+        // assets we can't deliver to the wallet.
+        if (pack.collection_address && pack.tree_address) {
+          throw new Error(
+            "This pack's items aren't ready for on-chain delivery yet. Please try again later.",
+          );
+        }
+
         // Not deployed on-chain → settle the SOL payment with the creator
         // split + platform fee, then record the entitlement.
+
         const solanaProvider = getSolanaProvider();
         if (!solanaProvider?.publicKey) {
           throw new Error("Solana wallet not available");
@@ -516,7 +556,18 @@ export default function StickerPackDetail() {
                   </div>
                 </div>
 
+                {pack.collection_address && pack.tree_address && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
+                    <span className="font-medium text-primary">On-chain delivery.</span>{" "}
+                    {stickers.filter((s) => s.metadata_uri).length} item
+                    {stickers.filter((s) => s.metadata_uri).length === 1 ? "" : "s"} in this pack
+                    mint as compressed NFTs straight to your wallet, with artwork stored
+                    permanently on Arweave.
+                  </div>
+                )}
+
                 <Separator />
+
 
                 {pack.max_editions && pack.total_sales >= pack.max_editions ? (
                   <Button disabled className="w-full gap-2" variant="destructive">

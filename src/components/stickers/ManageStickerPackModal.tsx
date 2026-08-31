@@ -65,6 +65,8 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [uploadToChain, setUploadToChain] = useState(true);
+  const [preparingId, setPreparingId] = useState<string | null>(null);
+
   const { uploadStickerToArweave } = useShopMint();
 
   const fetchStickers = useCallback(async () => {
@@ -180,8 +182,61 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
     }
   };
 
+  /**
+   * Backfill: take a sticker that was stored off-chain only and push its
+   * artwork + metadata to Arweave so it can be minted as a cNFT on purchase.
+   */
+  const handleMakeOnChain = async (sticker: StickerContent) => {
+    setPreparingId(sticker.id);
+    try {
+      toast.loading(`Preparing ${sticker.name} for on-chain…`, { id: "prep-sticker" });
+      const res = await fetch(sticker.file_url);
+      if (!res.ok) throw new Error("Could not read sticker image");
+      const blob = await res.blob();
+      const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      const file = new File([blob], `${sticker.name}.${ext}`, { type: blob.type });
+
+      const { arweaveUri, metadataUri } = await uploadStickerToArweave(
+        file,
+        sticker.name,
+        pack.name,
+        pack.category,
+      );
+
+      const { error } = await supabase
+        .from("shop_item_contents")
+        .update({ arweave_uri: arweaveUri, metadata_uri: metadataUri })
+        .eq("id", sticker.id);
+      if (error) throw error;
+
+      setStickers((prev) =>
+        prev.map((s) =>
+          s.id === sticker.id ? { ...s, arweave_uri: arweaveUri, metadata_uri: metadataUri } : s,
+        ),
+      );
+      toast.success(`${sticker.name} is now on-chain ready`, { id: "prep-sticker" });
+      onUpdate();
+    } catch (err) {
+      console.error("Make on-chain failed:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to prepare sticker", {
+        id: "prep-sticker",
+      });
+    } finally {
+      setPreparingId(null);
+    }
+  };
+
+  const handlePrepareAll = async () => {
+    const pending = stickers.filter((s) => !s.metadata_uri);
+    for (const s of pending) {
+      // sequential: each upload needs its own wallet-funded Irys transaction
+      await handleMakeOnChain(s);
+    }
+  };
+
   const handleDeleteSticker = async (sticker: StickerContent) => {
     if (!confirm("Delete this sticker?")) return;
+
 
     try {
       const { error } = await supabase
@@ -322,9 +377,33 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
 
           {/* Stickers List */}
           <div className="flex-1 overflow-hidden">
-            <h4 className="font-medium mb-3">
-              Stickers ({stickers.length})
-            </h4>
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <h4 className="font-medium">
+                Stickers ({stickers.length})
+                {stickers.some((s) => !s.metadata_uri) && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {stickers.filter((s) => !s.metadata_uri).length} not mintable
+                  </span>
+                )}
+              </h4>
+              {stickers.some((s) => !s.metadata_uri) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs"
+                  disabled={!!preparingId}
+                  onClick={handlePrepareAll}
+                >
+                  {preparingId ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Globe className="w-3 h-3" />
+                  )}
+                  Prepare all on-chain
+                </Button>
+              )}
+            </div>
+
             
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -349,12 +428,28 @@ export const ManageStickerPackModal: React.FC<ManageStickerPackModalProps> = ({
                         <p className="text-xs font-medium truncate text-center">
                           {sticker.name}
                         </p>
-                        {sticker.arweave_uri && (
+                        {sticker.metadata_uri ? (
                           <Badge variant="outline" className="w-full justify-center text-[9px] mt-1 gap-1 text-green-500 border-green-500/30">
                             <Globe className="w-2.5 h-2.5" />
-                            On-Chain
+                            Mintable
                           </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-6 mt-1 text-[9px] gap-1"
+                            disabled={!!preparingId}
+                            onClick={() => handleMakeOnChain(sticker)}
+                          >
+                            {preparingId === sticker.id ? (
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            ) : (
+                              <Globe className="w-2.5 h-2.5" />
+                            )}
+                            Make on-chain
+                          </Button>
                         )}
+
                       </div>
                       <button
                         onClick={() => handleDeleteSticker(sticker)}
