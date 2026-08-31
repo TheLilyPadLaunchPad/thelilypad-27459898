@@ -474,7 +474,7 @@ export default function Launchpad() {
                     </div>
 
                     {/* Secondary tools */}
-                    {secondaryTiles.length > 0 && (
+                    {buildMode === "advanced" && secondaryTiles.length > 0 && (
                       <>
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">More Tools</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
