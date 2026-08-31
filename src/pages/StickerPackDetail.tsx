@@ -394,6 +394,22 @@ export default function StickerPackDetail() {
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
+            {parentCollection && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link
+                      to={`/collection/${parentCollection.id}`}
+                      className="hover:text-primary transition-colors truncate max-w-[160px]"
+                    >
+                      {parentCollection.name}
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+              </>
+            )}
+
             <BreadcrumbItem>
               <BreadcrumbPage className="truncate max-w-[200px]">{pack.name}</BreadcrumbPage>
             </BreadcrumbItem>
