@@ -4268,6 +4268,14 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: Json
       }
+      get_proposal_vote_tally: {
+        Args: { p_proposal_id: string }
+        Returns: {
+          support: number
+          total_weight: number
+          vote_count: number
+        }[]
+      }
       get_top_collections_stats: { Args: never; Returns: Json }
       get_top_supporters: {
         Args: { limit_count?: number; target_user_id: string }
