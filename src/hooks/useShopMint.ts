@@ -424,6 +424,8 @@ export function useShopMint() {
 
     // User
     purchasePackOnChain,
+    retryPackDelivery,
+    pendingDelivery,
     isMinting,
     mintProgress,
   };
