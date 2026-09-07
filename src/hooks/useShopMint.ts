@@ -12,7 +12,7 @@
 
 import { useCallback, useState } from 'react';
 import { useWallet } from '@/providers/WalletProvider';
-import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
+
 import {
   uploadToArweave,
   uploadMetadataToArweave,
@@ -100,12 +100,13 @@ export function buildStickerMetadata(
 export function useShopMint() {
   const { address, network, getSolanaProvider, isConnected, setTransactionPending } =
     useWallet();
-  const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore } =
-    useSolanaLaunch();
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [mintProgress, setMintProgress] = useState({ done: 0, total: 0 });
+  const [pendingDelivery, setPendingDelivery] = useState<
+    { packId: string; paymentSignature: string } | null
+  >(null);
 
   // ── Admin: Deploy on-chain collection for a pack ────────────────────────
 
@@ -123,6 +124,9 @@ export function useShopMint() {
 
       setIsDeploying(true);
       try {
+        // NOTE: the collection + tree are created by the PLATFORM mint
+        // authority (server side), never by the admin's personal wallet —
+        // otherwise buyers' packs could never be minted for them.
         // 1. Upload pack cover image to Arweave for the collection metadata
         let coverUri = pack.image_url || '';
         if (pack.image_url && !pack.image_url.includes('arweave.net')) {
@@ -150,37 +154,22 @@ export function useShopMint() {
           network: network || 'devnet',
         });
 
-        // 3. Deploy Core Collection
-        toast.loading('Deploying Core Collection…', { id: 'deploy-pack' });
-        const result = await deploySolanaCollection({
-          name: pack.name,
-          symbol: 'LILY',
-          uri: metadataUri,
-          sellerFeeBasisPoints: 0,
-          creators: [{ address, share: 100 }],
-          // Pack contents are minted as cNFTs via Bubblegum mintV2,
-          // which requires the collection to carry the BubblegumV2 plugin.
-          withBubblegumV2: true,
+        // 3. Deploy Core Collection + Bubblegum tree under the platform
+        //    mint authority (server side).
+        toast.loading('Deploying collection + tree…', { id: 'deploy-pack' });
+        const { data, error } = await supabase.functions.invoke('mint-pack-assets', {
+          body: { action: 'deploy', packId: pack.id, metadataUri },
         });
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error(data?.error || 'Pack deployment failed');
 
-        if (!result?.address) throw new Error('Collection deployment failed');
-        const collectionAddress = result.address;
+        const collectionAddress: string = data.collectionAddress;
+        const treeAddress: string = data.treeAddress;
 
-        // 4. Deploy Bubblegum Tree (depth 14 = ~16k leaves, enough for packs)
-        toast.loading('Deploying Bubblegum Tree…', { id: 'deploy-pack' });
-        const treeAddress = await deployBubblegumTree(14, 64, 8);
-
-        // 5. Persist on-chain addresses to shop_items
-        const { error: updateErr } = await supabase
-          .from('shop_items')
-          .update({
-            collection_address: collectionAddress,
-            tree_address: treeAddress,
-            image_url: coverUri, // update to Arweave URL
-          })
-          .eq('id', pack.id);
-
-        if (updateErr) console.error('Failed to save on-chain addresses:', updateErr);
+        // 4. Keep the Arweave cover on the pack record
+        if (coverUri && coverUri !== pack.image_url) {
+          await supabase.from('shop_items').update({ image_url: coverUri }).eq('id', pack.id);
+        }
 
         toast.success('Pack deployed on-chain!', { id: 'deploy-pack' });
         return { collectionAddress, treeAddress };
@@ -192,7 +181,7 @@ export function useShopMint() {
         setIsDeploying(false);
       }
     },
-    [address, isConnected, network, deploySolanaCollection, deployBubblegumTree],
+    [address, isConnected, network],
   );
 
   // ── Admin: Upload a single sticker to Arweave + build metadata ──────────
@@ -261,10 +250,10 @@ export function useShopMint() {
       setTransactionPending(true);
 
       const results: MintResult[] = [];
+      let paymentSignature: string | undefined;
 
       try {
         const skipPayment = options?.skipPayment === true;
-        const skipPurchaseRecord = options?.skipPurchaseRecord === true;
 
         // ── Step 1: SOL Payment ──────────────────────────────────────────
         const priceSol = pack.price_sol || pack.price_mon * 0.01;
@@ -302,98 +291,53 @@ export function useShopMint() {
           transaction.feePayer = provider.publicKey;
 
           const signed = await provider.signTransaction(transaction);
-          const paymentSig = await connection.sendRawTransaction(signed.serialize());
+          paymentSignature = await connection.sendRawTransaction(signed.serialize());
           await connection.confirmTransaction(
-            { signature: paymentSig, blockhash, lastValidBlockHeight },
+            { signature: paymentSignature, blockhash, lastValidBlockHeight },
             'confirmed',
           );
 
           toast.loading('Payment confirmed! Minting assets…', { id: 'pack-purchase' });
         }
 
-        // ── Step 2: Mint cNFTs ───────────────────────────────────────────
-        for (let i = 0; i < mintableContents.length; i++) {
-          const content = mintableContents[i];
-          try {
-            toast.loading(
-              `Minting ${content.name} (${i + 1}/${mintableContents.length})…`,
-              { id: 'pack-purchase' },
-            );
 
-            const mintResult = await mintCompressedCore(
-              pack.tree_address!,
-              pack.collection_address!,
-              content.name,
-              content.metadata_uri!,
-              0, // no royalties on utility assets
-              address, // mint to buyer
-            );
+        // ── Step 2: Deliver — the platform mint authority signs the mints
+        //    server side (the buyer owns neither the tree nor the collection).
+        toast.loading('Minting assets to your wallet…', { id: 'pack-purchase' });
 
-            results.push({
-              success: true,
-              contentId: content.id,
-              assetId: mintResult?.assetId,
-              signature: mintResult?.signature
-                ? Buffer.from(mintResult.signature).toString('base64')
-                : undefined,
-            });
-          } catch (err: unknown) {
-            console.error(`Failed to mint ${content.name}:`, err);
-            results.push({
-              success: false,
-              contentId: content.id,
-              error: getErrorMessage(err),
-            });
-          }
+        const { data, error } = await supabase.functions.invoke('mint-pack-assets', {
+          body: {
+            action: 'mint',
+            packId: pack.id,
+            buyerWallet: address,
+            paymentSignature,
+          },
+        });
 
-          setMintProgress({ done: i + 1, total: mintableContents.length });
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error(data?.error || 'Delivery failed');
+
+        const serverResults: Array<{
+          success: boolean;
+          contentId: string;
+          signature?: string;
+          error?: string;
+        }> = data.results ?? [];
+
+        for (const r of serverResults) {
+          results.push({
+            success: r.success,
+            contentId: r.contentId,
+            assetId: r.signature,
+            signature: r.signature,
+            error: r.error,
+          });
         }
+        setMintProgress({ done: results.length, total: mintableContents.length });
 
-        // ── Step 3: Record purchase in DB ────────────────────────────────
-        const pricePaid = skipPayment ? 0 : pack.price_sol || pack.price_mon * 0.01;
         const successCount = results.filter((r) => r.success).length;
-
-        if (successCount > 0) {
-          // shop_purchases record
-          if (!skipPurchaseRecord) {
-            await supabase.from('shop_purchases').insert({
-              item_id: pack.id,
-              user_id: userId,
-              price_paid: pricePaid,
-              currency: 'SOL',
-              tx_hash: results.find((r) => r.signature)?.signature || null,
-            });
-          }
-
-          // minted_nfts records for each successful mint
-          const nftRecords = results
-            .filter((r) => r.success && r.assetId)
-            .map((r, idx) => {
-              const content = mintableContents.find((c) => c.id === r.contentId);
-              return {
-                name: content?.name || `${pack.name} #${idx + 1}`,
-                description: `On-chain ${pack.category.replace('_', ' ')} from ${pack.name}`,
-                image_url: content?.arweave_uri || content?.file_url || pack.image_url,
-                collection_id: null, // could link to a collections record if desired
-                owner_address: address,
-                owner_id: userId,
-                token_id: idx + 1,
-                tx_hash: r.assetId || '',
-                attributes: [
-                  { trait_type: 'Pack', value: pack.name },
-                  { trait_type: 'Category', value: pack.category },
-                  { trait_type: 'Asset Type', value: 'cNFT' },
-                ],
-                is_revealed: true,
-              };
-            });
-
-          if (nftRecords.length > 0) {
-            await supabase.from('minted_nfts').insert(nftRecords);
-          }
-        }
-
         const failCount = results.filter((r) => !r.success).length;
+
         if (failCount === 0) {
           toast.success(
             `Pack purchased! ${successCount} on-chain assets minted to your wallet.`,
@@ -401,7 +345,7 @@ export function useShopMint() {
           );
         } else {
           toast.warning(
-            `${successCount} minted, ${failCount} failed. Check My NFTs.`,
+            `${successCount} of ${results.length} delivered. The rest will be retried — your payment is saved.`,
             { id: 'pack-purchase' },
           );
         }
@@ -411,6 +355,12 @@ export function useShopMint() {
         console.error('Pack purchase failed:', err);
         if (isUserRejection(err)) {
           toast.error('Transaction cancelled', { id: 'pack-purchase' });
+        } else if (paymentSignature) {
+          setPendingDelivery({ packId: pack.id, paymentSignature });
+          toast.error(
+            'Payment went through but delivery failed. Your payment is saved — tap retry to receive your items.',
+            { id: 'pack-purchase' },
+          );
         } else {
           toast.error(getErrorMessage(err) || 'Purchase failed', {
             id: 'pack-purchase',
@@ -422,7 +372,46 @@ export function useShopMint() {
         setTransactionPending(false);
       }
     },
-    [address, isConnected, network, getSolanaProvider, mintCompressedCore, setTransactionPending],
+    [address, isConnected, network, getSolanaProvider, setTransactionPending],
+  );
+
+  // ── User: retry a paid-but-undelivered pack ─────────────────────────────
+
+  /**
+   * Re-runs delivery for a payment that already settled. Safe to call repeatedly:
+   * the backend refuses to mint the same payment twice.
+   */
+  const retryPackDelivery = useCallback(
+    async (packId: string, paymentSignature?: string) => {
+      if (!address) {
+        toast.error('Please connect your wallet');
+        return false;
+      }
+      setIsMinting(true);
+      try {
+        toast.loading('Retrying delivery…', { id: 'pack-retry' });
+        const { data, error } = await supabase.functions.invoke('mint-pack-assets', {
+          body: { action: 'mint', packId, buyerWallet: address, paymentSignature },
+        });
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error(data?.error || 'Delivery failed');
+
+        const delivered = data.alreadyDelivered || data.deliveryStatus === 'delivered';
+        if (delivered) {
+          setPendingDelivery(null);
+          toast.success('Your pack items are in your wallet.', { id: 'pack-retry' });
+          return true;
+        }
+        toast.warning('Still not fully delivered — please try again shortly.', { id: 'pack-retry' });
+        return false;
+      } catch (err: unknown) {
+        toast.error(getErrorMessage(err) || 'Retry failed', { id: 'pack-retry' });
+        return false;
+      } finally {
+        setIsMinting(false);
+      }
+    },
+    [address],
   );
 
   return {
@@ -433,6 +422,8 @@ export function useShopMint() {
 
     // User
     purchasePackOnChain,
+    retryPackDelivery,
+    pendingDelivery,
     isMinting,
     mintProgress,
   };

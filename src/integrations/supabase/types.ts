@@ -3034,6 +3034,7 @@ export type Database = {
       shop_items: {
         Row: {
           category: string
+          collection_address: string | null
           collection_id: string | null
           created_at: string
           creator_id: string
@@ -3043,16 +3044,19 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          mint_authority: string | null
           name: string
           price_mon: number
           price_sol: number | null
           required_collection_id: string | null
           tier: string
           total_sales: number
+          tree_address: string | null
           updated_at: string
         }
         Insert: {
           category?: string
+          collection_address?: string | null
           collection_id?: string | null
           created_at?: string
           creator_id: string
@@ -3062,16 +3066,19 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          mint_authority?: string | null
           name: string
           price_mon?: number
           price_sol?: number | null
           required_collection_id?: string | null
           tier?: string
           total_sales?: number
+          tree_address?: string | null
           updated_at?: string
         }
         Update: {
           category?: string
+          collection_address?: string | null
           collection_id?: string | null
           created_at?: string
           creator_id?: string
@@ -3081,12 +3088,14 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          mint_authority?: string | null
           name?: string
           price_mon?: number
           price_sol?: number | null
           required_collection_id?: string | null
           tier?: string
           total_sales?: number
+          tree_address?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3111,10 +3120,13 @@ export type Database = {
           creator_claimed: boolean
           creator_claimed_at: string | null
           currency: string | null
+          delivery_results: Json | null
+          delivery_status: string
           from_address: string | null
           id: string
           item_id: string
           metadata: Json | null
+          payment_signature: string | null
           price_paid: number
           purchased_at: string
           tx_hash: string | null
@@ -3124,10 +3136,13 @@ export type Database = {
           creator_claimed?: boolean
           creator_claimed_at?: string | null
           currency?: string | null
+          delivery_results?: Json | null
+          delivery_status?: string
           from_address?: string | null
           id?: string
           item_id: string
           metadata?: Json | null
+          payment_signature?: string | null
           price_paid: number
           purchased_at?: string
           tx_hash?: string | null
@@ -3137,10 +3152,13 @@ export type Database = {
           creator_claimed?: boolean
           creator_claimed_at?: string | null
           currency?: string | null
+          delivery_results?: Json | null
+          delivery_status?: string
           from_address?: string | null
           id?: string
           item_id?: string
           metadata?: Json | null
+          payment_signature?: string | null
           price_paid?: number
           purchased_at?: string
           tx_hash?: string | null
