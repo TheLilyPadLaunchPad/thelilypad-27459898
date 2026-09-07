@@ -12,7 +12,7 @@
 
 import { useCallback, useState } from 'react';
 import { useWallet } from '@/providers/WalletProvider';
-import { useSolanaLaunch } from '@/hooks/useSolanaLaunch';
+
 import {
   uploadToArweave,
   uploadMetadataToArweave,
@@ -100,8 +100,6 @@ export function buildStickerMetadata(
 export function useShopMint() {
   const { address, network, getSolanaProvider, isConnected, setTransactionPending } =
     useWallet();
-  const { deploySolanaCollection, deployBubblegumTree, mintCompressedCore } =
-    useSolanaLaunch();
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
