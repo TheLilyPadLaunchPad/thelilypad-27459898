@@ -123,6 +123,9 @@ export function useShopMint() {
 
       setIsDeploying(true);
       try {
+        // NOTE: the collection + tree are created by the PLATFORM mint
+        // authority (server side), never by the admin's personal wallet —
+        // otherwise buyers' packs could never be minted for them.
         // 1. Upload pack cover image to Arweave for the collection metadata
         let coverUri = pack.image_url || '';
         if (pack.image_url && !pack.image_url.includes('arweave.net')) {
