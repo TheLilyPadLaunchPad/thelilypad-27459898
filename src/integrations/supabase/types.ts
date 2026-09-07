@@ -3043,6 +3043,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          mint_authority: string | null
           name: string
           price_mon: number
           price_sol: number | null
@@ -3062,6 +3063,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          mint_authority?: string | null
           name: string
           price_mon?: number
           price_sol?: number | null
@@ -3081,6 +3083,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          mint_authority?: string | null
           name?: string
           price_mon?: number
           price_sol?: number | null
@@ -3111,10 +3114,13 @@ export type Database = {
           creator_claimed: boolean
           creator_claimed_at: string | null
           currency: string | null
+          delivery_results: Json | null
+          delivery_status: string
           from_address: string | null
           id: string
           item_id: string
           metadata: Json | null
+          payment_signature: string | null
           price_paid: number
           purchased_at: string
           tx_hash: string | null
@@ -3124,10 +3130,13 @@ export type Database = {
           creator_claimed?: boolean
           creator_claimed_at?: string | null
           currency?: string | null
+          delivery_results?: Json | null
+          delivery_status?: string
           from_address?: string | null
           id?: string
           item_id: string
           metadata?: Json | null
+          payment_signature?: string | null
           price_paid: number
           purchased_at?: string
           tx_hash?: string | null
@@ -3137,10 +3146,13 @@ export type Database = {
           creator_claimed?: boolean
           creator_claimed_at?: string | null
           currency?: string | null
+          delivery_results?: Json | null
+          delivery_status?: string
           from_address?: string | null
           id?: string
           item_id?: string
           metadata?: Json | null
+          payment_signature?: string | null
           price_paid?: number
           purchased_at?: string
           tx_hash?: string | null
