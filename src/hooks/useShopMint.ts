@@ -106,6 +106,9 @@ export function useShopMint() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [mintProgress, setMintProgress] = useState({ done: 0, total: 0 });
+  const [pendingDelivery, setPendingDelivery] = useState<
+    { packId: string; paymentSignature: string } | null
+  >(null);
 
   // ── Admin: Deploy on-chain collection for a pack ────────────────────────
 
@@ -344,7 +347,7 @@ export function useShopMint() {
           );
         } else {
           toast.warning(
-            `${successCount} minted, ${failCount} failed. Check My NFTs.`,
+            `${successCount} of ${results.length} delivered. The rest will be retried — your payment is saved.`,
             { id: 'pack-purchase' },
           );
         }
@@ -354,6 +357,12 @@ export function useShopMint() {
         console.error('Pack purchase failed:', err);
         if (isUserRejection(err)) {
           toast.error('Transaction cancelled', { id: 'pack-purchase' });
+        } else if (paymentSignature) {
+          setPendingDelivery({ packId: pack.id, paymentSignature });
+          toast.error(
+            'Payment went through but delivery failed. Your payment is saved — tap retry to receive your items.',
+            { id: 'pack-purchase' },
+          );
         } else {
           toast.error(getErrorMessage(err) || 'Purchase failed', {
             id: 'pack-purchase',
@@ -365,7 +374,46 @@ export function useShopMint() {
         setTransactionPending(false);
       }
     },
-    [address, isConnected, network, getSolanaProvider, mintCompressedCore, setTransactionPending],
+    [address, isConnected, network, getSolanaProvider, setTransactionPending],
+  );
+
+  // ── User: retry a paid-but-undelivered pack ─────────────────────────────
+
+  /**
+   * Re-runs delivery for a payment that already settled. Safe to call repeatedly:
+   * the backend refuses to mint the same payment twice.
+   */
+  const retryPackDelivery = useCallback(
+    async (packId: string, paymentSignature?: string) => {
+      if (!address) {
+        toast.error('Please connect your wallet');
+        return false;
+      }
+      setIsMinting(true);
+      try {
+        toast.loading('Retrying delivery…', { id: 'pack-retry' });
+        const { data, error } = await supabase.functions.invoke('mint-pack-assets', {
+          body: { action: 'mint', packId, buyerWallet: address, paymentSignature },
+        });
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error(data?.error || 'Delivery failed');
+
+        const delivered = data.alreadyDelivered || data.deliveryStatus === 'delivered';
+        if (delivered) {
+          setPendingDelivery(null);
+          toast.success('Your pack items are in your wallet.', { id: 'pack-retry' });
+          return true;
+        }
+        toast.warning('Still not fully delivered — please try again shortly.', { id: 'pack-retry' });
+        return false;
+      } catch (err: unknown) {
+        toast.error(getErrorMessage(err) || 'Retry failed', { id: 'pack-retry' });
+        return false;
+      } finally {
+        setIsMinting(false);
+      }
+    },
+    [address],
   );
 
   return {
