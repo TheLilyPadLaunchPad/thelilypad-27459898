@@ -300,89 +300,43 @@ export function useShopMint() {
         }
 
 
-        // ── Step 2: Mint cNFTs ───────────────────────────────────────────
-        for (let i = 0; i < mintableContents.length; i++) {
-          const content = mintableContents[i];
-          try {
-            toast.loading(
-              `Minting ${content.name} (${i + 1}/${mintableContents.length})…`,
-              { id: 'pack-purchase' },
-            );
+        // ── Step 2: Deliver — the platform mint authority signs the mints
+        //    server side (the buyer owns neither the tree nor the collection).
+        toast.loading('Minting assets to your wallet…', { id: 'pack-purchase' });
 
-            const mintResult = await mintCompressedCore(
-              pack.tree_address!,
-              pack.collection_address!,
-              content.name,
-              content.metadata_uri!,
-              0, // no royalties on utility assets
-              address, // mint to buyer
-            );
+        const { data, error } = await supabase.functions.invoke('mint-pack-assets', {
+          body: {
+            action: 'mint',
+            packId: pack.id,
+            buyerWallet: address,
+            paymentSignature,
+          },
+        });
 
-            results.push({
-              success: true,
-              contentId: content.id,
-              assetId: mintResult?.assetId,
-              signature: mintResult?.signature
-                ? Buffer.from(mintResult.signature).toString('base64')
-                : undefined,
-            });
-          } catch (err: unknown) {
-            console.error(`Failed to mint ${content.name}:`, err);
-            results.push({
-              success: false,
-              contentId: content.id,
-              error: getErrorMessage(err),
-            });
-          }
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error(data?.error || 'Delivery failed');
 
-          setMintProgress({ done: i + 1, total: mintableContents.length });
+        const serverResults: Array<{
+          success: boolean;
+          contentId: string;
+          signature?: string;
+          error?: string;
+        }> = data.results ?? [];
+
+        for (const r of serverResults) {
+          results.push({
+            success: r.success,
+            contentId: r.contentId,
+            assetId: r.signature,
+            signature: r.signature,
+            error: r.error,
+          });
         }
+        setMintProgress({ done: results.length, total: mintableContents.length });
 
-        // ── Step 3: Record purchase in DB ────────────────────────────────
-        const pricePaid = skipPayment ? 0 : pack.price_sol || pack.price_mon * 0.01;
         const successCount = results.filter((r) => r.success).length;
-
-        if (successCount > 0) {
-          // shop_purchases record
-          if (!skipPurchaseRecord) {
-            await supabase.from('shop_purchases').insert({
-              item_id: pack.id,
-              user_id: userId,
-              price_paid: pricePaid,
-              currency: 'SOL',
-              tx_hash: results.find((r) => r.signature)?.signature || null,
-            });
-          }
-
-          // minted_nfts records for each successful mint
-          const nftRecords = results
-            .filter((r) => r.success && r.assetId)
-            .map((r, idx) => {
-              const content = mintableContents.find((c) => c.id === r.contentId);
-              return {
-                name: content?.name || `${pack.name} #${idx + 1}`,
-                description: `On-chain ${pack.category.replace('_', ' ')} from ${pack.name}`,
-                image_url: content?.arweave_uri || content?.file_url || pack.image_url,
-                collection_id: null, // could link to a collections record if desired
-                owner_address: address,
-                owner_id: userId,
-                token_id: idx + 1,
-                tx_hash: r.assetId || '',
-                attributes: [
-                  { trait_type: 'Pack', value: pack.name },
-                  { trait_type: 'Category', value: pack.category },
-                  { trait_type: 'Asset Type', value: 'cNFT' },
-                ],
-                is_revealed: true,
-              };
-            });
-
-          if (nftRecords.length > 0) {
-            await supabase.from('minted_nfts').insert(nftRecords);
-          }
-        }
-
         const failCount = results.filter((r) => !r.success).length;
+
         if (failCount === 0) {
           toast.success(
             `Pack purchased! ${successCount} on-chain assets minted to your wallet.`,
