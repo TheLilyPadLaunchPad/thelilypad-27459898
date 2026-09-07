@@ -181,7 +181,7 @@ export function useShopMint() {
         setIsDeploying(false);
       }
     },
-    [address, isConnected, network, deploySolanaCollection, deployBubblegumTree],
+    [address, isConnected, network],
   );
 
   // ── Admin: Upload a single sticker to Arweave + build metadata ──────────
