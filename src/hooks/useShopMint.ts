@@ -249,10 +249,10 @@ export function useShopMint() {
       setTransactionPending(true);
 
       const results: MintResult[] = [];
+      let paymentSignature: string | undefined;
 
       try {
         const skipPayment = options?.skipPayment === true;
-        const skipPurchaseRecord = options?.skipPurchaseRecord === true;
 
         // ── Step 1: SOL Payment ──────────────────────────────────────────
         const priceSol = pack.price_sol || pack.price_mon * 0.01;
