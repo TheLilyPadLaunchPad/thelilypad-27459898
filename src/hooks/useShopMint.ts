@@ -290,14 +290,15 @@ export function useShopMint() {
           transaction.feePayer = provider.publicKey;
 
           const signed = await provider.signTransaction(transaction);
-          const paymentSig = await connection.sendRawTransaction(signed.serialize());
+          paymentSignature = await connection.sendRawTransaction(signed.serialize());
           await connection.confirmTransaction(
-            { signature: paymentSig, blockhash, lastValidBlockHeight },
+            { signature: paymentSignature, blockhash, lastValidBlockHeight },
             'confirmed',
           );
 
           toast.loading('Payment confirmed! Minting assets…', { id: 'pack-purchase' });
         }
+
 
         // ── Step 2: Mint cNFTs ───────────────────────────────────────────
         for (let i = 0; i < mintableContents.length; i++) {
