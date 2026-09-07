@@ -147,7 +147,7 @@ export const useDecentralizedChat = (contextId: string) => {
             // Get session the right way
             const { data: { session } } = await supabase.auth.getSession();
 
-            const { data: sbData } = await supabase.from('stream_chat_messages').insert({
+            const { data: sbData, error: sbError } = await supabase.from('stream_chat_messages').insert({
                 playback_id: contextId,
                 user_id: session?.user?.id || null, // Optional in some schemas, but good to have
                 wallet_address: address,
@@ -155,10 +155,14 @@ export const useDecentralizedChat = (contextId: string) => {
                 message: content,
                 message_type: type,
                 ...stickerMeta
-            }).select().single();
+            }).select('id').single();
 
-            // Replace temp msg with real one
-            if (sbData) {
+            if (sbError) {
+                console.warn("Message insert failed:", sbError);
+                // Clear the syncing state so the message doesn't hang forever
+                setMessages(prev => prev.map(m => m.id === tempId ? { ...m, is_syncing: false } : m));
+            } else if (sbData) {
+                // Replace temp msg with real one
                 setMessages(prev => prev.map(m => m.id === tempId ? { ...newMsg, id: sbData.id, is_syncing: false } : m));
             }
 
