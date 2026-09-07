@@ -67,7 +67,7 @@ export default function StickerPackDetail() {
   const { isConnected, address, getSolanaProvider, network } = useWallet();
   const { profile, loading: profileLoading } = useUserProfile();
   const { isMockMode } = useMockMode();
-  const { purchasePackOnChain, isMinting } = useShopMint();
+  const { purchasePackOnChain, retryPackDelivery, pendingDelivery, isMinting } = useShopMint();
   // Prefer auth.users ID if available (for standard auth), otherwise profile ID (for wallet-only)
   const userId = profile?.user_id || profile?.id || null;
 
@@ -579,6 +579,27 @@ export default function StickerPackDetail() {
                     <Check className="w-4 h-4" />
                     Owned
                   </Button>
+                ) : pendingDelivery && pendingDelivery.packId === pack.id ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      Your payment went through but the items haven't landed in your wallet yet.
+                    </p>
+                    <Button
+                      onClick={async () => {
+                        const done = await retryPackDelivery(
+                          pendingDelivery.packId,
+                          pendingDelivery.paymentSignature,
+                        );
+                        if (done) setHasPurchased(true);
+                      }}
+                      disabled={isMinting}
+                      className="w-full gap-2"
+                    >
+                      {isMinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      Retry delivery
+                    </Button>
+                  </div>
                 ) : (
                   <Button
                     onClick={handlePurchase}
