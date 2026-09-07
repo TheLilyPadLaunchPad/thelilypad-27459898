@@ -153,37 +153,22 @@ export function useShopMint() {
           network: network || 'devnet',
         });
 
-        // 3. Deploy Core Collection
-        toast.loading('Deploying Core Collection…', { id: 'deploy-pack' });
-        const result = await deploySolanaCollection({
-          name: pack.name,
-          symbol: 'LILY',
-          uri: metadataUri,
-          sellerFeeBasisPoints: 0,
-          creators: [{ address, share: 100 }],
-          // Pack contents are minted as cNFTs via Bubblegum mintV2,
-          // which requires the collection to carry the BubblegumV2 plugin.
-          withBubblegumV2: true,
+        // 3. Deploy Core Collection + Bubblegum tree under the platform
+        //    mint authority (server side).
+        toast.loading('Deploying collection + tree…', { id: 'deploy-pack' });
+        const { data, error } = await supabase.functions.invoke('mint-pack-assets', {
+          body: { action: 'deploy', packId: pack.id, metadataUri },
         });
+        if (error) throw new Error(error.message);
+        if (!data?.ok) throw new Error(data?.error || 'Pack deployment failed');
 
-        if (!result?.address) throw new Error('Collection deployment failed');
-        const collectionAddress = result.address;
+        const collectionAddress: string = data.collectionAddress;
+        const treeAddress: string = data.treeAddress;
 
-        // 4. Deploy Bubblegum Tree (depth 14 = ~16k leaves, enough for packs)
-        toast.loading('Deploying Bubblegum Tree…', { id: 'deploy-pack' });
-        const treeAddress = await deployBubblegumTree(14, 64, 8);
-
-        // 5. Persist on-chain addresses to shop_items
-        const { error: updateErr } = await supabase
-          .from('shop_items')
-          .update({
-            collection_address: collectionAddress,
-            tree_address: treeAddress,
-            image_url: coverUri, // update to Arweave URL
-          })
-          .eq('id', pack.id);
-
-        if (updateErr) console.error('Failed to save on-chain addresses:', updateErr);
+        // 4. Keep the Arweave cover on the pack record
+        if (coverUri && coverUri !== pack.image_url) {
+          await supabase.from('shop_items').update({ image_url: coverUri }).eq('id', pack.id);
+        }
 
         toast.success('Pack deployed on-chain!', { id: 'deploy-pack' });
         return { collectionAddress, treeAddress };
