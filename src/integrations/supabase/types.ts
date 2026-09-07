@@ -3034,6 +3034,7 @@ export type Database = {
       shop_items: {
         Row: {
           category: string
+          collection_address: string | null
           collection_id: string | null
           created_at: string
           creator_id: string
@@ -3050,10 +3051,12 @@ export type Database = {
           required_collection_id: string | null
           tier: string
           total_sales: number
+          tree_address: string | null
           updated_at: string
         }
         Insert: {
           category?: string
+          collection_address?: string | null
           collection_id?: string | null
           created_at?: string
           creator_id: string
@@ -3070,10 +3073,12 @@ export type Database = {
           required_collection_id?: string | null
           tier?: string
           total_sales?: number
+          tree_address?: string | null
           updated_at?: string
         }
         Update: {
           category?: string
+          collection_address?: string | null
           collection_id?: string | null
           created_at?: string
           creator_id?: string
@@ -3090,6 +3095,7 @@ export type Database = {
           required_collection_id?: string | null
           tier?: string
           total_sales?: number
+          tree_address?: string | null
           updated_at?: string
         }
         Relationships: [
