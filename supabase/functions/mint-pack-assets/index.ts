@@ -332,23 +332,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    const successCount = results.filter((r) => r.success).length;
+    // Combine with anything delivered on an earlier attempt.
+    const combined = [...priorSuccesses, ...results];
+    const successCount = combined.filter((r) => r.success).length;
     const deliveryStatus =
-      successCount === results.length ? "delivered" : successCount > 0 ? "partial" : "failed";
+      successCount === deliverable.length ? "delivered" : successCount > 0 ? "partial" : "failed";
 
     phase = "record";
-    const { data: existingPurchase } = paymentSignature
-      ? await admin
-          .from("shop_purchases")
-          .select("id")
-          .eq("payment_signature", paymentSignature)
-          .maybeSingle()
-      : { data: null as any };
-
     if (existingPurchase) {
       await admin
         .from("shop_purchases")
-        .update({ delivery_status: deliveryStatus, delivery_results: results })
+        .update({ delivery_status: deliveryStatus, delivery_results: combined })
         .eq("id", existingPurchase.id);
     } else {
       await admin.from("shop_purchases").insert({
@@ -360,36 +354,41 @@ Deno.serve(async (req) => {
         payment_signature: paymentSignature ?? null,
         from_address: buyerWallet,
         delivery_status: deliveryStatus,
-        delivery_results: results,
+        delivery_results: combined,
       });
     }
 
-    if (successCount > 0) {
-      const nftRecords = results
-        .filter((r) => r.success)
-        .map((r, idx) => {
-          const content = mintable.find((c: any) => c.id === r.contentId);
-          return {
-            name: r.name,
-            description: `On-chain ${String(pack.category).replace("_", " ")} from ${pack.name}`,
-            image_url: content?.arweave_uri || content?.file_url || pack.image_url,
-            collection_id: null,
-            owner_address: buyerWallet,
-            owner_id: user.id,
-            token_id: idx + 1,
-            tx_hash: r.signature,
-            attributes: [
-              { trait_type: "Pack", value: pack.name },
-              { trait_type: "Category", value: pack.category },
-              { trait_type: "Asset Type", value: "cNFT" },
-            ],
-            is_revealed: true,
-          };
-        });
+    const newSuccesses = results.filter((r) => r.success);
+    if (newSuccesses.length > 0) {
+      const nftRecords = newSuccesses.map((r, idx) => {
+        const content = mintable.find((c: any) => c.id === r.contentId);
+        return {
+          name: r.name,
+          description: `On-chain ${String(pack.category).replace("_", " ")} from ${pack.name}`,
+          image_url: content?.arweave_uri || content?.file_url || pack.image_url,
+          collection_id: null,
+          owner_address: buyerWallet,
+          owner_id: user.id,
+          token_id: priorSuccesses.length + idx + 1,
+          tx_hash: r.signature,
+          attributes: [
+            { trait_type: "Pack", value: pack.name },
+            { trait_type: "Category", value: pack.category },
+            { trait_type: "Asset Type", value: "cNFT" },
+          ],
+          is_revealed: true,
+        };
+      });
       await admin.from("minted_nfts").insert(nftRecords);
     }
 
-    return ok({ results, deliveryStatus, successCount, total: results.length });
+    return ok({
+      results: combined,
+      deliveryStatus,
+      successCount,
+      total: deliverable.length,
+    });
+
   } catch (e) {
     return fail(phase, e, 500);
   }
