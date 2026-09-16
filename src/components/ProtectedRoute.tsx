@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 
 import { useAuth } from "@/providers/AuthProvider";
 import { useBetaMode } from "@/hooks/useBetaMode";
+import { hasEnteredApp } from "@/lib/guestEntry";
 import FrogLoader from "./FrogLoader";
 
 interface ProtectedRouteProps {
@@ -18,6 +19,25 @@ const BETA_ALLOWLIST = [
   '/profile-setup',
   '/profile-suspended',
 ];
+
+// Routes that genuinely need a connected wallet — everything else can be browsed
+const WALLET_REQUIRED = [
+  '/wallet',
+  '/dashboard',
+  '/earnings',
+  '/my-nfts',
+  '/my-purchases',
+  '/my-sticker-packs',
+  '/channel-emotes',
+  '/edit-profile',
+  '/following',
+  '/donor-profile',
+  '/go-live',
+  '/moderation',
+  '/admin',
+  '/profile-setup',
+];
+
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { state, isAdmin } = useAuth();
