@@ -245,6 +245,11 @@ export default function Launchpad() {
   const secondaryTiles = SECONDARY_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
+    // Robinhood Chain isn't connectable yet — generator + export only.
+    if (selectedChain === 'robinhood') {
+      navigate('/launchpad/robinhood-trait-generator');
+      return;
+    }
     // XRPL doesn't use Metaplex/Candy Machine — route to dedicated XLS-20 flows.
     if (selectedChain === 'xrpl') {
       if (tile.id === 'generative' || tile.id === 'art-generator') {
