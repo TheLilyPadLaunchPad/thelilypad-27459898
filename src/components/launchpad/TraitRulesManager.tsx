@@ -308,11 +308,18 @@ export function TraitRulesManager({
 
   const getTraitName = (layerId: string, traitId: string) => {
     const layer = layers.find((l) => l.id === layerId);
+    if (traitId === ANY_TRAIT) return `Any ${layer?.name || "layer"} trait`;
     return layer?.traits.find((t) => t.id === traitId)?.name || "Unknown Trait";
   };
 
   const getTraitsForLayer = (layerId: string): Trait[] => {
     return layers.find((l) => l.id === layerId)?.traits || [];
+  };
+
+  const getTraitImage = (layerId?: string, traitId?: string) => {
+    if (!layerId || !traitId || traitId === ANY_TRAIT) return undefined;
+    const trait = layers.find((l) => l.id === layerId)?.traits.find((t) => t.id === traitId);
+    return trait?.preview || trait?.imageUrl;
   };
 
   const isRuleInConflict = (ruleId: string) => {
@@ -325,6 +332,66 @@ export function TraitRulesManager({
   const targetTraits = newRule.targetLayerId
     ? getTraitsForLayer(newRule.targetLayerId)
     : [];
+
+  /** Big tile used in the rule preview box */
+  const PreviewTile = ({
+    layerId,
+    traitId,
+    label,
+    danger,
+  }: {
+    layerId?: string;
+    traitId?: string;
+    label: string;
+    danger?: boolean;
+  }) => {
+    const layer = layers.find((l) => l.id === layerId);
+    const isAny = traitId === ANY_TRAIT;
+    const img = getTraitImage(layerId, traitId);
+
+    return (
+      <div className="flex-1 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+        <div
+          className={`relative aspect-square w-full rounded-lg border overflow-hidden flex items-center justify-center bg-muted/40 ${danger ? "border-destructive/50" : "border-border"
+            } ${!traitId ? "border-dashed" : ""}`}
+        >
+          {img ? (
+            <img src={img} alt={getTraitName(layerId!, traitId!)} className="w-full h-full object-contain" />
+          ) : isAny && layer ? (
+            <div className="text-center px-2">
+              <Layers3 className="w-6 h-6 mx-auto mb-1 text-primary" />
+              <p className="text-[11px] font-medium leading-tight">Any {layer.name}</p>
+              <p className="text-[10px] text-muted-foreground">{layer.traits.length} traits</p>
+            </div>
+          ) : (
+            <span className="text-[11px] text-muted-foreground px-2 text-center">Select a trait</span>
+          )}
+          {danger && img && <div className="absolute inset-0 bg-destructive/20" />}
+        </div>
+        <p className="text-[11px] truncate">
+          {traitId && layerId ? getTraitName(layerId, traitId) : "—"}
+          {layer && !isAny && (
+            <span className="text-muted-foreground"> · {layer.name}</span>
+          )}
+        </p>
+      </div>
+    );
+  };
+
+  /** Small thumbnail used in the active-rules list */
+  const RuleThumb = ({ layerId, traitId }: { layerId: string; traitId: string }) => {
+    const img = getTraitImage(layerId, traitId);
+    return (
+      <div className="w-8 h-8 rounded border border-border bg-muted/40 overflow-hidden flex items-center justify-center shrink-0">
+        {img ? (
+          <img src={img} alt="" className="w-full h-full object-contain" />
+        ) : (
+          <Layers3 className="w-3.5 h-3.5 text-muted-foreground" />
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
