@@ -50,6 +50,8 @@ interface OfficialPack {
   max_editions?: number | null;
   collection_address?: string | null;
   tree_address?: string | null;
+  mint_authority?: string | null;
+
 }
 
 const packTypeLabels: Record<PackType, { label: string; icon: React.ReactNode }> = {
@@ -323,12 +325,18 @@ export const AdminStickerPackManager: React.FC = () => {
                         <Badge variant={pack.is_active ? "default" : "secondary"}>
                           {pack.is_active ? "Active" : "Inactive"}
                         </Badge>
-                        {pack.collection_address && (
+                        {pack.collection_address && pack.mint_authority !== 'legacy-needs-redeploy' && (
                           <Badge variant="outline" className="gap-1 text-green-500 border-green-500/30 text-[10px]">
                             <Link2 className="w-3 h-3" />
                             On-Chain
                           </Badge>
                         )}
+                        {pack.mint_authority === 'legacy-needs-redeploy' && (
+                          <Badge variant="destructive" className="gap-1 text-[10px]">
+                            Needs Redeploy
+                          </Badge>
+                        )}
+
                       </div>
                     </TableCell>
                     <TableCell>
@@ -336,7 +344,7 @@ export const AdminStickerPackManager: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {!pack.collection_address && (
+                        {(!pack.collection_address || pack.mint_authority === 'legacy-needs-redeploy') && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -358,7 +366,7 @@ export const AdminStickerPackManager: React.FC = () => {
                             ) : (
                               <Globe className="w-4 h-4" />
                             )}
-                            Deploy On-Chain
+                            {pack.mint_authority === 'legacy-needs-redeploy' ? 'Redeploy On-Chain' : 'Deploy On-Chain'}
                           </Button>
                         )}
                         <Button

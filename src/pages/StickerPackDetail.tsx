@@ -47,6 +47,8 @@ interface ShopItem {
   collection_id?: string | null;
   collection_address?: string | null;
   tree_address?: string | null;
+  mint_authority?: string | null;
+
 }
 
 
@@ -77,6 +79,8 @@ export default function StickerPackDetail() {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [parentCollection, setParentCollection] = useState<{ id: string; name: string } | null>(null);
+  const [deliveryIssue, setDeliveryIssue] = useState<{ paymentSignature?: string } | null>(null);
+
 
 
   useSEO({
@@ -138,19 +142,34 @@ export default function StickerPackDetail() {
           setStickers(stickersData || []);
         }
 
-        // Check if user has already purchased
+        // Check if user has already purchased — and whether delivery completed
         if (userId) {
           const { data: purchaseData } = await supabase
             .from("shop_purchases")
-            .select("id")
+            .select("id, delivery_status, payment_signature")
             .eq("item_id", packId)
             .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(1)
             .maybeSingle();
 
-          setHasPurchased(!!purchaseData);
+          const status = (purchaseData as { delivery_status?: string | null } | null)?.delivery_status;
+          const undelivered = !!purchaseData && (status === "failed" || status === "partial");
+          setHasPurchased(!!purchaseData && !undelivered);
+          setDeliveryIssue(
+            undelivered
+              ? {
+                  paymentSignature:
+                    (purchaseData as { payment_signature?: string | null }).payment_signature ??
+                    undefined,
+                }
+              : null,
+          );
         } else {
           setHasPurchased(false);
+          setDeliveryIssue(null);
         }
+
       } catch (err) {
         console.error("Error:", err);
       } finally {
@@ -163,6 +182,13 @@ export default function StickerPackDetail() {
 
     fetchData();
   }, [packId, userId, isConnected, profileLoading, navigate]);
+
+  const needsRedeploy =
+    !!pack?.collection_address &&
+    !!pack?.tree_address &&
+    pack?.mint_authority === "legacy-needs-redeploy";
+
+
   const handlePurchase = async () => {
     if (!isConnected) {
       toast.error("Please connect your wallet to purchase");
@@ -171,6 +197,16 @@ export default function StickerPackDetail() {
     }
 
     if (!pack) return;
+
+    // Legacy packs deployed under an old wallet can't be delivered — never
+    // take payment for something the platform cannot mint.
+    if (needsRedeploy) {
+      toast.error(
+        "This pack is being re-published on-chain and can't be bought right now. Please check back soon.",
+      );
+      return;
+    }
+
 
     // Free sticker pack — still mint on-chain when the pack is deployed
     if (pack.price_mon <= 0) {
@@ -574,12 +610,7 @@ export default function StickerPackDetail() {
                     <AlertCircle className="w-4 h-4" />
                     Sold Out
                   </Button>
-                ) : hasPurchased ? (
-                  <Button disabled className="w-full gap-2" variant="secondary">
-                    <Check className="w-4 h-4" />
-                    Owned
-                  </Button>
-                ) : pendingDelivery && pendingDelivery.packId === pack.id ? (
+                ) : (pendingDelivery && pendingDelivery.packId === pack.id) || deliveryIssue ? (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -587,11 +618,15 @@ export default function StickerPackDetail() {
                     </p>
                     <Button
                       onClick={async () => {
-                        const done = await retryPackDelivery(
-                          pendingDelivery.packId,
-                          pendingDelivery.paymentSignature,
-                        );
-                        if (done) setHasPurchased(true);
+                        const signature =
+                          pendingDelivery && pendingDelivery.packId === pack.id
+                            ? pendingDelivery.paymentSignature
+                            : deliveryIssue?.paymentSignature;
+                        const done = await retryPackDelivery(pack.id, signature);
+                        if (done) {
+                          setDeliveryIssue(null);
+                          setHasPurchased(true);
+                        }
                       }}
                       disabled={isMinting}
                       className="w-full gap-2"
@@ -600,7 +635,18 @@ export default function StickerPackDetail() {
                       Retry delivery
                     </Button>
                   </div>
+                ) : hasPurchased ? (
+                  <Button disabled className="w-full gap-2" variant="secondary">
+                    <Check className="w-4 h-4" />
+                    Owned
+                  </Button>
+                ) : needsRedeploy ? (
+                  <Button disabled className="w-full gap-2" variant="secondary">
+                    <AlertCircle className="w-4 h-4" />
+                    Temporarily unavailable
+                  </Button>
                 ) : (
+
                   <Button
                     onClick={handlePurchase}
                     disabled={isPurchasing || isMinting}

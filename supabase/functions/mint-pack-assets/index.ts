@@ -230,17 +230,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Idempotency: a signature can only be redeemed once.
+    // Idempotency: a signature can only be redeemed once, and items already
+    // delivered are never minted again on a retry.
+    let existingPurchase: { id: string; delivery_status?: string | null; delivery_results?: any } | null = null;
     if (paymentSignature) {
       const { data: existing } = await admin
         .from("shop_purchases")
         .select("id, delivery_status, delivery_results")
         .eq("payment_signature", paymentSignature)
         .maybeSingle();
+      existingPurchase = existing ?? null;
       if (existing && existing.delivery_status === "delivered") {
         return ok({ alreadyDelivered: true, results: existing.delivery_results ?? [] });
       }
     }
+
+    const priorResults: any[] = Array.isArray(existingPurchase?.delivery_results)
+      ? existingPurchase!.delivery_results
+      : [];
+    const alreadyMinted = new Set(
+      priorResults.filter((r: any) => r?.success && r?.contentId).map((r: any) => r.contentId),
+    );
 
     phase = "mint-contents";
     const { data: contents } = await admin
@@ -249,10 +259,13 @@ Deno.serve(async (req) => {
       .eq("item_id", packId)
       .order("display_order", { ascending: true });
 
-    const mintable = (contents ?? []).filter((c: any) => c.metadata_uri);
-    if (mintable.length === 0) {
+    const deliverable = (contents ?? []).filter((c: any) => c.metadata_uri);
+    if (deliverable.length === 0) {
       return fail(phase, new Error("This pack has no items ready to mint"), 400);
     }
+    // Only mint what the buyer has not received yet.
+    const mintable = deliverable.filter((c: any) => !alreadyMinted.has(c.id));
+
 
     phase = "verify-payment";
     const priceSol = Number(pack.price_sol ?? 0) || Number(pack.price_mon ?? 0) * 0.01;
@@ -263,11 +276,25 @@ Deno.serve(async (req) => {
       await verifyPayment(paymentSignature, treasury, priceSol, buyerWallet);
     }
 
+    const priorSuccesses = priorResults.filter((r: any) => r?.success);
+
+    // Everything already landed in the buyer's wallet — nothing left to mint.
+    if (mintable.length === 0) {
+      if (existingPurchase) {
+        await admin
+          .from("shop_purchases")
+          .update({ delivery_status: "delivered", delivery_results: priorSuccesses })
+          .eq("id", existingPurchase.id);
+      }
+      return ok({ alreadyDelivered: true, deliveryStatus: "delivered", results: priorSuccesses });
+    }
+
     phase = "mint";
     const tree = publicKey(pack.tree_address);
     const treeConfig = findTreeConfigPda(umi, { merkleTree: tree });
     const leafOwner = publicKey(buyerWallet);
     const results: any[] = [];
+
 
     for (const item of mintable) {
       try {
@@ -305,23 +332,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    const successCount = results.filter((r) => r.success).length;
+    // Combine with anything delivered on an earlier attempt.
+    const combined = [...priorSuccesses, ...results];
+    const successCount = combined.filter((r) => r.success).length;
     const deliveryStatus =
-      successCount === results.length ? "delivered" : successCount > 0 ? "partial" : "failed";
+      successCount === deliverable.length ? "delivered" : successCount > 0 ? "partial" : "failed";
 
     phase = "record";
-    const { data: existingPurchase } = paymentSignature
-      ? await admin
-          .from("shop_purchases")
-          .select("id")
-          .eq("payment_signature", paymentSignature)
-          .maybeSingle()
-      : { data: null as any };
-
     if (existingPurchase) {
       await admin
         .from("shop_purchases")
-        .update({ delivery_status: deliveryStatus, delivery_results: results })
+        .update({ delivery_status: deliveryStatus, delivery_results: combined })
         .eq("id", existingPurchase.id);
     } else {
       await admin.from("shop_purchases").insert({
@@ -333,36 +354,41 @@ Deno.serve(async (req) => {
         payment_signature: paymentSignature ?? null,
         from_address: buyerWallet,
         delivery_status: deliveryStatus,
-        delivery_results: results,
+        delivery_results: combined,
       });
     }
 
-    if (successCount > 0) {
-      const nftRecords = results
-        .filter((r) => r.success)
-        .map((r, idx) => {
-          const content = mintable.find((c: any) => c.id === r.contentId);
-          return {
-            name: r.name,
-            description: `On-chain ${String(pack.category).replace("_", " ")} from ${pack.name}`,
-            image_url: content?.arweave_uri || content?.file_url || pack.image_url,
-            collection_id: null,
-            owner_address: buyerWallet,
-            owner_id: user.id,
-            token_id: idx + 1,
-            tx_hash: r.signature,
-            attributes: [
-              { trait_type: "Pack", value: pack.name },
-              { trait_type: "Category", value: pack.category },
-              { trait_type: "Asset Type", value: "cNFT" },
-            ],
-            is_revealed: true,
-          };
-        });
+    const newSuccesses = results.filter((r) => r.success);
+    if (newSuccesses.length > 0) {
+      const nftRecords = newSuccesses.map((r, idx) => {
+        const content = mintable.find((c: any) => c.id === r.contentId);
+        return {
+          name: r.name,
+          description: `On-chain ${String(pack.category).replace("_", " ")} from ${pack.name}`,
+          image_url: content?.arweave_uri || content?.file_url || pack.image_url,
+          collection_id: null,
+          owner_address: buyerWallet,
+          owner_id: user.id,
+          token_id: priorSuccesses.length + idx + 1,
+          tx_hash: r.signature,
+          attributes: [
+            { trait_type: "Pack", value: pack.name },
+            { trait_type: "Category", value: pack.category },
+            { trait_type: "Asset Type", value: "cNFT" },
+          ],
+          is_revealed: true,
+        };
+      });
       await admin.from("minted_nfts").insert(nftRecords);
     }
 
-    return ok({ results, deliveryStatus, successCount, total: results.length });
+    return ok({
+      results: combined,
+      deliveryStatus,
+      successCount,
+      total: deliverable.length,
+    });
+
   } catch (e) {
     return fail(phase, e, 500);
   }
