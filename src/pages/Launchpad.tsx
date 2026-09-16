@@ -61,6 +61,7 @@ interface ChainEntry {
 const ALL_CHAIN_ENTRIES: ChainEntry[] = [
   { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
   { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
+  { id: "robinhood", label: "Robinhood Chain", description: "Generate & export — minting soon", badge: "Soon", badgeVariant: "secondary" },
 ];
 const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES;
 
