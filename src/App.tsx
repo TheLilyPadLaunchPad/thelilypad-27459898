@@ -126,6 +126,7 @@ const InterviewRoom = lazy(() => import("./pages/InterviewRoom"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const XRPLEasyGenerator = lazy(() => import("./pages/XRPLEasyGenerator"));
 const XRPLTraitGenerator = lazy(() => import("./pages/XRPLTraitGenerator"));
+const RobinhoodTraitGenerator = lazy(() => import("./pages/RobinhoodTraitGenerator"));
 const WaitRoom = lazy(() => import("./pages/WaitRoom"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const StreamerApply = lazy(() => import("./pages/StreamerApply"));
