@@ -78,10 +78,29 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
 
-  // Redirect to auth if truly disconnected (no prior session)
+  // Guests who tapped "Enter" can browse everything except wallet-only areas
+  if (state === "DISCONNECTED" && hasEnteredApp()) {
+    const needsWallet = WALLET_REQUIRED.some(p => location.pathname.startsWith(p));
+    if (!needsWallet) {
+      if (betaLoading) {
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <FrogLoader size="lg" />
+          </div>
+        );
+      }
+      if (isBetaMode && !BETA_ALLOWLIST.some(p => location.pathname.startsWith(p))) {
+        return <Navigate to="/waitroom" replace />;
+      }
+      return <>{children}</>;
+    }
+  }
+
+  // Redirect to the entry screen if truly disconnected (no prior session)
   if (state === "DISCONNECTED") {
     return <Navigate to="/auth" replace />;
   }
+
 
   // ADMIN BYPASS: Admins always have full access regardless of beta mode
   if (isAdmin) {
