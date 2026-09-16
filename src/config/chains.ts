@@ -34,7 +34,7 @@ export interface ChainConfig {
     id: SupportedChain;
     name: string;
     symbol: string;
-    iconName: 'solana' | 'monad' | 'xrpl';
+    iconName: 'solana' | 'monad' | 'xrpl' | 'robinhood';
     color: string;
     theme: ChainThemeConfig;
     walletLabels: ChainWalletLabels;
