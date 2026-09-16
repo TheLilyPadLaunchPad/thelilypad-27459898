@@ -21,6 +21,7 @@ import {
   Zap,
   AlertCircle,
   Wand2,
+  Layers3,
 } from "lucide-react";
 import { Layer, Trait } from "./LayerManager";
 import { Input } from "@/components/ui/input";
