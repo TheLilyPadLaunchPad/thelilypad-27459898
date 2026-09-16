@@ -230,17 +230,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Idempotency: a signature can only be redeemed once.
+    // Idempotency: a signature can only be redeemed once, and items already
+    // delivered are never minted again on a retry.
+    let existingPurchase: { id: string; delivery_status?: string | null; delivery_results?: any } | null = null;
     if (paymentSignature) {
       const { data: existing } = await admin
         .from("shop_purchases")
         .select("id, delivery_status, delivery_results")
         .eq("payment_signature", paymentSignature)
         .maybeSingle();
+      existingPurchase = existing ?? null;
       if (existing && existing.delivery_status === "delivered") {
         return ok({ alreadyDelivered: true, results: existing.delivery_results ?? [] });
       }
     }
+
+    const priorResults: any[] = Array.isArray(existingPurchase?.delivery_results)
+      ? existingPurchase!.delivery_results
+      : [];
+    const alreadyMinted = new Set(
+      priorResults.filter((r: any) => r?.success && r?.contentId).map((r: any) => r.contentId),
+    );
 
     phase = "mint-contents";
     const { data: contents } = await admin
@@ -249,10 +259,13 @@ Deno.serve(async (req) => {
       .eq("item_id", packId)
       .order("display_order", { ascending: true });
 
-    const mintable = (contents ?? []).filter((c: any) => c.metadata_uri);
-    if (mintable.length === 0) {
+    const deliverable = (contents ?? []).filter((c: any) => c.metadata_uri);
+    if (deliverable.length === 0) {
       return fail(phase, new Error("This pack has no items ready to mint"), 400);
     }
+    // Only mint what the buyer has not received yet.
+    const mintable = deliverable.filter((c: any) => !alreadyMinted.has(c.id));
+
 
     phase = "verify-payment";
     const priceSol = Number(pack.price_sol ?? 0) || Number(pack.price_mon ?? 0) * 0.01;
