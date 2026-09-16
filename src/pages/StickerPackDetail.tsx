@@ -182,6 +182,13 @@ export default function StickerPackDetail() {
 
     fetchData();
   }, [packId, userId, isConnected, profileLoading, navigate]);
+
+  const needsRedeploy =
+    !!pack?.collection_address &&
+    !!pack?.tree_address &&
+    pack?.mint_authority === "legacy-needs-redeploy";
+
+
   const handlePurchase = async () => {
     if (!isConnected) {
       toast.error("Please connect your wallet to purchase");
@@ -190,6 +197,16 @@ export default function StickerPackDetail() {
     }
 
     if (!pack) return;
+
+    // Legacy packs deployed under an old wallet can't be delivered — never
+    // take payment for something the platform cannot mint.
+    if (needsRedeploy) {
+      toast.error(
+        "This pack is being re-published on-chain and can't be bought right now. Please check back soon.",
+      );
+      return;
+    }
+
 
     // Free sticker pack — still mint on-chain when the pack is deployed
     if (pack.price_mon <= 0) {
