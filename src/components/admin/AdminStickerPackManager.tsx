@@ -50,6 +50,8 @@ interface OfficialPack {
   max_editions?: number | null;
   collection_address?: string | null;
   tree_address?: string | null;
+  mint_authority?: string | null;
+
 }
 
 const packTypeLabels: Record<PackType, { label: string; icon: React.ReactNode }> = {
