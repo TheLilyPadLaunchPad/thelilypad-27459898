@@ -61,8 +61,12 @@ export default defineConfig(({ mode }) => ({
           /^\/api\//,
           /\.supabase\.co/,
         ],
-        skipWaiting: true,
-        clientsClaim: true,
+        // Never auto-activate a new service worker: taking control mid-session
+        // triggers a page reload that wipes in-progress work (e.g. the trait
+        // generator wizard). The update is applied only when the user accepts
+        // the prompt (registerType: "prompt").
+        skipWaiting: false,
+        clientsClaim: false,
         runtimeCaching: [
           {
             urlPattern: /\.(?:js|css)$/,
