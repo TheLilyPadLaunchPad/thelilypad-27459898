@@ -57,7 +57,14 @@ function getCombinationHash(selectedTraits: { layerId: string; traitId: string }
 }
 
 /**
- * Generate a single asset combination respecting rules
+ * Generate a single asset combination respecting rules.
+ *
+ * Rules are applied in two phases so that order of layers never matters:
+ *  1. Forward pass — weighted pick per layer, honouring rules whose source
+ *     was already selected (forces / incompatible).
+ *  2. Repair pass — iteratively fixes rules whose source was selected *after*
+ *     their target (forces, requires) and re-picks traits that violate an
+ *     incompatible rule in either direction.
  */
 function generateSingleCombination(
     layers: Layer[],
@@ -66,82 +73,120 @@ function generateSingleCombination(
     maxAttempts: number = 200
 ): { traits: { layerId: string; traitId: string; trait: LayerTrait }[]; hash: string } | null {
     const visibleLayers = layers.filter((l) => l.visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const layerById = new Map(visibleLayers.map((l) => [l.id, l]));
+
+    /** Rules are only meaningful when both sides still exist. */
+    const validRules = rules.filter((r) => {
+        const src = layerById.get(r.sourceLayerId);
+        const tgt = layerById.get(r.targetLayerId);
+        return (
+            !!src && !!tgt &&
+            src.traits.some((t) => t.id === r.sourceTraitId) &&
+            tgt.traits.some((t) => t.id === r.targetTraitId)
+        );
+    });
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const selectedTraits: { layerId: string; traitId: string; trait: LayerTrait }[] = [];
         const selectedMap = new Map<string, string>();
 
+        // ---- Phase 1: forward weighted selection ----
         for (const layer of visibleLayers) {
-            // Check if layer is optional and randomly skip
-            if (layer.isOptional && Math.random() * 100 > (layer.optionalChance ?? 100)) {
-                continue; // Skip this layer
-            }
-
+            if (layer.isOptional && Math.random() * 100 > (layer.optionalChance ?? 100)) continue;
             if (layer.traits.length === 0) continue;
 
-            // Get applicable rules for already selected traits
-            const applicableRules = rules.filter((rule) => {
-                const sourceSelected = selectedMap.get(rule.sourceLayerId);
-                return sourceSelected === rule.sourceTraitId;
-            });
+            const active = validRules.filter(
+                (r) => selectedMap.get(r.sourceLayerId) === r.sourceTraitId
+            );
 
-            // Find forced traits for this layer
-            const forcedTraits = applicableRules
-                .filter((r) => r.type === "forces" && r.targetLayerId === layer.id)
-                .map((r) => r.targetTraitId);
-
-            let selectedTrait: LayerTrait | undefined;
-
-            if (forcedTraits.length > 0) {
-                selectedTrait = layer.traits.find(t => t.id === forcedTraits[0]);
+            const forced = active.find(
+                (r) => (r.type === "forces" || r.type === "requires") && r.targetLayerId === layer.id
+            );
+            if (forced) {
+                selectedMap.set(layer.id, forced.targetTraitId);
+                continue;
             }
 
-            if (!selectedTrait) {
-                // Filter out incompatible traits
-                const incompatibleTraits = applicableRules
+            const banned = new Set(
+                active
                     .filter((r) => r.type === "incompatible" && r.targetLayerId === layer.id)
-                    .map((r) => r.targetTraitId);
-
-                const availableTraits = layer.traits.filter(
-                    (t) => !incompatibleTraits.includes(t.id)
-                );
-
-                if (availableTraits.length === 0) {
-                    // If all traits are incompatible, fallback to any trait to preserve generation
-                    selectedTrait = selectTraitByRarity(layer.traits);
-                } else {
-                    selectedTrait = selectTraitByRarity(availableTraits);
-                }
-            }
-
-            if (selectedTrait) {
-                selectedTraits.push({ layerId: layer.id, traitId: selectedTrait.id, trait: selectedTrait });
-                selectedMap.set(layer.id, selectedTrait.id);
-            }
+                    .map((r) => r.targetTraitId)
+            );
+            const available = layer.traits.filter((t) => !banned.has(t.id));
+            const pick = selectTraitByRarity(available.length > 0 ? available : layer.traits);
+            if (pick) selectedMap.set(layer.id, pick.id);
         }
 
-        const hash = getCombinationHash(selectedTraits);
+        // ---- Phase 2: repair pass (order-independent rule enforcement) ----
+        let satisfied = false;
+        for (let pass = 0; pass < 8 && !satisfied; pass++) {
+            let changed = false;
 
-        if (!existingHashes.has(hash)) {
-            // Ensure requires rules are satisfied
-            let requiresFailed = false;
-            for (const rule of rules.filter(r => r.type === "requires")) {
-                if (selectedMap.get(rule.sourceLayerId) === rule.sourceTraitId) {
-                    if (selectedMap.get(rule.targetLayerId) !== rule.targetTraitId) {
-                        requiresFailed = true;
-                        break;
+            for (const rule of validRules) {
+                const sourceActive = selectedMap.get(rule.sourceLayerId) === rule.sourceTraitId;
+                if (!sourceActive) continue;
+
+                const targetLayer = layerById.get(rule.targetLayerId)!;
+                const currentTarget = selectedMap.get(rule.targetLayerId);
+
+                if (rule.type === "forces" || rule.type === "requires") {
+                    if (currentTarget !== rule.targetTraitId) {
+                        selectedMap.set(rule.targetLayerId, rule.targetTraitId);
+                        changed = true;
                     }
+                } else if (rule.type === "incompatible" && currentTarget === rule.targetTraitId) {
+                    // Drop the offending trait: prefer an allowed alternative,
+                    // otherwise omit the layer entirely rather than break the rule.
+                    const banned = new Set(
+                        validRules
+                            .filter(
+                                (r) =>
+                                    r.type === "incompatible" &&
+                                    r.targetLayerId === targetLayer.id &&
+                                    selectedMap.get(r.sourceLayerId) === r.sourceTraitId
+                            )
+                            .map((r) => r.targetTraitId)
+                    );
+                    const alternatives = targetLayer.traits.filter((t) => !banned.has(t.id));
+                    if (alternatives.length > 0) {
+                        selectedMap.set(targetLayer.id, selectTraitByRarity(alternatives).id);
+                    } else {
+                        selectedMap.delete(targetLayer.id);
+                    }
+                    changed = true;
                 }
             }
 
-            if (!requiresFailed) {
-                return { traits: selectedTraits, hash };
-            }
+            if (!changed) satisfied = true;
+        }
+
+        // Final validation — never emit a combination that breaks a rule.
+        const violates = validRules.some((rule) => {
+            if (selectedMap.get(rule.sourceLayerId) !== rule.sourceTraitId) return false;
+            const target = selectedMap.get(rule.targetLayerId);
+            if (rule.type === "incompatible") return target === rule.targetTraitId;
+            return target !== rule.targetTraitId;
+        });
+        if (!satisfied || violates) continue;
+
+        const selectedTraits = visibleLayers
+            .filter((l) => selectedMap.has(l.id))
+            .map((l) => {
+                const traitId = selectedMap.get(l.id)!;
+                return { layerId: l.id, traitId, trait: l.traits.find((t) => t.id === traitId)! };
+            })
+            .filter((s) => !!s.trait);
+
+        if (selectedTraits.length === 0) continue;
+
+        const hash = getCombinationHash(selectedTraits);
+        if (!existingHashes.has(hash)) {
+            return { traits: selectedTraits, hash };
         }
     }
 
     return null; // Could not generate unique valid combination
 }
+
 
 /**
  * Composite multiple images into one (using canvas)
