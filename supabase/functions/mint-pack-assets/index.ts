@@ -276,11 +276,25 @@ Deno.serve(async (req) => {
       await verifyPayment(paymentSignature, treasury, priceSol, buyerWallet);
     }
 
+    const priorSuccesses = priorResults.filter((r: any) => r?.success);
+
+    // Everything already landed in the buyer's wallet — nothing left to mint.
+    if (mintable.length === 0) {
+      if (existingPurchase) {
+        await admin
+          .from("shop_purchases")
+          .update({ delivery_status: "delivered", delivery_results: priorSuccesses })
+          .eq("id", existingPurchase.id);
+      }
+      return ok({ alreadyDelivered: true, deliveryStatus: "delivered", results: priorSuccesses });
+    }
+
     phase = "mint";
     const tree = publicKey(pack.tree_address);
     const treeConfig = findTreeConfigPda(umi, { merkleTree: tree });
     const leafOwner = publicKey(buyerWallet);
     const results: any[] = [];
+
 
     for (const item of mintable) {
       try {
