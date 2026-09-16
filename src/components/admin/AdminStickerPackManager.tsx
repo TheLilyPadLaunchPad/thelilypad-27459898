@@ -366,7 +366,7 @@ export const AdminStickerPackManager: React.FC = () => {
                             ) : (
                               <Globe className="w-4 h-4" />
                             )}
-                            Deploy On-Chain
+                            {pack.mint_authority === 'legacy-needs-redeploy' ? 'Redeploy On-Chain' : 'Deploy On-Chain'}
                           </Button>
                         )}
                         <Button
