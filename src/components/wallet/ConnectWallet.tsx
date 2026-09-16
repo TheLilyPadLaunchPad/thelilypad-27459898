@@ -75,15 +75,8 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
     setShowDisconnectConfirm(false);
   };
 
-  const handleWalletSelect = async (selectedWalletType: WalletType) => {
-    setShowWalletSelector(false);
-    await connect(selectedWalletType);
-  };
 
-  const handleOAuthSelect = async (provider: OAuthProvider) => {
-    setShowWalletSelector(false);
-    await connectWithOAuth(provider);
-  };
+
 
   const getWalletIcon = () => {
     // Check if connected via OAuth
