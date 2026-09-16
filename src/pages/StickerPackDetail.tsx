@@ -610,12 +610,7 @@ export default function StickerPackDetail() {
                     <AlertCircle className="w-4 h-4" />
                     Sold Out
                   </Button>
-                ) : hasPurchased ? (
-                  <Button disabled className="w-full gap-2" variant="secondary">
-                    <Check className="w-4 h-4" />
-                    Owned
-                  </Button>
-                ) : pendingDelivery && pendingDelivery.packId === pack.id ? (
+                ) : (pendingDelivery && pendingDelivery.packId === pack.id) || deliveryIssue ? (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -623,11 +618,15 @@ export default function StickerPackDetail() {
                     </p>
                     <Button
                       onClick={async () => {
-                        const done = await retryPackDelivery(
-                          pendingDelivery.packId,
-                          pendingDelivery.paymentSignature,
-                        );
-                        if (done) setHasPurchased(true);
+                        const signature =
+                          pendingDelivery && pendingDelivery.packId === pack.id
+                            ? pendingDelivery.paymentSignature
+                            : deliveryIssue?.paymentSignature;
+                        const done = await retryPackDelivery(pack.id, signature);
+                        if (done) {
+                          setDeliveryIssue(null);
+                          setHasPurchased(true);
+                        }
                       }}
                       disabled={isMinting}
                       className="w-full gap-2"
@@ -636,7 +635,18 @@ export default function StickerPackDetail() {
                       Retry delivery
                     </Button>
                   </div>
+                ) : hasPurchased ? (
+                  <Button disabled className="w-full gap-2" variant="secondary">
+                    <Check className="w-4 h-4" />
+                    Owned
+                  </Button>
+                ) : needsRedeploy ? (
+                  <Button disabled className="w-full gap-2" variant="secondary">
+                    <AlertCircle className="w-4 h-4" />
+                    Temporarily unavailable
+                  </Button>
                 ) : (
+
                   <Button
                     onClick={handlePurchase}
                     disabled={isPurchasing || isMinting}
