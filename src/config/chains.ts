@@ -6,7 +6,7 @@
 
 import { SOLANA_MAINNET_RPC, SOLANA_DEVNET_RPC } from "@/config/solana";
 
-export type SupportedChain = 'solana' | 'monad' | 'xrpl';
+export type SupportedChain = 'solana' | 'monad' | 'xrpl' | 'robinhood';
 
 export interface ChainNetwork {
     url: string;
