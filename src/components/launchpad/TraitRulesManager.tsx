@@ -510,6 +510,7 @@ export function TraitRulesManager({
                   <SelectValue placeholder="Select trait" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={ANY_TRAIT}>Any trait in this layer</SelectItem>
                   {sourceTraits.map((trait) => (
                     <SelectItem key={trait.id} value={trait.id}>
                       {trait.name}
@@ -563,6 +564,7 @@ export function TraitRulesManager({
                   <SelectValue placeholder="Select trait" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={ANY_TRAIT}>Any trait in this layer</SelectItem>
                   {targetTraits.map((trait) => (
                     <SelectItem key={trait.id} value={trait.id}>
                       {trait.name}
@@ -570,6 +572,42 @@ export function TraitRulesManager({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {/* Rule Preview */}
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-xs font-medium mb-2">Rule Preview</p>
+            <div className="flex items-start gap-3">
+              <PreviewTile
+                layerId={newRule.sourceLayerId}
+                traitId={newRule.sourceTraitId}
+                label="Source"
+                danger={newRule.type === "incompatible"}
+              />
+              <div className="flex flex-col items-center justify-center self-center gap-1 shrink-0 pt-4">
+                {(() => {
+                  const info = ruleTypeInfo[(newRule.type as RuleType) || "incompatible"];
+                  const Icon = info.icon;
+                  return (
+                    <>
+                      <Icon className={`w-5 h-5 ${info.color}`} />
+                      <Badge variant="outline" className="text-[10px] whitespace-nowrap">
+                        {info.label.toLowerCase()}
+                      </Badge>
+                      {newRule.type !== "incompatible" && (
+                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+              <PreviewTile
+                layerId={newRule.targetLayerId}
+                traitId={newRule.targetTraitId}
+                label="Target"
+                danger={newRule.type === "incompatible"}
+              />
             </div>
           </div>
 
