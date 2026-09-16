@@ -344,7 +344,7 @@ export const AdminStickerPackManager: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {!pack.collection_address && (
+                        {(!pack.collection_address || pack.mint_authority === 'legacy-needs-redeploy') && (
                           <Button
                             variant="ghost"
                             size="sm"
