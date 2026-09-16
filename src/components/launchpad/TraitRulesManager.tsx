@@ -28,12 +28,17 @@ import { toast } from "sonner";
 
 export type RuleType = "incompatible" | "requires" | "forces";
 
+/** Sentinel trait id meaning "any trait in this layer" (layer-wide / category rule). */
+export const ANY_TRAIT = "*";
+
 export interface TraitRule {
   id: string;
   type: RuleType;
   sourceLayerId: string;
+  /** Trait id, or ANY_TRAIT for a layer-wide rule */
   sourceTraitId: string;
   targetLayerId: string;
+  /** Trait id, or ANY_TRAIT for a layer-wide rule */
   targetTraitId: string;
 }
 
