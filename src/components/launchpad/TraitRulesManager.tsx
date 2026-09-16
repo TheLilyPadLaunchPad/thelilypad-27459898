@@ -683,29 +683,35 @@ export function TraitRulesManager({
                         : "bg-muted/50"
                       }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       {hasConflict ? (
-                        <AlertCircle className="w-4 h-4 text-destructive" />
+                        <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
                       ) : (
-                        <Icon className={`w-4 h-4 ${info.color}`} />
+                        <Icon className={`w-4 h-4 ${info.color} shrink-0`} />
                       )}
-                      <div className="text-sm">
+                      <RuleThumb layerId={rule.sourceLayerId} traitId={rule.sourceTraitId} />
+                      <div className="text-sm min-w-0">
                         <span className="font-medium">
                           {getTraitName(rule.sourceLayerId, rule.sourceTraitId)}
                         </span>
-                        <span className="text-muted-foreground mx-2">
-                          ({getLayerName(rule.sourceLayerId)})
-                        </span>
+                        {rule.sourceTraitId !== ANY_TRAIT && (
+                          <span className="text-muted-foreground mx-2">
+                            ({getLayerName(rule.sourceLayerId)})
+                          </span>
+                        )}
                         <Badge variant="outline" className="mx-2 text-xs">
                           {info.label.toLowerCase()}
                         </Badge>
                         <span className="font-medium">
                           {getTraitName(rule.targetLayerId, rule.targetTraitId)}
                         </span>
-                        <span className="text-muted-foreground ml-2">
-                          ({getLayerName(rule.targetLayerId)})
-                        </span>
+                        {rule.targetTraitId !== ANY_TRAIT && (
+                          <span className="text-muted-foreground ml-2">
+                            ({getLayerName(rule.targetLayerId)})
+                          </span>
+                        )}
                       </div>
+                      <RuleThumb layerId={rule.targetLayerId} traitId={rule.targetTraitId} />
                     </div>
                     <Button
                       variant="ghost"
