@@ -142,19 +142,34 @@ export default function StickerPackDetail() {
           setStickers(stickersData || []);
         }
 
-        // Check if user has already purchased
+        // Check if user has already purchased — and whether delivery completed
         if (userId) {
           const { data: purchaseData } = await supabase
             .from("shop_purchases")
-            .select("id")
+            .select("id, delivery_status, payment_signature")
             .eq("item_id", packId)
             .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(1)
             .maybeSingle();
 
-          setHasPurchased(!!purchaseData);
+          const status = (purchaseData as { delivery_status?: string | null } | null)?.delivery_status;
+          const undelivered = !!purchaseData && (status === "failed" || status === "partial");
+          setHasPurchased(!!purchaseData && !undelivered);
+          setDeliveryIssue(
+            undelivered
+              ? {
+                  paymentSignature:
+                    (purchaseData as { payment_signature?: string | null }).payment_signature ??
+                    undefined,
+                }
+              : null,
+          );
         } else {
           setHasPurchased(false);
+          setDeliveryIssue(null);
         }
+
       } catch (err) {
         console.error("Error:", err);
       } finally {
