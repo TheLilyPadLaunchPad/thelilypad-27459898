@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 
 import { useAuth } from "@/providers/AuthProvider";
 import { useBetaMode } from "@/hooks/useBetaMode";
+import { hasEnteredApp } from "@/lib/guestEntry";
 import FrogLoader from "./FrogLoader";
 
 interface ProtectedRouteProps {
@@ -18,6 +19,25 @@ const BETA_ALLOWLIST = [
   '/profile-setup',
   '/profile-suspended',
 ];
+
+// Routes that genuinely need a connected wallet — everything else can be browsed
+const WALLET_REQUIRED = [
+  '/wallet',
+  '/dashboard',
+  '/earnings',
+  '/my-nfts',
+  '/my-purchases',
+  '/my-sticker-packs',
+  '/channel-emotes',
+  '/edit-profile',
+  '/following',
+  '/donor-profile',
+  '/go-live',
+  '/moderation',
+  '/admin',
+  '/profile-setup',
+];
+
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { state, isAdmin } = useAuth();
@@ -58,10 +78,29 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
 
-  // Redirect to auth if truly disconnected (no prior session)
+  // Guests who tapped "Enter" can browse everything except wallet-only areas
+  if (state === "DISCONNECTED" && hasEnteredApp()) {
+    const needsWallet = WALLET_REQUIRED.some(p => location.pathname.startsWith(p));
+    if (!needsWallet) {
+      if (betaLoading) {
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <FrogLoader size="lg" />
+          </div>
+        );
+      }
+      if (isBetaMode && !BETA_ALLOWLIST.some(p => location.pathname.startsWith(p))) {
+        return <Navigate to="/waitroom" replace />;
+      }
+      return <>{children}</>;
+    }
+  }
+
+  // Redirect to the entry screen if truly disconnected (no prior session)
   if (state === "DISCONNECTED") {
     return <Navigate to="/auth" replace />;
   }
+
 
   // ADMIN BYPASS: Admins always have full access regardless of beta mode
   if (isAdmin) {
