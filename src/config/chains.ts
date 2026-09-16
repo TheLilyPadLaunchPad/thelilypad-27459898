@@ -173,6 +173,45 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         isTestnetOnly: false,
         description: 'Fast, scalable, and carbon-neutral blockchain with XLS-20 NFT standard',
     },
+
+    robinhood: {
+        id: 'robinhood',
+        name: 'Robinhood Chain',
+        symbol: 'RH',
+        iconName: 'robinhood',
+        color: '#00C805',
+        theme: {
+            primaryColor: '#00C805',
+            secondaryColor: '#0b3d16',
+            background: 'from-[#04140a] via-[#0b2b16] to-[#123f22]',
+            cardBorder: '#00C80540',
+            glowColor: '#00C805',
+            buttonGradient: 'from-[#00C805] to-[#0b3d16]',
+        },
+        walletLabels: {
+            connect: 'Connect Robinhood Wallet',
+            disconnect: 'Disconnect Robinhood Wallet',
+            connecting: 'Connecting to Robinhood Chain...',
+        },
+        networks: {
+            mainnet: {
+                url: '',
+                name: 'Mainnet',
+                explorer: '',
+            },
+            testnet: {
+                url: '',
+                name: 'Testnet',
+                explorer: '',
+            },
+        },
+        walletType: 'evm',
+        nftStandard: 'ERC-721',
+        // Not connectable yet — generator/export only.
+        isActive: false,
+        isTestnetOnly: false,
+        description: 'EVM chain from Robinhood — generate and export now, minting coming soon',
+    },
 };
 
 export function getActiveChains(): ChainConfig[] {
