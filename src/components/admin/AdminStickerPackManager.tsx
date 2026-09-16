@@ -325,12 +325,18 @@ export const AdminStickerPackManager: React.FC = () => {
                         <Badge variant={pack.is_active ? "default" : "secondary"}>
                           {pack.is_active ? "Active" : "Inactive"}
                         </Badge>
-                        {pack.collection_address && (
+                        {pack.collection_address && pack.mint_authority !== 'legacy-needs-redeploy' && (
                           <Badge variant="outline" className="gap-1 text-green-500 border-green-500/30 text-[10px]">
                             <Link2 className="w-3 h-3" />
                             On-Chain
                           </Badge>
                         )}
+                        {pack.mint_authority === 'legacy-needs-redeploy' && (
+                          <Badge variant="destructive" className="gap-1 text-[10px]">
+                            Needs Redeploy
+                          </Badge>
+                        )}
+
                       </div>
                     </TableCell>
                     <TableCell>
