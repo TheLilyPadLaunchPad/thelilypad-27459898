@@ -47,6 +47,8 @@ interface ShopItem {
   collection_id?: string | null;
   collection_address?: string | null;
   tree_address?: string | null;
+  mint_authority?: string | null;
+
 }
 
 
@@ -77,6 +79,8 @@ export default function StickerPackDetail() {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [parentCollection, setParentCollection] = useState<{ id: string; name: string } | null>(null);
+  const [deliveryIssue, setDeliveryIssue] = useState<{ paymentSignature?: string } | null>(null);
+
 
 
   useSEO({
