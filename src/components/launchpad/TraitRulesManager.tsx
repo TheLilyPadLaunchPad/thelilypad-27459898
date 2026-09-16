@@ -84,6 +84,7 @@ function detectRuleConflicts(rules: TraitRule[], layers: Layer[]): RuleConflict[
   const getTraitKey = (layerId: string, traitId: string) => `${layerId}:${traitId}`;
   const getTraitName = (layerId: string, traitId: string) => {
     const layer = layers.find(l => l.id === layerId);
+    if (traitId === ANY_TRAIT) return `Any ${layer?.name || "layer"} trait`;
     const trait = layer?.traits.find(t => t.id === traitId);
     return trait?.name || "Unknown";
   };
