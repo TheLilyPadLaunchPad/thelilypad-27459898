@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SPLTokenList } from "./SPLTokenList";
 import { useSPLTokens } from "@/hooks/useSPLTokens";
-import { WalletSelectorModal, WalletType, OAuthProvider } from "./WalletSelectorModal";
+import { ChainConnectModal } from "./ChainConnectModal";
 import { Badge } from "@/components/ui/badge";
 import { CHAINS, getExplorerUrl, SupportedChain } from "@/config/chains";
 
@@ -140,13 +140,11 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
           )}
         </Button>
 
-        <WalletSelectorModal
+        <ChainConnectModal
           open={showWalletSelector}
           onOpenChange={setShowWalletSelector}
-          onSelect={handleWalletSelect}
-          onOAuthSelect={handleOAuthSelect}
-          isConnecting={isConnecting}
         />
+
       </>
     );
   }
