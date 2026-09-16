@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import type { GeneratedNFT } from "@/lib/assetBundler";
 import type { Layer } from "@/components/launchpad/LayerManager";
-import type { TraitRule } from "@/components/launchpad/TraitRulesManager";
+import { ANY_TRAIT, type TraitRule } from "@/components/launchpad/TraitRulesManager";
 
 /**
  * useNFTGenerator — Generative art engine
@@ -28,15 +28,30 @@ export function useNFTGenerator(layers: Layer[], rules: TraitRule[]) {
 
             if (layer.traits.length === 0) return null;
 
-            // Get applicable rules for already selected traits
+            // Get applicable rules for already selected traits ("*" = any trait in the layer)
             const applicableRules = rules.filter((rule) => {
                 const sourceSelected = selectedTraits.get(rule.sourceLayerId);
-                return sourceSelected === rule.sourceTraitId;
+                if (!sourceSelected) return false;
+                return rule.sourceTraitId === ANY_TRAIT || sourceSelected === rule.sourceTraitId;
             });
+
+            // Layer-wide incompatibility: skip this layer entirely
+            const layerBanned = applicableRules.some(
+                (r) =>
+                    r.type === "incompatible" &&
+                    r.targetLayerId === layer.id &&
+                    r.targetTraitId === ANY_TRAIT
+            );
+            if (layerBanned) return null;
 
             // Find forced traits for this layer
             const forcedTraits = applicableRules
-                .filter((r) => r.type === "forces" && r.targetLayerId === layer.id)
+                .filter(
+                    (r) =>
+                        r.type === "forces" &&
+                        r.targetLayerId === layer.id &&
+                        r.targetTraitId !== ANY_TRAIT
+                )
                 .map((r) => r.targetTraitId);
 
             if (forcedTraits.length > 0) {
