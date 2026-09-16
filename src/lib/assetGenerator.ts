@@ -6,7 +6,7 @@
  */
 
 import { Layer, LayerTrait } from "@/components/launchpad/LayerManager";
-import { TraitRule } from "@/components/launchpad/TraitRulesManager";
+import { TraitRule, ANY_TRAIT } from "@/components/launchpad/TraitRulesManager";
 
 export interface GeneratedAsset {
     id: string;
@@ -75,16 +75,34 @@ function generateSingleCombination(
     const visibleLayers = layers.filter((l) => l.visible).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const layerById = new Map(visibleLayers.map((l) => [l.id, l]));
 
-    /** Rules are only meaningful when both sides still exist. */
+    /** Rules are only meaningful when both sides still exist. "*" = any trait in the layer. */
     const validRules = rules.filter((r) => {
         const src = layerById.get(r.sourceLayerId);
         const tgt = layerById.get(r.targetLayerId);
         return (
             !!src && !!tgt &&
-            src.traits.some((t) => t.id === r.sourceTraitId) &&
-            tgt.traits.some((t) => t.id === r.targetTraitId)
+            (r.sourceTraitId === ANY_TRAIT || src.traits.some((t) => t.id === r.sourceTraitId)) &&
+            (r.targetTraitId === ANY_TRAIT || tgt.traits.some((t) => t.id === r.targetTraitId))
         );
     });
+
+    /** Is the rule's source condition satisfied by the current selection? */
+    const sourceActive = (rule: TraitRule, selected: Map<string, string>) => {
+        const picked = selected.get(rule.sourceLayerId);
+        if (!picked) return false;
+        return rule.sourceTraitId === ANY_TRAIT || picked === rule.sourceTraitId;
+    };
+
+    /** Does the rule's target condition currently hold? */
+    const targetSatisfied = (rule: TraitRule, selected: Map<string, string>) => {
+        const picked = selected.get(rule.targetLayerId);
+        if (rule.type === "incompatible") {
+            if (!picked) return true;
+            return rule.targetTraitId === ANY_TRAIT ? false : picked !== rule.targetTraitId;
+        }
+        if (!picked) return false;
+        return rule.targetTraitId === ANY_TRAIT ? true : picked === rule.targetTraitId;
+    };
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const selectedMap = new Map<string, string>();
@@ -94,12 +112,19 @@ function generateSingleCombination(
             if (layer.isOptional && Math.random() * 100 > (layer.optionalChance ?? 100)) continue;
             if (layer.traits.length === 0) continue;
 
-            const active = validRules.filter(
-                (r) => selectedMap.get(r.sourceLayerId) === r.sourceTraitId
+            const active = validRules.filter((r) => sourceActive(r, selectedMap));
+
+            // Layer-wide incompatibility: skip this layer entirely.
+            const layerBanned = active.some(
+                (r) => r.type === "incompatible" && r.targetLayerId === layer.id && r.targetTraitId === ANY_TRAIT
             );
+            if (layerBanned) continue;
 
             const forced = active.find(
-                (r) => (r.type === "forces" || r.type === "requires") && r.targetLayerId === layer.id
+                (r) =>
+                    (r.type === "forces" || r.type === "requires") &&
+                    r.targetLayerId === layer.id &&
+                    r.targetTraitId !== ANY_TRAIT
             );
             if (forced) {
                 selectedMap.set(layer.id, forced.targetTraitId);
@@ -122,35 +147,56 @@ function generateSingleCombination(
             let changed = false;
 
             for (const rule of validRules) {
-                const sourceActive = selectedMap.get(rule.sourceLayerId) === rule.sourceTraitId;
-                if (!sourceActive) continue;
+                if (!sourceActive(rule, selectedMap)) continue;
+                if (targetSatisfied(rule, selectedMap)) continue;
 
                 const targetLayer = layerById.get(rule.targetLayerId)!;
-                const currentTarget = selectedMap.get(rule.targetLayerId);
 
                 if (rule.type === "forces" || rule.type === "requires") {
-                    if (currentTarget !== rule.targetTraitId) {
-                        selectedMap.set(rule.targetLayerId, rule.targetTraitId);
-                        changed = true;
-                    }
-                } else if (rule.type === "incompatible" && currentTarget === rule.targetTraitId) {
-                    // Drop the offending trait: prefer an allowed alternative,
-                    // otherwise omit the layer entirely rather than break the rule.
-                    const banned = new Set(
-                        validRules
-                            .filter(
-                                (r) =>
-                                    r.type === "incompatible" &&
-                                    r.targetLayerId === targetLayer.id &&
-                                    selectedMap.get(r.sourceLayerId) === r.sourceTraitId
-                            )
-                            .map((r) => r.targetTraitId)
-                    );
-                    const alternatives = targetLayer.traits.filter((t) => !banned.has(t.id));
-                    if (alternatives.length > 0) {
-                        selectedMap.set(targetLayer.id, selectTraitByRarity(alternatives).id);
+                    if (rule.targetTraitId === ANY_TRAIT) {
+                        // Guarantee the layer is present: pick any allowed trait by rarity.
+                        const banned = new Set(
+                            validRules
+                                .filter(
+                                    (r) =>
+                                        r.type === "incompatible" &&
+                                        r.targetLayerId === targetLayer.id &&
+                                        r.targetTraitId !== ANY_TRAIT &&
+                                        sourceActive(r, selectedMap)
+                                )
+                                .map((r) => r.targetTraitId)
+                        );
+                        const allowed = targetLayer.traits.filter((t) => !banned.has(t.id));
+                        if (allowed.length === 0) break;
+                        selectedMap.set(targetLayer.id, selectTraitByRarity(allowed).id);
                     } else {
+                        selectedMap.set(rule.targetLayerId, rule.targetTraitId);
+                    }
+                    changed = true;
+                } else if (rule.type === "incompatible") {
+                    if (rule.targetTraitId === ANY_TRAIT) {
+                        // Whole layer is banned while the source trait is present.
                         selectedMap.delete(targetLayer.id);
+                    } else {
+                        // Drop the offending trait: prefer an allowed alternative,
+                        // otherwise omit the layer entirely rather than break the rule.
+                        const banned = new Set(
+                            validRules
+                                .filter(
+                                    (r) =>
+                                        r.type === "incompatible" &&
+                                        r.targetLayerId === targetLayer.id &&
+                                        r.targetTraitId !== ANY_TRAIT &&
+                                        sourceActive(r, selectedMap)
+                                )
+                                .map((r) => r.targetTraitId)
+                        );
+                        const alternatives = targetLayer.traits.filter((t) => !banned.has(t.id));
+                        if (alternatives.length > 0) {
+                            selectedMap.set(targetLayer.id, selectTraitByRarity(alternatives).id);
+                        } else {
+                            selectedMap.delete(targetLayer.id);
+                        }
                     }
                     changed = true;
                 }
@@ -160,12 +206,9 @@ function generateSingleCombination(
         }
 
         // Final validation — never emit a combination that breaks a rule.
-        const violates = validRules.some((rule) => {
-            if (selectedMap.get(rule.sourceLayerId) !== rule.sourceTraitId) return false;
-            const target = selectedMap.get(rule.targetLayerId);
-            if (rule.type === "incompatible") return target === rule.targetTraitId;
-            return target !== rule.targetTraitId;
-        });
+        const violates = validRules.some(
+            (rule) => sourceActive(rule, selectedMap) && !targetSatisfied(rule, selectedMap)
+        );
         if (!satisfied || violates) continue;
 
         const selectedTraits = visibleLayers
