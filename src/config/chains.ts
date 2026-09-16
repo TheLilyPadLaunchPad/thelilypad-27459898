@@ -291,6 +291,8 @@ export function getDbChainValues(chain: SupportedChain): string[] {
             return ['monad', 'monad-testnet', 'monad-devnet', 'monad-mainnet'];
         case 'xrpl':
             return ['xrpl', 'xrpl-testnet', 'xrpl-mainnet'];
+        case 'robinhood':
+            return ['robinhood', 'robinhood-testnet', 'robinhood-mainnet'];
         default:
             return ['solana'];
     }
