@@ -61,6 +61,7 @@ interface ChainEntry {
 const ALL_CHAIN_ENTRIES: ChainEntry[] = [
   { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
   { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
+  { id: "robinhood", label: "Robinhood Chain", description: "Generate & export — minting soon", badge: "Soon", badgeVariant: "secondary" },
 ];
 const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES;
 
@@ -82,7 +83,7 @@ const PRIMARY_TYPES: CollectionTypeTile[] = [
     description: "Upload pre-made assets or import trait layers for procedural generation with custom rarity weights.",
     icon: Layers,
     highlight: true,
-    chains: ["solana", "monad", "xrpl"],
+    chains: ["solana", "monad", "xrpl", "robinhood"],
     tag: "Most Popular",
   },
   {
@@ -108,7 +109,7 @@ const SECONDARY_TYPES: CollectionTypeTile[] = [
     title: "Art Generator (ZIP)",
     description: "No-code tool: generate high-res assets with metadata and download as a ZIP.",
     icon: Palette,
-    chains: ["solana", "monad", "xrpl"],
+    chains: ["solana", "monad", "xrpl", "robinhood"],
     tag: "No-Code",
   },
   {
@@ -198,6 +199,10 @@ export default function Launchpad() {
       navigate('/launchpad/xrpl-trait-generator');
       return;
     }
+    if (selectedChain === 'robinhood') {
+      navigate('/launchpad/robinhood-trait-generator');
+      return;
+    }
     if (localDraft) {
       navigate(`/launchpad/create/${selectedChain}/${localDraft.type || 'generative'}`);
     } else {
@@ -244,6 +249,11 @@ export default function Launchpad() {
   const secondaryTiles = SECONDARY_TYPES.filter((t) => t.chains.includes(selectedChain));
 
   const handleTileClick = (tile: CollectionTypeTile) => {
+    // Robinhood Chain isn't connectable yet — generator + export only.
+    if (selectedChain === 'robinhood') {
+      navigate('/launchpad/robinhood-trait-generator');
+      return;
+    }
     // XRPL doesn't use Metaplex/Candy Machine — route to dedicated XLS-20 flows.
     if (selectedChain === 'xrpl') {
       if (tile.id === 'generative' || tile.id === 'art-generator') {

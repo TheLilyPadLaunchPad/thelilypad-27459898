@@ -6,7 +6,7 @@
 
 import { SOLANA_MAINNET_RPC, SOLANA_DEVNET_RPC } from "@/config/solana";
 
-export type SupportedChain = 'solana' | 'monad' | 'xrpl';
+export type SupportedChain = 'solana' | 'monad' | 'xrpl' | 'robinhood';
 
 export interface ChainNetwork {
     url: string;
@@ -34,7 +34,7 @@ export interface ChainConfig {
     id: SupportedChain;
     name: string;
     symbol: string;
-    iconName: 'solana' | 'monad' | 'xrpl';
+    iconName: 'solana' | 'monad' | 'xrpl' | 'robinhood';
     color: string;
     theme: ChainThemeConfig;
     walletLabels: ChainWalletLabels;
@@ -173,6 +173,45 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         isTestnetOnly: false,
         description: 'Fast, scalable, and carbon-neutral blockchain with XLS-20 NFT standard',
     },
+
+    robinhood: {
+        id: 'robinhood',
+        name: 'Robinhood Chain',
+        symbol: 'RH',
+        iconName: 'robinhood',
+        color: '#00C805',
+        theme: {
+            primaryColor: '#00C805',
+            secondaryColor: '#0b3d16',
+            background: 'from-[#04140a] via-[#0b2b16] to-[#123f22]',
+            cardBorder: '#00C80540',
+            glowColor: '#00C805',
+            buttonGradient: 'from-[#00C805] to-[#0b3d16]',
+        },
+        walletLabels: {
+            connect: 'Connect Robinhood Wallet',
+            disconnect: 'Disconnect Robinhood Wallet',
+            connecting: 'Connecting to Robinhood Chain...',
+        },
+        networks: {
+            mainnet: {
+                url: '',
+                name: 'Mainnet',
+                explorer: '',
+            },
+            testnet: {
+                url: '',
+                name: 'Testnet',
+                explorer: '',
+            },
+        },
+        walletType: 'evm',
+        nftStandard: 'ERC-721',
+        // Not connectable yet — generator/export only.
+        isActive: false,
+        isTestnetOnly: false,
+        description: 'EVM chain from Robinhood — generate and export now, minting coming soon',
+    },
 };
 
 export function getActiveChains(): ChainConfig[] {
@@ -252,6 +291,8 @@ export function getDbChainValues(chain: SupportedChain): string[] {
             return ['monad', 'monad-testnet', 'monad-devnet', 'monad-mainnet'];
         case 'xrpl':
             return ['xrpl', 'xrpl-testnet', 'xrpl-mainnet'];
+        case 'robinhood':
+            return ['robinhood', 'robinhood-testnet', 'robinhood-mainnet'];
         default:
             return ['solana'];
     }

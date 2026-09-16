@@ -55,6 +55,13 @@ const ChainIcon: React.FC<{ chain: SupportedChain; className?: string }> = ({ ch
             return (
                 <Hexagon className={cn("w-4 h-4", className)} style={{ color: '#836EF9' }} />
             );
+        case 'robinhood':
+            return (
+                <svg className={cn("w-4 h-4", className)} viewBox="0 0 128 128" fill="none" aria-hidden="true">
+                    <rect width="128" height="128" rx="26" fill="#00C805" />
+                    <path d="M38 92V36h22c12 0 20 6.5 20 17 0 7.4-4.1 12.8-10.9 15.3L84 92H68.5L58 71.5h-5V92H38Zm15-32h6.4c4.6 0 7.3-2.2 7.3-6s-2.7-6-7.3-6H53v12Z" fill="#fff" />
+                </svg>
+            );
         default:
             return <Sparkles className={cn("w-4 h-4", className)} />;
     }
