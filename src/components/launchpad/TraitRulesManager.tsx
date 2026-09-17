@@ -394,6 +394,45 @@ export function TraitRulesManager({
     );
   };
 
+  /** Layers both selected trait images to preview how the pair looks together. */
+  const CombinedPreview = () => {
+    const sourceImage = getTraitImage(newRule.sourceLayerId, newRule.sourceTraitId);
+    const targetImage = getTraitImage(newRule.targetLayerId, newRule.targetTraitId);
+    const hasWildcard =
+      newRule.sourceTraitId === ANY_TRAIT || newRule.targetTraitId === ANY_TRAIT;
+    const hasBothImages = Boolean(sourceImage && targetImage);
+
+    return (
+      <div className="flex-1 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Together</p>
+        <div className="relative aspect-square w-full rounded-lg border border-primary/40 overflow-hidden bg-muted/40 flex items-center justify-center">
+          {hasBothImages ? (
+            <>
+              <img
+                src={sourceImage}
+                alt=""
+                className="absolute inset-0 h-full w-full object-contain"
+              />
+              <img
+                src={targetImage}
+                alt="Combined trait preview"
+                className="absolute inset-0 h-full w-full object-contain"
+              />
+            </>
+          ) : (
+            <div className="px-3 text-center">
+              <Layers3 className="mx-auto mb-1 h-6 w-6 text-primary" />
+              <p className="text-[11px] font-medium leading-tight">
+                {hasWildcard ? "Choose individual traits to combine" : "Select both traits"}
+              </p>
+            </div>
+          )}
+        </div>
+        <p className="text-[11px] text-muted-foreground">Combined artwork</p>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -578,7 +617,7 @@ export function TraitRulesManager({
           {/* Rule Preview */}
           <div className="rounded-lg border bg-muted/30 p-3">
             <p className="text-xs font-medium mb-2">Rule Preview</p>
-            <div className="flex items-start gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_1fr] items-start gap-3">
               <PreviewTile
                 layerId={newRule.sourceLayerId}
                 traitId={newRule.sourceTraitId}
@@ -608,6 +647,7 @@ export function TraitRulesManager({
                 label="Target"
                 danger={newRule.type === "incompatible"}
               />
+              <CombinedPreview />
             </div>
           </div>
 

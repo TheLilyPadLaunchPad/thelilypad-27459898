@@ -196,6 +196,9 @@ creator_beta_applications      -- Added Feb 2026
 
 ## 6. Completed Work Log
 
+### Session: Sep 17, 2026
+- ✅ **Trait rules combined preview** — added a third live preview tile that layers the selected source and target trait artwork together; layer-wide selections show a clear individual-trait prompt.
+
 ### Session: Jun 5, 2026
 - ✅ **Publish unblock** — removed corrupted `WalletProvider.backup.tsx` from `src/providers` so source scans/type checks no longer fail on an invalid backup file.
 
