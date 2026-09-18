@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { NetworkType, getSolanaRpcUrl } from "@/config/solana";
 import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
@@ -450,6 +450,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         connectXRPL,
         connectXRPLNonCustodial,
         connectMonad,
+        connectRobinhood,
         signXRPLTransaction,
       }}
     >
