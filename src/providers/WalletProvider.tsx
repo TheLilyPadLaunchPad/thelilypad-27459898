@@ -93,6 +93,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   });
 
+  // Injected EVM provider (Monad / Robinhood Chain) for the active session.
+  const evmProviderRef = useRef<any>(null);
+
   const connection = useMemo(() => {
     // We map Reown's network state to our custom connection object so existing RPC calls work
     // By default, Reown is multichain, but LilyPad is primarily Solana right now.
