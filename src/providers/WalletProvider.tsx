@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { NetworkType, getSolanaRpcUrl } from "@/config/solana";
 import { toast } from "sonner";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { useChain } from "./ChainProvider";
-import { setStoredChain } from "@/config/chains";
+import { setStoredChain, CHAINS } from "@/config/chains";
+import { connectEvmChain, getEvmBalance } from "@/lib/evmWallets";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithSolana } from "@/auth/supabaseWeb3";
 import { connectJoeyWallet, disconnectJoeyWallet, isJoeyWalletConnected } from "@/lib/joeyWalletConnection";
@@ -20,8 +21,8 @@ import "@/integrations/reown/appkit"; // ensures the singleton module is loaded
 
 
 // Types
-export type WalletType = "reown" | "joey";
-export type ChainType = "solana" | "monad" | "xrpl";
+export type WalletType = "reown" | "joey" | "evm";
+export type ChainType = "solana" | "monad" | "xrpl" | "robinhood";
 export type OAuthProvider = "google" | "apple";
 
 interface WalletState {
@@ -50,6 +51,7 @@ interface WalletContextType extends WalletState {
   connectXRPL: () => Promise<void>;
   connectXRPLNonCustodial: (provider: XRPLWalletProvider, address?: string, network?: 'mainnet' | 'testnet') => Promise<void>;
   connectMonad: () => Promise<void>;
+  connectRobinhood: () => Promise<void>;
   signXRPLTransaction: (txJson: any, network?: 'mainnet' | 'testnet') => Promise<any>;
 }
 
@@ -90,6 +92,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       chainType: "solana",
     };
   });
+
+  // Injected EVM provider (Monad / Robinhood Chain) for the active session.
+  const evmProviderRef = useRef<any>(null);
 
   const connection = useMemo(() => {
     // We map Reown's network state to our custom connection object so existing RPC calls work
@@ -281,38 +286,55 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
 
-  // Monad EVM connection via injected wallet (MetaMask, Rabby, etc.)
-  const connectMonad = useCallback(async () => {
+  // ---- EVM chains (Monad, Robinhood Chain) -------------------------------
+  // One shared path: discover the injected wallet, request an account, then
+  // switch (or add) the target network before we mark the wallet connected.
+  const connectEvm = useCallback(async (chainId: 'monad' | 'robinhood') => {
+    const cfg = CHAINS[chainId];
+    const net = cfg.networks.mainnet;
+    const toastId = `${chainId}-connect`;
     try {
       setState(prev => ({ ...prev, isConnecting: true }));
-      const eth = (typeof window !== 'undefined' ? (window as any).ethereum : null);
-      if (!eth) {
-        toast.error('No EVM wallet detected. Install MetaMask or Rabby.');
-        setState(prev => ({ ...prev, isConnecting: false }));
-        return;
-      }
-      toast.loading('Connecting to Monad...', { id: 'monad-connect' });
-      const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' });
-      const address = accounts?.[0];
-      if (!address) throw new Error('No account returned');
+      toast.loading(`Connecting to ${cfg.name}...`, { id: toastId });
+
+      const result = await connectEvmChain({
+        chainId: net.chainId!,
+        chainName: `${cfg.name}`,
+        rpcUrls: [net.url],
+        blockExplorerUrls: net.explorer ? [net.explorer] : undefined,
+        nativeCurrency: { name: cfg.symbol, symbol: cfg.symbol, decimals: 18 },
+      });
+
+      evmProviderRef.current = result.provider;
+      const balance = await getEvmBalance(result.provider, result.address);
 
       setState(prev => ({
         ...prev,
-        address,
+        address: result.address,
         isConnected: true,
         isConnecting: false,
-        walletType: 'reown',
-        chainType: 'monad',
+        balance,
+        walletType: 'evm',
+        chainType: chainId,
+        network: 'mainnet' as NetworkType,
       }));
       try { localStorage.setItem('walletConnected', 'true'); } catch {}
-      toast.success('Connected to Monad', { id: 'monad-connect' });
+      setStoredChain(chainId);
+      toast.success(`Connected to ${cfg.name} with ${result.providerName}`, { id: toastId });
     } catch (error: any) {
-      console.error('Monad connection failed:', error);
+      console.error(`${cfg.name} connection failed:`, error);
       setState(prev => ({ ...prev, isConnecting: false }));
-      toast.error(error?.message || 'Failed to connect to Monad', { id: 'monad-connect' });
-      throw error;
+      const rejected = error?.code === 4001;
+      toast[rejected ? 'info' : 'error'](
+        rejected ? 'Connection cancelled' : (error?.message || `Failed to connect to ${cfg.name}`),
+        { id: toastId },
+      );
+      if (!rejected) throw error;
     }
   }, []);
+
+  const connectMonad = useCallback(() => connectEvm('monad'), [connectEvm]);
+  const connectRobinhood = useCallback(() => connectEvm('robinhood'), [connectEvm]);
 
 
   // Main connect function opens Reown AppKit Modal or Joey Wallet
@@ -428,6 +450,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         connectXRPL,
         connectXRPLNonCustodial,
         connectMonad,
+        connectRobinhood,
         signXRPLTransaction,
       }}
     >

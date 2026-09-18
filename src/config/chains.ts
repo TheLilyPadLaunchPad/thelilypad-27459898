@@ -177,7 +177,7 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
     robinhood: {
         id: 'robinhood',
         name: 'Robinhood Chain',
-        symbol: 'RH',
+        symbol: 'ETH',
         iconName: 'robinhood',
         color: '#00C805',
         theme: {
@@ -194,23 +194,25 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
             connecting: 'Connecting to Robinhood Chain...',
         },
         networks: {
+            // Arbitrum L2 — gas paid in ETH.
             mainnet: {
-                url: '',
+                url: 'https://rpc.mainnet.chain.robinhood.com',
                 name: 'Mainnet',
-                explorer: '',
+                chainId: 4663,
+                explorer: 'https://robinhoodchain.blockscout.com',
             },
             testnet: {
-                url: '',
+                url: 'https://rpc.testnet.chain.robinhood.com',
                 name: 'Testnet',
-                explorer: '',
+                chainId: 46630,
+                explorer: 'https://explorer.testnet.chain.robinhood.com',
             },
         },
         walletType: 'evm',
         nftStandard: 'ERC-721',
-        // Not connectable yet — generator/export only.
-        isActive: false,
+        isActive: true,
         isTestnetOnly: false,
-        description: 'EVM chain from Robinhood — generate and export now, minting coming soon',
+        description: 'Robinhood’s Ethereum L2 — ERC-721 collections, gas paid in ETH',
     },
 };
 
@@ -251,6 +253,12 @@ export function getExplorerUrl(
             return type === 'tx'
                 ? `${baseUrl}/transactions/${hash}`
                 : `${baseUrl}/accounts/${hash}`;
+        case 'robinhood':
+            return type === 'tx'
+                ? `${baseUrl}/tx/${hash}`
+                : type === 'nft'
+                    ? `${baseUrl}/token/${hash}`
+                    : `${baseUrl}/address/${hash}`;
         default:
             return baseUrl;
     }
