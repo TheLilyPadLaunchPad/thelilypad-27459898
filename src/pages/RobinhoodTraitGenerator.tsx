@@ -659,6 +659,14 @@ export default function RobinhoodTraitGenerator() {
                         )}
                     </AnimatePresence>
                 </div>
+
+                <AssetMetadataEditor
+                    asset={editingAsset}
+                    open={editorOpen}
+                    onOpenChange={setEditorOpen}
+                    onSave={saveAsset}
+                    onDelete={deleteAsset}
+                />
             </main>
         </div>
     );
