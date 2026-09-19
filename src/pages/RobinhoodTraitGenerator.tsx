@@ -79,6 +79,41 @@ export default function RobinhoodTraitGenerator() {
     const [isExporting, setIsExporting] = useState(false);
     const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
 
+    // Editing / 1-of-1 pieces
+    const [editingAsset, setEditingAsset] = useState<GeneratedAsset | null>(null);
+    const [editorOpen, setEditorOpen] = useState(false);
+
+    const openEditor = (asset: GeneratedAsset) => {
+        setEditingAsset(asset);
+        setEditorOpen(true);
+    };
+
+    const addOneOfOne = () => {
+        const piece: GeneratedAsset = {
+            id: `one-of-one-${Date.now()}`,
+            name: `${name || "Collection"} #${generatedAssets.length + 1}`,
+            traits: [],
+            isOneOfOne: true,
+            metadata: {
+                name: `${name || "Collection"} #${generatedAssets.length + 1}`,
+                description,
+                attributes: [{ trait_type: "Type", value: "1 of 1" }],
+            },
+        };
+        setGeneratedAssets((prev) => [...prev, piece]);
+        openEditor(piece);
+    };
+
+    const saveAsset = (updated: GeneratedAsset) => {
+        setGeneratedAssets((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+        setEditingAsset(updated);
+    };
+
+    const deleteAsset = (assetId: string) => {
+        setGeneratedAssets((prev) => prev.filter((a) => a.id !== assetId));
+        setEditingAsset(null);
+    };
+
     useSEO({
         title: "Robinhood Chain NFT Generator | The Lily Pad",
         description:
