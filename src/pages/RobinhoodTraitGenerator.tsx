@@ -197,7 +197,10 @@ export default function RobinhoodTraitGenerator() {
                 const asset = generatedAssets[i];
                 setExportProgress({ current: i + 1, total });
 
-                if (!asset.preview) throw new Error(`Asset ${asset.name} has no preview image`);
+                if (!asset.preview)
+                    throw new Error(
+                        `"${asset.name}" has no artwork yet. Open it and upload an image, or remove it.`
+                    );
                 const blob = await dataUrlToBlob(asset.preview);
                 images.file(`${i}.webp`, blob);
 
