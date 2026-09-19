@@ -595,21 +595,46 @@ export default function RobinhoodTraitGenerator() {
                                             </div>
                                         )}
 
-                                        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
-                                            {generatedAssets.slice(0, 24).map((asset) => (
-                                                <div
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-sm text-muted-foreground">
+                                                Click any piece to edit its name, description and traits —
+                                                or swap in your own artwork to make it a 1-of-1.
+                                            </p>
+                                            <Button size="sm" variant="outline" className="gap-2" onClick={addOneOfOne}>
+                                                <Plus className="w-4 h-4" /> Add 1-of-1
+                                            </Button>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3 max-h-[480px] overflow-y-auto pr-1">
+                                            {generatedAssets.map((asset) => (
+                                                <button
+                                                    type="button"
                                                     key={asset.id}
-                                                    className="aspect-square rounded-lg overflow-hidden border border-border bg-muted/30"
+                                                    onClick={() => openEditor(asset)}
+                                                    title={`Edit ${asset.metadata.name}`}
+                                                    className="group relative aspect-square rounded-lg overflow-hidden border border-border bg-muted/30 hover:border-primary transition-colors"
                                                 >
-                                                    {asset.preview && (
+                                                    {asset.preview ? (
                                                         <img
                                                             src={asset.preview}
                                                             alt={asset.metadata.name}
                                                             loading="lazy"
                                                             className="w-full h-full object-cover"
                                                         />
+                                                    ) : (
+                                                        <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground px-1 text-center">
+                                                            Add artwork
+                                                        </span>
                                                     )}
-                                                </div>
+                                                    {asset.isOneOfOne && (
+                                                        <Badge className="absolute top-1 left-1 gap-1 text-[9px] px-1.5 py-0">
+                                                            <Crown className="w-2.5 h-2.5" /> 1/1
+                                                        </Badge>
+                                                    )}
+                                                    <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-background/60">
+                                                        <Pencil className="w-4 h-4 text-foreground" />
+                                                    </span>
+                                                </button>
                                             ))}
                                         </div>
 
