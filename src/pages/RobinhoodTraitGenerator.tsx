@@ -44,6 +44,7 @@ import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
 import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesManager";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
+import { AssetMetadataEditor } from "@/components/launchpad/AssetMetadataEditor";
 import { useSEO } from "@/hooks/useSEO";
 import { cn } from "@/lib/utils";
 
