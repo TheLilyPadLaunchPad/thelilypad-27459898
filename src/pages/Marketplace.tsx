@@ -201,6 +201,7 @@ export default function Marketplace() {
             { id: 'all' as ChainFilter, label: 'All Chains', icon: <span>🌐</span> },
             { id: 'solana' as ChainFilter, label: 'Solana', icon: <span>◎</span> },
             { id: 'monad' as ChainFilter, label: 'Monad', icon: <span>◈</span> },
+            { id: 'robinhood' as ChainFilter, label: 'Robinhood', icon: <span>🪶</span> },
           ] as { id: ChainFilter; label: string; icon: React.ReactNode }[]).map((tab) => (
             <button
               aria-label={`Filter marketplace by ${tab.label}`}
