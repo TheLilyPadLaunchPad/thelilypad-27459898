@@ -208,6 +208,11 @@ export const CollectionCsvImportModal: React.FC<CollectionCsvImportModalProps> =
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Metadata CSV must be 10 MB or smaller");
+      event.target.value = "";
+      return;
+    }
 
     setIsProcessing(true);
     setCsvImportResults(null);
