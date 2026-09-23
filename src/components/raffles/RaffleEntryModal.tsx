@@ -178,7 +178,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
                 <span className="text-muted-foreground font-mono truncate mr-2">TX: {txHash}</span>
                 <Button variant="ghost" size="sm" className="h-6 px-2 text-primary" onClick={() => {
                   window.open(chain === 'solana' ? `https://solscan.io/tx/${txHash}?cluster=devnet` : 
-                              `https://testnet.explorer.monad.xyz/tx/${txHash}`, '_blank');
+                              `https://testnet.monadexplorer.com/tx/${txHash}`, '_blank');
                 }}>
                   <ExternalLink className="w-3 h-3 mr-1" /> View
                 </Button>

@@ -8,9 +8,9 @@
 export const MONAD_NETWORKS = {
     mainnet: {
         url: 'https://rpc.monad.xyz',
-        chainId: 41455,
+        chainId: 143,
         name: 'Mainnet',
-        explorer: 'https://explorer.monad.xyz',
+        explorer: 'https://monadvision.com',
         currency: {
             name: 'MON',
             symbol: 'MON',
@@ -18,10 +18,10 @@ export const MONAD_NETWORKS = {
         },
     },
     testnet: {
-        url: 'https://testnet.monad.xyz/v1',
-        chainId: 41454,
+        url: 'https://testnet-rpc.monad.xyz',
+        chainId: 10143,
         name: 'Testnet',
-        explorer: 'https://testnet.explorer.monad.xyz',
+        explorer: 'https://testnet.monadexplorer.com',
         currency: {
             name: 'MON',
             symbol: 'MON',
