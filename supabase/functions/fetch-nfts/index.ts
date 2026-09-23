@@ -304,6 +304,89 @@ async function fetchSolanaAssetsByOwner(
   };
 }
 
+// ---- Robinhood Chain (EVM / ERC-721) via Blockscout ---------------------
+const BLOCKSCOUT_BASE: Record<string, string> = {
+  "robinhood-mainnet": "https://robinhoodchain.blockscout.com",
+  "robinhood": "https://robinhoodchain.blockscout.com",
+  "robinhood-testnet": "https://explorer.testnet.chain.robinhood.com",
+};
+
+const isRobinhoodNetwork = (network: string) => network.startsWith("robinhood");
+
+function ipfsToHttpDeno(url: string): string {
+  if (!url) return "";
+  if (url.startsWith("ipfs://")) {
+    return `https://ipfs.io/ipfs/${url.replace("ipfs://", "").replace(/^ipfs\//, "")}`;
+  }
+  if (url.startsWith("ar://")) return `https://arweave.net/${url.replace("ar://", "")}`;
+  return url;
+}
+
+async function fetchRobinhoodNFTsByOwner(
+  ownerAddress: string,
+  network: string,
+  pageKey?: string,
+) {
+  const base = BLOCKSCOUT_BASE[network] ?? BLOCKSCOUT_BASE["robinhood-mainnet"];
+  const params = new URLSearchParams({ type: "ERC-721,ERC-1155" });
+
+  if (pageKey) {
+    try {
+      const next = JSON.parse(pageKey) as Record<string, unknown>;
+      for (const [k, v] of Object.entries(next)) {
+        if (v !== null && v !== undefined) params.set(k, String(v));
+      }
+    } catch (_) {
+      // ignore malformed page keys and start from the first page
+    }
+  }
+
+  const url = `${base}/api/v2/addresses/${ownerAddress}/nft?${params.toString()}`;
+  console.log(`Fetching Robinhood NFTs: ${url}`);
+
+  const response = await fetch(url, { headers: { accept: "application/json" } });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Blockscout API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json() as {
+    items?: Array<{
+      id?: string;
+      image_url?: string;
+      metadata?: NFTMetadata & { attributes?: Array<{ trait_type?: string; value?: unknown }> };
+      token?: { address?: string; name?: string; symbol?: string };
+    }>;
+    next_page_params?: Record<string, unknown> | null;
+  };
+
+  const nfts = (data.items || []).map((item) => {
+    const md = item.metadata || {};
+    return {
+      tokenId: item.id ?? "",
+      contractAddress: item.token?.address ?? "",
+      name: md.name || `${item.token?.name || "Robinhood NFT"} #${item.id ?? ""}`,
+      description: md.description || "",
+      image: ipfsToHttpDeno(md.image || item.image_url || ""),
+      collection: item.token?.name || item.token?.symbol || "Robinhood Collection",
+      attributes: (md.attributes || []).map((attr) => ({
+        trait_type: attr.trait_type || "Unknown",
+        value: String(attr.value ?? ""),
+      })),
+      standard: "ERC-721",
+    };
+  });
+
+  const nextPageParams = data.next_page_params ?? null;
+
+  return {
+    nfts,
+    totalCount: nfts.length,
+    hasMore: !!nextPageParams,
+    pageKey: nextPageParams ? JSON.stringify(nextPageParams) : undefined,
+  };
+}
+
 // Fetch collection info using DAS API
 async function fetchSolanaCollection(
   collectionAddress: string,
