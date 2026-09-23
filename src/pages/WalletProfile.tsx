@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import React, { useState, useEffect, useMemo, type SetStateAction } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
@@ -222,7 +223,7 @@ export default function WalletProfile() {
 
   useEffect(() => {
     if (!isConnected) {
-      navigate("/auth");
+      navigate(authUrl());
     }
   }, [isConnected, navigate]);
 

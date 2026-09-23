@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,14 +108,14 @@ export default function Moderation() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (!session?.user) {
-        navigate("/auth");
+        navigate(authUrl());
       }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (!session?.user) {
-        navigate("/auth");
+        navigate(authUrl());
       }
     });
 

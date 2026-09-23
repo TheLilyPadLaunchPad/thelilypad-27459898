@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,7 +49,7 @@ export default function Earnings() {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
             if (!session?.user) {
-                navigate("/auth");
+                navigate(authUrl());
             } else {
                 fetchTotalEarnings(session.user.id);
             }
@@ -57,7 +58,7 @@ export default function Earnings() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
             if (!session?.user) {
-                navigate("/auth");
+                navigate(authUrl());
             }
         });
 

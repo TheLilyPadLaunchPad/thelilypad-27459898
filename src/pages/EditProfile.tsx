@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,7 +82,7 @@ const EditProfile = () => {
   useEffect(() => {
     // Check wallet connection
     if (!isConnected || !address) {
-      navigate('/auth');
+      navigate(authUrl());
       return;
     }
 

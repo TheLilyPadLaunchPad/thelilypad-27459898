@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -237,7 +238,7 @@ const Following = () => {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      navigate("/auth");
+      navigate(authUrl());
       return;
     }
 

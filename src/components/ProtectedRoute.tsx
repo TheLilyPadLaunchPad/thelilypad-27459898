@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 
 import { useAuth } from "@/providers/AuthProvider";
 import { useBetaMode } from "@/hooks/useBetaMode";
-import { hasEnteredApp } from "@/lib/guestEntry";
+import { hasEnteredApp, authUrl } from "@/lib/guestEntry";
 import FrogLoader from "./FrogLoader";
 
 interface ProtectedRouteProps {
@@ -21,7 +21,7 @@ const BETA_ALLOWLIST = [
 ];
 
 // Routes that genuinely need a connected wallet — everything else can be browsed
-const WALLET_REQUIRED = [
+export const WALLET_REQUIRED = [
   '/wallet',
   '/dashboard',
   '/earnings',
@@ -98,7 +98,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   // Redirect to the entry screen if truly disconnected (no prior session)
   if (state === "DISCONNECTED") {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to={authUrl(location.pathname + location.search)} replace />;
   }
 
 

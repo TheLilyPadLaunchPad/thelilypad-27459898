@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,7 +85,7 @@ export default function MyPurchases() {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        navigate("/auth");
+        navigate(authUrl());
         return;
       }
       setUserId(user.id);
