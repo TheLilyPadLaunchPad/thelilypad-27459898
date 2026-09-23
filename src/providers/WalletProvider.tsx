@@ -511,6 +511,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         connectXRPLNonCustodial,
         connectMonad,
         connectRobinhood,
+        evmChainId,
+        isWrongNetwork,
+        switchToExpectedNetwork,
         signXRPLTransaction,
       }}
     >
