@@ -1,18 +1,24 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Wallet } from "lucide-react";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
-import { markEnteredApp } from "@/lib/guestEntry";
+import { markEnteredApp, safeReturnTo } from "@/lib/guestEntry";
+import { WALLET_REQUIRED } from "@/components/ProtectedRoute";
+import { ChainConnectModal } from "@/components/wallet/ChainConnectModal";
 import authBrandingAsset from "@/assets/auth-branding.webp.asset.json";
 
 const fallbackAuthBranding = authBrandingAsset.url;
 
 export default function Auth() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = safeReturnTo(searchParams.get("returnTo"));
+  const returnNeedsWallet = !!returnTo && WALLET_REQUIRED.some((p) => returnTo.startsWith(p));
+  const [connectOpen, setConnectOpen] = useState(false);
   const { state } = useAuth();
   const { assetUrl: authBranding } = useSiteAsset("auth_branding", fallbackAuthBranding);
 
@@ -22,18 +28,19 @@ export default function Auth() {
       "Step into The Lily Pad to explore NFT launches, the marketplace and creator drops. Connect a Solana, Monad or XRPL wallet whenever you're ready.",
   });
 
-  // Redirect when authenticated or needs profile setup
+  // Once connected, send the visitor back to where they were heading
   useEffect(() => {
     if (state === "AUTHENTICATED") {
-      navigate("/streams");
+      markEnteredApp();
+      navigate(returnTo || "/streams", { replace: true });
     } else if (state === "NEEDS_PROFILE") {
       navigate("/profile-setup");
     }
-  }, [state, navigate]);
+  }, [state, navigate, returnTo]);
 
   const handleEnter = () => {
     markEnteredApp();
-    navigate("/", { replace: true });
+    navigate(returnTo && !returnNeedsWallet ? returnTo : "/", { replace: true });
   };
 
   return (
@@ -75,10 +82,27 @@ export default function Auth() {
           </CardHeader>
 
           <CardContent className="space-y-5">
-            <Button onClick={handleEnter} className="w-full h-14 text-base font-semibold group">
-              Enter
+            {returnTo && (
+              <p className="text-sm text-center text-muted-foreground">
+                Connect a wallet to continue where you left off.
+              </p>
+            )}
+            <Button
+              onClick={() => setConnectOpen(true)}
+              variant={returnTo ? "default" : "outline"}
+              className="w-full h-12 text-base font-semibold gap-2"
+            >
+              <Wallet className="w-5 h-5" /> Connect wallet
+            </Button>
+            <Button
+              onClick={handleEnter}
+              variant={returnTo ? "outline" : "default"}
+              className="w-full h-14 text-base font-semibold group"
+            >
+              {returnTo && !returnNeedsWallet ? "Continue browsing" : "Enter"}
               <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
+            <ChainConnectModal open={connectOpen} onOpenChange={setConnectOpen} />
 
             <p className="text-xs text-muted-foreground text-center">
               You can connect a Solana, Monad or XRPL wallet from anywhere inside the app when you're

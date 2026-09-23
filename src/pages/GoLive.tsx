@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -398,7 +399,7 @@ export default function GoLive() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <Button onClick={() => navigate("/auth")} variant="default" className="w-full">
+              <Button onClick={() => navigate(authUrl())} variant="default" className="w-full">
                 Connect Wallet
               </Button>
               <Button variant="ghost" onClick={() => window.location.reload()}>Retry Loading</Button>

@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
@@ -73,7 +74,7 @@ export default function CreatorStickerPacks() {
   useEffect(() => {
     if (!isConnected) {
       toast.error("Please connect your wallet to access this page");
-      navigate("/auth");
+      navigate(authUrl());
       return;
     }
 

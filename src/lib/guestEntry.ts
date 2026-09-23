@@ -29,3 +29,16 @@ export const clearEnteredApp = () => {
     /* noop */
   }
 };
+
+/** Entry-screen URL that remembers where the visitor was going. */
+export const authUrl = (returnTo?: string): string => {
+  const target =
+    returnTo ??
+    (typeof window !== "undefined" ? window.location.pathname + window.location.search : "/");
+  if (!target || target === "/" || target.startsWith("/auth")) return "/auth";
+  return `/auth?returnTo=${encodeURIComponent(target)}`;
+};
+
+/** Only allow same-app paths as return targets. */
+export const safeReturnTo = (raw: string | null): string | null =>
+  raw && raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/auth") ? raw : null;

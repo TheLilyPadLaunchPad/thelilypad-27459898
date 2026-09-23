@@ -1,3 +1,4 @@
+import { authUrl } from "@/lib/guestEntry";
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
@@ -33,7 +34,7 @@ const InterviewRoom: React.FC = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 toast({ title: 'Not Authenticated', description: 'Please log in to access this page.', variant: 'destructive' });
-                navigate('/auth');
+                navigate(authUrl());
                 return;
             }
 
