@@ -52,6 +52,11 @@ interface WalletContextType extends WalletState {
   connectXRPLNonCustodial: (provider: XRPLWalletProvider, address?: string, network?: 'mainnet' | 'testnet') => Promise<void>;
   connectMonad: () => Promise<void>;
   connectRobinhood: () => Promise<void>;
+  /** Chain id the injected EVM wallet currently reports (null for non-EVM). */
+  evmChainId: number | null;
+  /** True when an EVM wallet is on a different network than the selected chain. */
+  isWrongNetwork: boolean;
+  switchToExpectedNetwork: () => Promise<void>;
   signXRPLTransaction: (txJson: any, network?: 'mainnet' | 'testnet') => Promise<any>;
 }
 
@@ -335,6 +340,61 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const connectMonad = useCallback(() => connectEvm('monad'), [connectEvm]);
   const connectRobinhood = useCallback(() => connectEvm('robinhood'), [connectEvm]);
+
+  // ---- Live EVM network detection ----------------------------------------
+  // Track the wallet's actual chain so we can block actions on the wrong one.
+  const [evmChainId, setEvmChainId] = useState<number | null>(null);
+  const expectedEvmChainId =
+    state.walletType === 'evm' && (state.chainType === 'monad' || state.chainType === 'robinhood')
+      ? CHAINS[state.chainType].networks.mainnet.chainId ?? null
+      : null;
+  const isWrongNetwork = expectedEvmChainId !== null && evmChainId !== null && evmChainId !== expectedEvmChainId;
+
+  useEffect(() => {
+    const provider = evmProviderRef.current;
+    if (state.walletType !== 'evm' || !state.isConnected || !provider?.on) {
+      setEvmChainId(null);
+      return;
+    }
+    let active = true;
+    provider.request({ method: 'eth_chainId' })
+      .then((hex: string) => { if (active) setEvmChainId(parseInt(hex, 16)); })
+      .catch(() => {});
+
+    const onChain = (hex: string) => {
+      const id = parseInt(hex, 16);
+      setEvmChainId(id);
+      if (expectedEvmChainId !== null && id !== expectedEvmChainId) {
+        toast.warning(`Wrong network — switch back to ${CHAINS[state.chainType].name} to continue.`, { id: 'evm-network' });
+      } else {
+        toast.success(`Back on ${CHAINS[state.chainType].name}`, { id: 'evm-network' });
+      }
+    };
+    const onAccounts = async (accounts: string[]) => {
+      const next = accounts?.[0];
+      if (!next) {
+        evmProviderRef.current = null;
+        setState(prev => ({ ...prev, address: null, isConnected: false, balance: null }));
+        toast.info('Wallet disconnected');
+        return;
+      }
+      const balance = await getEvmBalance(provider, next);
+      setState(prev => ({ ...prev, address: next, balance }));
+    };
+    provider.on('chainChanged', onChain);
+    provider.on('accountsChanged', onAccounts);
+    return () => {
+      active = false;
+      provider.removeListener?.('chainChanged', onChain);
+      provider.removeListener?.('accountsChanged', onAccounts);
+    };
+  }, [state.walletType, state.isConnected, state.chainType, expectedEvmChainId]);
+
+  const switchToExpectedNetwork = useCallback(async () => {
+    if (state.chainType === 'monad' || state.chainType === 'robinhood') {
+      await connectEvm(state.chainType);
+    }
+  }, [state.chainType, connectEvm]);
 
 
   // Main connect function opens Reown AppKit Modal or Joey Wallet
