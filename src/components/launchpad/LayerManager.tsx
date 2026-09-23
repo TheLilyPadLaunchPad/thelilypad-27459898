@@ -21,6 +21,7 @@ import {
   Percent,
 } from "lucide-react";
 import { toast } from "sonner";
+import { checkMedia, LAYER_ACCEPT } from "@/lib/uploadRules";
 
 // Blend mode type for layer compositing
 export type BlendMode = GlobalCompositeOperation;
@@ -78,10 +79,13 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
       layerName = `Layer ${layers.length + 1}`;
     }
 
-    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const candidates = Array.from(files).filter((f) => !f.name.startsWith("."));
+    const rejected = candidates.map((f) => checkMedia(f, true)).filter(Boolean) as string[];
+    const imageFiles = candidates.filter((f) => !checkMedia(f, true));
+    if (rejected.length) toast.error(`${rejected.length} file(s) skipped`, { description: rejected.slice(0, 3).join("\n") });
 
     if (imageFiles.length === 0) {
-      toast.error("No images found — please select PNG, JPG, or WebP files");
+      toast.error("No images found — use GIF, JPG, PNG or SVG up to 50 MB");
       return;
     }
 
@@ -153,7 +157,7 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
+            accept={LAYER_ACCEPT}
             multiple
             className="hidden"
             onChange={handleFileInput}
