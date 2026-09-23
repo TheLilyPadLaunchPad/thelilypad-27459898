@@ -87,7 +87,12 @@ export default function Marketplace() {
     loadMoreRef,
   } = useMarketplaceData(selectedChain);
 
-  const chainLabel = selectedChain === 'all' ? 'All Chains' : selectedChain === 'monad' ? 'Monad' : 'Solana';
+  const chainLabel =
+    selectedChain === 'all' ? 'All Chains'
+      : selectedChain === 'monad' ? 'Monad'
+        : selectedChain === 'robinhood' ? 'Robinhood Chain'
+          : selectedChain === 'xrpl' ? 'XRPL'
+            : 'Solana';
 
   useSEO({
     title: "Lily Marketplace | The Lily Pad",
