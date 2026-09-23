@@ -211,6 +211,7 @@ export default function Marketplace() {
               className={`flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded-full text-sm font-medium transition-all whitespace-nowrap ${selectedChain === tab.id
                 ? tab.id === 'solana' ? 'bg-green-500/15 text-green-400 border border-green-500/30'
                   : tab.id === 'monad' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                  : tab.id === 'robinhood' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                   : 'bg-primary/15 text-primary border border-primary/30'
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent'
                 }`}
