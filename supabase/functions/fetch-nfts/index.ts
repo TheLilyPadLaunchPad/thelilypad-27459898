@@ -521,6 +521,10 @@ serve(async (req) => {
     const result: WalletResult = await withCache(walletKey, CACHE_TTL_MS.wallet, async () => {
       console.log(`Fetching NFTs for ${walletAddress} on ${network}`);
 
+      if (isRobinhoodNetwork(network)) {
+        return await fetchRobinhoodNFTsByOwner(walletAddress, network, pageKey);
+      }
+
       return await fetchSolanaAssetsByOwner(
         walletAddress,
         network === "solana-devnet",
