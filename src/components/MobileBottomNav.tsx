@@ -4,6 +4,7 @@ import { Home, Store, Rocket, Radio, Wallet, LayoutDashboard } from "lucide-reac
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { cn } from "@/lib/utils";
+import { authUrl, hasEnteredApp } from "@/lib/guestEntry";
 
 interface NavItem {
   icon: React.ElementType;
@@ -45,8 +46,9 @@ export const MobileBottomNav: React.FC = () => {
     return location.pathname === item.href;
   };
 
+  // Guests who tapped "Enter" browse freely; the route guard handles wallet-only tabs.
   const resolveHref = (item: NavItem) => {
-    if (!isConnected && item.href !== "/") return "/auth";
+    if (!isConnected && !hasEnteredApp() && item.href !== "/") return authUrl(item.href);
     return item.href;
   };
 
