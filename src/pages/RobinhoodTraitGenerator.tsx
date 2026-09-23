@@ -13,6 +13,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
+import { buildOpenSeaCsv } from "@/lib/uploadRules";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +79,7 @@ export default function RobinhoodTraitGenerator() {
     const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
     const [isExporting, setIsExporting] = useState(false);
     const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
+    const [metadataFormat, setMetadataFormat] = useState<"csv" | "json">("csv");
 
     // Editing / 1-of-1 pieces
     const [editingAsset, setEditingAsset] = useState<GeneratedAsset | null>(null);
@@ -191,34 +193,56 @@ export default function RobinhoodTraitGenerator() {
         try {
             const zip = new JSZip();
             const images = zip.folder("images")!;
-            const metadata = zip.folder("metadata")!;
+            const metadata = metadataFormat === "json" ? zip.folder("metadata")! : null;
+            const csvRows: Parameters<typeof buildOpenSeaCsv>[0] = [];
 
             for (let i = 0; i < generatedAssets.length; i++) {
                 const asset = generatedAssets[i];
                 setExportProgress({ current: i + 1, total });
 
-                if (!asset.preview)
+                if (!asset.preview && !asset.customFile)
                     throw new Error(
-                        `"${asset.name}" has no artwork yet. Open it and upload an image, or remove it.`
+                        `"${asset.name}" has no artwork yet. Open it and upload a file, or remove it.`
                     );
-                const blob = await dataUrlToBlob(asset.preview);
-                images.file(`${i}.webp`, blob);
+                let fileName = `${i}.webp`;
+                if (asset.customFile) {
+                    const ext = asset.customFile.name.split(".").pop()?.toLowerCase() || "bin";
+                    fileName = `${i}.${ext}`;
+                    images.file(fileName, asset.customFile);
+                } else {
+                    images.file(fileName, await dataUrlToBlob(asset.preview!));
+                }
+                const isAnim = /\.(mp3|mp4)$/.test(fileName);
+                const desc = asset.metadata.description || description;
 
-                metadata.file(
-                    `${i}.json`,
-                    JSON.stringify(
-                        {
-                            name: asset.metadata.name,
-                            description: asset.metadata.description || description,
-                            image: `images/${i}.webp`,
-                            external_url: externalUrl || undefined,
-                            attributes: asset.metadata.attributes,
-                        },
-                        null,
-                        2
-                    )
-                );
+                if (metadata) {
+                    metadata.file(
+                        `${i}.json`,
+                        JSON.stringify(
+                            {
+                                name: asset.metadata.name,
+                                description: desc,
+                                image: `images/${fileName}`,
+                                animation_url: isAnim ? `images/${fileName}` : undefined,
+                                external_url: externalUrl || undefined,
+                                attributes: asset.metadata.attributes,
+                            },
+                            null,
+                            2
+                        )
+                    );
+                } else {
+                    csvRows.push({
+                        tokenId: i,
+                        name: asset.metadata.name,
+                        description: desc,
+                        fileName,
+                        externalUrl,
+                        attributes: asset.metadata.attributes,
+                    });
+                }
             }
+            if (!metadata) zip.file("metadata.csv", buildOpenSeaCsv(csvRows));
 
             zip.file(
                 "collection.json",
@@ -575,9 +599,21 @@ export default function RobinhoodTraitGenerator() {
                                         </CardTitle>
                                         <CardDescription>
                                             The download contains <strong>images/</strong>,{" "}
-                                            <strong>metadata/</strong> (ERC-721 JSON) and{" "}
-                                            <strong>collection.json</strong>.
+                                            {metadataFormat === "csv" ? (
+                                                <><strong>metadata.csv</strong> (OpenSea bulk setup, recommended for Robinhood Chain)</>
+                                            ) : (
+                                                <><strong>metadata/</strong> (ERC-721 JSON)</>
+                                            )}{" "}
+                                            and <strong>collection.json</strong>.
                                         </CardDescription>
+                                        <div className="flex gap-2 pt-2">
+                                            <Button size="sm" variant={metadataFormat === "csv" ? "default" : "outline"} onClick={() => setMetadataFormat("csv")}>
+                                                CSV (OpenSea)
+                                            </Button>
+                                            <Button size="sm" variant={metadataFormat === "json" ? "default" : "outline"} onClick={() => setMetadataFormat("json")}>
+                                                JSON
+                                            </Button>
+                                        </div>
                                     </CardHeader>
                                     <CardContent className="px-0 space-y-4">
                                         {isExporting && (

@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Crown, ImageUp, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { GeneratedAsset } from "@/lib/assetGenerator";
+import { checkMedia, MEDIA_ACCEPT } from "@/lib/uploadRules";
 
 interface Props {
     asset: GeneratedAsset | null;
@@ -61,7 +62,8 @@ export function AssetMetadataEditor({ asset, open, onOpenChange, onSave, onDelet
 
     const handleArtwork = async (file?: File) => {
         if (!file) return;
-        if (!file.type.startsWith("image/")) return toast.error("Pick an image file");
+        const problem = checkMedia(file);
+        if (problem) return toast.error(problem);
         try {
             const dataUrl = await readAsDataUrl(file);
             setPreview(dataUrl);
@@ -111,15 +113,20 @@ export function AssetMetadataEditor({ asset, open, onOpenChange, onSave, onDelet
 
                 <div className="grid md:grid-cols-[180px_1fr] gap-5">
                     <div className="space-y-2">
-                        <div className="aspect-square rounded-xl overflow-hidden border border-border bg-muted/30">
-                            {preview && (
+                        <div className="aspect-square rounded-xl overflow-hidden border border-border bg-muted/30 flex items-center justify-center">
+                            {preview && customFile?.type.startsWith("video/") ? (
+                                <video src={preview} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+                            ) : preview && customFile?.type.startsWith("audio/") ? (
+                                <audio src={preview} controls className="w-full px-2" />
+                            ) : preview ? (
                                 <img src={preview} alt={name} className="w-full h-full object-cover" />
-                            )}
+                            ) : null}
                         </div>
+                        <p className="text-[10px] text-muted-foreground text-center">GIF, JPG, MP3, MP4, PNG, SVG · max 50 MB</p>
                         <input
                             ref={fileRef}
                             type="file"
-                            accept="image/*"
+                            accept={MEDIA_ACCEPT}
                             className="hidden"
                             onChange={(e) => handleArtwork(e.target.files?.[0])}
                         />
