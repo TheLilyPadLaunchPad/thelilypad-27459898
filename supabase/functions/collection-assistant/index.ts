@@ -27,19 +27,28 @@ Deno.serve(async (req) => {
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
   const { data: collection } = await sb
     .from("collections")
-    .select("id,name,description,symbol,chain,total_supply,minted,mint_price,status,contract_address,royalty_percentage,is_revealed")
+    .select("id,name,description,symbol,chain,total_supply,minted,status,contract_address,is_revealed")
     .eq("id", collectionId)
     .maybeSingle();
   if (!collection) return json({ error: "Collection not found" }, 404);
 
-  const { data: listings } = await sb
-    .from("nft_listings")
-    .select("price,currency,status,created_at,nft:nfts!inner(name,token_id,attributes,collection_id)")
-    .eq("status", "active")
-    .eq("nft.collection_id", collectionId)
-    .order("price", { ascending: true })
-    .limit(25);
-  const active = (listings ?? []).filter((l: any) => l.nft);
+  const { data: nfts } = await sb
+    .from("minted_nfts")
+    .select("id,name,token_id,attributes")
+    .eq("collection_id", collectionId)
+    .limit(500);
+  const byId = new Map((nfts ?? []).map((n: any) => [n.id, n]));
+  let active: any[] = [];
+  if (byId.size) {
+    const { data: listings } = await sb
+      .from("nft_listings")
+      .select("price,currency,status,created_at,nft_id")
+      .eq("status", "active")
+      .in("nft_id", [...byId.keys()])
+      .order("price", { ascending: true })
+      .limit(25);
+    active = (listings ?? []).map((l: any) => ({ ...l, nft: byId.get(l.nft_id) }));
+  }
   const floor = active.length ? active[0].price : null;
 
   const facts = JSON.stringify({ collection, marketplace: { activeListings: active.length, floor, listings: active } });
