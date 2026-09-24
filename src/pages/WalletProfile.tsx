@@ -263,6 +263,11 @@ export default function WalletProfile() {
       <Navbar />
 
       <main className="container mx-auto px-3 sm:px-4 pt-20 sm:pt-24 pb-8 sm:pb-12">
+        <div className="flex justify-end mb-2">
+          <button onClick={() => navigate("/transactions")} className="text-sm font-medium text-primary hover:underline">
+            Transaction history →
+          </button>
+        </div>
         {/* Header Section */}
         <div className="mb-4 sm:mb-8">
           <div className="glass-card p-4 sm:p-6 md:p-8">

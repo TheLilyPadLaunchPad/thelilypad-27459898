@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { getTxExplorerUrl } from "@/lib/chainUtils";
 import { clearTxHistory, isStale, readTxHistory, subscribeTxHistory, type TxKind, type TxRecord } from "@/lib/txHistory";
 import { cn } from "@/lib/utils";
+import Navbar from "@/components/Navbar";
 
 type Outcome = "all" | "pending" | "confirmed" | "failed";
 const KINDS: { v: TxKind | "all"; l: string }[] = [
@@ -50,7 +51,9 @@ export default function TransactionHistory() {
   );
 
   return (
-    <main className="container max-w-4xl mx-auto px-4 py-8 space-y-6">
+    <div className="min-h-screen bg-background">
+    <Navbar />
+    <main className="container max-w-4xl mx-auto px-4 pt-20 sm:pt-24 pb-12 space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -122,5 +125,6 @@ export default function TransactionHistory() {
         </ul>
       )}
     </main>
+    </div>
   );
 }
