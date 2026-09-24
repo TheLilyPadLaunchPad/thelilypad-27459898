@@ -33,8 +33,8 @@ Deno.serve(async (req) => {
   if (!collection) return json({ error: "Collection not found" }, 404);
 
   const { data: listings } = await sb
-    .from("marketplace_listings")
-    .select("price,currency,status,created_at,nft:nfts(name,token_id,attributes)")
+    .from("nft_listings")
+    .select("price,currency,status,created_at,nft:nfts!inner(name,token_id,attributes,collection_id)")
     .eq("status", "active")
     .eq("nft.collection_id", collectionId)
     .order("price", { ascending: true })
