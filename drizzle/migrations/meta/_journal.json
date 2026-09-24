@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790213006847,
+      "tag": "0000_lock_governance_config_and_card_stack",
+      "breakpoints": true
+    }
+  ]
+}
