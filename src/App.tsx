@@ -80,6 +80,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Lazy load non-critical pages for better initial bundle size
 const WalletProfile = lazy(() => import("./pages/WalletProfile"));
+const TransactionHistory = lazy(() => import("./pages/TransactionHistory"));
 const Streams = lazy(() => import("./pages/Streams"));
 const Streamers = lazy(() => import("./pages/Streamers"));
 const GoLive = lazy(() => import("./pages/GoLive"));
@@ -196,6 +197,7 @@ const AppContent = () => {
           <Route path="/fees" element={<ProtectedRoute><FeesAndPricing /></ProtectedRoute>} />
           <Route path="/buyback-program" element={<ProtectedRoute><BuybackProgram /></ProtectedRoute>} />
           <Route path="/official-packs" element={<ProtectedRoute><OfficialPacks /></ProtectedRoute>} />
+          <Route path="/transactions" element={<TransactionHistory />} />
           <Route path="/my-purchases" element={<ProtectedRoute><MyPurchases /></ProtectedRoute>} />
           <Route path="/music-store" element={<ProtectedRoute><MusicStore /></ProtectedRoute>} />
           <Route path="/artist/:artistAddress" element={<ProtectedRoute><ArtistProfile /></ProtectedRoute>} />
