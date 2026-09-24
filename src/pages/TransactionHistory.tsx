@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { getTxExplorerUrl } from "@/lib/chainUtils";
 import { clearTxHistory, isStale, readTxHistory, subscribeTxHistory, type TxKind, type TxRecord } from "@/lib/txHistory";
 import { cn } from "@/lib/utils";
-import Navbar from "@/components/Navbar";
+import { Navbar } from "@/components/Navbar";
 
 type Outcome = "all" | "pending" | "confirmed" | "failed";
 const KINDS: { v: TxKind | "all"; l: string }[] = [
