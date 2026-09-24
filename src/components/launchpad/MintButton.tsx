@@ -8,6 +8,8 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { SupportedChain, CHAINS } from '@/config/chains';
 import { Coins } from 'lucide-react';
+import { useTxStatus } from '@/hooks/useTxStatus';
+import { TxStatusCard } from '@/components/tx/TxStatusCard';
 
 interface MintButtonProps {
     collectionId: string;
@@ -32,6 +34,7 @@ export function MintButton({
     const { isCreating: isMonadLoading, mintNFT: mintMonadNFT } = useMonadLaunch();
     const { isMockMode } = useMockMode();
     const { profile } = useUserProfile();
+    const tx = useTxStatus();
 
     // Get chain config for display
     const chainConfig = CHAINS[chain] || CHAINS.solana;
@@ -103,23 +106,13 @@ export function MintButton({
                 return;
             }
 
-            if (chain === 'solana') {
-                await mintFromCandyMachine(
-                    candyMachineAddress,
-                    collectionAddress,
-                    {
-                        phaseId: 'public',
-                        price,
-                    }
-                );
-            } else if (chain === 'monad') {
-                await mintMonadNFT(
-                    collectionAddress,
-                    1,
-                    price.toString()
-                );
-            }
-            toast.success('Mint succeeded! 🎉');
+            const result = await tx.run('Mint', async () => {
+                if (chain === 'solana') {
+                    return await mintFromCandyMachine(candyMachineAddress, collectionAddress, { phaseId: 'public', price });
+                }
+                return await mintMonadNFT(collectionAddress, 1, price.toString());
+            });
+            if (result !== undefined) toast.success('Mint succeeded! 🎉');
         } catch (e: any) {
             console.error('Mint error', e);
             toast.error(e.message || 'Mint failed. See console for details.');
@@ -127,19 +120,22 @@ export function MintButton({
     };
 
     return (
-        <Button
-            size="sm"
-            onClick={handleMint}
-            disabled={isLoading || !isMintingSupported}
-            className="mt-2 w-full gap-2"
-        >
-            {isMockMode && <Coins className="w-4 h-4" />}
-            {isLoading
-                ? 'Minting...'
-                : !isMintingSupported
-                    ? `${chainConfig.name} Coming Soon`
-                    : `Mint for ${price} ${currencySymbol}`
-            }
-        </Button>
+        <div className="space-y-2">
+            <Button
+                size="sm"
+                onClick={handleMint}
+                disabled={isLoading || tx.isBusy || !isMintingSupported}
+                className="mt-2 w-full gap-2"
+            >
+                {isMockMode && <Coins className="w-4 h-4" />}
+                {isLoading || tx.isBusy
+                    ? 'Minting...'
+                    : !isMintingSupported
+                        ? `${chainConfig.name} Coming Soon`
+                        : `Mint for ${price} ${currencySymbol}`
+                }
+            </Button>
+            <TxStatusCard status={tx.status} chain={chain} onRetry={handleMint} onDismiss={tx.reset} />
+        </div>
     );
 }

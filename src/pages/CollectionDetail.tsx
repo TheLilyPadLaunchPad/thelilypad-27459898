@@ -33,6 +33,8 @@ import { CollectionSupplyCard } from "@/components/collection-detail/CollectionS
 import { CollectionMintCard } from "@/components/collection-detail/CollectionMintCard";
 import { CollectionBuybackCard } from "@/components/collection-detail/CollectionBuybackCard";
 import { CollectionPacksSection } from "@/components/collection-detail/CollectionPacksSection";
+import { CollectionAssistant } from "@/components/assistant/CollectionAssistant";
+import { HolderGate } from "@/components/holder/HolderGate";
 
 
 export default function CollectionDetail() {
@@ -295,6 +297,18 @@ export default function CollectionDetail() {
 
           {/* Right Column: Interaction & Management */}
           <div className="space-y-6">
+            {String(collectionChain || '').startsWith('monad') && (
+              <>
+                <CollectionAssistant collectionId={collection.id} collectionName={collection.name} />
+                {collection.contract_address && (
+                  <HolderGate contracts={[collection.contract_address]} collectionName={collection.name}>
+                    <p className="text-sm text-muted-foreground">
+                      You're a verified holder — holder perks, gated drops and discounts for {collection.name} unlock here.
+                    </p>
+                  </HolderGate>
+                )}
+              </>
+            )}
             {/* Admin Management Tools */}
             {isCreator && collection.contract_address && (
               <>

@@ -13,6 +13,8 @@ import { useWallet } from "@/providers/WalletProvider";
 import { useSolanaCoreTransfer } from "@/hooks/useSolanaCoreTransfer";
 import { useMonadTransfer } from "@/hooks/useMonadTransfer";
 import { toast } from "sonner";
+import { useTxStatus } from "@/hooks/useTxStatus";
+import { TxStatusCard } from "@/components/tx/TxStatusCard";
 
 interface Listing {
   id: string;
@@ -49,53 +51,36 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
   const solanaTransfer = useSolanaCoreTransfer();
   const monadTransfer = useMonadTransfer();
   const [isSuccess, setIsSuccess] = useState(false);
+  const tx = useTxStatus();
 
   // Determine chain and currency
   const chainId = listing?.chain || 'solana';
   const currencySymbol = listing?.currency || (chainId === 'monad' ? 'MON' : 'SOL');
   const chainName = chainId === 'monad' ? 'Monad' : 'Solana';
 
-  const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading;
-  const error = solanaTransfer.error || monadTransfer.error;
+  const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading || tx.isBusy;
 
   const handleBuy = async () => {
     if (!listing || !address) return;
-
-    const isOwner = listing.seller_address === address;
-
-    try {
-      if (isOwner) {
-        onSuccess();
-        return;
-      }
-
-      let result;
-      if (chainId === 'monad') {
-        result = await monadTransfer.transferAsset(
-          listing.nft.contract_address || listing.nft.collection?.contract_address || "",
-          address,
-          listing.nft.token_id
-        );
-      } else if (chainId === 'solana') {
-        result = await solanaTransfer.transferAsset(
-          listing.nft.contract_address || listing.nft.collection?.contract_address || "",
-          address,
-          { collectionAddress: listing.nft.collection?.contract_address || undefined }
-        );
-      } else {
-        toast.error(`${chainName} purchases not yet supported in this modal.`);
-        return;
-      }
-
-      if (result?.success) {
-        setIsSuccess(true);
-        setTimeout(() => {
-          onSuccess();
-        }, 2000);
-      }
-
-    } catch (err) {
-      console.error("Buy failed:", err);
+    if (listing.seller_address === address) {
+      onSuccess();
+      return;
+    }
+    if (chainId !== 'monad' && chainId !== 'solana') {
+      toast.error(`${chainName} purchases not yet supported in this modal.`);
+      return;
+    }
+    const assetAddr = listing.nft.contract_address || listing.nft.collection?.contract_address || "";
+    const result = await tx.run("Buy NFT", async () => {
+      const r: any = chainId === 'monad'
+        ? await monadTransfer.transferAsset(assetAddr, address, listing.nft.token_id)
+        : await solanaTransfer.transferAsset(assetAddr, address, { collectionAddress: listing.nft.collection?.contract_address || undefined });
+      if (!r?.success) throw new Error(r?.error || solanaTransfer.error || monadTransfer.error || "Purchase failed");
+      return r;
+    });
+    if (result) {
+      setIsSuccess(true);
+      setTimeout(() => onSuccess(), 2000);
     }
   };
 
@@ -135,11 +120,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
             </div>
           </div>
 
-          {error && (
-            <div className="p-3 bg-red-500/10 text-red-500 rounded-md text-sm">
-              {error}
-            </div>
-          )}
+          <TxStatusCard status={tx.status} chain={chainId} onRetry={handleBuy} onDismiss={tx.reset} />
 
           <Button
             className="w-full gap-2"
