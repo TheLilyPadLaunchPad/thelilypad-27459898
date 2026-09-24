@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { upsertTx, inferKind, type TxKind } from "@/lib/txHistory";
 
 export type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed" | "cancelled";
 
@@ -31,20 +32,38 @@ export function useTxStatus() {
   const reset = useCallback(() => setStatus({ state: "idle" }), []);
 
   const run = useCallback(
-    async <T,>(label: string, fn: (markSubmitted: (hash?: string) => void) => Promise<T>): Promise<T | undefined> => {
+    async <T,>(
+      label: string,
+      fn: (markSubmitted: (hash?: string) => void) => Promise<T>,
+      meta?: { chain?: string; kind?: TxKind; wallet?: string },
+    ): Promise<T | undefined> => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      let lastHash: string | undefined;
+      upsertTx({ id, label, kind: meta?.kind || inferKind(label), chain: meta?.chain, wallet: meta?.wallet, state: "awaiting_signature" });
       setStatus({ state: "awaiting_signature", label });
       try {
-        const result: any = await fn((hash) => setStatus({ state: "submitted", label, hash }));
+        const result: any = await fn((hash) => {
+          lastHash = hash;
+          upsertTx({ id, state: "submitted", hash });
+          setStatus({ state: "submitted", label, hash });
+        });
         const hash =
           typeof result === "string" ? result : result?.signature || result?.hash || result?.txHash || result?.transactionHash;
         if (result && typeof result === "object" && result.success === false) {
           throw new Error(result.error || "Transaction failed");
         }
+        upsertTx({ id, state: "confirmed", hash: hash || lastHash });
         setStatus((s) => ({ state: "confirmed", label, hash: hash || s.hash }));
         return result as T;
       } catch (e: any) {
-        if (isUserRejection(e)) setStatus({ state: "cancelled", label });
-        else setStatus((s) => ({ state: "failed", label, hash: s.hash, error: friendlyError(e) }));
+        if (isUserRejection(e)) {
+          upsertTx({ id, state: "cancelled" });
+          setStatus({ state: "cancelled", label });
+        } else {
+          const error = friendlyError(e);
+          upsertTx({ id, state: "failed", error, hash: lastHash });
+          setStatus((s) => ({ state: "failed", label, hash: s.hash, error }));
+        }
         return undefined;
       }
     },

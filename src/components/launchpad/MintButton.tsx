@@ -111,7 +111,7 @@ export function MintButton({
                     return await mintFromCandyMachine(candyMachineAddress, collectionAddress, { phaseId: 'public', price });
                 }
                 return await mintMonadNFT(collectionAddress, 1, price.toString());
-            });
+            }, { chain, kind: 'mint' });
             if (result !== undefined) toast.success('Mint succeeded! 🎉');
         } catch (e: any) {
             console.error('Mint error', e);

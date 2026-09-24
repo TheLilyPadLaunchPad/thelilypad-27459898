@@ -77,7 +77,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
         : await solanaTransfer.transferAsset(assetAddr, address, { collectionAddress: listing.nft.collection?.contract_address || undefined });
       if (!r?.success) throw new Error(r?.error || solanaTransfer.error || monadTransfer.error || "Purchase failed");
       return r;
-    });
+    }, { chain: chainId, kind: "marketplace" });
     if (result) {
       setIsSuccess(true);
       setTimeout(() => onSuccess(), 2000);
