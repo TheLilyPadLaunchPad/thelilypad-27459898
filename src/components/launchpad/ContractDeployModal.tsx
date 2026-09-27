@@ -183,6 +183,10 @@ export const ContractDeployModal: React.FC<ContractDeployModalProps> = ({
         } else {
           throw new Error("Deployment failed to return an address");
         }
+      } else {
+        throw new Error(
+          `On-chain deployment isn't supported yet for ${chainId || 'this chain'} collections. Use the chain's generator export instead.`,
+        );
       }
 
       if (contractAddress) {

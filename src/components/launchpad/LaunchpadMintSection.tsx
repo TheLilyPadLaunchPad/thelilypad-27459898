@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { ChevronDown } from 'lucide-react';
 import { MintButton } from '@/components/launchpad/MintButton';
-import { toast } from 'sonner';
 import { getBaseChain } from '@/components/collection-detail/utils';
 
 /**
@@ -35,7 +34,6 @@ export function LaunchpadMintSection({
     const candyMachineAddress = selectedPhase?.candyMachineAddress || collection.contract_address;
 
     const handleMintSuccess = () => {
-        toast.success('Mint succeeded! 🎉');
         onMintSuccess();
     };
 
@@ -72,6 +70,7 @@ export function LaunchpadMintSection({
                 collectionAddress={collection.contract_address}
                 price={price}
                 chain={getBaseChain(collection.chain || collection.blockchain)}
+                onMintSuccess={handleMintSuccess}
             />
         </div>
     );

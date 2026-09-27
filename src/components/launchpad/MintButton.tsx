@@ -17,6 +17,7 @@ interface MintButtonProps {
     collectionAddress: string; // on-chain collection address (base58)
     price: number; // price in native currency
     chain?: SupportedChain; // The chain this collection is on
+    onMintSuccess?: () => void; // notified after a successful mint so parents can refresh
 }
 
 /**
@@ -28,7 +29,8 @@ export function MintButton({
     candyMachineAddress,
     collectionAddress,
     price,
-    chain = 'solana'
+    chain = 'solana',
+    onMintSuccess
 }: MintButtonProps) {
     const { isLoading: isSolanaLoading, mintFromCandyMachine } = useSolanaMint();
     const { isCreating: isMonadLoading, mintNFT: mintMonadNFT } = useMonadLaunch();
@@ -103,6 +105,7 @@ export function MintButton({
                 }
 
                 toast.success('Mint succeeded! (Mock Web2 Mode)');
+                onMintSuccess?.();
                 return;
             }
 
@@ -112,7 +115,10 @@ export function MintButton({
                 }
                 return await mintMonadNFT(collectionAddress, 1, price.toString());
             }, { chain, kind: 'mint' });
-            if (result !== undefined) toast.success('Mint succeeded! 🎉');
+            if (result !== undefined) {
+                toast.success('Mint succeeded! 🎉');
+                onMintSuccess?.();
+            }
         } catch (e: any) {
             console.error('Mint error', e);
             toast.error(e.message || 'Mint failed. See console for details.');
