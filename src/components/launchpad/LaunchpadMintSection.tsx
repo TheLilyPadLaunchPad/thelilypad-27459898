@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { ChevronDown } from 'lucide-react';
 import { MintButton } from '@/components/launchpad/MintButton';
-import { toast } from 'sonner';
 import { getBaseChain } from '@/components/collection-detail/utils';
 
 /**
