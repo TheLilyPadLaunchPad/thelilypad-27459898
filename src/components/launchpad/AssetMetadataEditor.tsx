@@ -81,11 +81,15 @@ export function AssetMetadataEditor({ asset, open, onOpenChange, onSave, onDelet
             .map((a) => ({ trait_type: a.trait_type.trim(), value: a.value.trim() }))
             .filter((a) => a.trait_type && a.value);
 
+        // Keep the original generated composite so "Revert to generated art" works after saving.
+        const generatedPreview =
+            asset.generatedPreview ?? (asset.traits?.length ? asset.preview : undefined);
         onSave({
             ...asset,
             name: name.trim(),
-            preview,
-            customFile,
+            preview: isOneOfOne ? preview : (generatedPreview ?? preview),
+            generatedPreview,
+            customFile: isOneOfOne ? customFile : undefined,
             isOneOfOne,
             metadata: { name: name.trim(), description: description.trim(), attributes: cleaned },
         });
@@ -144,7 +148,7 @@ export function AssetMetadataEditor({ asset, open, onOpenChange, onSave, onDelet
                                 onClick={() => {
                                     setIsOneOfOne(false);
                                     setCustomFile(undefined);
-                                    setPreview(asset?.preview);
+                                    setPreview(asset?.generatedPreview ?? asset?.preview);
                                 }}
                             >
                                 Revert to generated art
