@@ -13,6 +13,7 @@ export interface GeneratedAsset {
     name: string;
     traits: { layer: string; trait: string; file: File }[];
     preview?: string; // Composite image data URL
+    generatedPreview?: string; // Original composite, kept so 1-of-1 edits can be reverted
     isOneOfOne?: boolean; // Flag to indicate if this is a custom 1/1
     customFile?: File; // Override file for 1/1s
     metadata: {
