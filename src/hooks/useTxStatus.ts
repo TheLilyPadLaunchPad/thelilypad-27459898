@@ -1,5 +1,15 @@
 import { useCallback, useState } from "react";
+import bs58 from "bs58";
 import { upsertTx, inferKind, type TxKind } from "@/lib/txHistory";
+
+/** Solana (umi) returns raw signature bytes; explorers need base58 text. */
+const normalizeHash = (h: unknown): string | undefined => {
+  if (!h) return undefined;
+  if (typeof h === "string") return h;
+  if (h instanceof Uint8Array) return bs58.encode(h);
+  if (Array.isArray(h)) return bs58.encode(Uint8Array.from(h));
+  return undefined;
+};
 
 export type TxState = "idle" | "awaiting_signature" | "submitted" | "confirmed" | "failed" | "cancelled";
 
@@ -42,13 +52,15 @@ export function useTxStatus() {
       upsertTx({ id, label, kind: meta?.kind || inferKind(label), chain: meta?.chain, wallet: meta?.wallet, state: "awaiting_signature" });
       setStatus({ state: "awaiting_signature", label });
       try {
-        const result: any = await fn((hash) => {
+        const result: any = await fn((rawHash) => {
+          const hash = normalizeHash(rawHash);
           lastHash = hash;
           upsertTx({ id, state: "submitted", hash });
           setStatus({ state: "submitted", label, hash });
         });
-        const hash =
-          typeof result === "string" ? result : result?.signature || result?.hash || result?.txHash || result?.transactionHash;
+        const hash = normalizeHash(
+          typeof result === "string" ? result : result?.signature || result?.hash || result?.txHash || result?.transactionHash,
+        );
         if (result && typeof result === "object" && result.success === false) {
           throw new Error(result.error || "Transaction failed");
         }
