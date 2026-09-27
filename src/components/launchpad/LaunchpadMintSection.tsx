@@ -35,7 +35,6 @@ export function LaunchpadMintSection({
     const candyMachineAddress = selectedPhase?.candyMachineAddress || collection.contract_address;
 
     const handleMintSuccess = () => {
-        toast.success('Mint succeeded! 🎉');
         onMintSuccess();
     };
 
@@ -72,6 +71,7 @@ export function LaunchpadMintSection({
                 collectionAddress={collection.contract_address}
                 price={price}
                 chain={getBaseChain(collection.chain || collection.blockchain)}
+                onMintSuccess={handleMintSuccess}
             />
         </div>
     );
