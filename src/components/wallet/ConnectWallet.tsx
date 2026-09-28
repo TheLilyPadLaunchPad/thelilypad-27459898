@@ -100,11 +100,10 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
   const chainCfg = CHAINS[chainType as SupportedChain] ?? CHAINS.solana;
   const chainDisplayName = network === 'mainnet' ? chainCfg.name : `${chainCfg.name} Devnet`;
   const balanceSymbol = chainCfg.symbol;
-  // Render the chain icon — uses unicode glyphs
-  const renderChainIcon = (sizeClass = "w-4 h-4") => {
-    if (chainType === 'monad') return <span className="text-sm">◈</span>;
-    return <span className="text-sm">◎</span>;
-  };
+  // Render the official chain logo
+  const renderChainIcon = (sizeClass = "w-4 h-4") => (
+    <ChainIcon chain={chainType as SupportedChain} className={sizeClass} />
+  );
   const explorerUrl = address
     ? getExplorerUrl(chainType as SupportedChain, address, 'address', network === 'mainnet' ? 'mainnet' : 'devnet')
     : '#';

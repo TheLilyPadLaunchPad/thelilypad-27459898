@@ -103,13 +103,9 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
     onSelect(wallet.id);
   };
 
-  const getChainIcon = () => {
-    switch (chain.id) {
-      case 'solana': return <span className="mr-1 text-emerald-400">◎</span>;
-      case 'monad': return <Hexagon className="w-3 h-3 mr-1 text-purple-400" />;
-      default: return null;
-    }
-  };
+  const getChainIcon = () => (
+    <ChainIcon chain={chain.id as SupportedChain} className="w-3 h-3 mr-1" />
+  );
 
   const getChainBadgeStyles = () => {
     switch (chain.id) {
