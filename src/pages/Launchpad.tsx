@@ -192,6 +192,19 @@ export default function Launchpad() {
     setSelectedChain(chain);
   };
 
+  const handleLaunchFromPanel = (chain: SupportedChain) => {
+    handleChainChange(chain);
+    if (chain === 'xrpl') {
+      navigate('/launchpad/xrpl-trait-generator');
+      return;
+    }
+    if (chain === 'robinhood') {
+      navigate('/launchpad/robinhood-trait-generator');
+      return;
+    }
+    navigate(`/launchpad/create/${chain}`);
+  };
+
   const handleDeleteCollection = (collectionId: string) => {
     deleteCollection(collectionId);
     setDeleteCollectionId(null);
