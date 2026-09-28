@@ -251,16 +251,13 @@ export default function StickerPackDetail() {
         }
 
 
-        const { error } = await supabase.from("shop_purchases").insert({
-          item_id: pack.id,
-          user_id: purchaseUserId,
-          price_paid: 0,
-          currency: "SOL",
-          tx_hash: "free_claim",
+        const { data: rec, error: fnErr } = await supabase.functions.invoke("record-shop-purchase", {
+          body: { kind: "item", itemId: pack.id },
         });
+        const error = fnErr || rec?.error ? { code: rec?.code, message: rec?.error || fnErr?.message } : null;
 
         if (error) {
-          if (error.code === "23505") {
+          if (error.code === "23505" || rec?.error === "already_owned") {
             toast.error("You already own this sticker pack!");
             setHasPurchased(true);
           } else {
@@ -432,16 +429,13 @@ export default function StickerPackDetail() {
         );
       }
 
-      const { error } = await supabase.from("shop_purchases").insert({
-        item_id: pack.id,
-        user_id: purchaseUserId,
-        price_paid: pack.price_sol ?? pack.price_mon,
-        currency: isMockMode ? "LPT" : "SOL",
-        tx_hash: txSignature,
+      const { data: rec, error: fnErr } = await supabase.functions.invoke("record-shop-purchase", {
+        body: { kind: "item", itemId: pack.id, txHash: txSignature },
       });
+      const error = fnErr || rec?.error ? { code: rec?.code, message: rec?.error || fnErr?.message } : null;
 
       if (error) {
-        if (error.code === "23505") {
+        if (error.code === "23505" || rec?.error === "already_owned") {
           toast.error("You already own this sticker pack!");
           setHasPurchased(true);
         } else {
