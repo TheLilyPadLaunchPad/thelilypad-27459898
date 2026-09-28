@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, Check, Sparkles, Zap, Hexagon } from 'lucide-react';
+import { ChevronDown, Check, Sparkles, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     SupportedChain,

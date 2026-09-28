@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Wallet, ExternalLink, Clock, Sparkles, Zap, Hexagon } from "lucide-react";
+import { Wallet, ExternalLink, Clock, Sparkles, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useChain } from "@/providers/ChainProvider";
