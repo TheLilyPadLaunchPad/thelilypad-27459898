@@ -135,6 +135,19 @@ export function ChainComparisonPanel({ onLaunch }: ChainComparisonPanelProps) {
                 >
                   {facts.deployNote}
                 </div>
+
+                {/* Launch action */}
+                {onLaunch && (
+                  <Button
+                    size="sm"
+                    variant={live ? "default" : "outline"}
+                    className="w-full gap-1.5"
+                    onClick={() => onLaunch(chainId)}
+                  >
+                    Launch on {chain.name}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                )}
               </div>
             );
           })}
