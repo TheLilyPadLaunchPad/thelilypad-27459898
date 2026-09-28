@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 /**
  * Helius Enhanced API Types
  */
