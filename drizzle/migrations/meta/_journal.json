@@ -8,6 +8,13 @@
       "when": 1790213006847,
       "tag": "0000_lock_governance_config_and_card_stack",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790579701526,
+      "tag": "0001_harden_purchases_profiles_clip_events_storage",
+      "breakpoints": true
     }
   ]
 }
