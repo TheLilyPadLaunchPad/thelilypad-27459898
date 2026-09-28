@@ -288,7 +288,9 @@ export function RewardDistributionHistory() {
 
       // Escape CSV values
       const escapeCSV = (value: string | number) => {
-        const str = String(value);
+        let str = String(value);
+        // Neutralize spreadsheet formulas (CSV injection)
+        if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
         if (str.includes(',') || str.includes('"') || str.includes('\n')) {
           return `"${str.replace(/"/g, '""')}"`;
         }
