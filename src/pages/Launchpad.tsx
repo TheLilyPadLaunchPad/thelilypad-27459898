@@ -336,7 +336,7 @@ export default function Launchpad() {
 
         {/* ── Chain comparison ─────────────────────────────────────────── */}
         <div className="mb-10">
-          <ChainComparisonPanel />
+          <ChainComparisonPanel onLaunch={handleLaunchFromPanel} />
         </div>
 
         {/* ── Main two-column layout ─────────────────────────────────────── */}
