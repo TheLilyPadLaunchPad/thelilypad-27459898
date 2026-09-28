@@ -52,7 +52,7 @@ const CHAIN_FACTS: Record<SupportedChain, ChainFacts> = {
 
 const CHAIN_ORDER: SupportedChain[] = ["solana", "monad", "xrpl", "robinhood"];
 
-export function ChainComparisonPanel() {
+export function ChainComparisonPanel({ onLaunch }: ChainComparisonPanelProps) {
   return (
     <Card className="border-border/60">
       <CardHeader className="pb-4">
