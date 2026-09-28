@@ -23,12 +23,15 @@ export function CollectionAssistant({ collectionId, collectionName }: { collecti
     setInput("");
     setLoading(true);
     try {
+      const { data: sess } = await (await import("@/integrations/supabase/client")).supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Connect your wallet to ask the assistant.");
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collection-assistant`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ collectionId, messages: next }),
       });
