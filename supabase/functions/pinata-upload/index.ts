@@ -31,6 +31,16 @@ const decodeB64 = (b64: string): Uint8Array | null => {
     return bytes;
   } catch { return null; }
 };
+const EXT_TYPES: Record<string, string> = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", svg: "image/svg+xml",
+  webp: "image/webp", mp3: "audio/mpeg", mp4: "video/mp4", json: "application/json", csv: "text/csv",
+};
+const resolveType = (ct: string, fname: string) => {
+  const base = ct.split(";")[0].trim().toLowerCase();
+  if (ALLOWED_TYPES.has(base)) return base;
+  const ext = fname.split(".").pop()?.toLowerCase() ?? "";
+  return EXT_TYPES[ext] ?? null;
+};
 const SAFE_NAME = /^[A-Za-z0-9._-]{1,120}$/;
 
 const PINATA_BASE = "https://api.pinata.cloud";
@@ -97,7 +107,7 @@ Deno.serve(async (req) => {
       const contentType = String(body.contentType || "application/octet-stream");
       const filename = name || `upload-${Date.now()}`;
       if (!b64) return json({ error: "Missing 'base64' field" }, 400);
-      if (!ALLOWED_TYPES.has(contentType.toLowerCase())) return json({ error: "File type not allowed" }, 400);
+      if (!resolveType(contentType, filename)) return json({ error: "File type not allowed" }, 400);
       const bytes = decodeB64(b64);
       if (!bytes || bytes.length > MAX_FILE_BYTES) return json({ error: "File is too large (max 50 MB) or invalid" }, 400);
 
@@ -132,7 +142,7 @@ Deno.serve(async (req) => {
         const fname = String(f.name || "");
         if (!SAFE_NAME.test(fname) || fname.startsWith(".")) return json({ error: "Invalid file name" }, 400);
         const ct = String(f.contentType || "application/octet-stream");
-        if (!ALLOWED_TYPES.has(ct.toLowerCase())) return json({ error: `File type not allowed: ${fname}` }, 400);
+        if (!resolveType(ct, fname)) return json({ error: `File type not allowed: ${fname}` }, 400);
         const bytes = decodeB64(String(f.base64 || ""));
         if (!bytes || bytes.length > MAX_FILE_BYTES) return json({ error: `File too large or invalid: ${fname}` }, 400);
         total += bytes.length;
