@@ -230,18 +230,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check for duplicate transaction
-    const isDuplicate = await checkDuplicateSignature(supabase, signature);
-    if (isDuplicate) {
-      return new Response(
-        JSON.stringify({
-          verified: false,
-          error: 'Transaction signature already used'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-
     // Fetch transaction from Solana
     const rpcUrl = network === 'mainnet' ? SOLANA_RPC.mainnet : SOLANA_RPC.devnet;
     const txDetails = await getTransactionDetails(signature, rpcUrl);
@@ -284,12 +272,26 @@ Deno.serve(async (req) => {
     }
 
     // Optional: Verify sender if provided
-    if (expectedSender && txDetails.sender.toLowerCase() !== expectedSender.toLowerCase()) {
+    if (!expectedSender || txDetails.sender.toLowerCase() !== expectedSender.toLowerCase()) {
       return new Response(
         JSON.stringify({
           verified: false,
           error: 'Sender mismatch',
           details: { expected: expectedSender, actual: txDetails.sender }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    // Only after the caller proves the transaction details (incl. sender) do we
+    // reveal whether it was already used.
+    // Check for duplicate transaction
+    const isDuplicate = await checkDuplicateSignature(supabase, signature);
+    if (isDuplicate) {
+      return new Response(
+        JSON.stringify({
+          verified: false,
+          error: 'Transaction signature already used'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
