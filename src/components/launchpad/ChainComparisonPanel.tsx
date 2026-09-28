@@ -6,10 +6,15 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, Wallet, Sparkles, Rocket } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Check, Clock, Wallet, Sparkles, Rocket, ArrowRight } from "lucide-react";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { CHAINS, SupportedChain } from "@/config/chains";
 import { cn } from "@/lib/utils";
+
+interface ChainComparisonPanelProps {
+  onLaunch?: (chain: SupportedChain) => void;
+}
 
 interface ChainFacts {
   wallets: string[];
