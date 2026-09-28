@@ -10,7 +10,8 @@ import {
 import { useLinkedWallets } from '@/hooks/useLinkedWallets';
 import { Link2, Plus, Trash2, Star, Loader2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
-import { getActiveChains } from '@/config/chains';
+import { getActiveChains, SupportedChain } from '@/config/chains';
+import { ChainIcon } from '@/components/launchpad/ChainSelector';
 
 export function LinkedWalletsManager() {
   const { wallets, loading, linkWallet, unlinkWallet, setPrimary } = useLinkedWallets();
@@ -40,10 +41,9 @@ export function LinkedWalletsManager() {
     }
   };
 
-  const chainIcon = (chain: string) => {
-    const config = activeChains.find(c => c.id === chain);
-    return config?.symbol || chain.toUpperCase();
-  };
+  const chainIcon = (chain: string) => (
+    <ChainIcon chain={chain as SupportedChain} className="h-4 w-4" />
+  );
 
   return (
     <Card className="border-border/50 bg-card/50 backdrop-blur-sm">

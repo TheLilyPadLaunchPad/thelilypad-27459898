@@ -30,6 +30,7 @@ import { useSPLTokens } from "@/hooks/useSPLTokens";
 import { ChainConnectModal } from "./ChainConnectModal";
 import { Badge } from "@/components/ui/badge";
 import { CHAINS, getExplorerUrl, SupportedChain } from "@/config/chains";
+import { ChainIcon } from "@/components/launchpad/ChainSelector";
 
 interface ConnectWalletProps {
   variant?: "default" | "ghost" | "outline";

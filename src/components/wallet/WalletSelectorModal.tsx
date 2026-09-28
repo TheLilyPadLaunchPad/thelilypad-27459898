@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useChain } from "@/providers/ChainProvider";
 import { cn } from "@/lib/utils";
+import { ChainIcon } from "@/components/launchpad/ChainSelector";
+import type { SupportedChain } from "@/config/chains";
 
 export type WalletType = "reown" | "joey";
 export type ChainType = "solana" | "monad";
