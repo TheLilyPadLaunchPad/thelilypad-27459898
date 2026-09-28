@@ -5,7 +5,8 @@ import { BuyNFTModal } from "@/components/BuyNFTModal";
 import { BidAuctionModal } from "@/components/BidAuctionModal";
 import { NFTSalesAnalytics } from "@/components/NFTSalesAnalytics";
 import BuybackStats from "@/components/BuybackStats";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Globe } from "lucide-react";
+import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { TopCollectionsHighlights } from "@/components/sections/TopCollectionsHighlights";
 import { BackToTop } from "@/components/BackToTop";
@@ -203,10 +204,10 @@ export default function Marketplace() {
         {/* Chain Selector Tabs */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
           {([
-            { id: 'all' as ChainFilter, label: 'All Chains', icon: <span>🌐</span> },
-            { id: 'solana' as ChainFilter, label: 'Solana', icon: <span>◎</span> },
-            { id: 'monad' as ChainFilter, label: 'Monad', icon: <span>◈</span> },
-            { id: 'robinhood' as ChainFilter, label: 'Robinhood', icon: <span>🪶</span> },
+            { id: 'all' as ChainFilter, label: 'All Chains', icon: <Globe className="w-4 h-4" /> },
+            { id: 'solana' as ChainFilter, label: 'Solana', icon: <ChainIcon chain="solana" className="w-4 h-4" /> },
+            { id: 'monad' as ChainFilter, label: 'Monad', icon: <ChainIcon chain="monad" className="w-4 h-4" /> },
+            { id: 'robinhood' as ChainFilter, label: 'Robinhood', icon: <ChainIcon chain="robinhood" className="w-4 h-4" /> },
           ] as { id: ChainFilter; label: string; icon: React.ReactNode }[]).map((tab) => (
             <button
               aria-label={`Filter marketplace by ${tab.label}`}

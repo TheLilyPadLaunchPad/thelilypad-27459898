@@ -4,7 +4,7 @@ import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { Menu, Users, Heart, LayoutDashboard, Gift, UserCog, Radio, Sticker, Smile, Image, ShieldCheck, X, Wifi, TrendingUp, Ticket, Package, LogOut, LogIn, Music, Coins } from "lucide-react";
 import { ConnectWallet } from "@/components/wallet/ConnectWallet";
 import { RpcSettings } from "@/components/wallet/RpcSettings";
-import { ChainSelector } from "@/components/launchpad/ChainSelector";
+import { ChainSelector, ChainIcon } from "@/components/launchpad/ChainSelector";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useWallet } from "@/providers/WalletProvider";
 import { useChain } from "@/providers/ChainProvider";
@@ -279,7 +279,7 @@ export const Navbar: React.FC = () => {
                   ? 'bg-secondary/10 text-secondary border-secondary/30'
                   : 'bg-primary/10 text-primary border-primary/30'
                 }`}>
-                <span>{chainType === 'monad' ? '◈' : '◎'}</span>
+                <ChainIcon chain={chainType === 'monad' ? 'monad' : 'solana'} className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">{chainType === 'monad' ? 'Monad' : 'Solana'}</span>
               </div>
             )}
