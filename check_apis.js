@@ -47,9 +47,9 @@ async function checkHeliusRpcs() {
   console.log('\n🔍 Checking Helius RPC Endpoints...\n');
   
   const endpoints = [
-    { name: 'Helius Mainnet Gatekeeper', url: 'https://beta.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55' },
+    { name: 'Helius Mainnet Gatekeeper', url: 'https://beta.helius-rpc.com/?api-key=YOUR_HELIUS_KEY' },
     { name: 'Helius Mainnet Secure', url: 'https://collie-k01vc3-fast-mainnet.helius-rpc.com' },
-    { name: 'Helius Mainnet', url: 'https://mainnet.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55' },
+    { name: 'Helius Mainnet', url: 'https://mainnet.helius-rpc.com/?api-key=YOUR_HELIUS_KEY' },
     { name: 'Solana Public Mainnet', url: 'https://api.mainnet-beta.solana.com' },
     { name: 'Solana Public Devnet', url: 'https://api.devnet.solana.com' },
   ];
@@ -105,7 +105,7 @@ async function checkSupabase() {
 async function checkDasApi() {
   console.log('\n🔍 Checking DAS API (via Helius)...\n');
   
-  const rpcUrl = 'https://mainnet.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55';
+  const rpcUrl = 'https://mainnet.helius-rpc.com/?api-key=YOUR_HELIUS_KEY';
   
   // Test getAssetsByOwner with a known address
   const result = await checkApi('DAS API', rpcUrl, {
