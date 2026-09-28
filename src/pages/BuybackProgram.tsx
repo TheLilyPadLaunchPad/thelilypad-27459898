@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import LiveBuybackStats from "@/components/LiveBuybackStats";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { VolumeLeaderboard } from "@/components/VolumeLeaderboard";
