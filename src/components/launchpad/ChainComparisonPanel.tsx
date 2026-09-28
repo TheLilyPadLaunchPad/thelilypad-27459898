@@ -6,10 +6,15 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, Wallet, Sparkles, Rocket } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Check, Clock, Wallet, Sparkles, Rocket, ArrowRight } from "lucide-react";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
 import { CHAINS, SupportedChain } from "@/config/chains";
 import { cn } from "@/lib/utils";
+
+interface ChainComparisonPanelProps {
+  onLaunch?: (chain: SupportedChain) => void;
+}
 
 interface ChainFacts {
   wallets: string[];
@@ -47,7 +52,7 @@ const CHAIN_FACTS: Record<SupportedChain, ChainFacts> = {
 
 const CHAIN_ORDER: SupportedChain[] = ["solana", "monad", "xrpl", "robinhood"];
 
-export function ChainComparisonPanel() {
+export function ChainComparisonPanel({ onLaunch }: ChainComparisonPanelProps) {
   return (
     <Card className="border-border/60">
       <CardHeader className="pb-4">
@@ -130,6 +135,19 @@ export function ChainComparisonPanel() {
                 >
                   {facts.deployNote}
                 </div>
+
+                {/* Launch action */}
+                {onLaunch && (
+                  <Button
+                    size="sm"
+                    variant={live ? "default" : "outline"}
+                    className="w-full gap-1.5"
+                    onClick={() => onLaunch(chainId)}
+                  >
+                    Launch on {chain.name}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                )}
               </div>
             );
           })}
