@@ -33,7 +33,6 @@ import { CollectionSupplyCard } from "@/components/collection-detail/CollectionS
 import { CollectionMintCard } from "@/components/collection-detail/CollectionMintCard";
 import { CollectionBuybackCard } from "@/components/collection-detail/CollectionBuybackCard";
 import { CollectionPacksSection } from "@/components/collection-detail/CollectionPacksSection";
-import { CollectionAssistant } from "@/components/assistant/CollectionAssistant";
 import { HolderGate } from "@/components/holder/HolderGate";
 
 
@@ -299,7 +298,6 @@ export default function CollectionDetail() {
           <div className="space-y-6">
             {String(collectionChain || '').startsWith('monad') && (
               <>
-                <CollectionAssistant collectionId={collection.id} collectionName={collection.name} />
                 {collection.contract_address && (
                   <HolderGate contracts={[collection.contract_address]} collectionName={collection.name}>
                     <p className="text-sm text-muted-foreground">
