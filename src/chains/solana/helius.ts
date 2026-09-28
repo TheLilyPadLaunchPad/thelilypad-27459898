@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 /**
  * Helius Enhanced API Types
  */
@@ -49,16 +50,21 @@ const PROJECT_URL = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/,
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 const PROXY_URL = `${PROJECT_URL}/functions/v1/helius-proxy`;
 
-const proxyHeaders = (): HeadersInit => ({
-    apikey: ANON_KEY,
-    Authorization: `Bearer ${ANON_KEY}`,
-});
+// The proxy requires a signed-in user; guests get an empty result.
+const proxyHeaders = async (): Promise<Record<string, string> | null> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return null;
+    return { apikey: ANON_KEY, Authorization: `Bearer ${token}` };
+};
 
 export async function getAddressTransactions(address: string): Promise<HeliusParsedTransaction[]> {
     try {
+        const headers = await proxyHeaders();
+        if (!headers) return [];
         const r = await fetch(
             `${PROXY_URL}?action=address-history&address=${encodeURIComponent(address)}`,
-            { headers: proxyHeaders() },
+            { headers },
         );
         if (!r.ok) throw new Error(`helius-proxy ${r.status}`);
         return await r.json();
@@ -71,9 +77,11 @@ export async function getAddressTransactions(address: string): Promise<HeliusPar
 export async function parseTransactions(signatures: string[]): Promise<HeliusParsedTransaction[]> {
     if (signatures.length === 0) return [];
     try {
+        const headers = await proxyHeaders();
+        if (!headers) return [];
         const r = await fetch(`${PROXY_URL}?action=parse-transactions`, {
             method: "POST",
-            headers: { ...proxyHeaders(), "Content-Type": "application/json" },
+            headers: { ...headers, "Content-Type": "application/json" },
             body: JSON.stringify({ transactions: signatures }),
         });
         if (!r.ok) throw new Error(`helius-proxy ${r.status}`);

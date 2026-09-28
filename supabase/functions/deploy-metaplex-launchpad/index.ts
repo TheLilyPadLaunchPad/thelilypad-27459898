@@ -59,7 +59,7 @@ const fail = (phase: string, error: unknown, status = 500) => {
   const stack = (error as any)?.stack || undefined;
   console.error(JSON.stringify({ level: "error", phase, error: message, stack }));
   return new Response(
-    JSON.stringify({ ok: false, phase, error: message, stack }),
+    JSON.stringify({ ok: false, phase, error: message }),
     { status, headers: jsonHeaders },
   );
 };
@@ -864,7 +864,6 @@ Deno.serve(async (req) => {
         ok: false,
         phase,
         error: message,
-        stack,
         refundable: paymentVerified === true && !!paymentSignatureForRefund,
         paymentSignature: paymentSignatureForRefund || null,
         collectionId: collectionIdForError || null,

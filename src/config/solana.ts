@@ -12,7 +12,7 @@ export const HELIUS_API_KEY =
 
 // Mainnet RPC endpoints — hardcoded live Helius connections for production
 export const HELIUS_MAINNET_GATEKEEPER_URL =
-    "https://beta.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55";
+    "https://api.mainnet-beta.solana.com";
 
 export const HELIUS_MAINNET_SECURE_URL =
     "https://collie-k01vc3-fast-mainnet.helius-rpc.com";
@@ -34,7 +34,8 @@ export const HELIUS_ADDRESS_HISTORY_URL = (address: string) =>
         : "";
 
 // Mainnet config — uses provided live Helius endpoints (gatekeeper + secure RPC)
-export const HELIUS_MAINNET_URL = "https://mainnet.helius-rpc.com/?api-key=7e881a06-aafc-4e01-be4a-5b083e0eae55";
+// Keyed Helius URLs must never ship in the browser bundle.
+export const HELIUS_MAINNET_URL = "";
 
 export const MAINNET_RPC_LIST: string[] = [
     // Live Helius connections — primary endpoints for mainnet

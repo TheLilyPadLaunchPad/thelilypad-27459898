@@ -82,6 +82,17 @@ Deno.serve(async (req) => {
       .eq("payment_signature", paymentSignature)
       .maybeSingle();
     if (existing) {
+      // Only the creator who paid (verified below via wallet ownership) or an
+      // admin may see refund details; otherwise respond generically.
+      const { data: isAdmin } = await service.rpc("has_role", { _user_id: user.id, _role: "admin" });
+      const { data: prof } = await service.from("user_profiles").select("id, wallet_address").eq("user_id", user.id).maybeSingle();
+      const { data: linked } = prof?.id
+        ? await service.from("linked_wallets").select("wallet_address").eq("profile_id", prof.id)
+        : { data: [] as any[] };
+      const wallets = new Set([prof?.wallet_address, ...((linked ?? []).map((w: any) => w.wallet_address))].filter(Boolean));
+      if (!isAdmin && !wallets.has(existing.creator_address)) {
+        return fail(phase, new Error("Not authorized"), 403);
+      }
       return ok({
         alreadyRefunded: true,
         refundSignature: existing.refund_signature,

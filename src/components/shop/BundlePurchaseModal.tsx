@@ -219,28 +219,10 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
         throw new Error("User profile not found. Please connect your wallet.");
       }
 
-      const { error: purchaseError } = await supabase
-        .from("shop_bundle_purchases")
-        .insert({
-          bundle_id: bundle.id,
-          user_id: purchaseUserId,
-          price_paid: priceInSol,
-          tx_hash: signature,
-          currency: "SOL",
-        });
-
-      if (purchaseError) throw purchaseError;
-
-      // Add individual items to user's purchases
-      const itemPurchases = bundleItems.map(bi => ({
-        item_id: bi.item_id,
-        user_id: purchaseUserId,
-        price_paid: 0, // Part of bundle
-        tx_hash: signature,
-        currency: "SOL",
-      }));
-
-      await supabase.from("shop_purchases").insert(itemPurchases);
+      const { data: rec, error: fnErr } = await supabase.functions.invoke("record-shop-purchase", {
+        body: { kind: "bundle", bundleId: bundle.id, txHash: signature },
+      });
+      if (fnErr || rec?.error) throw new Error(rec?.error || fnErr?.message || "Could not record purchase");
 
       // ── On-chain cNFT minting for items with deployed collections ─────
       if (hasOnChainItems) {
