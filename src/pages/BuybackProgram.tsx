@@ -154,8 +154,8 @@ export default function BuybackProgram() {
         <div className="flex justify-end mb-4">
           <Tabs value={selectedChain} onValueChange={(v) => setSelectedChain(v as any)} className="w-[300px]">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="solana">Solana</TabsTrigger>
-              <TabsTrigger value="monad">Monad</TabsTrigger>
+              <TabsTrigger value="solana" className="gap-1.5"><ChainIcon chain="solana" className="w-4 h-4" />Solana</TabsTrigger>
+              <TabsTrigger value="monad" className="gap-1.5"><ChainIcon chain="monad" className="w-4 h-4" />Monad</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
