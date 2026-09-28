@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,21 +13,23 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Require Supabase anon apikey/bearer so this isn't open to the world.
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-  const apikeyHeader = req.headers.get("apikey") || "";
+  // Require a signed-in user (not just the public anon key).
+  const unauthorized = () =>
+    new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   const authHeader =
     req.headers.get("authorization") || req.headers.get("Authorization") || "";
-  const bearer = authHeader.toLowerCase().startsWith("bearer ")
-    ? authHeader.slice(7).trim()
-    : "";
-  const hasValidKey =
-    !!anonKey && (apikeyHeader === anonKey || bearer === anonKey);
-  if (!hasValidKey) {
-    return new Response(
-      JSON.stringify({ error: "Unauthorized" }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  if (!authHeader.toLowerCase().startsWith("bearer ")) return unauthorized();
+  {
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
     );
+    const { data, error } = await authClient.auth.getUser(authHeader.slice(7).trim());
+    if (error || !data?.user) return unauthorized();
   }
 
   const heliusKey = Deno.env.get("HELIUS_API_KEY");
