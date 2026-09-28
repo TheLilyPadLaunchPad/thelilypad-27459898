@@ -61,6 +61,7 @@ import { FeatureSectionManager } from '@/components/admin/FeatureSectionManager'
 import { CreatorApplicationsManager } from '@/components/admin/CreatorApplicationsManager';
 import { MarketplaceApplicationsManager } from '@/components/admin/MarketplaceApplicationsManager';
 import { AdminDirectCollectionModal } from '@/components/admin/AdminDirectCollectionModal';
+import { CollectionTrashManager } from '@/components/admin/CollectionTrashManager';
 import { Star, Trophy, Store } from 'lucide-react';
 
 interface AdminUser {
@@ -192,6 +193,7 @@ const AdminDashboard: React.FC = () => {
     const { data, error } = await supabase
       .from('collections')
       .select('*')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -246,9 +248,12 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteCollection = async (id: string) => {
-    if (!confirm('Permanently delete this collection and ALL related NFTs, listings, mints, allowlists, buyback rows, etc.? This cannot be undone.')) return;
+    if (!confirm('Move this collection to the Trash? You can restore it later from the Trash tab.')) return;
 
-    const { error } = await supabase.rpc('admin_hard_delete_collection', { p_collection_id: id });
+    const { error } = await supabase
+      .from('collections')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id);
 
     if (error) {
       toast({
@@ -258,8 +263,8 @@ const AdminDashboard: React.FC = () => {
       });
     } else {
       toast({
-        title: 'Success',
-        description: 'Collection permanently deleted'
+        title: 'Moved to Trash',
+        description: 'Restore it anytime from the Trash tab'
       });
       fetchCollections();
     }
@@ -551,6 +556,10 @@ const AdminDashboard: React.FC = () => {
                 <Layers className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Collections</span>
               </TabsTrigger>
+              <TabsTrigger value="trash" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>Trash</span>
+              </TabsTrigger>
               <TabsTrigger value="featured" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Featured</span>
@@ -823,6 +832,10 @@ const AdminDashboard: React.FC = () => {
           {/* Marketplace Apps Tab */}
           <TabsContent value="marketplace-apps">
             <MarketplaceApplicationsManager />
+          </TabsContent>
+
+          <TabsContent value="trash">
+            <CollectionTrashManager />
           </TabsContent>
 
           {/* Collections Tab */}
