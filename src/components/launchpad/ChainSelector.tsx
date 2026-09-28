@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, Check, Sparkles, Zap, Hexagon } from 'lucide-react';
+import { ChevronDown, Check, Sparkles, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     SupportedChain,
@@ -26,45 +26,33 @@ interface ChainSelectorProps {
     variant?: 'dropdown' | 'pills'; // New: toggle between dropdown and pill switcher
 }
 
+// Official chain logos (from each chain's brand/press kit)
+import solanaLogo from '@/assets/chains/solana.svg';
+import monadLogo from '@/assets/chains/monad.png';
+import xrpLogo from '@/assets/chains/xrp.svg';
+import robinhoodLogo from '@/assets/chains/robinhood.svg';
+
+const CHAIN_LOGOS: Partial<Record<SupportedChain, string>> = {
+    solana: solanaLogo,
+    monad: monadLogo,
+    xrpl: xrpLogo,
+    robinhood: robinhoodLogo,
+};
+
 // Chain icons mapping
 const ChainIcon: React.FC<{ chain: SupportedChain; className?: string }> = ({ chain, className }) => {
-    switch (chain) {
-        case 'solana':
-            return (
-                <svg className={cn("w-4 h-4", className)} viewBox="0 0 128 128" fill="none">
-                    <path d="M26.5 96.5L42.8 80.2C44.1 78.9 45.8 78.2 47.6 78.2H121C123.8 78.2 125.2 81.6 123.2 83.6L106.9 99.9C105.6 101.2 103.9 101.9 102.1 101.9H28.5C25.7 101.9 24.3 98.5 26.3 96.5H26.5Z" fill="url(#solana-gradient-1)" />
-                    <path d="M26.5 28.1L42.8 44.4C44.1 45.7 45.8 46.4 47.6 46.4H121C123.8 46.4 125.2 43 123.2 41L106.9 24.7C105.6 23.4 103.9 22.7 102.1 22.7H28.5C25.7 22.7 24.3 26.1 26.3 28.1H26.5Z" fill="url(#solana-gradient-2)" />
-                    <path d="M123.2 55.2L106.9 71.5C105.6 72.8 103.9 73.5 102.1 73.5H28.5C25.7 73.5 24.3 70.1 26.3 68.1L42.6 51.8C43.9 50.5 45.6 49.8 47.4 49.8H121C123.8 49.8 125.2 53.2 123.2 55.2Z" fill="url(#solana-gradient-3)" />
-                    <defs>
-                        <linearGradient id="solana-gradient-1" x1="24.3" y1="102.2" x2="123.6" y2="78" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#00FFA3" />
-                            <stop offset="1" stopColor="#DC1FFF" />
-                        </linearGradient>
-                        <linearGradient id="solana-gradient-2" x1="24.3" y1="46.7" x2="123.6" y2="22.5" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#00FFA3" />
-                            <stop offset="1" stopColor="#DC1FFF" />
-                        </linearGradient>
-                        <linearGradient id="solana-gradient-3" x1="24.3" y1="73.8" x2="123.6" y2="49.6" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#00FFA3" />
-                            <stop offset="1" stopColor="#DC1FFF" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-            );
-        case 'monad':
-            return (
-                <Hexagon className={cn("w-4 h-4", className)} style={{ color: '#836EF9' }} />
-            );
-        case 'robinhood':
-            return (
-                <svg className={cn("w-4 h-4", className)} viewBox="0 0 128 128" fill="none" aria-hidden="true">
-                    <rect width="128" height="128" rx="26" fill="#00C805" />
-                    <path d="M38 92V36h22c12 0 20 6.5 20 17 0 7.4-4.1 12.8-10.9 15.3L84 92H68.5L58 71.5h-5V92H38Zm15-32h6.4c4.6 0 7.3-2.2 7.3-6s-2.7-6-7.3-6H53v12Z" fill="#fff" />
-                </svg>
-            );
-        default:
-            return <Sparkles className={cn("w-4 h-4", className)} />;
+    const logo = CHAIN_LOGOS[chain];
+    if (logo) {
+        return (
+            <img
+                src={logo}
+                alt={`${chain} logo`}
+                className={cn("w-4 h-4 object-contain", className)}
+                loading="lazy"
+            />
+        );
     }
+    return <Sparkles className={cn("w-4 h-4", className)} />;
 };
 
 export function ChainSelector({

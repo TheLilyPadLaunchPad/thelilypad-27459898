@@ -7,11 +7,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Wallet, ExternalLink, Clock, Sparkles, Zap, Hexagon } from "lucide-react";
+import { Wallet, ExternalLink, Clock, Sparkles, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useChain } from "@/providers/ChainProvider";
 import { cn } from "@/lib/utils";
+import { ChainIcon } from "@/components/launchpad/ChainSelector";
+import type { SupportedChain } from "@/config/chains";
 
 export type WalletType = "reown" | "joey";
 export type ChainType = "solana" | "monad";
@@ -103,13 +105,9 @@ export const WalletSelectorModal: React.FC<WalletSelectorModalProps> = ({
     onSelect(wallet.id);
   };
 
-  const getChainIcon = () => {
-    switch (chain.id) {
-      case 'solana': return <span className="mr-1 text-emerald-400">◎</span>;
-      case 'monad': return <Hexagon className="w-3 h-3 mr-1 text-purple-400" />;
-      default: return null;
-    }
-  };
+  const getChainIcon = () => (
+    <ChainIcon chain={chain.id as SupportedChain} className="w-3 h-3 mr-1" />
+  );
 
   const getChainBadgeStyles = () => {
     switch (chain.id) {
