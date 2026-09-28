@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
       const { data: bundle } = await admin.from("shop_bundles")
         .select("id, bundle_price_sol, bundle_price, is_active").eq("id", bundleId).maybeSingle();
       if (!bundle || !bundle.is_active) return json({ error: "Bundle not available" }, 404);
-      const price = Number(bundle.bundle_price_sol ?? bundle.bundle_price ?? 0);
+      const price = Number(bundle.bundle_price_sol || Number(bundle.bundle_price || 0) * 0.01);
       if (price > 0) {
         if (!txHash) return json({ error: "Payment required" }, 400);
         if (await alreadyUsed()) return json({ error: "Payment already used" }, 409);
