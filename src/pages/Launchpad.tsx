@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from "@/lib/chainUtils";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
@@ -61,6 +62,7 @@ interface ChainEntry {
 const ALL_CHAIN_ENTRIES: ChainEntry[] = [
   { id: "solana", label: "Solana", description: "Metaplex Core & Candy Machine", badge: "Live", badgeVariant: "default" },
   { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
+  { id: "xrpl", label: "XRPL", description: "XLS-20 NFTs on the XRP Ledger", badge: "Live", badgeVariant: "default" },
   { id: "robinhood", label: "Robinhood Chain", description: "Generate & export — minting soon", badge: "Soon", badgeVariant: "secondary" },
 ];
 const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES;
@@ -583,7 +585,7 @@ export default function Launchpad() {
                   </div>
 
                   {/* Drafts tab */}
-                  {activeTab === "drafts" && !localDraft && (
+                  {activeTab === "drafts" && !localDraft && filteredCollections.length === 0 && (
                     <div className="text-center py-16 border border-dashed rounded-xl">
                       <FileEdit className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                       <p className="font-medium mb-1">No drafts saved</p>
@@ -592,7 +594,7 @@ export default function Launchpad() {
                   )}
 
                   {/* Collection grid */}
-                  {activeTab !== "drafts" && (
+                  {(activeTab !== "drafts" || filteredCollections.length > 0) && (
                     isLoading
                       ? <div className="flex items-center justify-center py-16"><Loader2 className="w-7 h-7 animate-spin text-primary" /></div>
                       : filteredCollections.length === 0
@@ -636,8 +638,8 @@ export default function Launchpad() {
                                     }
                                     <div className="absolute top-2.5 right-2.5 flex gap-1.5 flex-wrap justify-end">
                                       <Badge variant="secondary" className="bg-black/50 text-white backdrop-blur-md border-white/10 h-5 text-[10px]">
-                                        <ChainIcon chain={selectedChain} className="w-2.5 h-2.5 mr-1" />
-                                        {currentChain.symbol}
+                                        <ChainIcon chain={(collection as any).chain || selectedChain} className="w-2.5 h-2.5 mr-1" />
+                                        {getCurrencySymbol((collection as any).chain || selectedChain)}
                                         {selectedChain === 'solana' && <MetaplexHexIcon className="ml-1" />}
                                       </Badge>
                                       {canEdit && (
