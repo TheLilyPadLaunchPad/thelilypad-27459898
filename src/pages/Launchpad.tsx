@@ -27,6 +27,7 @@ import { RecentSalesTable } from "@/components/launchpad/RecentSalesTable";
 import { BuybackProgramBadge } from "@/components/BuybackProgramBadge";
 import { MetaplexBadge, MetaplexHexIcon } from "@/components/MetaplexBadge";
 import { ChainIcon } from "@/components/launchpad/ChainSelector";
+import { ChainComparisonPanel } from "@/components/launchpad/ChainComparisonPanel";
 import { useWallet } from "@/providers/WalletProvider";
 import { supabase } from "@/integrations/supabase/client";
 import lilypadLogoAsset from "@/assets/lilypad-logo.png.asset.json";
@@ -318,6 +319,11 @@ export default function Launchpad() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* ── Chain comparison ─────────────────────────────────────────── */}
+        <div className="mb-10">
+          <ChainComparisonPanel />
         </div>
 
         {/* ── Main two-column layout ─────────────────────────────────────── */}
