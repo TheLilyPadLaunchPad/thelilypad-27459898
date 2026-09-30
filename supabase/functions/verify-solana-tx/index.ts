@@ -271,8 +271,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Optional: Verify sender if provided
-    if (!expectedSender || txDetails.sender.toLowerCase() !== expectedSender.toLowerCase()) {
+    // Optional: Verify sender only if provided
+    if (expectedSender && txDetails.sender.toLowerCase() !== expectedSender.toLowerCase()) {
       return new Response(
         JSON.stringify({
           verified: false,

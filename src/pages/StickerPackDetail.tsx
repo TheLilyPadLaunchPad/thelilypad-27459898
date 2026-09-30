@@ -254,7 +254,9 @@ export default function StickerPackDetail() {
         const { data: rec, error: fnErr } = await supabase.functions.invoke("record-shop-purchase", {
           body: { kind: "item", itemId: pack.id },
         });
-        const error = fnErr || rec?.error ? { code: rec?.code, message: rec?.error || fnErr?.message } : null;
+        // Non-2xx responses come back as fnErr with data=null; read the real body from the response
+        const fnBody = fnErr?.context ? await fnErr.context.json().catch(() => null) : rec;
+        const error = fnErr || fnBody?.error ? { code: fnBody?.code, message: fnBody?.error || fnErr?.message } : null;
 
         if (error) {
           if (error.code === "23505" || rec?.error === "already_owned") {
