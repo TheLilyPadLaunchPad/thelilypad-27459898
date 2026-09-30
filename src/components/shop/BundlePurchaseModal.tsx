@@ -222,7 +222,16 @@ export const BundlePurchaseModal: React.FC<BundlePurchaseModalProps> = ({
       const { data: rec, error: fnErr } = await supabase.functions.invoke("record-shop-purchase", {
         body: { kind: "bundle", bundleId: bundle.id, txHash: signature },
       });
-      if (fnErr || rec?.error) throw new Error(rec?.error || fnErr?.message || "Could not record purchase");
+      // Non-2xx responses come back as fnErr with data=null; read the real body from the response
+      const fnBody = fnErr?.context ? await fnErr.context.json().catch(() => null) : rec;
+      if (fnErr || fnBody?.error) {
+        if (fnBody?.error === "already_owned" || fnBody?.code === "23505") {
+          toast.error("You already own this bundle!");
+          onOpenChange(false);
+          return;
+        }
+        throw new Error(fnBody?.error || fnErr?.message || "Could not record purchase");
+      }
 
       // ── On-chain cNFT minting for items with deployed collections ─────
       if (hasOnChainItems) {
