@@ -259,7 +259,7 @@ export default function StickerPackDetail() {
         const error = fnErr || fnBody?.error ? { code: fnBody?.code, message: fnBody?.error || fnErr?.message } : null;
 
         if (error) {
-          if (error.code === "23505" || rec?.error === "already_owned") {
+          if (error.code === "23505" || fnBody?.error === "already_owned") {
             toast.error("You already own this sticker pack!");
             setHasPurchased(true);
           } else {
