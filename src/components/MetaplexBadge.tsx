@@ -2,37 +2,8 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { ExternalLink } from 'lucide-react';
 
-/**
- * Metaplex hex logo rendered as inline SVG — no external image dependency.
- * Based on the official Metaplex brand mark (simplified hexagon + M).
- */
-const MetaplexLogo: React.FC<{ className?: string }> = ({ className }) => (
-    <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className={className}
-        aria-label="Metaplex"
-    >
-        {/* Hexagon outline */}
-        <path
-            d="M12 2L21.5 7.5V16.5L12 22L2.5 16.5V7.5L12 2Z"
-            fill="currentColor"
-            fillOpacity="0.15"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-        />
-        {/* M glyph */}
-        <path
-            d="M7.5 16V8L12 13L16.5 8V16"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        />
-    </svg>
-);
+// Official Metaplex brand mark (presskit) — white "M" on the dark brand tile.
+import metaplexLogo from '@/assets/metaplex-logo.png';
 
 // ── Variants ──────────────────────────────────────────────────────────────────
 
@@ -73,7 +44,11 @@ export const MetaplexBadge: React.FC<MetaplexBadgeProps> = ({
                     className,
                 )}
             >
-                <MetaplexLogo className="w-5 h-5 text-[#f5a623] shrink-0" />
+                <img
+                    src={metaplexLogo}
+                    alt="Metaplex"
+                    className="w-5 h-5 rounded shrink-0"
+                />
                 <span className="text-sm">
                     Powered by{' '}
                     <span className="font-semibold text-foreground/80 group-hover:text-foreground transition-colors">
@@ -102,7 +77,11 @@ export const MetaplexBadge: React.FC<MetaplexBadgeProps> = ({
                 className,
             )}
         >
-            <MetaplexLogo className="w-3.5 h-3.5 shrink-0" />
+            <img
+                src={metaplexLogo}
+                alt="Metaplex"
+                className="w-3.5 h-3.5 rounded-[4px] shrink-0"
+            />
             <span>Powered by Metaplex</span>
             {shouldShowLink && (
                 <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-70 transition-opacity" />
@@ -112,12 +91,16 @@ export const MetaplexBadge: React.FC<MetaplexBadgeProps> = ({
 };
 
 /**
- * Tiny Metaplex hex icon — for embedding in badge rows (e.g. collection cards).
- * Renders just the ⬡ logo at 14×14px with a tooltip.
+ * Tiny Metaplex brand icon — for embedding in badge rows (e.g. collection cards).
+ * Renders the official mark at 14×14px with a tooltip.
  */
 export const MetaplexHexIcon: React.FC<{ className?: string }> = ({ className }) => (
     <span title="Metaplex Core" className={cn('inline-flex', className)}>
-        <MetaplexLogo className="w-3.5 h-3.5 text-[#f5a623]" />
+        <img
+            src={metaplexLogo}
+            alt="Metaplex"
+            className="w-3.5 h-3.5 rounded-[3px]"
+        />
     </span>
 );
 
