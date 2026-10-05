@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Music, User, Disc, Hash, Clock, Zap } from 'lucide-react';
+import { Music, User, Disc, Hash, Clock, Zap, Wand2 } from 'lucide-react';
+import { writeTrackDescription } from '@/lib/musicDescriptionWriter';
 import { formatAudioDuration } from '@/hooks/useAudioDuration';
 import { AudioPlayer } from './AudioPlayer';
 
@@ -78,8 +79,18 @@ export const MusicMetadataEditor: React.FC<MusicMetadataEditorProps> = ({
     durationSeconds: null,
   });
 
+  const [notes, setNotes] = useState('');
+  const [variant, setVariant] = useState(0);
+
+  const handleWrite = () => {
+    setMetadata(m => ({ ...m, description: writeTrackDescription({ title: m.name, artist: m.artist, album: m.album, genre: m.genre, bpm: m.bpm, durationSeconds: m.durationSeconds, notes }, variant) }));
+    setVariant(v => v + 1);
+  };
+
   useEffect(() => {
     if (track) {
+      setNotes('');
+      setVariant(0);
       setMetadata(track.metadata);
     }
   }, [track]);
@@ -169,7 +180,21 @@ export const MusicMetadataEditor: React.FC<MusicMetadataEditorProps> = ({
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="notes">Notes for the description (optional)</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. recorded live in one take; inspired by late-night drives"
+              rows={2}
+            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">Description</Label>
+              <Button type="button" variant="outline" size="sm" onClick={handleWrite} disabled={!metadata.name}>
+                <Wand2 className="h-4 w-4 mr-1" />
+                {variant === 0 ? 'Write description' : 'Try another'}
+              </Button>
+            </div>
             <Textarea
               id="description"
               value={metadata.description}

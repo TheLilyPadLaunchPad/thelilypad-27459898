@@ -72,6 +72,8 @@ import { Switch } from "@/components/ui/switch";
 import { Info } from "lucide-react";
 import { addToDecentralizedIndex, IndexedCollection } from "@/integrations/arweave/indexClient";
 import { buildMusicNftMetadata } from "@/lib/musicMetadata";
+import { writeCollectionDescription } from "@/lib/musicDescriptionWriter";
+import { Wand2 } from "lucide-react";
 import { buildMetaplexMetadata } from "@/lib/metaplexMetadata";
 import { getRpcUrl } from "@/config/solana";
 import { CartCheckoutModal, type CheckoutStatus } from "@/components/raffles/CartCheckoutModal";
@@ -149,6 +151,7 @@ export default function LaunchpadCreate() {
     const [name, setName] = useState("");
     const [symbol, setSymbol] = useState("");
     const [description, setDescription] = useState("");
+    const [collectionWriteVariant, setCollectionWriteVariant] = useState(0);
     const [royaltyPercent, setRoyaltyPercent] = useState(5);
     const [coverImage, setCoverImage] = useState<string | null>(null);
     const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -1270,7 +1273,7 @@ export default function LaunchpadCreate() {
                                                 <div className="space-y-3"><Label>Symbol</Label><Input value={symbol} onChange={e => setSymbol(e.target.value)} placeholder="MYC" /></div>
                                                 <div className="space-y-3"><Label>Royalty %</Label><Input type="number" value={royaltyPercent} onChange={e => setRoyaltyPercent(Number(e.target.value))} /></div>
                                             </div>
-                                            <div className="space-y-3"><Label>Description</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell the story of your collection..." rows={3} /></div>
+                                            <div className="space-y-3"><div className="flex items-center justify-between"><Label>Description</Label>{isMusic && (<Button type="button" variant="outline" size="sm" disabled={tracks.length === 0} title={tracks.length === 0 ? 'Add tracks first' : undefined} onClick={() => { setDescription(writeCollectionDescription({ collectionName: name, notes: description, tracks: tracks.map(t => ({ title: t.metadata.name, artist: t.metadata.artist, genre: t.metadata.genre })) }, collectionWriteVariant)); setCollectionWriteVariant(v => v + 1); }}><Wand2 className="h-4 w-4 mr-1" />Write from tracks</Button>)}</div><Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={isMusic ? "Jot a few notes about the release, then click Write from tracks..." : "Tell the story of your collection..."} rows={3} /></div>
 
                                             {/* Dynamic NFT Toggle */}
                                             <div className="p-1 bg-muted rounded-3xl">
