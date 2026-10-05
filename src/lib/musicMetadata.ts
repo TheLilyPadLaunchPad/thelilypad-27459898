@@ -23,7 +23,7 @@ export function buildMusicNftMetadata(
   if (metadata.genre) attributes.push({ trait_type: 'Genre', value: metadata.genre });
   if (metadata.bpm != null) attributes.push({ trait_type: 'BPM', value: String(metadata.bpm) });
   if (metadata.durationSeconds != null) {
-    attributes.push({ trait_type: 'Duration', value: String(metadata.durationSeconds) });
+    attributes.push({ trait_type: 'Duration', value: String(Math.round(metadata.durationSeconds)) });
   }
   if (metadata.album) attributes.push({ trait_type: 'Album', value: metadata.album });
   if (metadata.trackNumber != null) {

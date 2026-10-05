@@ -15,6 +15,13 @@
       "when": 1790579701526,
       "tag": "0001_harden_purchases_profiles_clip_events_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791224147648,
+      "tag": "0002_drop_public_shop_items_read",
+      "breakpoints": true
     }
   ]
 }

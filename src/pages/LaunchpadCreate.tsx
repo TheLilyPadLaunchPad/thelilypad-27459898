@@ -775,6 +775,17 @@ export default function LaunchpadCreate() {
                     metadata: { name: art.name, description: art.description || description, attributes: art.attributes || [] }
                 }));
             } else if (isMusic) {
+                if (tracks.length === 0) return toast.error("No assets ready for launch.");
+                // Pre-fund storage for cover, artwork and audio in one go BEFORE uploading audio
+                if (!devnet) {
+                    toast.loading("Calculating total storage cost...", { id: 'deploy' });
+                    const musicFiles: (File | Blob)[] = [];
+                    if (coverFile) musicFiles.push(coverFile);
+                    tracks.forEach(t => { musicFiles.push(t.coverFile); musicFiles.push(t.audioFile); });
+                    await preFundIrysForBatch(musicFiles, { address, chainType: walletChain, network }, {
+                        onStatus: (status) => toast.loading(status, { id: 'deploy' })
+                    }, getSolanaProvider());
+                }
                 toast.loading(devnet ? "Pinning audio tracks to IPFS…" : "Uploading audio tracks to Arweave...", { id: 'deploy' });
                 const audioUriMap: Record<number, string> = {};
                 for (let i = 0; i < tracks.length; i++) {
@@ -830,7 +841,8 @@ export default function LaunchpadCreate() {
             if (assetsToUpload.length === 0) return toast.error("No assets ready for launch.");
 
             // Pre-fund Irys (mainnet/Arweave only — Pinata needs no SOL)
-            if (!devnet) {
+            // (Music collections are pre-funded before the audio upload above.)
+            if (!devnet && !isMusic) {
                 toast.loading("Calculating total storage cost...", { id: 'deploy' });
                 const allFilesToPayFor: (File | Blob)[] = [];
                 if (coverFile) allFilesToPayFor.push(coverFile);
