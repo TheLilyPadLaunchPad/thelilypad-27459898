@@ -38,6 +38,7 @@ import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesM
 import { ArtworkUploader, type ArtworkItem } from "@/components/launchpad/ArtworkUploader";
 import { EditionTierManager, type ArtworkEditionConfig } from "@/components/launchpad/EditionTierManager";
 import { MusicArtworkUploader } from "@/components/launchpad/MusicArtworkUploader";
+import { MusicMarketplacePreview } from "@/components/launchpad/MusicMarketplacePreview";
 import { type MusicTrack } from "@/components/launchpad/MusicMetadataEditor";
 import { useWallet } from "@/providers/WalletProvider";
 import { useAuth } from "@/providers/AuthProvider";
@@ -1311,7 +1312,10 @@ export default function LaunchpadCreate() {
 
                                             {/* Music Tracks */}
                                             {isMusic && (
-                                                <MusicArtworkUploader tracks={tracks} onTracksChange={setTracks} />
+                                                <div className="space-y-6">
+                                                    <MusicArtworkUploader tracks={tracks} onTracksChange={setTracks} />
+                                                    <MusicMarketplacePreview collectionName={name} symbol={symbol} description={description} coverImage={coverImage} tracks={tracks} />
+                                                </div>
                                             )}
 
                                             {/* Generative — Basic or Layer Mode */}
