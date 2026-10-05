@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Music, Image, X, Upload, Play, Pause, Edit2, GripVertical, AlertCircle } from 'lucide-react';
+import { Music, Image, X, Upload, Play, Pause, Edit2, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,7 @@ export const MusicArtworkUploader: React.FC<MusicArtworkUploaderProps> = ({
   maxTracks = 100,
   disabled = false,
 }) => {
-  const [pendingAudioFiles, setPendingAudioFiles] = useState<{ file: File; preview: string; duration: number }[]>([]);
+  const [pendingAudioFiles, setPendingAudioFiles] = useState<{ id: string; file: File; preview: string; duration: number }[]>([]);
   const [editingTrack, setEditingTrack] = useState<MusicTrack | null>(null);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const audioRefs = React.useRef<{ [key: string]: HTMLAudioElement }>({});
@@ -52,7 +52,7 @@ export const MusicArtworkUploader: React.FC<MusicArtworkUploaderProps> = ({
       return;
     }
 
-    const validFiles: { file: File; preview: string; duration: number }[] = [];
+    const validFiles: { id: string; file: File; preview: string; duration: number }[] = [];
     
     for (const file of acceptedFiles) {
       if (file.size > MAX_AUDIO_SIZE) {
@@ -64,7 +64,7 @@ export const MusicArtworkUploader: React.FC<MusicArtworkUploaderProps> = ({
       const preview = URL.createObjectURL(file);
       const duration = await detectDuration(preview);
       
-      validFiles.push({ file, preview, duration });
+      validFiles.push({ id: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, file, preview, duration });
     }
     
     if (validFiles.length > 0) {
@@ -86,7 +86,7 @@ export const MusicArtworkUploader: React.FC<MusicArtworkUploaderProps> = ({
   };
 
   // Cover art dropzone for pending audio
-  const onCoverDrop = useCallback((audioIndex: number, acceptedFiles: File[]) => {
+  const onCoverDrop = useCallback((pendingId: string, acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
@@ -95,7 +95,7 @@ export const MusicArtworkUploader: React.FC<MusicArtworkUploaderProps> = ({
       return;
     }
 
-    const pending = pendingAudioFiles[audioIndex];
+    const pending = pendingAudioFiles.find(p => p.id === pendingId);
     if (!pending) return;
 
     const coverPreview = URL.createObjectURL(file);
@@ -118,7 +118,7 @@ export const MusicArtworkUploader: React.FC<MusicArtworkUploaderProps> = ({
     };
 
     onTracksChange([...tracks, newTrack]);
-    setPendingAudioFiles(prev => prev.filter((_, i) => i !== audioIndex));
+    setPendingAudioFiles(prev => prev.filter(p => p.id !== pendingId));
     toast.success('Track added! Click edit to add metadata.');
   }, [pendingAudioFiles, tracks, onTracksChange]);
 
@@ -135,15 +135,19 @@ export const MusicArtworkUploader: React.FC<MusicArtworkUploaderProps> = ({
       URL.revokeObjectURL(track.audioPreview);
       URL.revokeObjectURL(track.coverPreview);
     }
-    onTracksChange(tracks.filter(t => t.id !== trackId));
+    onTracksChange(
+      tracks
+        .filter(t => t.id !== trackId)
+        .map((t, i) => ({ ...t, metadata: { ...t.metadata, trackNumber: i + 1 } }))
+    );
   };
 
-  const removePendingAudio = (index: number) => {
-    const pending = pendingAudioFiles[index];
+  const removePendingAudio = (pendingId: string) => {
+    const pending = pendingAudioFiles.find(p => p.id === pendingId);
     if (pending) {
       URL.revokeObjectURL(pending.preview);
     }
-    setPendingAudioFiles(prev => prev.filter((_, i) => i !== index));
+    setPendingAudioFiles(prev => prev.filter(p => p.id !== pendingId));
   };
 
   const togglePlay = (trackId: string, audioSrc: string) => {
@@ -220,14 +224,14 @@ export const MusicArtworkUploader: React.FC<MusicArtworkUploaderProps> = ({
             Pending - Add Cover Art ({pendingAudioFiles.length})
           </h4>
           
-          {pendingAudioFiles.map((pending, index) => (
+          {pendingAudioFiles.map((pending) => (
             <PendingAudioCard
-              key={index}
+              key={pending.id}
               file={pending.file}
               preview={pending.preview}
               duration={pending.duration}
-              onCoverDrop={(files) => onCoverDrop(index, files)}
-              onRemove={() => removePendingAudio(index)}
+              onCoverDrop={(files) => onCoverDrop(pending.id, files)}
+              onRemove={() => removePendingAudio(pending.id)}
             />
           ))}
         </div>
@@ -360,10 +364,21 @@ const TrackCard: React.FC<TrackCardProps> = ({
             className="h-6 w-6"
             onClick={onMoveUp}
             disabled={!onMoveUp}
+            aria-label="Move track up"
           >
-            <GripVertical className="h-4 w-4" />
+            <ChevronUp className="h-4 w-4" />
           </Button>
           <span className="text-xs font-mono">{index + 1}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={onMoveDown}
+            disabled={!onMoveDown}
+            aria-label="Move track down"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
         </div>
         
         <div className="relative group">
