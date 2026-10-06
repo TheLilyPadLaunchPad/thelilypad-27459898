@@ -600,7 +600,7 @@ export default function ApeChainTraitGenerator() {
                                         <CardDescription>
                                             The download contains <strong>images/</strong>,{" "}
                                             {metadataFormat === "csv" ? (
-                                                <><strong>metadata.csv</strong> (OpenSea bulk setup, recommended for ApeChain)</>
+                                                <><strong>metadata.csv</strong> (Magic Eden / OpenSea bulk setup, recommended for ApeChain)</>
                                             ) : (
                                                 <><strong>metadata/</strong> (ERC-721 JSON)</>
                                             )}{" "}

@@ -48,9 +48,15 @@ const CHAIN_FACTS: Record<SupportedChain, ChainFacts> = {
     deployStatus: "soon",
     deployNote: "Generate & export — minting soon",
   },
+  apechain: {
+    wallets: ["MetaMask", "Rabby", "Any EVM wallet"],
+    mintOptions: ["ERC-721 metadata", "Magic Eden / OpenSea CSV", "1-of-1 art"],
+    deployStatus: "soon",
+    deployNote: "Generate & export — minting soon",
+  },
 };
 
-const CHAIN_ORDER: SupportedChain[] = ["solana", "monad", "xrpl", "robinhood"];
+const CHAIN_ORDER: SupportedChain[] = ["solana", "monad", "xrpl", "robinhood", "apechain"];
 
 export function ChainComparisonPanel({ onLaunch }: ChainComparisonPanelProps) {
   return (

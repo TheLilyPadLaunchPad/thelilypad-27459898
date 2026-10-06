@@ -6,7 +6,7 @@
 
 import { SOLANA_MAINNET_RPC, SOLANA_DEVNET_RPC } from "@/config/solana";
 
-export type SupportedChain = 'solana' | 'monad' | 'xrpl' | 'robinhood';
+export type SupportedChain = 'solana' | 'monad' | 'xrpl' | 'robinhood' | 'apechain';
 
 export interface ChainNetwork {
     url: string;
@@ -34,7 +34,7 @@ export interface ChainConfig {
     id: SupportedChain;
     name: string;
     symbol: string;
-    iconName: 'solana' | 'monad' | 'xrpl' | 'robinhood';
+    iconName: 'solana' | 'monad' | 'xrpl' | 'robinhood' | 'apechain';
     color: string;
     theme: ChainThemeConfig;
     walletLabels: ChainWalletLabels;
@@ -214,6 +214,37 @@ export const CHAINS: Record<SupportedChain, ChainConfig> = {
         isTestnetOnly: false,
         description: 'Robinhood’s Ethereum L2 — ERC-721 collections, gas paid in ETH',
     },
+
+    apechain: {
+        id: 'apechain',
+        name: 'ApeChain',
+        symbol: 'APE',
+        iconName: 'apechain',
+        color: '#0054FA',
+        theme: {
+            primaryColor: '#0054FA',
+            secondaryColor: '#002a7d',
+            background: 'from-[#020b1f] via-[#04194a] to-[#0a2a73]',
+            cardBorder: '#0054FA40',
+            glowColor: '#0054FA',
+            buttonGradient: 'from-[#0054FA] to-[#002a7d]',
+        },
+        walletLabels: {
+            connect: 'Connect ApeChain Wallet',
+            disconnect: 'Disconnect ApeChain Wallet',
+            connecting: 'Connecting to ApeChain...',
+        },
+        networks: {
+            // Arbitrum Orbit L3 — gas paid in APE.
+            mainnet: { url: 'https://rpc.apechain.com', name: 'Mainnet', chainId: 33139, explorer: 'https://apescan.io' },
+            testnet: { url: 'https://curtis.rpc.caldera.xyz/http', name: 'Curtis Testnet', chainId: 33111, explorer: 'https://curtis.apescan.io' },
+        },
+        walletType: 'evm',
+        nftStandard: 'ERC-721',
+        isActive: true,
+        isTestnetOnly: false,
+        description: 'ApeCoin’s Arbitrum Orbit chain — ERC-721 collections, gas paid in APE',
+    },
 };
 
 export function getActiveChains(): ChainConfig[] {
@@ -254,6 +285,7 @@ export function getExplorerUrl(
                 ? `${baseUrl}/transactions/${hash}`
                 : `${baseUrl}/accounts/${hash}`;
         case 'robinhood':
+        case 'apechain':
             return type === 'tx'
                 ? `${baseUrl}/tx/${hash}`
                 : type === 'nft'
@@ -301,6 +333,8 @@ export function getDbChainValues(chain: SupportedChain): string[] {
             return ['xrpl', 'xrpl-testnet', 'xrpl-mainnet'];
         case 'robinhood':
             return ['robinhood', 'robinhood-testnet', 'robinhood-mainnet'];
+        case 'apechain':
+            return ['apechain', 'apechain-testnet', 'apechain-mainnet'];
         default:
             return ['solana'];
     }
