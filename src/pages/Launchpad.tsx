@@ -65,6 +65,7 @@ const ALL_CHAIN_ENTRIES: ChainEntry[] = [
   { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
   { id: "xrpl", label: "XRPL", description: "XLS-20 NFTs on the XRP Ledger", badge: "Live", badgeVariant: "default" },
   { id: "robinhood", label: "Robinhood Chain", description: "Generate & export — minting soon", badge: "Soon", badgeVariant: "secondary" },
+  { id: "apechain", label: "ApeChain", description: "Generate & export — minting soon", badge: "Soon", badgeVariant: "secondary" },
 ];
 const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES;
 
@@ -86,7 +87,7 @@ const PRIMARY_TYPES: CollectionTypeTile[] = [
     description: "Upload pre-made assets or import trait layers for procedural generation with custom rarity weights.",
     icon: Layers,
     highlight: true,
-    chains: ["solana", "monad", "xrpl", "robinhood"],
+    chains: ["solana", "monad", "xrpl", "robinhood", "apechain"],
     tag: "Most Popular",
   },
   {
@@ -112,7 +113,7 @@ const SECONDARY_TYPES: CollectionTypeTile[] = [
     title: "Art Generator (ZIP)",
     description: "No-code tool: generate high-res assets with metadata and download as a ZIP.",
     icon: Palette,
-    chains: ["solana", "monad", "xrpl", "robinhood"],
+    chains: ["solana", "monad", "xrpl", "robinhood", "apechain"],
     tag: "No-Code",
   },
   {
@@ -202,6 +203,10 @@ export default function Launchpad() {
       navigate('/launchpad/robinhood-trait-generator');
       return;
     }
+    if (chain === 'apechain') {
+      navigate('/launchpad/apechain-trait-generator');
+      return;
+    }
     navigate(`/launchpad/create/${chain}`);
   };
 
@@ -217,6 +222,10 @@ export default function Launchpad() {
     }
     if (selectedChain === 'robinhood') {
       navigate('/launchpad/robinhood-trait-generator');
+      return;
+    }
+    if (selectedChain === 'apechain') {
+      navigate('/launchpad/apechain-trait-generator');
       return;
     }
     if (localDraft) {
@@ -268,6 +277,10 @@ export default function Launchpad() {
     // Robinhood Chain isn't connectable yet — generator + export only.
     if (selectedChain === 'robinhood') {
       navigate('/launchpad/robinhood-trait-generator');
+      return;
+    }
+    if (selectedChain === 'apechain') {
+      navigate('/launchpad/apechain-trait-generator');
       return;
     }
     // XRPL doesn't use Metaplex/Candy Machine — route to dedicated XLS-20 flows.

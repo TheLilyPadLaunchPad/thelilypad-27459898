@@ -31,12 +31,14 @@ import solanaLogo from '@/assets/chains/solana.svg';
 import monadLogo from '@/assets/chains/monad.png';
 import xrpLogo from '@/assets/chains/xrp.svg';
 import robinhoodLogo from '@/assets/chains/robinhood.svg';
+import apechainLogo from '@/assets/chains/apechain.png';
 
 const CHAIN_LOGOS: Partial<Record<SupportedChain, string>> = {
     solana: solanaLogo,
     monad: monadLogo,
     xrpl: xrpLogo,
     robinhood: robinhoodLogo,
+    apechain: apechainLogo,
 };
 
 // Chain icons mapping
