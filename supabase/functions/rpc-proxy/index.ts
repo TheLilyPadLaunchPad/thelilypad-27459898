@@ -446,7 +446,26 @@ serve(async (req) => {
 
     const body = await req.json();
 
-    console.log(`Proxying RPC request to ${network}:`, body.method);
+    // Only forward the Solana JSON-RPC methods the app needs (reads + signed tx submit).
+    const ALLOWED = new Set([
+      'getAccountInfo', 'getMultipleAccounts', 'getBalance', 'getLatestBlockhash', 'getRecentBlockhash',
+      'getBlockHeight', 'getSlot', 'getEpochInfo', 'getHealth', 'getVersion', 'getFeeForMessage',
+      'getMinimumBalanceForRentExemption', 'getRecentPrioritizationFees', 'getSignatureStatuses',
+      'getSignaturesForAddress', 'getTransaction', 'getTokenAccountsByOwner', 'getTokenAccountBalance',
+      'getTokenSupply', 'getTokenLargestAccounts', 'getProgramAccounts', 'getParsedAccountInfo',
+      'isBlockhashValid', 'simulateTransaction', 'sendTransaction',
+      'getAsset', 'getAssetsByOwner', 'getAssetsByGroup', 'getAssetProof', 'searchAssets',
+    ]);
+    const calls = Array.isArray(body) ? body : [body];
+    if (calls.length === 0 || calls.length > 20 ||
+        calls.some((c: any) => !c || typeof c.method !== 'string' || !ALLOWED.has(c.method))) {
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32601, message: 'Method not allowed' } }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`Proxying RPC request to ${network}:`, Array.isArray(body) ? `batch(${calls.length})` : body.method);
 
     const { result, rpcUsed, latency } = await proxyRpcRequest(network, body);
 
