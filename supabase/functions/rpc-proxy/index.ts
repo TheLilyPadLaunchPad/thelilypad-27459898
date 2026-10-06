@@ -453,8 +453,8 @@ serve(async (req) => {
       'getMinimumBalanceForRentExemption', 'getRecentPrioritizationFees', 'getSignatureStatuses',
       'getSignaturesForAddress', 'getTransaction', 'getTokenAccountsByOwner', 'getTokenAccountBalance',
       'getTokenSupply', 'getTokenLargestAccounts', 'getProgramAccounts', 'getParsedAccountInfo',
-      'isBlockhashValid', 'simulateTransaction', 'sendTransaction',
-      'getAsset', 'getAssetsByOwner', 'getAssetsByGroup', 'getAssetProof', 'searchAssets',
+      'isBlockhashValid', 'simulateTransaction', 'sendTransaction', 'getBlockTime', 'getBlock', 'getGenesisHash', 'getTokenAccountsByDelegate', 'getFirstAvailableBlock',
+      'getAsset', 'getAssetsByOwner', 'getAssetsByGroup', 'getAssetProof', 'searchAssets', 'getAssetsByCreator', 'getAssetBatch', 'getAssetProofBatch',
     ]);
     const calls = Array.isArray(body) ? body : [body];
     if (calls.length === 0 || calls.length > 20 ||
