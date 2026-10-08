@@ -210,6 +210,24 @@ export default function Launchpad() {
     navigate(`/launchpad/create/${chain}`);
   };
 
+  // Header "New Collection" / empty-state "Create Collection" — export-only
+  // chains (Robinhood, ApeChain) go to their generators, never the deploy flow.
+  const handleNewCollection = () => {
+    if (selectedChain === 'xrpl') {
+      navigate('/launchpad/xrpl-generator');
+      return;
+    }
+    if (selectedChain === 'robinhood') {
+      navigate('/launchpad/robinhood-trait-generator');
+      return;
+    }
+    if (selectedChain === 'apechain') {
+      navigate('/launchpad/apechain-trait-generator');
+      return;
+    }
+    navigate(`/launchpad/create/${selectedChain}`);
+  };
+
   const handleDeleteCollection = (collectionId: string) => {
     deleteCollection(collectionId);
     setDeleteCollectionId(null);
@@ -439,9 +457,7 @@ export default function Launchpad() {
                     />
                     <Button
                       size="default"
-                      onClick={() => selectedChain === 'xrpl'
-                        ? navigate('/launchpad/xrpl-generator')
-                        : navigate(`/launchpad/create/${selectedChain}`)}
+                      onClick={handleNewCollection}
                       className="gap-2 shadow-sm"
                     >
                       <Plus className="w-4 h-4" />
@@ -635,7 +651,7 @@ export default function Launchpad() {
                             <Rocket className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                             <p className="font-medium mb-1">No collections yet</p>
                             <p className="text-sm text-muted-foreground mb-5">Be the first to launch!</p>
-                            <Button onClick={() => selectedChain === 'xrpl' ? navigate('/launchpad/xrpl-generator') : navigate(`/launchpad/create/${selectedChain}`)} size="sm">
+                            <Button onClick={handleNewCollection} size="sm">
                               <Plus className="w-4 h-4 mr-1.5" />
                               Create Collection
                             </Button>
