@@ -210,6 +210,24 @@ export default function Launchpad() {
     navigate(`/launchpad/create/${chain}`);
   };
 
+  // Header "New Collection" / empty-state "Create Collection" — export-only
+  // chains (Robinhood, ApeChain) go to their generators, never the deploy flow.
+  const handleNewCollection = () => {
+    if (selectedChain === 'xrpl') {
+      navigate('/launchpad/xrpl-generator');
+      return;
+    }
+    if (selectedChain === 'robinhood') {
+      navigate('/launchpad/robinhood-trait-generator');
+      return;
+    }
+    if (selectedChain === 'apechain') {
+      navigate('/launchpad/apechain-trait-generator');
+      return;
+    }
+    navigate(`/launchpad/create/${selectedChain}`);
+  };
+
   const handleDeleteCollection = (collectionId: string) => {
     deleteCollection(collectionId);
     setDeleteCollectionId(null);
