@@ -1,0 +1,1 @@
+drop policy if exists "Anyone can view shop item files" on storage.objects;

@@ -177,6 +177,33 @@ export const AdminToolbar: React.FC = () => {
         }
     }, [queryClient]);
 
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const handleDeleteAllCollections = useCallback(async () => {
+        const count = stats?.totalCollections ?? 0;
+        if (count === 0) {
+            toast.info('No collections to delete');
+            return;
+        }
+        if (!confirm(`Move ALL ${count} collections to the Trash? They disappear from the site but admins can restore them from the Trash tab.`)) return;
+
+        setBulkDeleting(true);
+        const { error, count: deletedCount } = await supabase
+            .from('collections')
+            .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
+            .is('deleted_at', null);
+        setBulkDeleting(false);
+
+        if (error) {
+            console.error('Bulk delete error:', error);
+            toast.error('Failed to delete collections: ' + error.message);
+            return;
+        }
+        toast.success(`${deletedCount ?? count} collections moved to Trash`);
+        queryClient.invalidateQueries({ queryKey: ['admin-toolbar-collections'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-toolbar-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['marketplace-collections'] });
+    }, [stats, queryClient]);
+
     const refreshAll = useCallback(() => {
         refetchStats();
         queryClient.invalidateQueries({ queryKey: ['admin-toolbar-collections'] });
@@ -372,14 +399,26 @@ export const AdminToolbar: React.FC = () => {
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="text-xs font-semibold text-muted-foreground uppercase">Recent Collections</span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-6 text-[10px] px-2"
-                                                        onClick={() => { navigate('/admin'); setIsOpen(false); }}
-                                                    >
-                                                        View All
-                                                    </Button>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={bulkDeleting}
+                                                            className="h-6 text-[10px] px-2 text-destructive hover:text-destructive"
+                                                            onClick={handleDeleteAllCollections}
+                                                        >
+                                                            {bulkDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3 mr-1" />}
+                                                            Delete All
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 text-[10px] px-2"
+                                                            onClick={() => { navigate('/admin'); setIsOpen(false); }}
+                                                        >
+                                                            View All
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                                 {collectionsLoading ? (
                                                     <div className="flex justify-center py-6">
