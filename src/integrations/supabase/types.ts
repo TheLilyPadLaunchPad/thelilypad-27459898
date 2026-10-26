@@ -4072,6 +4072,22 @@ export type Database = {
         Args: { p_collection_id: string }
         Returns: undefined
       }
+      admin_list_shop_files: {
+        Args: { limit_count?: number }
+        Returns: {
+          access: Json
+          file_path: string
+          item_id: string
+          item_name: string
+          mime_type: string
+          object_id: string
+          size_bytes: number
+          uploaded_at: string
+          uploader_id: string
+          uploader_name: string
+          uploader_wallet: string
+        }[]
+      }
       admin_revoke_user_role: {
         Args: {
           reason?: string
