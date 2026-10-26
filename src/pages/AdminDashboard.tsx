@@ -17,6 +17,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import FrogLoader from '@/components/FrogLoader';
 import { toast } from '@/hooks/use-toast';
+import ShopFileAccessManager from '@/components/admin/ShopFileAccessManager';
+import { FileLock } from 'lucide-react';
 import {
   Users,
   Layers,
@@ -560,6 +562,10 @@ const AdminDashboard: React.FC = () => {
                 <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Trash</span>
               </TabsTrigger>
+              <TabsTrigger value="shop-files" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <FileLock className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>Shop Files</span>
+              </TabsTrigger>
               <TabsTrigger value="featured" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Featured</span>
@@ -836,6 +842,10 @@ const AdminDashboard: React.FC = () => {
 
           <TabsContent value="trash">
             <CollectionTrashManager />
+          </TabsContent>
+
+          <TabsContent value="shop-files">
+            <ShopFileAccessManager />
           </TabsContent>
 
           {/* Collections Tab */}

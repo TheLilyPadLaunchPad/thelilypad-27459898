@@ -50,6 +50,13 @@
       "when": 1793051348779,
       "tag": "0006_restrict_shop_items_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793051671391,
+      "tag": "0007_admin_list_shop_files",
+      "breakpoints": true
     }
   ]
 }
