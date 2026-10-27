@@ -235,50 +235,41 @@ function generateSingleCombination(
 /**
  * Composite multiple images into one (using canvas)
  */
-async function compositeImages(
-    traits: { layer: string; trait: LayerTrait }[]
-): Promise<string> {
-    // Create canvas
+function createCompositor() {
     const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Image generation is unavailable in this browser");
+    const images = new Map<string, Promise<HTMLImageElement>>();
 
-    // Default size (will be set by first image)
-    let width = 512;
-    let height = 512;
-
-    // Load all images
-    const images = await Promise.all(
-        traits.map(
-            (t) =>
-                new Promise<HTMLImageElement>((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve(img);
-                    img.src = t.trait.preview;
-                })
-        )
-    );
-
-    // Set canvas size to first image size, but cap at 512 for thumbnails
-    if (images.length > 0) {
-        const originalWidth = images[0].width || 512;
-        const originalHeight = images[0].height || 512;
-
-        // Scale down to max 512px to prevent memory crashes during large collection generation
-        const scale = Math.min(1, 512 / Math.max(originalWidth, originalHeight));
-        width = Math.round(originalWidth * scale);
-        height = Math.round(originalHeight * scale);
-    }
-
-    canvas.width = width;
-    canvas.height = height;
-
-    // Draw each layer in order
-    for (const img of images) {
-        ctx.drawImage(img, 0, 0, width, height);
-    }
-
-    // Use WebP for previews to save RAM/Disk space (PNG is too heavy for 1000s of data URLs)
-    return canvas.toDataURL("image/webp", 0.8);
+    return {
+        async composite(traits: { layer: string; trait: LayerTrait }[]): Promise<string> {
+            const loaded = await Promise.all(traits.map(({ trait }) => {
+                const cached = images.get(trait.id);
+                if (cached) return cached;
+                const pending = new Promise<HTMLImageElement>((resolve, reject) => {
+                    const image = new Image();
+                    image.onload = () => resolve(image);
+                    image.onerror = () => reject(new Error(`Could not load trait "${trait.name}"`));
+                    image.src = trait.preview;
+                });
+                images.set(trait.id, pending);
+                return pending;
+            }));
+            const first = loaded[0];
+            const width = first?.naturalWidth || 512;
+            const height = first?.naturalHeight || 512;
+            const scale = Math.min(1, 512 / Math.max(width, height));
+            canvas.width = Math.max(1, Math.round(width * scale));
+            canvas.height = Math.max(1, Math.round(height * scale));
+            for (const image of loaded) ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL("image/webp", 0.8);
+        },
+        dispose() {
+            images.clear();
+            canvas.width = 0;
+            canvas.height = 0;
+        },
+    };
 }
 
 /**
@@ -303,6 +294,8 @@ export async function generateAssets(
     // Cap supply at max combinations (only an estimate now with optional layers)
     const targetSupply = config.allowDuplicates ? config.totalSupply : Math.min(config.totalSupply, maxCombinations * 2 || config.totalSupply);
 
+    const compositor = createCompositor();
+    try {
     for (let i = 0; i < targetSupply; i++) {
         onProgress?.(i + 1, targetSupply);
 
@@ -335,7 +328,7 @@ export async function generateAssets(
         }
 
         // Generate composite preview
-        const preview = await compositeImages(traitsWithNames);
+        const preview = await compositor.composite(traitsWithNames);
 
         const asset: GeneratedAsset = {
             id: crypto.randomUUID(),
@@ -360,6 +353,7 @@ export async function generateAssets(
     }
 
     return assets;
+    } finally { compositor.dispose(); }
 }
 
 /**
