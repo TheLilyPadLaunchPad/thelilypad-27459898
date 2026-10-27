@@ -11,6 +11,7 @@
  */
 
 import React, { useState } from "react";
+import { ApeChainDeployPanel } from "@/components/launchpad/ApeChainDeployPanel";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
 import { buildOpenSeaCsv } from "@/lib/uploadRules";
@@ -591,6 +592,14 @@ export default function ApeChainTraitGenerator() {
                                         </Button>
                                     </div>
                                 </div>
+
+                                <ApeChainDeployPanel
+                                    name={name}
+                                    symbol={symbol}
+                                    description={description}
+                                    royaltyPercent={royalty}
+                                    supply={generatedAssets.length}
+                                />
 
                                 <Card className="glass-card p-6 border-primary/10">
                                     <CardHeader className="px-0 pt-0">
