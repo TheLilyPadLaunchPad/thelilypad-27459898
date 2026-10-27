@@ -35,9 +35,7 @@ import {
     Download,
     Save,
     Lock,
-    Crown,
     Plus,
-    Pencil,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -45,6 +43,7 @@ import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
 import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesManager";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
+import { GeneratedAssetGrid } from "@/components/launchpad/GeneratedAssetGrid";
 import { AssetMetadataEditor } from "@/components/launchpad/AssetMetadataEditor";
 import { useSEO } from "@/hooks/useSEO";
 import { cn } from "@/lib/utils";
@@ -641,38 +640,7 @@ export default function RobinhoodTraitGenerator() {
                                             </Button>
                                         </div>
 
-                                        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3 max-h-[480px] overflow-y-auto pr-1">
-                                            {generatedAssets.map((asset) => (
-                                                <button
-                                                    type="button"
-                                                    key={asset.id}
-                                                    onClick={() => openEditor(asset)}
-                                                    title={`Edit ${asset.metadata.name}`}
-                                                    className="group relative aspect-square rounded-lg overflow-hidden border border-border bg-muted/30 hover:border-primary transition-colors"
-                                                >
-                                                    {asset.preview ? (
-                                                        <img
-                                                            src={asset.preview}
-                                                            alt={asset.metadata.name}
-                                                            loading="lazy"
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground px-1 text-center">
-                                                            Add artwork
-                                                        </span>
-                                                    )}
-                                                    {asset.isOneOfOne && (
-                                                        <Badge className="absolute top-1 left-1 gap-1 text-[9px] px-1.5 py-0">
-                                                            <Crown className="w-2.5 h-2.5" /> 1/1
-                                                        </Badge>
-                                                    )}
-                                                    <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-background/60">
-                                                        <Pencil className="w-4 h-4 text-foreground" />
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
+                                        <GeneratedAssetGrid assets={generatedAssets} onEdit={openEditor} />
 
                                         <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30 text-sm text-muted-foreground">
                                             <Lock className="w-4 h-4 mt-0.5 shrink-0" />
