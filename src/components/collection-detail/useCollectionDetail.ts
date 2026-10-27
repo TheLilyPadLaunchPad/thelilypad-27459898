@@ -14,6 +14,7 @@ import { SupportedChain, CHAINS } from "@/config/chains";
 import { isTestnet as isChainTestnet } from "@/lib/chainUtils";
 import { Collection, Phase, AllowlistEntry } from "./types";
 import { getBaseChain, isPhaseCurrentlyLive } from "./utils";
+import { mintApeDrop, readApeDrop } from "@/chains/apechain/drop";
 
 export function useCollectionDetail() {
     const { collectionId } = useParams();
@@ -51,6 +52,7 @@ export function useCollectionDetail() {
     const chainConfig = CHAINS[collectionChain] || CHAINS.solana;
     const isSolana = collectionChain === 'solana';
     const isMonad = collectionChain === 'monad';
+    const isApeChain = collectionChain === 'apechain';
 
     const currency = chainConfig?.symbol || 'SOL';
     const collectionNetwork = chainConfig?.name || 'Solana';
@@ -94,6 +96,12 @@ export function useCollectionDetail() {
                 toast.error("Failed to load collection");
             } else if (data) {
                 setCollection(data as unknown as Collection);
+                const d: any = data;
+                if (String(d?.chain || '').startsWith('apechain') && /^0x[a-fA-F0-9]{40}$/.test(d?.contract_address || '')) {
+                    readApeDrop(d.contract_address).then((info) =>
+                        setCollection((c: any) => c && c.id === d.id ? { ...c, minted: info.totalSupply } : c)
+                    ).catch(() => {});
+                }
                 const phasesData = data.phases as unknown as Phase[] | null;
                 if (phasesData && Array.isArray(phasesData) && phasesData.length > 0) {
                     // Pick the phase whose time window contains "now" first;
@@ -213,7 +221,7 @@ export function useCollectionDetail() {
 
     const handleMint = async (quantityOverride?: number) => {
         const amount = quantityOverride || mintQuantity;
-        if (!isConnected) {
+        if (!isConnected && !isApeChain) {
             connect();
             return;
         }
@@ -271,12 +279,25 @@ export function useCollectionDetail() {
                 } else {
                     toast.error(result.error || "Monad mint failed", { id: 'monad-mint' });
                 }
+            } else if (isApeChain) {
+                toast.loading(`Minting on ApeChain — confirm in your wallet...`, { id: 'ape-mint' });
+                const { hash } = await mintApeDrop(collection.contract_address as `0x${string}`, amount);
+                setMintTxHash(hash);
+                setRevealTxHash(hash);
+                setRevealedNfts(generateRandomAttributes(amount, collection.minted));
+                setShowRevealModal(true);
+                try {
+                    const info = await readApeDrop(collection.contract_address as `0x${string}`);
+                    setCollection((c: any) => c ? { ...c, minted: info.totalSupply } : c);
+                } catch { /* display only */ }
+                toast.success("Minted! The NFT is in your wallet.", { id: 'ape-mint' });
             } else {
                 toast.info(`${collectionNetwork} minting logic coming soon`);
             }
         } catch (err: any) {
             console.error("Mint failed:", err);
-            toast.error("Mint failed", { description: err.message });
+            toast.dismiss('ape-mint');
+            toast.error("Mint failed", { description: err?.shortMessage || err?.message });
         } finally {
             setIsMinting(false);
         }

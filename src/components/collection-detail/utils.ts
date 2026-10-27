@@ -57,5 +57,6 @@ export const getBaseChain = (chainStr: string): SupportedChain => {
     if (!chainStr) return 'solana';
     if (chainStr.startsWith('solana')) return 'solana';
     if (chainStr.startsWith('monad')) return 'monad';
+    if (chainStr.startsWith('apechain')) return 'apechain';
     return 'solana'; // default
 };

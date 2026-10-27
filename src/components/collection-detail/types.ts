@@ -22,7 +22,7 @@ export interface Collection {
     social_telegram: string | null;
     collection_type?: string;
     /** @deprecated 'xrpl' kept only for backward-compat with existing DB rows */
-    blockchain?: 'solana' | 'xrpl' | 'monad';
+    blockchain?: 'solana' | 'xrpl' | 'monad' | 'apechain';
     chain?: string;
     solana_standard?: string;
     ipfs_base_cid?: string | null;
