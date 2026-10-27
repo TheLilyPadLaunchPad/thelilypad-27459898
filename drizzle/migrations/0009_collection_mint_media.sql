@@ -1,0 +1,1 @@
+ALTER TABLE public.collections ADD COLUMN IF NOT EXISTS mint_intro_video_url text, ADD COLUMN IF NOT EXISTS mint_processing_gif_url text;
