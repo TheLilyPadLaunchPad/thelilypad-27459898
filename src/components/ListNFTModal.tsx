@@ -25,12 +25,14 @@ import { useWallet } from "@/providers/WalletProvider";
 import { SECONDARY_MARKETPLACE_ENABLED } from "@/config/featureFlags";
 import { ComingSoon } from "@/components/ComingSoon";
 import { useSolanaMarketplace } from "@/hooks/useSolanaMarketplace";
+import { getNFTListingIdentifier } from "@/lib/nftListingIdentifier";
 // ── Types ─────────────────────────────────────────────────────────────────────
 // ... existing types ...
 
 interface MintedNFT {
   id: string;
   token_id: number;
+  asset_id?: string | null;
   nft_token_id?: string | null;
   name: string | null;
   image_url: string | null;
@@ -86,16 +88,6 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
 
   // ── Validation ──────────────────────────────────────────────────────────────
 
-  const getNFTIdentifier = (): { type: 'solana' | 'unknown'; value: string | null } => {
-    if (!nft) return { type: 'unknown', value: null };
-
-    // For Solana/Monad: need contract_address for on-chain operations
-    const addr = nft.collection?.contract_address;
-    return addr
-      ? { type: 'solana', value: addr }
-      : { type: 'unknown', value: null };
-  };
-
   // ── Submit handler ──────────────────────────────────────────────────────────
 
   const handleList = async () => {
@@ -104,11 +96,11 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
       return;
     }
 
-    const { type: idType, value: nftIdentifier } = getNFTIdentifier();
-
-    // For Solana/Monad we strictly need a contract_address for approval + escrow.
-    if (idType === 'unknown' || (idType === 'solana' && !nftIdentifier)) {
-      setError("NFT contract address not found. This NFT may not be deployed on-chain yet.");
+    const nftIdentifier = getNFTListingIdentifier(nft, resolvedChain);
+    if (!nftIdentifier) {
+      setError(resolvedChain === 'solana'
+        ? "This NFT has no on-chain asset address yet."
+        : "NFT contract address not found. This NFT may not be deployed on-chain yet.");
       return;
     }
 
@@ -126,10 +118,8 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
       // the NFT to the buyer once their payment is verified. NFT stays in wallet.
       let delegateTx: string | null = null;
       if (resolvedChain === 'solana') {
-        const assetId = (nft as any).asset_id || nft.nft_token_id;
-        if (!assetId) throw new Error("This NFT has no on-chain asset address yet.");
         setListingStatus('approving');
-        delegateTx = await approveListing(assetId);
+        delegateTx = await approveListing(nftIdentifier);
         setListingStatus('listing');
       }
 
