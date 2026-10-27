@@ -65,7 +65,7 @@ const ALL_CHAIN_ENTRIES: ChainEntry[] = [
   { id: "monad", label: "Monad", description: "EVM-Compatible Layer 1", badge: "Live", badgeVariant: "default" },
   { id: "xrpl", label: "XRPL", description: "XLS-20 NFTs on the XRP Ledger", badge: "Live", badgeVariant: "default" },
   { id: "robinhood", label: "Robinhood Chain", description: "Generate & export — minting soon", badge: "Soon", badgeVariant: "secondary" },
-  { id: "apechain", label: "ApeChain", description: "Generate & export — minting soon", badge: "Soon", badgeVariant: "secondary" },
+  { id: "apechain", label: "ApeChain", description: "Generate & export collections", badge: "Live", badgeVariant: "default" },
 ];
 const CHAIN_ENTRIES = ALL_CHAIN_ENTRIES;
 

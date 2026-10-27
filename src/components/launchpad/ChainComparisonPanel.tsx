@@ -51,8 +51,8 @@ const CHAIN_FACTS: Record<SupportedChain, ChainFacts> = {
   apechain: {
     wallets: ["MetaMask", "Rabby", "Any EVM wallet"],
     mintOptions: ["ERC-721 metadata", "Magic Eden / OpenSea CSV", "1-of-1 art"],
-    deployStatus: "soon",
-    deployNote: "Generate & export — minting soon",
+    deployStatus: "live",
+    deployNote: "Live — generate & export (on-chain minting next)",
   },
 };
 

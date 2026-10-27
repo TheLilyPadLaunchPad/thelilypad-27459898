@@ -33,6 +33,7 @@ import { CollectionSupplyCard } from "@/components/collection-detail/CollectionS
 import { CollectionMintCard } from "@/components/collection-detail/CollectionMintCard";
 import { CollectionBuybackCard } from "@/components/collection-detail/CollectionBuybackCard";
 import { CollectionPacksSection } from "@/components/collection-detail/CollectionPacksSection";
+import { MintIntroDialog, MintProcessingOverlay } from "@/components/collection-detail/MintMediaOverlays";
 import { HolderGate } from "@/components/holder/HolderGate";
 
 
@@ -86,6 +87,24 @@ export default function CollectionDetail() {
   } = useCollectionDetail();
 
   const [isBuybackModalOpen, setIsBuybackModalOpen] = useState(false);
+  const introUrl = (collection as any)?.mint_intro_video_url as string | null | undefined;
+  const processingGif = (collection as any)?.mint_processing_gif_url as string | null | undefined;
+  const [introOpen, setIntroOpen] = useState(false);
+  const [introSeen, setIntroSeen] = useState(false);
+  const [pendingQty, setPendingQty] = useState<number | undefined>(undefined);
+  const mintWithIntro = (qty?: number) => {
+    if (introUrl && !introSeen && isConnected) {
+      setPendingQty(qty);
+      setIntroOpen(true);
+      return;
+    }
+    handleMint(qty);
+  };
+  const closeIntro = () => {
+    setIntroOpen(false);
+    setIntroSeen(true);
+    handleMint(pendingQty);
+  };
 
   useEffect(() => {
     if (isCreator && totalSupply > 0 && liveSupply >= totalSupply) {
@@ -356,13 +375,15 @@ export default function CollectionDetail() {
               lastUpdated={lastUpdated}
             />
 
+            {introUrl && <MintIntroDialog open={introOpen} url={introUrl} onClose={closeIntro} />}
+            <MintProcessingOverlay open={isMinting} gifUrl={processingGif} />
             <CollectionMintCard
               activePhase={activePhase}
               phases={phases}
               setActivePhase={setActivePhase}
               mintQuantity={mintQuantity}
               setMintQuantity={setMintQuantity}
-              handleMint={handleMint}
+              handleMint={mintWithIntro}
               isMinting={isMinting}
               isWalletConnected={!!isConnected}
               handleConnectWallet={handleConnectWallet}

@@ -64,6 +64,13 @@
       "when": 1793064767029,
       "tag": "0008_solana_marketplace_settlement",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793068406027,
+      "tag": "0009_collection_mint_media",
+      "breakpoints": true
     }
   ]
 }

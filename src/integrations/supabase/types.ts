@@ -842,6 +842,8 @@ export type Database = {
           manifest_root: string | null
           media_type: string | null
           mint_end_date: string | null
+          mint_intro_video_url: string | null
+          mint_processing_gif_url: string | null
           minted: number
           name: string
           phases: Json
@@ -889,6 +891,8 @@ export type Database = {
           manifest_root?: string | null
           media_type?: string | null
           mint_end_date?: string | null
+          mint_intro_video_url?: string | null
+          mint_processing_gif_url?: string | null
           minted?: number
           name: string
           phases?: Json
@@ -936,6 +940,8 @@ export type Database = {
           manifest_root?: string | null
           media_type?: string | null
           mint_end_date?: string | null
+          mint_intro_video_url?: string | null
+          mint_processing_gif_url?: string | null
           minted?: number
           name?: string
           phases?: Json
