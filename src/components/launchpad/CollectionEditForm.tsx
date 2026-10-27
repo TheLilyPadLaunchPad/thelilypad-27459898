@@ -53,6 +53,7 @@ import { LayerManager, Layer } from "./LayerManager";
 import { TraitRulesManager, TraitRule } from "./TraitRulesManager";
 import { GenerationPreview } from "./GenerationPreview";
 import { ArtworkUploader, ArtworkItem } from "./ArtworkUploader";
+import { MintMediaFields } from "@/components/launchpad/MintMediaFields";
 import { uploadToArweave } from "@/integrations/arweave/legacyClient";
 import { useWallet } from "@/providers/WalletProvider";
 
@@ -79,6 +80,8 @@ interface Collection {
   image_url: string | null;
   banner_url: string | null;
   unrevealed_image_url: string | null;
+  mint_intro_video_url?: string | null;
+  mint_processing_gif_url?: string | null;
   is_revealed: boolean;
   creator_address: string;
   creator_id: string;
@@ -145,6 +148,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [unrevealedUrl, setUnrevealedUrl] = useState("");
+  const [introVideoUrl, setIntroVideoUrl] = useState("");
+  const [processingGifUrl, setProcessingGifUrl] = useState("");
   const [unrevealedFile, setUnrevealedFile] = useState<File | null>(null);
   const [unrevealedPreview, setUnrevealedPreview] = useState<string | null>(null);
   const [isDraggingUnrevealed, setIsDraggingUnrevealed] = useState(false);
@@ -190,6 +195,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
       setBannerPreview(collection.banner_url);
       setUnrevealedUrl(collection.unrevealed_image_url || "");
       setUnrevealedPreview(collection.unrevealed_image_url);
+      setIntroVideoUrl(collection.mint_intro_video_url || "");
+      setProcessingGifUrl(collection.mint_processing_gif_url || "");
       setTotalSupply(collection.total_supply);
       setRoyaltyPercent(collection.royalty_percent);
       setStatus(collection.status);
@@ -329,6 +336,17 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
     setIsDraggingBanner(false);
     const file = e.dataTransfer.files?.[0];
     if (file) processBannerFile(file);
+  };
+
+  const uploadMintMedia = async (file: File): Promise<string | null> => {
+    try {
+      const wallet = { address: collection.creator_id, chainType: collection.chain || 'solana', network: network || 'devnet' };
+      return await uploadToArweave(file, wallet, false, undefined, undefined, undefined, false, getSolanaProvider());
+    } catch (err) {
+      console.error("Mint media upload error:", err);
+      toast.error("Upload failed. Make sure your Solana wallet is connected to fund storage.");
+      return null;
+    }
   };
 
   const uploadImageToStorage = async (): Promise<string | null> => {
@@ -539,6 +557,8 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
           image_url: finalImageUrl?.trim() || null,
           banner_url: finalBannerUrl?.trim() || null,
           unrevealed_image_url: finalUnrevealedUrl?.trim() || null,
+          mint_intro_video_url: introVideoUrl.trim() || null,
+          mint_processing_gif_url: processingGifUrl.trim() || null,
           total_supply: totalSupply,
           royalty_percent: royaltyPercent,
           status,
@@ -1069,6 +1089,15 @@ export function CollectionEditForm({ collection, onSave, onCancel }: CollectionE
                   )}
                 </div>
               </div>
+
+              <Separator className="my-6" />
+              <MintMediaFields
+                introVideoUrl={introVideoUrl}
+                setIntroVideoUrl={setIntroVideoUrl}
+                processingGifUrl={processingGifUrl}
+                setProcessingGifUrl={setProcessingGifUrl}
+                upload={uploadMintMedia}
+              />
 
               {/* Advanced Storage Section */}
               <Separator className="my-6" />
