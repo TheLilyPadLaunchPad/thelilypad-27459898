@@ -80,6 +80,8 @@ const getRarityTier = (score: number): RarityTier => {
 interface NFT {
   id: string;
   token_id: number;
+  asset_id?: string | null;
+  nft_token_id?: string | null;
   name: string | null;
   description: string | null;
   image_url: string | null;
@@ -1618,6 +1620,8 @@ export default function MyNFTs() {
         nft={listNft ? {
           id: listNft.id,
           token_id: listNft.token_id,
+          asset_id: listNft.asset_id,
+          nft_token_id: listNft.nft_token_id,
           name: listNft.name,
           image_url: listNft.image_url,
           collection_id: listNft.collection_id,
