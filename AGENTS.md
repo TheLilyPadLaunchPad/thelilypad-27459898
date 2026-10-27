@@ -1,1 +1,2 @@
 - Solana secondary sales use Core TransferDelegate approvals to the platform key plus a buyer-signed split payment verified server-side in `marketplace-purchase` before delivery — no custom escrow program needed, NFT stays in seller wallet until sold.
+- ApeChain drops: creators deploy their own `LilyApeDrop` ERC-721 (source `src/chains/apechain/LilyApeDrop.sol.txt`, compiled ABI/bytecode in `dropArtifact.ts`) from their wallet — no factory, so no platform-deployed contract is needed; platform fee is split inside `mint()`. Recompile with solc 0.8.24 if the source changes.
