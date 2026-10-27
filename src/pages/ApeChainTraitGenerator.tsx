@@ -10,7 +10,7 @@
  *      images/, metadata/ (ERC-721 shaped JSON) and collection.json.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ApeChainDeployPanel } from "@/components/launchpad/ApeChainDeployPanel";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
@@ -36,9 +36,7 @@ import {
     Download,
     Save,
     Lock,
-    Crown,
     Plus,
-    Pencil,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -46,14 +44,21 @@ import { LayerManager, Layer } from "@/components/launchpad/LayerManager";
 import { TraitRarityEditor } from "@/components/launchpad/TraitRarityEditor";
 import { TraitRulesManager, TraitRule } from "@/components/launchpad/TraitRulesManager";
 import { generateAssets, GeneratedAsset } from "@/lib/assetGenerator";
+import { GeneratedAssetGrid } from "@/components/launchpad/GeneratedAssetGrid";
 import { AssetMetadataEditor } from "@/components/launchpad/AssetMetadataEditor";
 import { useSEO } from "@/hooks/useSEO";
 import { cn } from "@/lib/utils";
+import { readGeneratorRecovery, writeGeneratorRecovery } from "@/lib/generatorRecovery";
 
 type Step = "setup" | "layers" | "rarity" | "generate" | "review";
 
 const MAX_SUPPLY = 10000;
 const DRAFT_KEY = "lilypad_draft_apechain_trait";
+interface RecoveryDraft {
+    name: string; symbol: string; description: string; externalUrl: string;
+    royalty: number; targetSupply: number; layers: Layer[]; rules: TraitRule[];
+    generatedAssets: GeneratedAsset[]; currentStep: Step; metadataFormat: "csv" | "json";
+}
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
     const res = await fetch(dataUrl);
@@ -85,6 +90,44 @@ export default function ApeChainTraitGenerator() {
     // Editing / 1-of-1 pieces
     const [editingAsset, setEditingAsset] = useState<GeneratedAsset | null>(null);
     const [editorOpen, setEditorOpen] = useState(false);
+
+    const [recoveryReady, setRecoveryReady] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        readGeneratorRecovery<RecoveryDraft>(DRAFT_KEY).then(draft => {
+            if (!active || !draft) return;
+            setName(draft.name); setSymbol(draft.symbol); setDescription(draft.description);
+            setExternalUrl(draft.externalUrl); setRoyalty(draft.royalty); setTargetSupply(draft.targetSupply);
+            setLayers(draft.layers); setRules(draft.rules); setGeneratedAssets(draft.generatedAssets);
+            setMetadataFormat(draft.metadataFormat);
+            setCurrentStep(draft.currentStep);
+            toast.success("Your collection has been restored");
+        }).catch(() => {
+            if (active) toast.warning("Browser recovery is unavailable. Download your collection before leaving.");
+        }).finally(() => { if (active) setRecoveryReady(true); });
+        return () => { active = false; };
+    }, []);
+
+    useEffect(() => {
+        if (!recoveryReady || !name || isGenerating) return;
+        const timer = setTimeout(() => {
+            writeGeneratorRecovery<RecoveryDraft>(DRAFT_KEY, {
+                name, symbol, description, externalUrl, royalty, targetSupply, layers, rules,
+                generatedAssets, currentStep, metadataFormat,
+            }).catch(() => toast.warning("Could not save recovery copy. Download your collection before leaving."));
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [recoveryReady, name, symbol, description, externalUrl, royalty, targetSupply, layers, rules, generatedAssets, currentStep, metadataFormat, isGenerating]);
+
+    useEffect(() => {
+        if (!name && layers.length === 0) return;
+        const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+            event.preventDefault(); event.returnValue = "";
+        };
+        window.addEventListener("beforeunload", warnBeforeLeaving);
+        return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+    }, [name, layers.length]);
 
     const openEditor = (asset: GeneratedAsset) => {
         setEditingAsset(asset);
@@ -145,6 +188,15 @@ export default function ApeChainTraitGenerator() {
             );
             if (assets.length === 0) {
                 throw new Error("No unique combinations generated. Add more traits or layers.");
+            }
+            // Commit artwork and source files before showing the scrolling review.
+            try {
+                await writeGeneratorRecovery<RecoveryDraft>(DRAFT_KEY, {
+                    name, symbol, description, externalUrl, royalty, targetSupply, layers, rules,
+                    generatedAssets: assets, currentStep: "review", metadataFormat,
+                });
+            } catch {
+                toast.warning("Recovery copy could not be saved. Download your collection before leaving.");
             }
             setGeneratedAssets(assets);
             setCurrentStep("review");
@@ -452,7 +504,7 @@ export default function ApeChainTraitGenerator() {
                                         <Button
                                             className="w-full h-12 text-lg gap-2 mt-2"
                                             onClick={() => setCurrentStep("layers")}
-                                            disabled={!name}
+                                            disabled={!name || !recoveryReady}
                                         >
                                             Next: Add Layers <ChevronRight className="w-5 h-5" />
                                         </Button>
@@ -650,38 +702,7 @@ export default function ApeChainTraitGenerator() {
                                             </Button>
                                         </div>
 
-                                        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3 max-h-[480px] overflow-y-auto pr-1">
-                                            {generatedAssets.map((asset) => (
-                                                <button
-                                                    type="button"
-                                                    key={asset.id}
-                                                    onClick={() => openEditor(asset)}
-                                                    title={`Edit ${asset.metadata.name}`}
-                                                    className="group relative aspect-square rounded-lg overflow-hidden border border-border bg-muted/30 hover:border-primary transition-colors"
-                                                >
-                                                    {asset.preview ? (
-                                                        <img
-                                                            src={asset.preview}
-                                                            alt={asset.metadata.name}
-                                                            loading="lazy"
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground px-1 text-center">
-                                                            Add artwork
-                                                        </span>
-                                                    )}
-                                                    {asset.isOneOfOne && (
-                                                        <Badge className="absolute top-1 left-1 gap-1 text-[9px] px-1.5 py-0">
-                                                            <Crown className="w-2.5 h-2.5" /> 1/1
-                                                        </Badge>
-                                                    )}
-                                                    <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-background/60">
-                                                        <Pencil className="w-4 h-4 text-foreground" />
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
+                                        <GeneratedAssetGrid assets={generatedAssets} onEdit={openEditor} />
 
                                         <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30 text-sm text-muted-foreground">
                                             <Lock className="w-4 h-4 mt-0.5 shrink-0" />
