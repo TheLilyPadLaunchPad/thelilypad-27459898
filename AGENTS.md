@@ -1,0 +1,1 @@
+- Solana secondary sales use Core TransferDelegate approvals to the platform key plus a buyer-signed split payment verified server-side in `marketplace-purchase` before delivery — no custom escrow program needed, NFT stays in seller wallet until sold.

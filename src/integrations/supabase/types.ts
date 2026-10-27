@@ -2218,14 +2218,21 @@ export type Database = {
           buyer_id: string | null
           created_at: string
           currency: string
+          delegate_tx: string | null
+          delivery_error: string | null
+          delivery_tx: string | null
           expires_at: string | null
           id: string
           nft_id: string
+          payment_tx: string | null
+          platform_fee_amount: number | null
           price: number
+          royalty_amount: number | null
           seller_address: string
           seller_claimed: boolean
           seller_claimed_at: string | null
           seller_id: string
+          seller_proceeds: number | null
           sold_at: string | null
           status: string
           tx_hash: string | null
@@ -2235,14 +2242,21 @@ export type Database = {
           buyer_id?: string | null
           created_at?: string
           currency?: string
+          delegate_tx?: string | null
+          delivery_error?: string | null
+          delivery_tx?: string | null
           expires_at?: string | null
           id?: string
           nft_id: string
+          payment_tx?: string | null
+          platform_fee_amount?: number | null
           price: number
+          royalty_amount?: number | null
           seller_address: string
           seller_claimed?: boolean
           seller_claimed_at?: string | null
           seller_id: string
+          seller_proceeds?: number | null
           sold_at?: string | null
           status?: string
           tx_hash?: string | null
@@ -2252,14 +2266,21 @@ export type Database = {
           buyer_id?: string | null
           created_at?: string
           currency?: string
+          delegate_tx?: string | null
+          delivery_error?: string | null
+          delivery_tx?: string | null
           expires_at?: string | null
           id?: string
           nft_id?: string
+          payment_tx?: string | null
+          platform_fee_amount?: number | null
           price?: number
+          royalty_amount?: number | null
           seller_address?: string
           seller_claimed?: boolean
           seller_claimed_at?: string | null
           seller_id?: string
+          seller_proceeds?: number | null
           sold_at?: string | null
           status?: string
           tx_hash?: string | null

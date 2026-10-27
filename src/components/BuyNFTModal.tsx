@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSolanaMarketplace } from "@/hooks/useSolanaMarketplace";
 import {
   Dialog,
   DialogContent,
@@ -52,11 +53,23 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
   const monadTransfer = useMonadTransfer();
   const [isSuccess, setIsSuccess] = useState(false);
   const tx = useTxStatus();
+  const market = useSolanaMarketplace();
+  const [quote, setQuote] = useState<any>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [stage, setStage] = useState<string | null>(null);
+  const [pendingPayment, setPendingPayment] = useState<string | null>(null);
 
   // Determine chain and currency
   const chainId = listing?.chain || 'solana';
   const currencySymbol = listing?.currency || (chainId === 'monad' ? 'MON' : 'SOL');
   const chainName = chainId === 'monad' ? 'Monad' : 'Solana';
+
+  useEffect(() => {
+    setQuote(null); setQuoteError(null); setPendingPayment(null); setIsSuccess(false);
+    if (!open || !listing || !address || chainId !== 'solana' || listing.seller_address === address) return;
+    market.getQuote(listing.id).then(setQuote).catch((e) => setQuoteError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, listing?.id, address, chainId]);
 
   const isLoading = solanaTransfer.isLoading || monadTransfer.isLoading || tx.isBusy;
 
@@ -68,6 +81,27 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
     }
     if (chainId !== 'monad' && chainId !== 'solana') {
       toast.error(`${chainName} purchases not yet supported in this modal.`);
+      return;
+    }
+    if (chainId === 'solana') {
+      const result = await tx.run("Buy NFT", async () => {
+        try {
+          if (pendingPayment) {
+            const r = await market.retryDelivery(listing.id, pendingPayment);
+            return { signature: pendingPayment, deliveryTx: r.deliveryTx };
+          }
+          return await market.buyListing(listing.id, setStage);
+        } catch (e: any) {
+          if (e?.paymentSignature) setPendingPayment(e.paymentSignature);
+          throw e;
+        } finally { setStage(null); }
+      }, { chain: chainId, kind: "marketplace" });
+      if (result) {
+        setPendingPayment(null);
+        setIsSuccess(true);
+        toast.success("NFT delivered to your wallet!");
+        setTimeout(() => onSuccess(), 2000);
+      }
       return;
     }
     const assetAddr = listing.nft.contract_address || listing.nft.collection?.contract_address || "";
@@ -120,12 +154,23 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
             </div>
           </div>
 
+          {chainId === 'solana' && quote && (
+            <div className="rounded-lg border p-3 text-sm space-y-1">
+              <div className="flex justify-between"><span className="text-muted-foreground">Seller receives</span><span>{quote.sellerProceeds} SOL</span></div>
+              {quote.royalty > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Creator royalty</span><span>{quote.royalty} SOL</span></div>}
+              <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (2%)</span><span>{quote.platformFee} SOL</span></div>
+              <div className="flex justify-between font-semibold border-t pt-1"><span>You pay</span><span>{quote.price} SOL + network fee</span></div>
+            </div>
+          )}
+          {chainId === 'solana' && quoteError && <p className="text-sm text-destructive">{quoteError}</p>}
+          {stage && <p className="text-xs text-muted-foreground text-center">{stage}</p>}
+
           <TxStatusCard status={tx.status} chain={chainId} onRetry={handleBuy} onDismiss={tx.reset} />
 
           <Button
             className="w-full gap-2"
             onClick={handleBuy}
-            disabled={isLoading || !address || isSuccess}
+            disabled={isLoading || !address || isSuccess || (chainId === 'solana' && listing.seller_address !== address && !quote && !pendingPayment)}
           >
             {isLoading ? (
               <>
@@ -137,7 +182,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
             ) : (
               <>
                 <ShoppingCart className="w-4 h-4" />
-                {listing.seller_address === address ? "Manage Listing" : "Buy Now"}
+                {listing.seller_address === address ? "Manage Listing" : pendingPayment ? "Retry delivery" : "Buy Now"}
               </>
             )}
           </Button>
@@ -145,7 +190,7 @@ export function BuyNFTModal({ listing, open, onOpenChange, onSuccess }: BuyNFTMo
           <p className="text-xs text-center text-muted-foreground">
             {listing.seller_address === address
               ? "You own this listing."
-              : chainId === 'monad' ? "Confirms via your Monad wallet." : "Note: Seller signature required for P2P transfer."}
+              : chainId === 'monad' ? "Confirms via your Monad wallet." : "Your payment is split on chain and the NFT goes straight to your wallet."}
           </p>
         </div>
       </DialogContent>

@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useWallet } from "@/providers/WalletProvider";
 import { SECONDARY_MARKETPLACE_ENABLED } from "@/config/featureFlags";
 import { ComingSoon } from "@/components/ComingSoon";
+import { useSolanaMarketplace } from "@/hooks/useSolanaMarketplace";
 // ── Types ─────────────────────────────────────────────────────────────────────
 // ... existing types ...
 
@@ -76,6 +77,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
 
   // Authoritative chain source: wallet chainType (not URL param or collection.chain)
   const { chainType } = useWallet();
+  const { approveListing } = useSolanaMarketplace();
   // Derive the chain: wallet chainType could be wrong if exploring other chain's NFTs.
   // Use collection chain, then fallback.
   const derivedChain = nft?.collection?.chain;
@@ -120,16 +122,18 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
         throw new Error("You must be logged in to list an NFT");
       }
 
-      // For Solana/Monad: would trigger wallet approval + escrow
-      if (nftIdentifier) {
+      // Solana: seller signs an on-chain approval so the marketplace can hand
+      // the NFT to the buyer once their payment is verified. NFT stays in wallet.
+      let delegateTx: string | null = null;
+      if (resolvedChain === 'solana') {
+        const assetId = (nft as any).asset_id || nft.nft_token_id;
+        if (!assetId) throw new Error("This NFT has no on-chain asset address yet.");
         setListingStatus('approving');
-        // Approval is a no-op for Solana Core (no pre-approval needed)
-        // For future EVM/Monad: would call setApprovalForAll here
-        console.log(`[ListNFT] ${resolvedChain} approval check for`, nftIdentifier);
+        delegateTx = await approveListing(assetId);
         setListingStatus('listing');
       }
 
-      let onChainResult = null;
+      const onChainResult: { hash?: string; offerIndex?: string } | null = null;
 
       // Insert listing record — currency derived from chain, not hardcoded
       const { error: insertError } = await supabase
@@ -142,6 +146,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           currency: currency.symbol,
           expires_at: expiresAt?.toISOString() || null,
           tx_hash: onChainResult?.hash || null,
+          delegate_tx: delegateTx,
           marketplace_id: onChainResult?.offerIndex || null,
           status: 'active',
         }]);
@@ -200,7 +205,7 @@ export function ListNFTModal({ nft, open, onOpenChange, onSuccess }: ListNFTModa
           </DialogDescription>
         </DialogHeader>
 
-        {!SECONDARY_MARKETPLACE_ENABLED ? (
+        {!SECONDARY_MARKETPLACE_ENABLED && resolvedChain !== 'solana' ? (
           <ComingSoon
             inline
             title="Marketplace Coming Soon"
