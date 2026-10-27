@@ -77,7 +77,7 @@ export async function deployApeDrop(p: ApeDropParams): Promise<{ address: Addres
       PLATFORM_WALLETS.monad.treasury as Address,
       APECHAIN_PLATFORM_FEE_BPS,
     ],
-  });
+  } as any);
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success" || !receipt.contractAddress) throw new Error("Contract deployment failed on ApeChain");
   return { address: receipt.contractAddress, hash, deployer: account };
