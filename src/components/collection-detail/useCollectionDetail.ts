@@ -51,6 +51,7 @@ export function useCollectionDetail() {
     const chainConfig = CHAINS[collectionChain] || CHAINS.solana;
     const isSolana = collectionChain === 'solana';
     const isMonad = collectionChain === 'monad';
+    const isApeChain = collectionChain === 'apechain';
 
     const currency = chainConfig?.symbol || 'SOL';
     const collectionNetwork = chainConfig?.name || 'Solana';
@@ -213,7 +214,7 @@ export function useCollectionDetail() {
 
     const handleMint = async (quantityOverride?: number) => {
         const amount = quantityOverride || mintQuantity;
-        if (!isConnected) {
+        if (!isConnected && !isApeChain) {
             connect();
             return;
         }
@@ -271,12 +272,25 @@ export function useCollectionDetail() {
                 } else {
                     toast.error(result.error || "Monad mint failed", { id: 'monad-mint' });
                 }
+            } else if (isApeChain) {
+                toast.loading(`Minting on ApeChain — confirm in your wallet...`, { id: 'ape-mint' });
+                const { hash } = await mintApeDrop(collection.contract_address as `0x${string}`, amount);
+                setMintTxHash(hash);
+                setRevealTxHash(hash);
+                setRevealedNfts(generateRandomAttributes(amount, collection.minted));
+                setShowRevealModal(true);
+                try {
+                    const info = await readApeDrop(collection.contract_address as `0x${string}`);
+                    setCollection((c: any) => c ? { ...c, minted: info.totalSupply } : c);
+                } catch { /* display only */ }
+                toast.success("Minted! The NFT is in your wallet.", { id: 'ape-mint' });
             } else {
                 toast.info(`${collectionNetwork} minting logic coming soon`);
             }
         } catch (err: any) {
             console.error("Mint failed:", err);
-            toast.error("Mint failed", { description: err.message });
+            toast.dismiss('ape-mint');
+            toast.error("Mint failed", { description: err?.shortMessage || err?.message });
         } finally {
             setIsMinting(false);
         }
