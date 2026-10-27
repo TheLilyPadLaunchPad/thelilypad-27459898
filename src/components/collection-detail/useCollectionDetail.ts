@@ -14,6 +14,7 @@ import { SupportedChain, CHAINS } from "@/config/chains";
 import { isTestnet as isChainTestnet } from "@/lib/chainUtils";
 import { Collection, Phase, AllowlistEntry } from "./types";
 import { getBaseChain, isPhaseCurrentlyLive } from "./utils";
+import { mintApeDrop, readApeDrop } from "@/chains/apechain/drop";
 
 export function useCollectionDetail() {
     const { collectionId } = useParams();
@@ -95,6 +96,12 @@ export function useCollectionDetail() {
                 toast.error("Failed to load collection");
             } else if (data) {
                 setCollection(data as unknown as Collection);
+                const d: any = data;
+                if (String(d?.chain || '').startsWith('apechain') && /^0x[a-fA-F0-9]{40}$/.test(d?.contract_address || '')) {
+                    readApeDrop(d.contract_address).then((info) =>
+                        setCollection((c: any) => c && c.id === d.id ? { ...c, minted: info.totalSupply } : c)
+                    ).catch(() => {});
+                }
                 const phasesData = data.phases as unknown as Phase[] | null;
                 if (phasesData && Array.isArray(phasesData) && phasesData.length > 0) {
                     // Pick the phase whose time window contains "now" first;

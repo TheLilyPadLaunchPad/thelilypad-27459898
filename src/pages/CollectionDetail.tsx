@@ -397,7 +397,7 @@ export default function CollectionDetail() {
 
             <CollectionBuybackCard
               collectionId={collection.id}
-              chainSymbol={collection.chain === "monad" ? "MON" : "SOL"}
+              chainSymbol={currency}
             />
           </div>
         </div>
