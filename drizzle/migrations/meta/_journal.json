@@ -57,6 +57,13 @@
       "when": 1793051671391,
       "tag": "0007_admin_list_shop_files",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793064767029,
+      "tag": "0008_solana_marketplace_settlement",
+      "breakpoints": true
     }
   ]
 }
