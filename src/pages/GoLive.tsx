@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { LiveChat } from "@/components/LiveChat";
 import { useWallet } from "@/providers/WalletProvider";
+import { LIVEPEER_STREAMING_ENABLED } from "@/config/featureFlags";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 export default function GoLive() {
@@ -442,6 +443,12 @@ export default function GoLive() {
                     <CardDescription>
                       Set your stream title and category before going live
                     </CardDescription>
+                    {!LIVEPEER_STREAMING_ENABLED && (
+                      <p className="text-xs text-muted-foreground pt-1">
+                        Camera and screen streams are a local preview for now — viewers can't watch them yet.
+                        To reach people today, use <span className="font-medium">Stream from YouTube</span> above.
+                      </p>
+                    )}
                   </CardHeader>
                   <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
                     {/* Stream Source Selection */}
