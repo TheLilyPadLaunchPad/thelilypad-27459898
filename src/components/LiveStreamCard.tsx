@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Eye, Users, Play, Radio } from 'lucide-react';
+import { Eye, Users, Play, Radio, Youtube } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStreamPresence } from '@/hooks/useStreamPresence';
 
@@ -16,7 +16,7 @@ interface LiveStreamCardProps {
   viewerCount?: number;
   thumbnailUrl?: string;
   category?: string;
-  streamType?: 'webrtc' | 'hls';
+  streamType?: 'youtube' | 'webrtc' | 'hls';
 }
 
 export const LiveStreamCard = ({
@@ -89,6 +89,15 @@ export const LiveStreamCard = ({
           <div className="absolute bottom-2 right-2">
             <Badge variant="outline" className="bg-black/50 text-white text-xs">
               Browser
+            </Badge>
+          </div>
+        )}
+
+        {streamType === 'youtube' && (
+          <div className="absolute bottom-2 right-2">
+            <Badge variant="outline" className="bg-black/50 text-white text-xs gap-1">
+              <Youtube className="h-3 w-3" />
+              YouTube
             </Badge>
           </div>
         )}

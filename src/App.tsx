@@ -27,7 +27,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import {
   DONOR_TIER_MINT_ENABLED,
-  LIVEPEER_STREAMING_ENABLED,
+  STREAMING_HUB_ENABLED,
 } from "@/config/featureFlags";
 import { ComingSoon } from "@/components/ComingSoon";
 
@@ -171,9 +171,9 @@ const AppContent = () => {
             <Route path="/profile-setup" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/wallet" element={<ProtectedRoute><WalletProfile /></ProtectedRoute>} />
-          <Route path="/streams" element={<ProtectedRoute>{LIVEPEER_STREAMING_ENABLED ? <Streams /> : <ComingSoon title="Live Streaming — Coming Soon" description="We're finalizing the streaming pipeline. Clips and the wait room remain open in the meantime." />}</ProtectedRoute>} />
+          <Route path="/streams" element={<ProtectedRoute>{STREAMING_HUB_ENABLED ? <Streams /> : <ComingSoon title="Live Streaming — Coming Soon" description="We're finalizing the streaming pipeline. Clips and the wait room remain open in the meantime." />}</ProtectedRoute>} />
           <Route path="/streamers" element={<ProtectedRoute><Streamers /></ProtectedRoute>} />
-          <Route path="/go-live" element={<ProtectedRoute>{LIVEPEER_STREAMING_ENABLED ? <GoLive /> : <ComingSoon title="Go Live — Coming Soon" description="Streaming for creators is launching shortly." />}</ProtectedRoute>} />
+          <Route path="/go-live" element={<ProtectedRoute>{STREAMING_HUB_ENABLED ? <GoLive /> : <ComingSoon title="Go Live — Coming Soon" description="Streaming for creators is launching shortly." />}</ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/earnings" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Earnings /></Suspense></ProtectedRoute>} />
           <Route path="/donor-profile" element={<ProtectedRoute><DonorProfile /></ProtectedRoute>} />
@@ -192,7 +192,7 @@ const AppContent = () => {
           <Route path="/launchpad/:collectionId" element={<ProtectedRoute><CollectionDetail /></ProtectedRoute>} />
           <Route path="/collection/:collectionId" element={<CollectionDetail />} />
           <Route path="/my-nfts" element={<ProtectedRoute><MyNFTs /></ProtectedRoute>} />
-          <Route path="/watch/:playbackId" element={<ProtectedRoute>{LIVEPEER_STREAMING_ENABLED ? <Watch /> : <ComingSoon title="Live Streaming — Coming Soon" description="Stream playback is launching with the streaming pipeline." />}</ProtectedRoute>} />
+          <Route path="/watch/:playbackId" element={<ProtectedRoute>{STREAMING_HUB_ENABLED ? <Watch /> : <ComingSoon title="Live Streaming — Coming Soon" description="Stream playback is launching with the streaming pipeline." />}</ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/buyback" element={<ProtectedRoute><AdminRoute><AdminBuyback /></AdminRoute></ProtectedRoute>} />
           <Route path="/fees" element={<ProtectedRoute><FeesAndPricing /></ProtectedRoute>} />
