@@ -120,15 +120,14 @@ export default function ProfileTypeSelection() {
       // Track referral if code exists
       if (referralCode && profile) {
         try {
-          const { data: refData } = await supabase
-            .from('referral_codes')
-            .select('user_id')
-            .eq('code', referralCode)
-            .maybeSingle();
+          const { data: referrerId } = await (supabase.rpc as any)(
+            'resolve_referral_code',
+            { p_code: referralCode }
+          );
 
-          if (refData) {
+          if (referrerId) {
             await (supabase.from('referral_signups') as any).insert({
-              referrer_id: refData.user_id,
+              referrer_id: referrerId as string,
               referred_user_id: profile.user_id,
               referral_code: referralCode,
             });
