@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Radio, Users, Share2, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSEO } from '@/hooks/useSEO';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useStreamPresence } from '@/hooks/useStreamPresence';
 
@@ -19,6 +20,13 @@ const Watch = () => {
 
   // Track viewer presence for real-time viewer count
   const { viewerCount, isConnected } = useStreamPresence(playbackId);
+  const [ytStream, setYtStream] = useState<{ title: string; youtube_video_id: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!playbackId || !/^[0-9a-f-]{36}$/i.test(playbackId)) return;
+    supabase.from('streams').select('title, youtube_video_id').eq('id', playbackId).maybeSingle()
+      .then(({ data }) => setYtStream(data ?? null));
+  }, [playbackId]);
 
   useSEO({
     title: "Watch Live | The Lily Pad",
@@ -98,23 +106,33 @@ const Watch = () => {
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Video Player */}
           <div className="lg:col-span-3">
-            <WebRTCViewer
-              className="w-full aspect-video rounded-xl overflow-hidden"
-            />
+            {ytStream?.youtube_video_id ? (
+              <iframe
+                className="w-full aspect-video rounded-xl overflow-hidden border border-border"
+                src={`https://www.youtube-nocookie.com/embed/${ytStream.youtube_video_id}?autoplay=1&playsinline=1`}
+                title={ytStream.title}
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
+            ) : (
+              <WebRTCViewer
+                className="w-full aspect-video rounded-xl overflow-hidden"
+              />
+            )}
             
             {/* Stream Info Below Player */}
             <div className="mt-4 p-4 bg-card rounded-xl border border-border">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-lg font-semibold">Live Stream</h1>
+                    <h1 className="text-lg font-semibold">{ytStream?.title || "Live Stream"}</h1>
                     <Badge className="bg-red-500 text-white">
                       <Radio className="w-3 h-3 mr-1 animate-pulse" />
                       LIVE
                     </Badge>
                   </div>
                   <p className="text-muted-foreground text-sm">
-                    Browser Stream • ID: {playbackId.slice(0, 12)}...
+                    {ytStream?.youtube_video_id ? "YouTube Live" : "Browser Stream"} • ID: {playbackId.slice(0, 12)}...
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">

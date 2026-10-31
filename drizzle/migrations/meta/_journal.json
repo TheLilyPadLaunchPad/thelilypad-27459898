@@ -78,6 +78,13 @@
       "when": 1793478371106,
       "tag": "0010_restrict_referral_code_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793488500680,
+      "tag": "0011_migration",
+      "breakpoints": true
     }
   ]
 }

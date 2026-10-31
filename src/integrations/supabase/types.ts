@@ -3535,6 +3535,7 @@ export type Database = {
           title: string
           total_views: number
           user_id: string
+          youtube_video_id: string | null
         }
         Insert: {
           category?: string | null
@@ -3550,6 +3551,7 @@ export type Database = {
           title?: string
           total_views?: number
           user_id: string
+          youtube_video_id?: string | null
         }
         Update: {
           category?: string | null
@@ -3565,6 +3567,7 @@ export type Database = {
           title?: string
           total_views?: number
           user_id?: string
+          youtube_video_id?: string | null
         }
         Relationships: [
           {

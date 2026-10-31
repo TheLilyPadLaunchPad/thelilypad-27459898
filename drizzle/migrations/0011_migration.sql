@@ -1,0 +1,2 @@
+ALTER TABLE public.streams ADD COLUMN IF NOT EXISTS youtube_video_id text;
+ALTER TABLE public.streams ADD CONSTRAINT streams_youtube_video_id_format CHECK (youtube_video_id IS NULL OR youtube_video_id ~ '^[A-Za-z0-9_-]{11}$');
