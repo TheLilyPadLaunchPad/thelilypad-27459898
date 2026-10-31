@@ -125,14 +125,14 @@ const Watch = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-lg font-semibold">Live Stream</h1>
+                    <h1 className="text-lg font-semibold">{ytStream?.title || "Live Stream"}</h1>
                     <Badge className="bg-red-500 text-white">
                       <Radio className="w-3 h-3 mr-1 animate-pulse" />
                       LIVE
                     </Badge>
                   </div>
                   <p className="text-muted-foreground text-sm">
-                    Browser Stream • ID: {playbackId.slice(0, 12)}...
+                    {ytStream?.youtube_video_id ? "YouTube Live" : "Browser Stream"} • ID: {playbackId.slice(0, 12)}...
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
