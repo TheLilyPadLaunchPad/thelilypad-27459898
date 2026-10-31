@@ -3,8 +3,8 @@
  *
  * A stream has exactly one source, resolved in this order:
  * 1. `youtube_video_id` set  -> YouTube embed
- * 2. `stream_key_id` set     -> browser (WebRTC) stream
- * 3. neither                 -> the Livepeer/RTMP playback id
+ * 2. `stream_key_id` set     -> browser (WebRTC) stream, keyed on the stream key
+ * 3. neither                 -> the row itself (Livepeer/RTMP playback id)
  */
 export type StreamKind = 'youtube' | 'webrtc' | 'hls';
 
@@ -20,20 +20,20 @@ export function resolveStreamKind(stream: StreamSourceFields): StreamKind {
   return 'hls';
 }
 
+/** The id the player and the presence channel are keyed on. */
+export function streamPlaybackId(stream: StreamSourceFields): string {
+  return resolveStreamKind(stream) === 'webrtc'
+    ? String(stream.stream_key_id ?? '')
+    : String(stream.id ?? '');
+}
+
 /** In-app route that plays this stream. */
 export function streamWatchUrl(stream: StreamSourceFields): string {
-  const kind = resolveStreamKind(stream);
-  if (kind === 'youtube') return `/watch/${stream.id ?? ''}`;
-  if (kind === 'webrtc') return `/watch/${stream.stream_key_id}?type=webrtc`;
-  return `/watch/${stream.stream_key_id || stream.id || ''}`;
+  const id = streamPlaybackId(stream);
+  return resolveStreamKind(stream) === 'webrtc' ? `/watch/${id}?type=webrtc` : `/watch/${id}`;
 }
 
 /** Canonical YouTube URL for a video id (used for "Watch on YouTube"). */
 export function youtubeWatchUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
-}
-
-/** YouTube's own player URL, used as an embed fallback when the embed is blocked. */
-export function youtubeEmbedFallbackUrl(videoId: string): string {
-  return `https://www.youtube.com/embed/${videoId}`;
 }

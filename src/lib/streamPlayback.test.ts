@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveStreamKind, streamWatchUrl, youtubeWatchUrl } from './streamPlayback';
+import {
+  resolveStreamKind,
+  streamPlaybackId,
+  streamWatchUrl,
+  youtubeWatchUrl,
+} from './streamPlayback';
 
 const UUID = '3f2504e0-4f89-41d3-9a0c-0305e82c3e71';
 
@@ -19,19 +24,18 @@ test('a plain row falls back to the Livepeer playback id', () => {
   assert.equal(resolveStreamKind({ id: UUID }), 'hls');
 });
 
-test('YouTube streams open on their own row id', () => {
-  assert.equal(
-    streamWatchUrl({ id: UUID, youtube_video_id: 'dQw4w9WgXcQ' }),
-    `/watch/${UUID}`,
-  );
+test('YouTube streams play on their own row id', () => {
+  assert.equal(streamPlaybackId({ id: UUID, youtube_video_id: 'dQw4w9WgXcQ' }), UUID);
+  assert.equal(streamWatchUrl({ id: UUID, youtube_video_id: 'dQw4w9WgXcQ' }), `/watch/${UUID}`);
 });
 
-test('browser streams open on the stream key with the webrtc hint', () => {
+test('browser streams play on the stream key with the webrtc hint', () => {
+  assert.equal(streamPlaybackId({ id: UUID, stream_key_id: 'key-1' }), 'key-1');
   assert.equal(streamWatchUrl({ id: UUID, stream_key_id: 'key-1' }), '/watch/key-1?type=webrtc');
 });
 
-test('Livepeer streams use the stream key when present', () => {
-  assert.equal(streamWatchUrl({ id: UUID, stream_key_id: 'key-9' }), '/watch/key-9');
+test('a stream with no source plays on the row id', () => {
+  assert.equal(streamPlaybackId({ id: UUID }), UUID);
   assert.equal(streamWatchUrl({ id: UUID }), `/watch/${UUID}`);
 });
 

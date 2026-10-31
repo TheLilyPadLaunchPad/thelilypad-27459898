@@ -1,35 +1,76 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { WebRTCViewer } from '@/components/streaming/WebRTCViewer';
 import { LiveChat } from '@/components/LiveChat';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Radio, Users, Share2, Copy, Check } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Radio,
+  Users,
+  Share2,
+  Copy,
+  Check,
+  Youtube,
+  ExternalLink,
+} from 'lucide-react';
 import { useSEO } from '@/hooks/useSEO';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useStreamPresence } from '@/hooks/useStreamPresence';
+import { resolveStreamKind, youtubeWatchUrl } from '@/lib/streamPlayback';
+
+interface StreamRow {
+  id: string;
+  title: string;
+  category: string | null;
+  youtube_video_id: string | null;
+  stream_key_id: string | null;
+  user_id: string;
+}
 
 const Watch = () => {
   const { playbackId } = useParams<{ playbackId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [stream, setStream] = useState<StreamRow | null>(null);
+  const [streamerName, setStreamerName] = useState<string | null>(null);
 
   // Track viewer presence for real-time viewer count
   const { viewerCount, isConnected } = useStreamPresence(playbackId);
-  const [ytStream, setYtStream] = useState<{ title: string; youtube_video_id: string | null } | null>(null);
 
   useEffect(() => {
     if (!playbackId || !/^[0-9a-f-]{36}$/i.test(playbackId)) return;
-    supabase.from('streams').select('title, youtube_video_id').eq('id', playbackId).maybeSingle()
-      .then(({ data }) => setYtStream(data ?? null));
+    let cancelled = false;
+    supabase
+      .from('streams')
+      .select('id, title, category, youtube_video_id, stream_key_id, user_id')
+      .eq('id', playbackId)
+      .maybeSingle()
+      .then(async ({ data }) => {
+        if (cancelled || !data) return;
+        const row = data as StreamRow;
+        setStream(row);
+        const { data: profile } = await supabase
+          .from('streamer_profiles_public')
+          .select('display_name')
+          .eq('user_id', row.user_id)
+          .maybeSingle();
+        if (!cancelled) setStreamerName(profile?.display_name ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [playbackId]);
 
+  const videoId = stream?.youtube_video_id ?? null;
+  const isYouTube = resolveStreamKind(stream ?? {}) === 'youtube';
+  const sourceLabel = isYouTube ? 'YouTube Live' : 'Browser Stream';
+
   useSEO({
-    title: "Watch Live | The Lily Pad",
+    title: stream?.title ? `${stream.title} | Live on The Lily Pad` : 'Watch Live | The Lily Pad',
     description: "Watch live streams on The Lily Pad. Join the chat, support creators, and be part of the community."
   });
 
@@ -92,6 +133,17 @@ const Watch = () => {
           </Button>
 
           <div className="flex items-center gap-2">
+            {isYouTube && videoId && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => window.open(youtubeWatchUrl(videoId), '_blank', 'noopener,noreferrer')}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Watch on YouTube
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={copyShareLink}>
               {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
               Copy Link
@@ -106,11 +158,11 @@ const Watch = () => {
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Video Player */}
           <div className="lg:col-span-3">
-            {ytStream?.youtube_video_id ? (
+            {isYouTube && videoId ? (
               <iframe
                 className="w-full aspect-video rounded-xl overflow-hidden border border-border"
-                src={`https://www.youtube-nocookie.com/embed/${ytStream.youtube_video_id}?autoplay=1&playsinline=1`}
-                title={ytStream.title}
+                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0`}
+                title={stream?.title || 'YouTube Live stream'}
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
               />
@@ -125,15 +177,22 @@ const Watch = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-lg font-semibold">{ytStream?.title || "Live Stream"}</h1>
+                    <h1 className="text-lg font-semibold">{stream?.title || "Live Stream"}</h1>
                     <Badge className="bg-red-500 text-white">
                       <Radio className="w-3 h-3 mr-1 animate-pulse" />
                       LIVE
                     </Badge>
                   </div>
                   <p className="text-muted-foreground text-sm">
-                    {ytStream?.youtube_video_id ? "YouTube Live" : "Browser Stream"} • ID: {playbackId.slice(0, 12)}...
+                    {streamerName ? `${streamerName} • ` : ''}
+                    {sourceLabel}
+                    {stream?.category ? ` • ${stream.category}` : ''}
                   </p>
+                  {isYouTube && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Not loading? The video must be public or unlisted on YouTube with embedding allowed.
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Users className="h-4 w-4" />
