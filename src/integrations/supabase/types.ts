@@ -4372,6 +4372,7 @@ export type Database = {
         }
         Returns: string
       }
+      resolve_referral_code: { Args: { p_code: string }; Returns: string }
       wallet_owns_profile: {
         Args: { profile_uuid: string; wallet_addr: string }
         Returns: boolean

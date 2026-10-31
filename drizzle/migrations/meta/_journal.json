@@ -71,6 +71,13 @@
       "when": 1793068406027,
       "tag": "0009_collection_mint_media",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793478371106,
+      "tag": "0010_restrict_referral_code_lookup",
+      "breakpoints": true
     }
   ]
 }
