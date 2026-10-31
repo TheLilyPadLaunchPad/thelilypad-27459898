@@ -10,6 +10,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { DonorLeaderboard } from "@/components/DonorLeaderboard";
 import { LiveStreamCard } from "@/components/LiveStreamCard";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveStreamKind, streamPlaybackId, streamWatchUrl } from "@/lib/streamPlayback";
 import { toast } from "sonner";
 import { useSEO } from "@/hooks/useSEO";
 import { useQuery } from "@tanstack/react-query";
@@ -39,6 +40,7 @@ interface StreamWithProfile {
   started_at: string;
   user_id: string;
   stream_key_id: string | null;
+  youtube_video_id: string | null;
   thumbnail_url: string | null;
 }
 
@@ -156,7 +158,7 @@ const Streams: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="relative rounded-2xl overflow-hidden group cursor-pointer"
-                  onClick={() => navigate(`/watch/${featuredStream.stream_key_id || featuredStream.id}${featuredStream.stream_key_id ? '?type=webrtc' : ''}`)}
+                  onClick={() => navigate(streamWatchUrl(featuredStream))}
                 >
                   <div className="aspect-video relative bg-muted">
                     {featuredStream.thumbnail_url ? (
@@ -268,7 +270,7 @@ const Streams: React.FC = () => {
                   <h3 className="font-semibold mb-4">Quick Actions</h3>
                   <div className="flex flex-col gap-2">
                     <FollowButton streamerId={featuredStream.user_id} />
-                    <Button variant="outline" className="justify-start" onClick={() => navigate(`/watch/${featuredStream.stream_key_id || featuredStream.id}${featuredStream.stream_key_id ? '?type=webrtc' : ''}`)}>
+                    <Button variant="outline" className="justify-start" onClick={() => navigate(streamWatchUrl(featuredStream))}>
                       <MessageCircle className="w-4 h-4 mr-2" />
                       Join Chat
                     </Button>
@@ -363,7 +365,7 @@ const Streams: React.FC = () => {
                   <LiveStreamCard
                     key={stream.id}
                     id={stream.id}
-                    playbackId={stream.stream_key_id || stream.id}
+                    playbackId={streamPlaybackId(stream)}
                     name={stream.title}
                     isActive={stream.is_live}
                     creatorName={profile?.display_name || 'Anonymous'}
@@ -371,7 +373,7 @@ const Streams: React.FC = () => {
                     viewerCount={stream.peak_viewers}
                     thumbnailUrl={stream.thumbnail_url || undefined}
                     category={stream.category || undefined}
-                    streamType={stream.stream_key_id ? 'webrtc' : 'hls'}
+                    streamType={resolveStreamKind(stream)}
                   />
                 );
               })}
@@ -404,7 +406,7 @@ const Streams: React.FC = () => {
                     <LiveStreamCard
                       key={stream.id}
                       id={stream.id}
-                      playbackId={stream.stream_key_id || stream.id}
+                      playbackId={streamPlaybackId(stream)}
                       name={stream.title}
                       isActive={false}
                       creatorName={profile?.display_name || 'Anonymous'}
@@ -412,7 +414,7 @@ const Streams: React.FC = () => {
                       viewerCount={stream.total_views}
                       thumbnailUrl={stream.thumbnail_url || undefined}
                       category={stream.category || undefined}
-                      streamType={stream.stream_key_id ? 'webrtc' : 'hls'}
+                      streamType={resolveStreamKind(stream)}
                     />
                   );
                 })}

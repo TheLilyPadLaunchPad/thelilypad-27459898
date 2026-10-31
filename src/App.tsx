@@ -28,6 +28,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import {
   DONOR_TIER_MINT_ENABLED,
   LIVEPEER_STREAMING_ENABLED,
+  STREAMING_HUB_ENABLED,
 } from "@/config/featureFlags";
 import { ComingSoon } from "@/components/ComingSoon";
 

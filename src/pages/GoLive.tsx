@@ -429,7 +429,7 @@ export default function GoLive() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Preview and Controls */}
             <div className="lg:col-span-2 space-y-6">
-              {!isStreaming && <YouTubeLivePanel category={browserStreamCategory || undefined} />}
+              {!isStreaming && <YouTubeLivePanel />}
 
               {/* Stream Details Form */}
               {!isStreaming && (
