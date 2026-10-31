@@ -24,6 +24,7 @@ import { StreamControls } from "@/components/streaming/StreamControls";
 import { useWebRTCStream, StreamSource, StreamQuality } from "@/hooks/useWebRTCStream";
 import { useStreamPresence } from "@/hooks/useStreamPresence";
 import { useAdaptiveStreamQuality } from "@/hooks/useAdaptiveStreamQuality";
+import { YouTubeLivePanel } from "@/components/streaming/YouTubeLivePanel";
 import {
   Radio,
   Settings,
@@ -428,6 +429,8 @@ export default function GoLive() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Preview and Controls */}
             <div className="lg:col-span-2 space-y-6">
+              {!isStreaming && <YouTubeLivePanel category={browserStreamCategory || undefined} />}
+
               {/* Stream Details Form */}
               {!isStreaming && (
                 <Card className="glass-card border-border/50">
