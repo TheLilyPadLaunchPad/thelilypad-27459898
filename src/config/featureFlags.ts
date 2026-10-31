@@ -51,6 +51,19 @@ export const DONOR_TIER_MINT_ENABLED = flag("DONOR_TIER_MINT", false);
 export const LIVEPEER_STREAMING_ENABLED = flag("LIVEPEER_STREAMING", false);
 
 /**
+ * YouTube-hosted livestreams.
+ *
+ * A creator goes live on YouTube (OBS, phone or web) and pastes the link;
+ * the app embeds it and keeps chat, tips and presence running beside it.
+ * Needs no ingest pipeline of our own, so it ships ahead of the Livepeer
+ * path and keeps the streaming pages reachable on its own.
+ */
+export const YOUTUBE_STREAMING_ENABLED = flag("YOUTUBE_STREAMING", true);
+
+/** Streaming pages are reachable when any stream source is live. */
+export const STREAMING_HUB_ENABLED = LIVEPEER_STREAMING_ENABLED || YOUTUBE_STREAMING_ENABLED;
+
+/**
  * Seed-based XRPL launch path (`useXRPLLaunch`).
  *
  * Accepts raw secret seeds for batch minting — dev/testing only. Production
