@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,32 @@ export function YouTubeLivePanel() {
   const [liveId, setLiveId] = useState<string | null>(null);
   const [videoId, setVideoId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Restore an in-progress YouTube stream after a refresh or navigation,
+  // so "End stream" is always reachable.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const { data } = await supabase
+        .from("streams")
+        .select("id, youtube_video_id")
+        .eq("user_id", user.id)
+        .eq("is_live", true)
+        .not("youtube_video_id", "is", null)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled && data) {
+        setLiveId(data.id);
+        setVideoId(data.youtube_video_id);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const start = async () => {
     const parsed = parseYouTubeVideoId(link);

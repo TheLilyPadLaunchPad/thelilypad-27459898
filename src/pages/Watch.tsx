@@ -37,12 +37,16 @@ const Watch = () => {
   const [copied, setCopied] = useState(false);
   const [stream, setStream] = useState<StreamRow | null>(null);
   const [streamerName, setStreamerName] = useState<string | null>(null);
+  const [streamLoaded, setStreamLoaded] = useState(false);
 
   // Track viewer presence for real-time viewer count
   const { viewerCount, isConnected } = useStreamPresence(playbackId);
 
   useEffect(() => {
-    if (!playbackId || !/^[0-9a-f-]{36}$/i.test(playbackId)) return;
+    if (!playbackId || !/^[0-9a-f-]{36}$/i.test(playbackId)) {
+      setStreamLoaded(true);
+      return;
+    }
     let cancelled = false;
     supabase
       .from('streams')
@@ -50,15 +54,18 @@ const Watch = () => {
       .eq('id', playbackId)
       .maybeSingle()
       .then(async ({ data }) => {
-        if (cancelled || !data) return;
-        const row = data as StreamRow;
-        setStream(row);
-        const { data: profile } = await supabase
-          .from('streamer_profiles_public')
-          .select('display_name')
-          .eq('user_id', row.user_id)
-          .maybeSingle();
-        if (!cancelled) setStreamerName(profile?.display_name ?? null);
+        if (cancelled) return;
+        if (data) {
+          const row = data as StreamRow;
+          setStream(row);
+          const { data: profile } = await supabase
+            .from('streamer_profiles_public')
+            .select('display_name')
+            .eq('user_id', row.user_id)
+            .maybeSingle();
+          if (!cancelled) setStreamerName(profile?.display_name ?? null);
+        }
+        setStreamLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -117,6 +124,25 @@ const Watch = () => {
     );
   }
 
+  // An id that matches no live stream must not show an empty "live" player.
+  if (streamLoaded && !stream) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto py-24 text-center">
+          <Radio className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-lg font-semibold mb-2">This stream isn't live right now.</p>
+          <p className="text-muted-foreground mb-4">
+            It may have ended, or the link may be out of date.
+          </p>
+          <Button variant="outline" onClick={() => navigate('/streams')}>
+            Browse live streams
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -134,14 +160,11 @@ const Watch = () => {
 
           <div className="flex items-center gap-2">
             {isYouTube && videoId && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => window.open(youtubeWatchUrl(videoId), '_blank', 'noopener,noreferrer')}
-              >
-                <ExternalLink className="h-4 w-4" />
-                Watch on YouTube
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <a href={youtubeWatchUrl(videoId)} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  Watch on YouTube
+                </a>
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={copyShareLink}>
