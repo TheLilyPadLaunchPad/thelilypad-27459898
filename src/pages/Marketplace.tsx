@@ -78,12 +78,12 @@ export default function Marketplace() {
     // Fetch the exact listing independently of the selected chain/category filters.
     const load = async () => {
       const { data, error } = await supabase.from('nft_listings')
-        .select('*,nft:minted_nfts(id,token_id,name,image_url,collection_id,owner_address,asset_id,nft_token_id,collection:collections(name,contract_address,chain))')
+        .select('*,nft:minted_nfts(id,token_id,name,image_url,collection_id,owner_address,asset_id,collection:collections(name,contract_address,chain))')
         .eq('id', listingParam).eq('status', 'active').maybeSingle();
       if (cancelled) return;
       if (error) { setListingLinkState('error'); return; }
       if (!data?.nft || !activeCollectibleListing(data)) { setListingLinkState('missing'); return; }
-      setSelectedListing({ ...data, chain: data.nft.collection?.chain || 'solana', nft: { ...data.nft, contract_address: data.nft.asset_id || data.nft.nft_token_id || undefined, collection: data.nft.collection || undefined } });
+      setSelectedListing({ ...data, chain: data.nft.collection?.chain || 'solana', nft: { ...data.nft, contract_address: data.nft.asset_id || undefined, collection: data.nft.collection || undefined } });
       setListingLinkState(null);
     };
     void load();

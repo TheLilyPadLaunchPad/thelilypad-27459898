@@ -14,17 +14,12 @@ import { toast } from 'sonner';
 
 async function findListing(nft: NFT, chain: SupportedChain) {
   // Match exact asset identity. Collection addresses and NFT names are not Solana asset IDs.
-  const columns = 'id,asset_id,nft_token_id,collection:collections!inner(contract_address,chain)';
+  const columns = 'id,asset_id,collection:collections!inner(contract_address,chain)';
   let ids: string[] = [];
   if (chain === 'solana') {
-    const results = await Promise.all([
-      supabase.from('minted_nfts').select(columns).eq('asset_id', nft.contractAddress),
-      supabase.from('minted_nfts').select(columns).eq('nft_token_id', nft.contractAddress),
-    ]);
-    for (const result of results) {
-      if (result.error) throw result.error;
-      ids.push(...(result.data || []).filter(row => getDbChainValues(chain).includes(row.collection.chain)).map(row => row.id));
-    }
+    const result = await supabase.from('minted_nfts').select('id,chain').eq('asset_id', nft.contractAddress).in('chain', getDbChainValues(chain));
+    if (result.error) throw result.error;
+    ids = (result.data || []).map(row => row.id);
   } else if (/^\d+$/.test(nft.tokenId) && Number.isSafeInteger(Number(nft.tokenId))) {
     const result = await supabase.from('minted_nfts').select(columns).eq('token_id', Number(nft.tokenId)).eq('collection.contract_address', nft.contractAddress).in('collection.chain', getDbChainValues(chain));
     if (result.error) throw result.error;
