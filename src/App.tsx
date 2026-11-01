@@ -80,6 +80,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Lazy load non-critical pages for better initial bundle size
 const WalletProfile = lazy(() => import("./pages/WalletProfile"));
+const WalletGallery = lazy(() => import("./pages/WalletGallery"));
 const TransactionHistory = lazy(() => import("./pages/TransactionHistory"));
 const Streams = lazy(() => import("./pages/Streams"));
 const Streamers = lazy(() => import("./pages/Streamers"));
@@ -171,6 +172,7 @@ const AppContent = () => {
             <Route path="/profile-setup" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/wallet" element={<ProtectedRoute><WalletProfile /></ProtectedRoute>} />
+            <Route path="/wallet/gallery" element={<WalletGallery />} />
           <Route path="/streams" element={<ProtectedRoute>{STREAMING_HUB_ENABLED ? <Streams /> : <ComingSoon title="Live Streaming — Coming Soon" description="We're finalizing the streaming pipeline. Clips and the wait room remain open in the meantime." />}</ProtectedRoute>} />
           <Route path="/streamers" element={<ProtectedRoute><Streamers /></ProtectedRoute>} />
           <Route path="/go-live" element={<ProtectedRoute>{STREAMING_HUB_ENABLED ? <GoLive /> : <ComingSoon title="Go Live — Coming Soon" description="Streaming for creators is launching shortly." />}</ProtectedRoute>} />

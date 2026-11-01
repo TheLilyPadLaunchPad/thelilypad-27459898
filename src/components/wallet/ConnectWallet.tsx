@@ -208,6 +208,11 @@ export const ConnectWallet: React.FC<ConnectWalletProps> = ({
             My NFTs
           </DropdownMenuItem>
 
+          <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/wallet/gallery')}>
+            <User className="w-4 h-4 mr-2" />
+            Wallet Gallery
+          </DropdownMenuItem>
+
           <DropdownMenuItem
             className="cursor-pointer"
             onClick={() => window.open(explorerUrl, "_blank")}
