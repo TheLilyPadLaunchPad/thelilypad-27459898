@@ -17,7 +17,7 @@ async function findListing(nft: NFT, chain: SupportedChain) {
   const columns = 'id,asset_id,collection:collections!inner(contract_address,chain)';
   let ids: string[] = [];
   if (chain === 'solana') {
-    const result = await supabase.from('minted_nfts').select('id,chain').eq('asset_id', nft.contractAddress).in('chain', getDbChainValues(chain));
+    const result = await supabase.from('minted_nfts').select(columns).eq('asset_id', nft.contractAddress).in('collection.chain', getDbChainValues(chain));
     if (result.error) throw result.error;
     ids = (result.data || []).map(row => row.id);
   } else if (/^\d+$/.test(nft.tokenId) && Number.isSafeInteger(Number(nft.tokenId))) {
