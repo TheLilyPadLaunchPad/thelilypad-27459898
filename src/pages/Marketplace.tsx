@@ -40,6 +40,7 @@ import { CuratedCategoryRail } from "@/components/sections/CuratedCategoryRail";
 import { useCuratedCollections } from "@/hooks/useCuratedCollections";
 import { CURATION_CATEGORIES, isCurationCategory, type CurationCategory } from "@/config/curation";
 import { useSearchParams } from "react-router-dom";
+import { activeCollectibleListing } from '@/lib/collectibleDetails';
 
 
 
@@ -62,6 +63,32 @@ export default function Marketplace() {
   // Curated category filter (?category=featured_nft|utility_nft|memecoin_nft)
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
+  const listingParam = searchParams.get('listing');
+  const [listingLinkState, setListingLinkState] = useState<'loading' | 'missing' | 'error' | null>(null);
+  const closeLinkedListing = () => {
+    setSelectedListing(null);
+    const params = new URLSearchParams(searchParams);
+    params.delete('listing');
+    setSearchParams(params, { replace: true });
+  };
+  useEffect(() => {
+    if (!listingParam) { setListingLinkState(null); return; }
+    let cancelled = false;
+    setListingLinkState('loading');
+    // Fetch the exact listing independently of the selected chain/category filters.
+    const load = async () => {
+      const { data, error } = await supabase.from('nft_listings')
+        .select('*,nft:minted_nfts(id,token_id,name,image_url,collection_id,owner_address,asset_id,collection:collections(name,contract_address,chain))')
+        .eq('id', listingParam).eq('status', 'active').maybeSingle();
+      if (cancelled) return;
+      if (error) { setListingLinkState('error'); return; }
+      if (!data?.nft || !activeCollectibleListing(data)) { setListingLinkState('missing'); return; }
+      setSelectedListing({ ...data, chain: data.nft.collection?.chain || 'solana', nft: { ...data.nft, contract_address: data.nft.asset_id || undefined, collection: data.nft.collection || undefined } });
+      setListingLinkState(null);
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [listingParam]);
   const category: CurationCategory | null = isCurationCategory(categoryParam) ? categoryParam : null;
   const setCategory = (next: CurationCategory | null) => {
     const params = new URLSearchParams(searchParams);
@@ -343,12 +370,13 @@ export default function Marketplace() {
         </div>
 
         {/* Buy NFT Modal */}
+        {listingLinkState && <p role="status" className="text-sm text-muted-foreground py-4">{listingLinkState === 'loading' ? 'Opening marketplace listing…' : listingLinkState === 'error' ? 'Could not load this listing. Please refresh to try again.' : 'This listing is no longer available.'}</p>}
         {selectedListing && (
           <BuyNFTModal
             open={!!selectedListing}
-            onOpenChange={(open) => !open && setSelectedListing(null)}
+            onOpenChange={(open) => { if (!open) closeLinkedListing(); }}
             listing={selectedListing}
-            onSuccess={() => setSelectedListing(null)}
+            onSuccess={closeLinkedListing}
           />
         )}
 
