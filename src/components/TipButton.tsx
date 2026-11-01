@@ -27,16 +27,15 @@ export const TipButton: React.FC<TipButtonProps> = ({
   const { fetchWalletAddress, isLoading } = useStreamerWallet();
 
   const handleOpenTipModal = async () => {
-    // Fetch wallet address securely when user clicks tip
-    const result = await fetchWalletAddress(streamerId);
-    
-    if (result?.wallet_address) {
+    setWalletAddress(null);
+    try {
+      const result = await fetchWalletAddress(streamerId);
       setWalletAddress(result.wallet_address);
       setIsModalOpen(true);
-    } else {
+    } catch (error) {
       toast({
         title: "Cannot tip",
-        description: "This streamer hasn't set up their wallet yet or you need to be logged in.",
+        description: error instanceof Error ? error.message : "Unable to load the streamer’s tip wallet. Please try again.",
         variant: "destructive",
       });
     }

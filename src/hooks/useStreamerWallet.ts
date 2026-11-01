@@ -1,38 +1,21 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-interface WalletResponse {
-  wallet_address: string;
-  display_name: string | null;
-}
+import { requestStreamerWallet, type WalletResponse } from '@/lib/streamerWalletRequest';
 
 export const useStreamerWallet = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchWalletAddress = useCallback(async (streamerUserId: string): Promise<WalletResponse | null> => {
+  const fetchWalletAddress = useCallback(async (streamerUserId: string): Promise<WalletResponse> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('get-streamer-wallet', {
-        body: { streamer_user_id: streamerUserId },
-      });
-
-      if (fnError) {
-        throw new Error(fnError.message);
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      return data as WalletResponse;
+      return await requestStreamerWallet(supabase, streamerUserId);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch wallet address';
       setError(errorMessage);
-      console.error('Error fetching wallet address:', err);
-      return null;
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }

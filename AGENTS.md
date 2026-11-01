@@ -8,3 +8,4 @@
 - Live chat inventory uses the authenticated session UUID, never the wallet address, for recorded shop purchases and follow-based channel emotes; recent selections must match freshly loaded inventory to avoid stale access.
 - Music launches persist permanent audio links in collection_audio_metadata and per-track titles/descriptions keyed by artwork_id in collections.artworks_metadata, so public collection playback can use published data without local draft files.
 - Watch tipping reuses TipButton with streams.user_id and streams.id so payout lookup stays on the existing protected server path.
+- Streamer wallet lookups require an actual auth session and explicitly send its access token, with one refresh retry; the function verifies authenticated claims before accessing payout data so guest API keys never substitute for user identity.
