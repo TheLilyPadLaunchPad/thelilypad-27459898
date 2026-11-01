@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Connect purchased stickers/emotes to live chat selection.
+- [ ] Add secure streamer tipping to the Watch page.
+- [ ] Add published music track playback to music collection pages.
+
 - [x] Expand collectible details with full artwork, metadata, indexed ownership, and exact marketplace listing links; real-wallet end-to-end verification remains unavailable.
 
 - [x] Prevent generated-collection review resets and recover ApeChain work after reloads.
