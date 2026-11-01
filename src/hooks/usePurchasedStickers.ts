@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isChatPackCategory, type ChatPackCategory } from '@/lib/chatInventory';
 
 interface StickerContent {
   id: string;
@@ -21,7 +22,7 @@ interface ShopItem {
 interface PurchasedPack {
   itemId: string;
   name: string;
-  category: 'sticker_pack' | 'emoji_pack';
+  category: ChatPackCategory;
   coverImage: string | null;
   contents: StickerContent[];
 }
@@ -36,6 +37,7 @@ interface RecentSticker {
 interface UsePurchasedStickersResult {
   stickerPacks: PurchasedPack[];
   emojiPacks: PurchasedPack[];
+  emotePacks: PurchasedPack[];
   recentStickers: RecentSticker[];
   isLoading: boolean;
   error: string | null;
@@ -66,6 +68,8 @@ const saveRecentStickers = (userId: string, stickers: RecentSticker[]) => {
 export const usePurchasedStickers = (userId: string | null): UsePurchasedStickersResult => {
   const [stickerPacks, setStickerPacks] = useState<PurchasedPack[]>([]);
   const [emojiPacks, setEmojiPacks] = useState<PurchasedPack[]>([]);
+  const [emotePacks, setEmotePacks] = useState<PurchasedPack[]>([]);
+  const requestId = useRef(0);
   const [recentStickers, setRecentStickers] = useState<RecentSticker[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,9 +97,12 @@ export const usePurchasedStickers = (userId: string | null): UsePurchasedSticker
   };
 
   const fetchPurchasedPacks = useCallback(async () => {
+    const request = ++requestId.current;
+    setStickerPacks([]);
+    setEmojiPacks([]);
+    setEmotePacks([]);
     if (!userId) {
-      setStickerPacks([]);
-      setEmojiPacks([]);
+      setIsLoading(false);
       return;
     }
 
@@ -128,18 +135,22 @@ export const usePurchasedStickers = (userId: string | null): UsePurchasedSticker
         .eq('user_id', userId);
 
       if (purchaseError) throw purchaseError;
+      if (request !== requestId.current) return;
 
       const stickers: PurchasedPack[] = [];
       const emojis: PurchasedPack[] = [];
+      const emotes: PurchasedPack[] = [];
+      const seen = new Set<string>();
 
       purchases?.forEach((purchase) => {
         const item = purchase.shop_items as unknown as ShopItem;
-        if (!item) return;
+        if (!item || !isChatPackCategory(item.category) || seen.has(item.id)) return;
+        seen.add(item.id);
 
         const pack: PurchasedPack = {
           itemId: item.id,
           name: item.name,
-          category: item.category as 'sticker_pack' | 'emoji_pack',
+          category: item.category,
           coverImage: item.image_url,
           contents: (item.shop_item_contents || []).sort(
             (a, b) => a.display_order - b.display_order
@@ -150,26 +161,32 @@ export const usePurchasedStickers = (userId: string | null): UsePurchasedSticker
           stickers.push(pack);
         } else if (item.category === 'emoji_pack') {
           emojis.push(pack);
+        } else if (item.category === 'emote_pack') {
+          emotes.push(pack);
         }
       });
 
       setStickerPacks(stickers);
       setEmojiPacks(emojis);
+      setEmotePacks(emotes);
     } catch (err) {
+      if (request !== requestId.current) return;
       console.error('Error fetching purchased stickers:', err);
       setError('Failed to load stickers');
     } finally {
-      setIsLoading(false);
+      if (request === requestId.current) setIsLoading(false);
     }
   }, [userId]);
 
   useEffect(() => {
     fetchPurchasedPacks();
+    return () => { requestId.current += 1; };
   }, [fetchPurchasedPacks]);
 
   return {
     stickerPacks,
     emojiPacks,
+    emotePacks,
     recentStickers,
     isLoading,
     error,
