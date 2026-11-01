@@ -1,21 +1,20 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Copy, ExternalLink, ImageIcon, Layers, Loader2, RefreshCw, Search, Wallet } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, ImageIcon, Layers, Loader2, RefreshCw, Search, Wallet } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CollectibleDetailView } from '@/components/wallet/CollectibleDetailView';
 import { ConnectWallet } from '@/components/wallet/ConnectWallet';
 import { ChainIcon } from '@/components/launchpad/ChainSelector';
 import { useWallet } from '@/providers/WalletProvider';
 import { useWalletNFTs, type NFT } from '@/hooks/useWalletNFTs';
 import { useSEO } from '@/hooks/useSEO';
 import { CHAINS, type SupportedChain } from '@/config/chains';
-import { collectibleExplorer, collectibleKey, collectiblePack, galleryNetwork, visibleCollectibles } from '@/lib/walletGallery';
-import { toast } from 'sonner';
+import { collectibleKey, collectiblePack, galleryNetwork, visibleCollectibles } from '@/lib/walletGallery';
 
 function Artwork({ nft, large = false }: { nft: NFT; large?: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -37,7 +36,6 @@ function Inventory({ address, chain }: { address: string; chain: SupportedChain 
   const collections = useMemo(() => [...new Set(nfts.map(n => n.collection))].sort(), [nfts]);
   const pages = Math.max(1, Math.ceil(filtered.length / 48));
   const currentPage = Math.min(page, pages - 1);
-  const explorer = selected ? collectibleExplorer(selected, chain) : null;
 
   if (!network) return <div className="py-16 text-center space-y-4">
     <Layers className="h-10 w-10 mx-auto text-muted-foreground" />
@@ -68,7 +66,7 @@ function Inventory({ address, chain }: { address: string; chain: SupportedChain 
       {pages > 1 && <><Button variant="outline" size="icon" aria-label="Previous gallery page" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button><span className="text-sm">{currentPage + 1} / {pages}</span><Button variant="outline" size="icon" aria-label="Next gallery page" disabled={currentPage >= pages - 1} onClick={() => setPage(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button></>}
       {hasMore && <Button variant="outline" disabled={isLoading} onClick={() => void loadMore()}>{isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Load more collectibles</Button>}
     </div>
-    <Dialog open={selected !== null} onOpenChange={open => { if (!open) setSelected(null); }}><DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle className="break-words pr-6">{selected?.name}</DialogTitle><DialogDescription className="break-all">{selected && (collectiblePack(selected) || selected.collection)}</DialogDescription></DialogHeader>{selected && <><Artwork key={collectibleKey(selected)} nft={selected} large /><Badge variant="secondary" className="w-fit">{selected.isCompressed ? 'Compressed NFT' : selected.standard || 'NFT'}</Badge>{selected.description && <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">{selected.description}</p>}<dl className="grid grid-cols-2 gap-3">{selected.attributes.map((a, i) => <div key={`${a.trait_type}-${i}`} className="border-b border-border py-2 min-w-0"><dt className="text-xs text-muted-foreground break-words">{a.trait_type}</dt><dd className="text-sm font-medium break-words">{a.value}</dd></div>)}</dl><div className="text-xs text-muted-foreground break-all">Asset: {selected.contractAddress}{chain !== 'solana' && ` · Token: ${selected.tokenId}`}</div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(selected.contractAddress); toast.success('Asset address copied'); } catch { toast.error('Could not copy the address'); } }}><Copy className="h-4 w-4 mr-2" />Copy address</Button>{explorer && <Button asChild><a href={explorer} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4 mr-2" />View on explorer</a></Button>}</div></>}</DialogContent></Dialog>
+    {selected && <CollectibleDetailView key={collectibleKey(selected)} nft={selected} chain={chain} onClose={() => setSelected(null)} />}
   </>;
 }
 
