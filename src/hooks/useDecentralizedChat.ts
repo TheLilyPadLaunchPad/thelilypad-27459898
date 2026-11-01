@@ -57,6 +57,7 @@ export const useDecentralizedChat = (contextId: string) => {
                         content: m.message,
                         message_type: m.message_type as any,
                         sticker_url: m.sticker_url,
+                        sticker_name: m.sticker_name ?? undefined,
                         timestamp: m.created_at,
                         is_decentralized: false
                     });
@@ -66,7 +67,7 @@ export const useDecentralizedChat = (contextId: string) => {
                     const key = `${m.content}-${new Date(m.timestamp).getTime()}`;
                     mergedMap.set(key, {
                         ...m,
-                        id: m.id!,
+                        id: m.id || key,
                         is_decentralized: true
                     });
                 });
@@ -109,6 +110,7 @@ export const useDecentralizedChat = (contextId: string) => {
                         content: m.message,
                         message_type: m.message_type as any,
                         sticker_url: m.sticker_url,
+                        sticker_name: m.sticker_name,
                         timestamp: m.created_at,
                         is_decentralized: false
                     }];
