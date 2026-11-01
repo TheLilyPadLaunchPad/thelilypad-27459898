@@ -35,6 +35,7 @@ import { CollectionBuybackCard } from "@/components/collection-detail/Collection
 import { CollectionPacksSection } from "@/components/collection-detail/CollectionPacksSection";
 import { MintIntroDialog, MintProcessingOverlay } from "@/components/collection-detail/MintMediaOverlays";
 import { HolderGate } from "@/components/holder/HolderGate";
+import { CollectionMusicSection } from "@/components/collection-detail/CollectionMusicSection";
 
 
 export default function CollectionDetail() {
@@ -253,6 +254,9 @@ export default function CollectionDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
           {/* Left Column: Details & Content */}
           <div className="lg:col-span-2 space-y-8">
+            {(collection.collection_type === 'music' || collection.media_type === 'audio') && (
+              <CollectionMusicSection key={collection.id} collection={collection} />
+            )}
             {/* Launch Checklist for creators */}
             {isCreator && !collection.contract_address && !isPreviewMode && (
               <LaunchChecklist
