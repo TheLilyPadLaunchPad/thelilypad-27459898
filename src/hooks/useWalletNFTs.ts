@@ -17,6 +17,9 @@ export interface NFT {
   attributes: Array<{ trait_type: string; value: string }>;
   standard?: string;
   isCompressed?: boolean;
+  ownerAddress?: string;
+  metadataUri?: string;
+  rawMetadata?: unknown;
 }
 
 interface UseWalletNFTsResult {
@@ -147,7 +150,10 @@ export function useWalletNFTs(
             collection: collectionGroup?.group_value || "Unknown Collection",
             attributes,
             standard,
-            isCompressed
+            isCompressed,
+            ownerAddress: asset.ownership?.owner,
+            metadataUri: asset.content.json_uri,
+            rawMetadata: asset.content.metadata
           };
         });
 
@@ -179,7 +185,11 @@ export function useWalletNFTs(
         if (fnError) throw new Error(fnError.message);
         if (data.error) throw new Error(data.error);
 
-        const newNfts = data.nfts || [];
+        const newNfts: NFT[] = (data.nfts || []).map((nft: NFT) => ({
+          ...nft,
+          // Returned by the current-owner endpoint; keep this source explicit in the detail UI.
+          ownerAddress: nft.ownerAddress || walletAddress,
+        }));
 
         if (loadMore) {
           setNfts((prev) => [...prev, ...newNfts]);
