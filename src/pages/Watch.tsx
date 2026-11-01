@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { WebRTCViewer } from '@/components/streaming/WebRTCViewer';
 import { LiveChat } from '@/components/LiveChat';
+import { TipButton } from '@/components/TipButton';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -197,9 +198,9 @@ const Watch = () => {
             
             {/* Stream Info Below Player */}
             <div className="mt-4 p-4 bg-card rounded-xl border border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h1 className="text-lg font-semibold">{stream?.title || "Live Stream"}</h1>
                     <Badge className="bg-red-500 text-white">
                       <Radio className="w-3 h-3 mr-1 animate-pulse" />
@@ -217,11 +218,22 @@ const Watch = () => {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-3">
+                  {stream?.user_id && (
+                    <TipButton
+                      key={stream.user_id}
+                      streamerId={stream.user_id}
+                      streamerName={streamerName || 'this creator'}
+                      streamId={stream.id}
+                      size="sm"
+                    />
+                  )}
+                  <div className="flex items-center gap-2 text-muted-foreground">
                   <Users className="h-4 w-4" />
                   <span className="text-sm">
                     {isConnected ? `${viewerCount} watching` : 'Connecting...'}
                   </span>
+                  </div>
                 </div>
               </div>
             </div>

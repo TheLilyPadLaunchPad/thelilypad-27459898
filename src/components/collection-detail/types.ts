@@ -21,6 +21,7 @@ export interface Collection {
     social_website: string | null;
     social_telegram: string | null;
     collection_type?: string;
+    media_type?: string | null;
     /** @deprecated 'xrpl' kept only for backward-compat with existing DB rows */
     blockchain?: 'solana' | 'xrpl' | 'monad' | 'apechain';
     chain?: string;

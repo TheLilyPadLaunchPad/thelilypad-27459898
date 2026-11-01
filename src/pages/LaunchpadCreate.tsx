@@ -1036,6 +1036,11 @@ export default function LaunchpadCreate() {
                     creator_address: address,
                     collection_type: isMusic ? 'music' : (is1of1 ? '1of1' : 'generative'),
                     media_type: isMusic ? 'audio' : 'image',
+                    artworks_metadata: isMusic ? tracks.map((track, index) => ({
+                        id: track.id,
+                        name: builtMetadata[index]?.name || track.metadata.name,
+                        description: builtMetadata[index]?.description || track.metadata.description,
+                    })) : null,
                     image_url: collectionImageUri || null,
                 })
                 .select('id')
@@ -1043,6 +1048,22 @@ export default function LaunchpadCreate() {
 
             if (collErr) throw collErr;
             collectionId = collection.id;
+
+            if (isMusic) {
+                const { error: audioError } = await supabase.from('collection_audio_metadata').insert(tracks.map((track, index) => ({
+                    collection_id: collection.id,
+                    artwork_id: track.id,
+                    audio_url: String(builtMetadata[index]?.animation_url || assetsToUpload[index]?.metadata._audioUri || ''),
+                    cover_art_url: itemLinks[index]?.arweaveImageUri || collectionImageUri,
+                    artist: track.metadata.artist || null,
+                    album: track.metadata.album || null,
+                    genre: track.metadata.genre || null,
+                    bpm: track.metadata.bpm,
+                    duration_seconds: track.metadata.durationSeconds == null ? null : Math.round(track.metadata.durationSeconds),
+                    track_number: index + 1,
+                })));
+                if (audioError) throw audioError;
+            }
 
             // Show cost preview modal
             const isCompressed = !is1of1;

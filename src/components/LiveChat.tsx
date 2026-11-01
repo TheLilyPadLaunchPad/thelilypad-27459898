@@ -9,6 +9,7 @@ import { Send, MessageCircle, Users, Loader2, ShieldCheck, Globe } from 'lucide-
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { StickerEmojiPicker } from '@/components/chat/StickerEmojiPicker';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ChatMessage {
   id: string;
@@ -39,7 +40,19 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [viewerCount, setViewerCount] = useState(0);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) setSessionUserId(session?.user.id ?? null);
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) setSessionUserId(data.session?.user.id ?? null);
+    });
+    return () => { active = false; subscription.unsubscribe(); };
+  }, []);
 
   // Still track presence for viewer count via Supabase
   useEffect(() => {
@@ -205,8 +218,10 @@ export const LiveChat = ({ playbackId, className = '' }: LiveChatProps) => {
           ) : (
             <div className="flex gap-2">
               <StickerEmojiPicker
-                userId={walletAddress}
+                key={`${walletAddress}:${sessionUserId}`}
+                userId={sessionUserId}
                 onSelect={handleSendSticker}
+                disabled={isSending}
               />
               <Input
                 value={newMessage}
