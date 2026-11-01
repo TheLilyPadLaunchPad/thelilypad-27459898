@@ -1,9 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -12,9 +8,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      throw new Error('Missing server configuration');
+    }
     
     // Verify user is authenticated
     const authHeader = req.headers.get('Authorization');
@@ -30,9 +29,8 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: userData, error: authError } = await supabaseAuth.auth.getUser(token);
-    if (authError || !userData?.user) {
-      console.error('Auth error:', authError?.message || 'No user found');
+    const { data: userData, error: authError } = await supabaseAuth.auth.getClaims(token);
+    if (authError || !userData?.claims?.sub || userData.claims.role !== 'authenticated') {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -91,8 +89,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`User ${userData.user.id} fetched wallet for tipping ${streamer_user_id}`);
-
     return new Response(
       JSON.stringify({ 
         wallet_address: walletAddress,
@@ -105,7 +101,7 @@ Deno.serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in get-streamer-wallet:', errorMessage);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: 'Unable to load the streamer wallet' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
