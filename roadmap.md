@@ -1,8 +1,8 @@
 # Roadmap
 
-- [ ] Connect purchased stickers/emotes to live chat selection.
-- [ ] Add secure streamer tipping to the Watch page.
-- [ ] Add published music track playback to music collection pages.
+- [x] Connect purchased stickers/emotes to live chat selection; picker verified with a purchase fixture.
+- [x] Add secure streamer tipping to the Watch page; real-wallet payment check requires a connected account.
+- [x] Add published music track playback to music collection pages; audio playback verified with a fixture.
 
 - [x] Expand collectible details with full artwork, metadata, indexed ownership, and exact marketplace listing links; real-wallet end-to-end verification remains unavailable.
 
