@@ -10,3 +10,4 @@
 - [x] Build a connected-wallet collectible gallery with artwork, names, collection/pack labels, search, and details (Solana and Robinhood owner indexers).
 - [ ] Add the gallery claim action once its intended behavior is confirmed.
 - [x] Add a third trait-rules preview showing selected source and target artwork composited together.
+- [x] Add Streams status filters (All/Live/Scheduled/Finished) with counts, scheduled-stream announcements, and status-aware Watch pages; each tab and Watch state checked in-browser.
