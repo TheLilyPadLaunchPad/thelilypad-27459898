@@ -36,7 +36,6 @@ import {
   Search,
   Zap,
   Clock,
-  Loader2,
   RefreshCw,
   Eye,
 } from "lucide-react";
