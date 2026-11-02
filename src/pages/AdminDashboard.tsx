@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import FrogLoader from '@/components/FrogLoader';
 import { toast } from '@/hooks/use-toast';
 import ShopFileAccessManager from '@/components/admin/ShopFileAccessManager';
-import { FileLock } from 'lucide-react';
+import { FileLock, Wrench } from 'lucide-react';
 import {
   Users,
   Layers,
@@ -624,6 +624,10 @@ const AdminDashboard: React.FC = () => {
               <TabsTrigger value="branding" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Branding</span>
+              </TabsTrigger>
+              <TabsTrigger value="tools" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <Wrench className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>Tools</span>
               </TabsTrigger>
               <TabsTrigger value="errors" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1295,6 +1299,12 @@ const AdminDashboard: React.FC = () => {
           {/* Branding Tab */}
 
           {/* Error Logs Tab */}
+          <TabsContent value="tools" className="space-y-6">
+            <SystemStatsCards />
+            <UserManagementPanel />
+            <CollectionRepairPanel />
+            <MintL3apTokenCard />
+          </TabsContent>
           <TabsContent value="errors">
             <ErrorLogManager />
           </TabsContent>
