@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import FrogLoader from '@/components/FrogLoader';
 import { toast } from '@/hooks/use-toast';
 import ShopFileAccessManager from '@/components/admin/ShopFileAccessManager';
-import { FileLock } from 'lucide-react';
+import { FileLock, Wrench } from 'lucide-react';
 import {
   Users,
   Layers,
@@ -59,7 +59,10 @@ import { SiteAssetsManager } from '@/components/admin/SiteAssetsManager';
 import { TestimonialsManager } from '@/components/admin/TestimonialsManager';
 import { ErrorLogManager } from '@/components/admin/ErrorLogManager';
 
-import { FeatureSectionManager } from '@/components/admin/FeatureSectionManager';
+import { SystemStatsCards } from '@/components/admin/SystemStatsCards';
+import { UserManagementPanel } from '@/components/admin/UserManagementPanel';
+import { CollectionRepairPanel } from '@/components/admin/CollectionRepairPanel';
+import { MintL3apTokenCard } from '@/components/admin/MintL3apTokenCard';
 import { CreatorApplicationsManager } from '@/components/admin/CreatorApplicationsManager';
 import { MarketplaceApplicationsManager } from '@/components/admin/MarketplaceApplicationsManager';
 import { AdminDirectCollectionModal } from '@/components/admin/AdminDirectCollectionModal';
@@ -175,17 +178,23 @@ const AdminDashboard: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await supabase.functions.invoke('admin-users', {
-        body: { action: 'list' }
-      });
-
-      if (response.error) {
-        console.error('Error fetching users:', response.error);
-        return;
+      // Page through every account (1000 per page) so the list and total aren't capped.
+      const all: any[] = [];
+      for (let page = 1; page <= 50; page++) {
+        const response = await supabase.functions.invoke('admin-users', {
+          body: { action: 'list', page, perPage: 1000 }
+        });
+        if (response.error) {
+          console.error('Error fetching users:', response.error);
+          break;
+        }
+        const batch = response.data?.users || [];
+        all.push(...batch);
+        if (batch.length < 1000) break;
       }
 
-      setUsers(response.data.users || []);
-      setStats(prev => ({ ...prev, totalUsers: response.data.users?.length || 0 }));
+      setUsers(all);
+      setStats(prev => ({ ...prev, totalUsers: all.length }));
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -236,7 +245,7 @@ const AdminDashboard: React.FC = () => {
 
   const fetchStats = async () => {
     const [collectionsCount, streamsCount, moderationCount] = await Promise.all([
-      supabase.from('collections').select('id', { count: 'exact', head: true }),
+      supabase.from('collections').select('id', { count: 'exact', head: true }).is('deleted_at', null),
       supabase.from('streams').select('id', { count: 'exact', head: true }),
       supabase.from('moderation_queue').select('id', { count: 'exact', head: true }).eq('status', 'pending')
     ]);
@@ -269,6 +278,7 @@ const AdminDashboard: React.FC = () => {
         description: 'Restore it anytime from the Trash tab'
       });
       fetchCollections();
+      fetchStats();
     }
   };
 
@@ -290,6 +300,7 @@ const AdminDashboard: React.FC = () => {
         description: `Content ${action} successfully`
       });
       fetchModerationQueue();
+      fetchStats();
     }
   };
 
@@ -613,6 +624,10 @@ const AdminDashboard: React.FC = () => {
               <TabsTrigger value="branding" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Branding</span>
+              </TabsTrigger>
+              <TabsTrigger value="tools" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <Wrench className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span>Tools</span>
               </TabsTrigger>
               <TabsTrigger value="errors" className="gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm whitespace-nowrap">
                 <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1282,11 +1297,14 @@ const AdminDashboard: React.FC = () => {
           </TabsContent>
 
           {/* Branding Tab */}
-          <TabsContent value="branding">
-            <SiteAssetsManager />
-          </TabsContent>
 
           {/* Error Logs Tab */}
+          <TabsContent value="tools" className="space-y-6">
+            <SystemStatsCards />
+            <UserManagementPanel />
+            <CollectionRepairPanel />
+            <MintL3apTokenCard />
+          </TabsContent>
           <TabsContent value="errors">
             <ErrorLogManager />
           </TabsContent>

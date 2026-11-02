@@ -3071,6 +3071,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          max_editions: number | null
           mint_authority: string | null
           name: string
           price_mon: number
@@ -3093,6 +3094,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          max_editions?: number | null
           mint_authority?: string | null
           name: string
           price_mon?: number
@@ -3115,6 +3117,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          max_editions?: number | null
           mint_authority?: string | null
           name?: string
           price_mon?: number

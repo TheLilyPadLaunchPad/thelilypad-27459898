@@ -33,7 +33,7 @@ interface SiteAsset {
   created_at: string;
 }
 
-const STORAGE_BUCKET = "site-assets";
+const STORAGE_BUCKET = "collection-images";
 
 export const SiteAssetsManager: React.FC = () => {
   const [assets, setAssets] = useState<SiteAsset[]>([]);
@@ -106,7 +106,9 @@ export const SiteAssetsManager: React.FC = () => {
     try {
       // 1. Upload to Storage
       const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${assetPage}/${assetKey}-${Date.now()}.${fileExt}`;
+      const { data: { user: uploader } } = await supabase.auth.getUser();
+      if (!uploader) throw new Error('Sign in again to upload');
+      const fileName = `${uploader.id}/site-assets/${assetPage}/${assetKey}-${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from(STORAGE_BUCKET)
