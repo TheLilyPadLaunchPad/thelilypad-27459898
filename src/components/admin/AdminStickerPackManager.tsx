@@ -134,8 +134,13 @@ export const AdminStickerPackManager: React.FC = () => {
       if (imageFile) {
         const fileExt = imageFile.name.split(".").pop();
         const fileName = `platform/${Date.now()}-${brand}-cover.${fileExt}`;
-        const storedPath = await uploadShopItemFile(fileName, imageFile);
-        imageUrl = getShopItemUrl(storedPath);
+        // Pack covers are shown publicly in the shop, so they go to the public branding storage
+        // (admin-only uploads), not the private paid-files storage.
+        const { error: coverErr } = await supabase.storage
+          .from("site-assets")
+          .upload(`pack-covers/${fileName}`, imageFile, { cacheControl: "3600", upsert: false });
+        if (coverErr) throw coverErr;
+        imageUrl = supabase.storage.from("site-assets").getPublicUrl(`pack-covers/${fileName}`).data.publicUrl;
       }
 
 

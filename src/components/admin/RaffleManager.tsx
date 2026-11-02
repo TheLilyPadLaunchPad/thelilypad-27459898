@@ -599,7 +599,7 @@ const RaffleManager = () => {
                       <li key={i} className="font-mono text-xs">
                         {i + 1}. {winnerId.slice(0, 8)}...{winnerId.slice(-6)}
                       </li>
-                    ))}
+                    );})}
                   </ul>
                 </div>
               )}

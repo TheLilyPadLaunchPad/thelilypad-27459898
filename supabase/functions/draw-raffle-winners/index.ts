@@ -25,32 +25,55 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Cron-only endpoint — verify shared secret to prevent public invocation
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Two callers: the scheduled job (shared secret) or a signed-in admin drawing one raffle.
   const cronSecret = Deno.env.get('CRON_SECRET');
-  const authHeader = req.headers.get('Authorization');
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  const authHeader = req.headers.get('Authorization') ?? '';
+  let targetRaffleId: string | null = null;
+  const isCron = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
+  if (!isCron) {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const { data: userData } = token ? await supabase.auth.getUser(token) : { data: { user: null } };
+    const uid = userData?.user?.id;
+    let isAdmin = false;
+    if (uid) {
+      const { data: role } = await supabase.from('user_roles').select('role').eq('user_id', uid).eq('role', 'admin').maybeSingle();
+      isAdmin = !!role;
+    }
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    try {
+      const body = await req.json();
+      if (typeof body?.raffle_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.raffle_id)) targetRaffleId = body.raffle_id;
+    } catch { /* no body */ }
+    if (!targetRaffleId) {
+      return new Response(JSON.stringify({ error: 'raffle_id required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     console.log('Starting raffle winner draw process...');
 
     // Find all raffles that have ended but not yet drawn
     const now = new Date().toISOString();
-    const { data: endedRaffles, error: raffleError } = await supabase
-      .from('lily_raffles')
-      .select('*')
-      .eq('is_active', true)
-      .eq('is_drawn', false)
-      .lt('end_date', now);
+    const { data: endedRaffles, error: raffleError } = targetRaffleId
+      ? await supabase.from('lily_raffles').select('*').eq('id', targetRaffleId).eq('is_drawn', false)
+      : await supabase
+          .from('lily_raffles')
+          .select('*')
+          .eq('is_active', true)
+          .eq('is_drawn', false)
+          .lt('end_date', now);
 
     if (raffleError) {
       console.error('Error fetching ended raffles:', raffleError);
