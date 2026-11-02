@@ -3529,6 +3529,7 @@ export type Database = {
           id: string
           is_live: boolean
           peak_viewers: number
+          scheduled_at: string | null
           started_at: string
           stream_key_id: string | null
           thumbnail_url: string | null
@@ -3545,6 +3546,7 @@ export type Database = {
           id?: string
           is_live?: boolean
           peak_viewers?: number
+          scheduled_at?: string | null
           started_at?: string
           stream_key_id?: string | null
           thumbnail_url?: string | null
@@ -3561,6 +3563,7 @@ export type Database = {
           id?: string
           is_live?: boolean
           peak_viewers?: number
+          scheduled_at?: string | null
           started_at?: string
           stream_key_id?: string | null
           thumbnail_url?: string | null
