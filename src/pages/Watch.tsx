@@ -223,6 +223,17 @@ const Watch = () => {
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
               />
+            ) : status === 'finished' ? (
+              <div className="w-full aspect-video rounded-xl overflow-hidden bg-muted border border-border flex flex-col items-center justify-center gap-3 text-center px-6">
+                <Radio className="h-10 w-10 text-muted-foreground" />
+                <p className="font-semibold">This stream has ended</p>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                  Browser streams aren't recorded, so there's nothing to replay here.
+                </p>
+                <Button variant="outline" onClick={() => navigate('/streams')}>
+                  Browse live streams
+                </Button>
+              </div>
             ) : (
               <WebRTCViewer
                 className="w-full aspect-video rounded-xl overflow-hidden"
