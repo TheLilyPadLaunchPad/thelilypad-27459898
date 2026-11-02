@@ -183,49 +183,18 @@ const RaffleManager = () => {
 
   const drawWinnersMutation = useMutation({
     mutationFn: async (raffleId: string) => {
-      const raffle = raffles?.find(r => r.id === raffleId);
-      if (!raffle) throw new Error("Raffle not found");
-
-      // Get all entries
-      const { data: entries, error: entriesError } = await supabase
-        .from("lily_raffle_entries")
-        .select("*")
-        .eq("raffle_id", raffleId);
-
-      if (entriesError) throw entriesError;
-      if (!entries?.length) throw new Error("No entries to draw from");
-
-      // Create ticket pool (weighted by ticket_count)
-      const ticketPool: string[] = [];
-      entries.forEach(entry => {
-        for (let i = 0; i < entry.ticket_count; i++) {
-          ticketPool.push(entry.user_id);
-        }
+      // Winners are drawn on the server so the result can't be influenced from the browser.
+      const { data, error } = await supabase.functions.invoke("draw-raffle-winners", {
+        body: { raffle_id: raffleId },
       });
-
-      // Draw winners (unique users)
-      const winners: string[] = [];
-      const shuffled = [...ticketPool].sort(() => Math.random() - 0.5);
-
-      for (const userId of shuffled) {
-        if (!winners.includes(userId) && winners.length < raffle.winner_count) {
-          winners.push(userId);
-        }
-        if (winners.length >= raffle.winner_count) break;
+      if (error) {
+        let msg = error.message;
+        try { msg = (await (error as any).context?.json())?.error || msg; } catch { /* ignore */ }
+        throw new Error(msg);
       }
-
-      // Update raffle with winners
-      const { error: updateError } = await supabase
-        .from("lily_raffles")
-        .update({
-          winners,
-          is_drawn: true,
-          drawn_at: new Date().toISOString(),
-          is_active: false,
-        })
-        .eq("id", raffleId);
-
-      if (updateError) throw updateError;
+      const result = data?.results?.[0];
+      if (!result) throw new Error("Raffle is already drawn or not found");
+      if (String(result.status).startsWith("Error")) throw new Error(result.status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-raffles"] });
@@ -624,7 +593,9 @@ const RaffleManager = () => {
                     Winners
                   </h4>
                   <ul className="text-sm space-y-1">
-                    {selectedRaffle.winners.map((winnerId: string, i: number) => (
+                    {selectedRaffle.winners.map((w: any, i: number) => {
+                      const winnerId = String(typeof w === "string" ? w : w?.user_id ?? "");
+                      return (
                       <li key={i} className="font-mono text-xs">
                         {i + 1}. {winnerId.slice(0, 8)}...{winnerId.slice(-6)}
                       </li>

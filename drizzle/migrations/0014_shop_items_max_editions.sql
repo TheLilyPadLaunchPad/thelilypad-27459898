@@ -1,0 +1,1 @@
+ALTER TABLE public.shop_items ADD COLUMN IF NOT EXISTS max_editions integer CHECK (max_editions IS NULL OR max_editions > 0);
