@@ -13,6 +13,8 @@ import {
   Copy,
   Check,
   Youtube,
+  Clock,
+  Eye,
   ExternalLink,
 } from 'lucide-react';
 import { useSEO } from '@/hooks/useSEO';
@@ -21,6 +23,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useStreamPresence } from '@/hooks/useStreamPresence';
 import { resolveStreamKind, youtubeWatchUrl } from '@/lib/streamPlayback';
+import { resolveStreamStatus } from '@/lib/streamStatus';
+import { formatDistanceToNow } from 'date-fns';
 
 interface StreamRow {
   id: string;
@@ -29,6 +33,21 @@ interface StreamRow {
   youtube_video_id: string | null;
   stream_key_id: string | null;
   user_id: string;
+  is_live: boolean;
+  scheduled_at: string | null;
+  ended_at: string | null;
+}
+
+/** "in 2 hours" / "3 days ago" — null when there is no usable date. */
+function relativeFrom(value?: string | null): string | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return null;
+  try {
+    return formatDistanceToNow(new Date(parsed), { addSuffix: true });
+  } catch {
+    return null;
+  }
 }
 
 const Watch = () => {
@@ -51,7 +70,7 @@ const Watch = () => {
     let cancelled = false;
     supabase
       .from('streams')
-      .select('id, title, category, youtube_video_id, stream_key_id, user_id')
+      .select('id, title, category, youtube_video_id, stream_key_id, user_id, is_live, scheduled_at, ended_at')
       .eq('id', playbackId)
       .maybeSingle()
       .then(async ({ data }) => {
@@ -76,9 +95,21 @@ const Watch = () => {
   const videoId = stream?.youtube_video_id ?? null;
   const isYouTube = resolveStreamKind(stream ?? {}) === 'youtube';
   const sourceLabel = isYouTube ? 'YouTube Live' : 'Browser Stream';
+  const status = stream ? resolveStreamStatus(stream) : 'finished';
+  const startsIn = status === 'scheduled' ? relativeFrom(stream?.scheduled_at) : null;
+  const endedAgo = status === 'finished' ? relativeFrom(stream?.ended_at) : null;
+
+  const statusNotice =
+    status === 'scheduled'
+      ? `This stream starts ${startsIn ?? 'soon'}. The player opens when the creator goes live.`
+      : status === 'finished'
+        ? `This stream ended ${endedAgo ?? 'earlier'}. The recording still plays when the creator left one behind.`
+        : null;
 
   useSEO({
-    title: stream?.title ? `${stream.title} | Live on The Lily Pad` : 'Watch Live | The Lily Pad',
+    title: stream?.title
+      ? `${stream.title} | ${status === 'live' ? 'Live' : status === 'scheduled' ? 'Scheduled' : 'Replay'} on The Lily Pad`
+      : 'Watch Live | The Lily Pad',
     description: "Watch live streams on The Lily Pad. Join the chat, support creators, and be part of the community."
   });
 
@@ -125,7 +156,7 @@ const Watch = () => {
     );
   }
 
-  // An id that matches no live stream must not show an empty "live" player.
+  // An id that matches no stream at all must not show an empty "live" player.
   if (streamLoaded && !stream) {
     return (
       <div className="min-h-screen bg-background">
@@ -155,7 +186,7 @@ const Watch = () => {
             className="gap-2"
             onClick={() => navigate(-1)}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 h-4" />
             Back
           </Button>
 
@@ -195,23 +226,40 @@ const Watch = () => {
                 className="w-full aspect-video rounded-xl overflow-hidden"
               />
             )}
-            
+
             {/* Stream Info Below Player */}
             <div className="mt-4 p-4 bg-card rounded-xl border border-border">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h1 className="text-lg font-semibold">{stream?.title || "Live Stream"}</h1>
-                    <Badge className="bg-red-500 text-white">
-                      <Radio className="w-3 h-3 mr-1 animate-pulse" />
-                      LIVE
-                    </Badge>
+                    {status === 'live' && (
+                      <Badge className="bg-red-500 text-white">
+                        <Radio className="w-3 h-3 mr-1 animate-pulse" />
+                        LIVE
+                      </Badge>
+                    )}
+                    {status === 'scheduled' && (
+                      <Badge variant="secondary" className="bg-amber-500/90 text-amber-950 gap-1">
+                        <Clock className="w-3 h-3" />
+                        Scheduled
+                      </Badge>
+                    )}
+                    {status === 'finished' && (
+                      <Badge variant="outline" className="gap-1">
+                        <Eye className="w-3 h-3" />
+                        Finished
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-muted-foreground text-sm">
                     {streamerName ? `${streamerName} • ` : ''}
                     {sourceLabel}
                     {stream?.category ? ` • ${stream.category}` : ''}
                   </p>
+                  {statusNotice && (
+                    <p className="text-xs text-muted-foreground mt-2">{statusNotice}</p>
+                  )}
                   {isYouTube && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Not loading? The video must be public or unlisted on YouTube with embedding allowed.
@@ -228,12 +276,14 @@ const Watch = () => {
                       size="sm"
                     />
                   )}
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                  <Users className="h-4 w-4" />
-                  <span className="text-sm">
-                    {isConnected ? `${viewerCount} watching` : 'Connecting...'}
-                  </span>
-                  </div>
+                  {status === 'live' && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <span className="text-sm">
+                        {isConnected ? `${viewerCount} watching` : 'Connecting...'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -241,8 +291,8 @@ const Watch = () => {
 
           {/* Live Chat Sidebar */}
           <div className="lg:col-span-1 h-[calc(100vh-200px)] min-h-[400px]">
-            <LiveChat 
-              playbackId={playbackId} 
+            <LiveChat
+              playbackId={playbackId}
               className="h-full"
             />
           </div>
