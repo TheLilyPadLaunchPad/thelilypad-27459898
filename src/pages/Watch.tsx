@@ -103,7 +103,9 @@ const Watch = () => {
     status === 'scheduled'
       ? `This stream starts ${startsIn ?? 'soon'}. The player opens when the creator goes live.`
       : status === 'finished'
-        ? `This stream ended ${endedAgo ?? 'earlier'}. The recording still plays when the creator left one behind.`
+        ? isYouTube
+          ? `This stream ended ${endedAgo ?? 'earlier'}. The recording still plays here and on YouTube.`
+          : `This stream ended ${endedAgo ?? 'earlier'}. Browser streams aren't recorded, so there's nothing to replay.`
         : null;
 
   useSEO({
