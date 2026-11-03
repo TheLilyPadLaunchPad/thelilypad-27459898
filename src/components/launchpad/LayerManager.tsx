@@ -89,22 +89,15 @@ export function LayerManager({ layers, onLayersChange }: LayerManagerProps) {
       return;
     }
 
-    const traits: LayerTrait[] = await Promise.all(
-      imageFiles.map(async (file) => {
-        const preview = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
-        return {
-          id: crypto.randomUUID(),
-          name: file.name.replace(/\.[^/.]+$/, ""),
-          file,
-          preview,
-          rarity: Math.round(100 / imageFiles.length),
-        };
-      })
-    );
+    // Use lightweight blob URLs instead of base64 data URLs — avoids
+    // multi-GB memory spikes (and tab crash/reload) on large trait folders.
+    const traits: LayerTrait[] = imageFiles.map((file) => ({
+      id: crypto.randomUUID(),
+      name: file.name.replace(/\.[^/.]+$/, ""),
+      file,
+      preview: URL.createObjectURL(file),
+      rarity: Math.round(100 / imageFiles.length),
+    }));
 
     onLayersChange([...layers, {
       id: crypto.randomUUID(),
