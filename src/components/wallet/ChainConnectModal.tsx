@@ -64,7 +64,7 @@ const CHAIN_TABS: { id: SelectedChain; label: string; Icon: React.FC; comingSoon
   { id: "solana", label: "SOL", Icon: SolanaIcon },
   { id: "monad", label: "MON", Icon: MonadIcon },
   { id: "xrpl", label: "XRPL", Icon: XrplIcon },
-  { id: "robinhood", label: "Robinhood", Icon: RobinhoodIcon, comingSoon: true },
+  { id: "robinhood", label: "Robinhood", Icon: RobinhoodIcon },
 ];
 
 interface ChainConnectModalProps {
@@ -83,7 +83,7 @@ export const ChainConnectModal: React.FC<ChainConnectModalProps> = ({
   onOpenChange,
   defaultChain = "solana",
 }) => {
-  const { connect, isConnecting, connectXRPLNonCustodial, connectMonad } = useWallet();
+  const { connect, isConnecting, connectXRPLNonCustodial, connectMonad, connectRobinhood } = useWallet();
   const [selectedChain, setSelectedChain] = useState<SelectedChain>(defaultChain);
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [coldStorageOpen, setColdStorageOpen] = useState(false);
@@ -178,7 +178,7 @@ export const ChainConnectModal: React.FC<ChainConnectModalProps> = ({
                   {isLoading ? <Loader2 className="w-5 h-5 animate-spin mr-3" /> : <span className="mr-3"><MonadIcon /></span>}
                   Connect Monad Wallet
                 </Button>
-                <p className="text-xs text-muted-foreground text-center">Uses your EVM wallet on Monad.</p>
+                <p className="text-xs text-muted-foreground text-center">Connect with Reown — MetaMask, Phantom, Rabby, Coinbase or any WalletConnect wallet. ETH and ApeChain are in the network list too.</p>
               </motion.div>
             )}
 
@@ -258,15 +258,16 @@ export const ChainConnectModal: React.FC<ChainConnectModalProps> = ({
             )}
 
             {selectedChain === "robinhood" && (
-              <motion.div key="robinhood" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.18 }} className="space-y-4 text-center py-4">
-                <Badge variant="outline" className="px-3 py-1">Coming soon</Badge>
-                <p className="text-sm text-muted-foreground">
-                  Robinhood Chain support is on the way. You'll be able to connect it right here.
-                </p>
-                <Button disabled className="w-full h-14 text-base font-medium">
-                  <span className="mr-3"><RobinhoodIcon /></span>
+              <motion.div key="robinhood" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.18 }} className="space-y-4">
+                <Button
+                  onClick={() => runConnect(() => connectRobinhood(), "Robinhood Chain")}
+                  disabled={isLoading}
+                  className="w-full h-14 text-base font-medium"
+                >
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin mr-3" /> : <span className="mr-3"><RobinhoodIcon /></span>}
                   Connect Robinhood Chain
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">Connect with Reown — works with Robinhood Wallet, Phantom, MetaMask and more.</p>
               </motion.div>
             )}
           </AnimatePresence>

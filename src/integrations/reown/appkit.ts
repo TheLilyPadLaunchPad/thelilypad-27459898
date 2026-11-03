@@ -7,17 +7,19 @@
  * and causes pairing / session bugs. All other modules (including the
  * React hooks from `@reown/appkit/react`) read from this same singleton.
  *
- * Adapters: Ethers (Monad EVM) + Solana (web3.js).
+ * Adapters: Ethers (Monad, Robinhood Chain, ApeChain, Ethereum) + Solana.
+ * Reown is the primary connector for every chain except XRPL.
  * Trigger the modal via `openWalletModal()` or `<WalletConnectButton />`.
  */
 
 import { createAppKit, type AppKit } from "@reown/appkit/react";
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
 import { SolanaAdapter } from "@reown/appkit-adapter-solana/react";
-import { solana, solanaTestnet, solanaDevnet } from "@reown/appkit/networks";
+import { solana, mainnet as ethereumMainnet } from "@reown/appkit/networks";
 import type { AppKitNetwork } from "@reown/appkit/networks";
 import { REOWN_APP_METADATA, REOWN_PROJECT_ID } from "@/config/reown";
 import { MONAD_NETWORKS } from "@/config/monad";
+import { CHAINS } from "@/config/chains";
 // Reown AppKit auto-detects injected Solana wallets (Phantom, Solflare, Backpack, etc.)
 // via the Wallet Standard, so we no longer bundle @solana/wallet-adapter-wallets
 // (which pulled in a vulnerable protobufjs via @trezor/*).
@@ -43,6 +45,39 @@ const monadTestnet: AppKitNetwork = {
   testnet: true,
 };
 
+const evmFromConfig = (key: "robinhood" | "apechain"): AppKitNetwork => {
+  const cfg = CHAINS[key];
+  const net = cfg.networks.mainnet;
+  return {
+    id: net.chainId!,
+    name: cfg.name,
+    nativeCurrency: { name: cfg.symbol, symbol: cfg.symbol, decimals: 18 },
+    rpcUrls: { default: { http: [net.url] } },
+    blockExplorers: net.explorer ? { default: { name: `${cfg.name} Explorer`, url: net.explorer } } : undefined,
+  } as AppKitNetwork;
+};
+
+const robinhoodMainnet = evmFromConfig("robinhood");
+const apechainMainnet = evmFromConfig("apechain");
+
+/** EVM networks Reown can connect, keyed by the app's chain id. */
+export const REOWN_EVM_NETWORKS = {
+  monad: monadMainnet,
+  robinhood: robinhoodMainnet,
+  apechain: apechainMainnet,
+  ethereum: ethereumMainnet,
+} as const;
+export type ReownEvmChain = keyof typeof REOWN_EVM_NETWORKS;
+
+/** Map an EVM chain id reported by Reown back to the app's chain key. */
+export function evmChainKeyFromId(id: number | string | undefined | null): ReownEvmChain | null {
+  const n = Number(id);
+  for (const [key, net] of Object.entries(REOWN_EVM_NETWORKS)) {
+    if (Number(net.id) === n) return key as ReownEvmChain;
+  }
+  return null;
+}
+
 // Module-scope guard. Vite HMR can re-evaluate this module; the guard
 // prevents a second createAppKit() call when that happens. We also stash
 // the instance on globalThis so a duplicate copy of this module (rare,
@@ -63,7 +98,7 @@ export function initReownAppKit(): AppKit {
 
   appKitInstance = createAppKit({
     adapters: [new EthersAdapter(), solanaAdapter],
-    networks: [monadMainnet, monadTestnet, solana, solanaTestnet, solanaDevnet],
+    networks: [solana, monadMainnet, robinhoodMainnet, apechainMainnet, ethereumMainnet, monadTestnet],
     defaultNetwork: solana,
     projectId: REOWN_PROJECT_ID,
     metadata: { ...REOWN_APP_METADATA, icons: [...REOWN_APP_METADATA.icons] },

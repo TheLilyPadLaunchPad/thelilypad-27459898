@@ -17,12 +17,12 @@ import { connectXRPLWallet, type XRPLWalletProvider } from "@/lib/xrplWalletConn
 import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
 import type { Provider } from '@reown/appkit-adapter-solana/react';
 import { solana } from '@reown/appkit/networks';
-import "@/integrations/reown/appkit"; // ensures the singleton module is loaded
+import { REOWN_EVM_NETWORKS, evmChainKeyFromId } from "@/integrations/reown/appkit";
 
 
 // Types
 export type WalletType = "reown" | "joey" | "evm";
-export type ChainType = "solana" | "monad" | "xrpl" | "robinhood";
+export type ChainType = "solana" | "monad" | "xrpl" | "robinhood" | "apechain";
 export type OAuthProvider = "google" | "apple";
 
 interface WalletState {
@@ -80,7 +80,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Reown Hooks
   const { address: reownAddress, isConnected: isReownConnected, status: reownStatus } = useAppKitAccount();
   const { walletProvider: reownProvider } = useAppKitProvider<Provider>('solana');
-  const { caipNetwork, switchNetwork: reownSwitchNetwork } = useAppKitNetwork();
+  const { walletProvider: reownEvmProvider } = useAppKitProvider<any>('eip155');
+  const { caipNetwork, chainId: reownChainId, switchNetwork: reownSwitchNetwork } = useAppKitNetwork();
+  const reownNamespace = (caipNetwork as any)?.chainNamespace as string | undefined;
+  const reownEvmChain = reownNamespace === 'eip155' ? evmChainKeyFromId(reownChainId) : null;
   const { open } = useAppKit();
   const { disconnect: reownDisconnect } = useDisconnect();
 
@@ -155,7 +158,24 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Sync Reown State to our Internal App State
   useEffect(() => {
     const syncReown = async () => {
-      if (isReownConnected && reownAddress) {
+      if (isReownConnected && reownAddress && reownNamespace === 'eip155') {
+        // EVM session through Reown (Monad, Robinhood Chain, ApeChain, Ethereum).
+        evmProviderRef.current = reownEvmProvider ?? null;
+        const balance = reownEvmProvider ? await getEvmBalance(reownEvmProvider, reownAddress) : null;
+        const evmChain: ChainType = reownEvmChain && reownEvmChain !== 'ethereum' ? reownEvmChain : 'monad';
+        setState(prev => ({
+          ...prev,
+          address: reownAddress,
+          isConnected: true,
+          balance,
+          walletType: "reown",
+          chainType: evmChain,
+          network: 'mainnet' as NetworkType,
+          isConnecting: false,
+        }));
+        try { localStorage.setItem("walletConnected", "true"); } catch {}
+        if (evmChain === 'monad' || evmChain === 'robinhood' || evmChain === 'apechain') setStoredChain(evmChain as any);
+      } else if (isReownConnected && reownAddress) {
         const balance = await fetchSolanaBalance(reownAddress);
         setState(prev => ({
           ...prev,
@@ -193,7 +213,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     
     syncReown();
-  }, [isReownConnected, reownAddress, reownStatus, fetchSolanaBalance, ensureSupabaseSession]);
+  }, [isReownConnected, reownAddress, reownStatus, reownNamespace, reownEvmChain, reownEvmProvider, fetchSolanaBalance, ensureSupabaseSession]);
 
   // Sync Reown's selected network (mainnet / devnet / testnet) into our internal state
   useEffect(() => {
@@ -294,7 +314,20 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // ---- EVM chains (Monad, Robinhood Chain) -------------------------------
   // One shared path: discover the injected wallet, request an account, then
   // switch (or add) the target network before we mark the wallet connected.
-  const connectEvm = useCallback(async (chainId: 'monad' | 'robinhood') => {
+  // Primary path: Reown AppKit (injected wallets via EIP-6963 + WalletConnect QR).
+  const connectEvm = useCallback(async (chainId: 'monad' | 'robinhood' | 'apechain') => {
+    try {
+      await reownSwitchNetwork(REOWN_EVM_NETWORKS[chainId]);
+    } catch (e) {
+      console.warn('[Reown] pre-select network failed', e);
+    }
+    setStoredChain(chainId as any);
+    if (isReownConnected && reownNamespace === 'eip155') return; // already connected; network switched
+    await open({ view: 'Connect', namespace: 'eip155' } as any);
+  }, [reownSwitchNetwork, open, isReownConnected, reownNamespace]);
+
+  // Legacy direct-injection path, kept as a fallback for wallets Reown can't see.
+  const connectEvmInjected = useCallback(async (chainId: 'monad' | 'robinhood') => {
     const cfg = CHAINS[chainId];
     const net = cfg.networks.mainnet;
     const toastId = `${chainId}-connect`;
@@ -340,14 +373,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const connectMonad = useCallback(() => connectEvm('monad'), [connectEvm]);
   const connectRobinhood = useCallback(() => connectEvm('robinhood'), [connectEvm]);
+  void connectEvmInjected;
 
   // ---- Live EVM network detection ----------------------------------------
   // Track the wallet's actual chain so we can block actions on the wrong one.
-  const [evmChainId, setEvmChainId] = useState<number | null>(null);
+  const [injectedChainId, setEvmChainId] = useState<number | null>(null);
+  const isReownEvm = state.walletType === 'reown' && reownNamespace === 'eip155';
+  const evmChainId = isReownEvm ? (Number(reownChainId) || null) : injectedChainId;
   const expectedEvmChainId =
     state.walletType === 'evm' && (state.chainType === 'monad' || state.chainType === 'robinhood')
       ? CHAINS[state.chainType].networks.mainnet.chainId ?? null
-      : null;
+      : isReownEvm && (chain.id === 'monad' || chain.id === 'robinhood' || chain.id === 'apechain')
+        ? CHAINS[chain.id].networks.mainnet.chainId ?? null
+        : null;
   const isWrongNetwork = expectedEvmChainId !== null && evmChainId !== null && evmChainId !== expectedEvmChainId;
 
   useEffect(() => {
@@ -391,10 +429,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [state.walletType, state.isConnected, state.chainType, expectedEvmChainId]);
 
   const switchToExpectedNetwork = useCallback(async () => {
+    if (isReownEvm && (chain.id === 'monad' || chain.id === 'robinhood' || chain.id === 'apechain')) {
+      await reownSwitchNetwork(REOWN_EVM_NETWORKS[chain.id]);
+      return;
+    }
     if (state.chainType === 'monad' || state.chainType === 'robinhood') {
       await connectEvm(state.chainType);
     }
-  }, [state.chainType, connectEvm]);
+  }, [state.chainType, connectEvm, isReownEvm, chain, reownSwitchNetwork]);
 
 
   // Main connect function opens Reown AppKit Modal or Joey Wallet
