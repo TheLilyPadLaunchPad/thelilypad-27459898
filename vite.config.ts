@@ -8,8 +8,16 @@ import { requirePublicEnvironment } from "./scripts/requirePublicEnvironment";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, command }) => {
-  if (command === "build") {
-    requirePublicEnvironment(loadEnv(mode, process.cwd(), "VITE_"));
+  // Only gate production (publish) builds. Preview/dev builds are run by the
+  // platform with their own wrapper config that supplies connection settings
+  // separately, so blocking them here breaks the preview.
+  if (command === "build" && mode === "production") {
+    requirePublicEnvironment({
+      ...loadEnv(mode, process.cwd(), "VITE_"),
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => key.startsWith("VITE_")),
+      ),
+    });
   }
   return ({
   server: {
