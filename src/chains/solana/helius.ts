@@ -46,12 +46,13 @@ export interface HeliusParsedTransaction {
  * All Helius Enhanced API calls go through the `helius-proxy` edge function
  * so the Helius API key never ships to the browser.
  */
-const PROJECT_URL = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, "");
-const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const PROJECT_URL = String(import.meta.env.VITE_SUPABASE_URL ?? "").replace(/\/$/, "");
+const ANON_KEY = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "");
 const PROXY_URL = `${PROJECT_URL}/functions/v1/helius-proxy`;
 
 // The proxy requires a signed-in user; guests get an empty result.
 const proxyHeaders = async (): Promise<Record<string, string> | null> => {
+    if (!PROJECT_URL || !ANON_KEY) return null;
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) return null;
