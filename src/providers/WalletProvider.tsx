@@ -22,7 +22,7 @@ import { REOWN_EVM_NETWORKS, evmChainKeyFromId } from "@/integrations/reown/appk
 
 // Types
 export type WalletType = "reown" | "joey" | "evm";
-export type ChainType = "solana" | "monad" | "xrpl" | "robinhood" | "apechain" | "ethereum";
+export type ChainType = "solana" | "monad" | "xrpl" | "robinhood" | "apechain";
 export type OAuthProvider = "google" | "apple";
 
 interface WalletState {
@@ -162,7 +162,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // EVM session through Reown (Monad, Robinhood Chain, ApeChain, Ethereum).
         evmProviderRef.current = reownEvmProvider ?? null;
         const balance = reownEvmProvider ? await getEvmBalance(reownEvmProvider, reownAddress) : null;
-        const evmChain = reownEvmChain ?? 'monad';
+        const evmChain: ChainType = reownEvmChain && reownEvmChain !== 'ethereum' ? reownEvmChain : 'monad';
         setState(prev => ({
           ...prev,
           address: reownAddress,
@@ -383,8 +383,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const expectedEvmChainId =
     state.walletType === 'evm' && (state.chainType === 'monad' || state.chainType === 'robinhood')
       ? CHAINS[state.chainType].networks.mainnet.chainId ?? null
-      : isReownEvm && (chain === 'monad' || chain === 'robinhood' || chain === 'apechain')
-        ? CHAINS[chain].networks.mainnet.chainId ?? null
+      : isReownEvm && (chain.id === 'monad' || chain.id === 'robinhood' || chain.id === 'apechain')
+        ? CHAINS[chain.id].networks.mainnet.chainId ?? null
         : null;
   const isWrongNetwork = expectedEvmChainId !== null && evmChainId !== null && evmChainId !== expectedEvmChainId;
 
@@ -429,8 +429,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [state.walletType, state.isConnected, state.chainType, expectedEvmChainId]);
 
   const switchToExpectedNetwork = useCallback(async () => {
-    if (isReownEvm && (chain === 'monad' || chain === 'robinhood' || chain === 'apechain')) {
-      await reownSwitchNetwork(REOWN_EVM_NETWORKS[chain]);
+    if (isReownEvm && (chain.id === 'monad' || chain.id === 'robinhood' || chain.id === 'apechain')) {
+      await reownSwitchNetwork(REOWN_EVM_NETWORKS[chain.id]);
       return;
     }
     if (state.chainType === 'monad' || state.chainType === 'robinhood') {
