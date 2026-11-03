@@ -79,7 +79,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
 
   // Guests who tapped "Enter" can browse everything except wallet-only areas
-  if (state === "DISCONNECTED" && hasEnteredApp()) {
+  // The home page is public: first-time visitors see it without the Welcome screen.
+  if (state === "DISCONNECTED" && (hasEnteredApp() || location.pathname === "/")) {
     const needsWallet = WALLET_REQUIRED.some(p => location.pathname.startsWith(p));
     if (!needsWallet) {
       if (betaLoading) {
