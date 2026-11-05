@@ -13,6 +13,40 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Public, read-only wallet holdings lookup (on-chain ownership is public data).
+  if (new URL(req.url).searchParams.get("action") === "assets-by-owner") {
+    const json = (b: unknown, s = 200) =>
+      new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const key = Deno.env.get("HELIUS_API_KEY");
+    const endpoints = [
+      Deno.env.get("SOLANA_RPC_URL"),
+      key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : undefined,
+    ].filter((u): u is string => !!u && u.startsWith("https://"));
+    if (!endpoints.length) return json({ error: "No DAS endpoint configured" }, 500);
+    let body: any = {};
+    try { body = await req.json(); } catch { /* ignore */ }
+    const owner = String(body.owner || "");
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner)) return json({ error: "Invalid owner" }, 400);
+    const page = Math.max(1, Math.min(100, Number(body.page) || 1));
+    const limit = Math.max(1, Math.min(1000, Number(body.limit) || 50));
+    let lastErr = "";
+    for (const ep of endpoints) {
+      const r = await fetch(ep, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0", id: "lily", method: "getAssetsByOwner",
+          params: { ownerAddress: owner, page, limit, sortBy: { sortBy: "created", sortDirection: "desc" } },
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && !data.error && data.result) return json(data.result);
+      lastErr = data.error?.message || `status ${r.status}`;
+      console.warn("DAS endpoint failed:", lastErr);
+    }
+    return json({ error: `NFT indexer unavailable (${lastErr})` }, 502);
+  }
+
   // Require a signed-in user (not just the public anon key).
   const unauthorized = () =>
     new Response(JSON.stringify({ error: "Unauthorized" }), {

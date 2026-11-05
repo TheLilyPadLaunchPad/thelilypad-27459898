@@ -68,22 +68,28 @@ export function useWalletNFTs(
       const isSolana = isSolanaNetwork(network);
 
       if (isSolana) {
-        const networkType = getNetworkType(network);
-        const rpcUrl = getSolanaRpcUrl(networkType);
-
-        // Initialize Umi with DAS API
-        const umi = getDasUmi(rpcUrl);
-        const owner = publicKey(walletAddress);
+        if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress)) {
+          throw new Error("Connect a Solana wallet to view Solana NFTs.");
+        }
         const page = loadMore ? currentPage + 1 : 1;
         const limit = 50;
 
-        // Fetch assets using DAS API
-        const assets = await (umi.rpc as any).getAssetsByOwner({
-          owner,
-          page,
-          limit,
-          sortBy: { sortBy: 'created', sortDirection: 'desc' }
-        }) as DasApiAssetList;
+        // Fetch via server proxy (browser-side Helius URLs are origin-restricted)
+        const { data: proxied, error: proxyErr } = await supabase.functions.invoke(
+          "helius-proxy?action=assets-by-owner",
+          { body: { owner: walletAddress, page, limit } },
+        );
+        let assets: DasApiAssetList;
+        if (!proxyErr && proxied?.items) {
+          assets = proxied as DasApiAssetList;
+        } else {
+          // Fallback: direct DAS RPC
+          const umi = getDasUmi(getSolanaRpcUrl(getNetworkType(network)));
+          assets = await (umi.rpc as any).getAssetsByOwner({
+            owner: publicKey(walletAddress), page, limit,
+            sortBy: { sortBy: 'created', sortDirection: 'desc' }
+          }) as DasApiAssetList;
+        }
 
         // Filter to only NFT-type assets (exclude fungible tokens, SOL, SPL tokens)
         const nftAssets = assets.items.filter((asset: DasApiAsset) => {
