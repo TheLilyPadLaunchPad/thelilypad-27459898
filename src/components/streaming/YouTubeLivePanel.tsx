@@ -75,7 +75,9 @@ export function YouTubeLivePanel() {
       const now = Date.now();
       const row =
         data.find((r) => r.is_live) ??
-        data.find((r) => r.scheduled_at && Date.parse(r.scheduled_at) > now);
+        // Any un-ended scheduled row restores, even if its start time has
+        // passed — the creator can still press "Go live now".
+        data.find((r) => r.scheduled_at);
       if (!row) return;
       setRowId(row.id);
       setVideoId(row.youtube_video_id);
