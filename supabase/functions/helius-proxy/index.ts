@@ -13,6 +13,31 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Public, read-only wallet holdings lookup (on-chain ownership is public data).
+  if (new URL(req.url).searchParams.get("action") === "assets-by-owner") {
+    const json = (b: unknown, s = 200) =>
+      new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const key = Deno.env.get("HELIUS_API_KEY");
+    if (!key) return json({ error: "HELIUS_API_KEY not configured" }, 500);
+    let body: any = {};
+    try { body = await req.json(); } catch { /* ignore */ }
+    const owner = String(body.owner || "");
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner)) return json({ error: "Invalid owner" }, 400);
+    const page = Math.max(1, Math.min(100, Number(body.page) || 1));
+    const limit = Math.max(1, Math.min(1000, Number(body.limit) || 50));
+    const r = await fetch(`https://mainnet.helius-rpc.com/?api-key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: "lily", method: "getAssetsByOwner",
+        params: { ownerAddress: owner, page, limit, sortBy: { sortBy: "created", sortDirection: "desc" }, displayOptions: { showCollectionMetadata: true } },
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.error) return json({ error: data.error?.message || `Helius ${r.status}` }, 502);
+    return json(data.result);
+  }
+
   // Require a signed-in user (not just the public anon key).
   const unauthorized = () =>
     new Response(JSON.stringify({ error: "Unauthorized" }), {
