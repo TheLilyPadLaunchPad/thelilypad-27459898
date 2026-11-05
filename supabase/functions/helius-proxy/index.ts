@@ -33,7 +33,8 @@ serve(async (req) => {
     for (const ep of endpoints) {
       const r = await fetch(ep, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // Helius keys with allowed-domain rules check Origin
+        headers: { "Content-Type": "application/json", Origin: "https://th3lilypad.com" },
         body: JSON.stringify({
           jsonrpc: "2.0", id: "lily", method: "getAssetsByOwner",
           params: { ownerAddress: owner, page, limit, sortBy: { sortBy: "created", sortDirection: "desc" } },
