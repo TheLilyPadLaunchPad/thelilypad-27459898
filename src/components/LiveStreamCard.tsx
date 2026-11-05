@@ -63,7 +63,12 @@ export const LiveStreamCard = ({
   // Use live count if available, otherwise fall back to prop
   const viewerCount = state === 'live' && isConnected ? liveViewerCount : propViewerCount;
 
+  const schedulePassed =
+    state === 'scheduled' && !!scheduledAt && Date.parse(scheduledAt) <= Date.now();
   const startsIn = state === 'scheduled' ? relativeTime(scheduledAt) : null;
+  // Once the announced time has passed, the creator can still go live — the
+  // card should say so instead of "Starts 2 hours ago".
+  const startsLabel = schedulePassed ? 'Starting soon' : `Starts ${startsIn ?? 'soon'}`;
   const endedAgo = state === 'finished' ? relativeTime(endedAt) : null;
 
   // A scheduled stream has nothing to watch yet, and a finished one only
