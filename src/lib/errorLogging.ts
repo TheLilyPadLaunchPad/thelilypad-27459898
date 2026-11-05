@@ -89,6 +89,10 @@ function determineSeverity(category: ErrorCategory): ErrorSeverity {
 /**
  * Log an error to the database
  */
+let loggingInFlight = false;
+const recentLogTimes: number[] = [];
+const recentMessages = new Set<string>();
+
 export async function logErrorToDatabase(
   error: Error | string,
   options?: {
