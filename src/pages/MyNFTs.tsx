@@ -889,6 +889,13 @@ export default function MyNFTs() {
               )}
             </div>
 
+            {isOverview && !isLoading && hiddenCount > 0 && (
+              <p className="mb-4 text-sm text-muted-foreground">
+                Showing up to 10 NFTs from {Math.min(holdingsPreview.totalCollections, 10)} of your {holdingsPreview.totalCollections} collections.
+                Pick a collection on the left to see all of its NFTs ({hiddenCount} more not shown).
+              </p>
+            )}
+
             {/* 3D Card Stack Preview - Shows when collection is selected */}
             {selectedCollection && filteredNfts.length >= 2 && !isLoading && (
               <div className="mb-8">
