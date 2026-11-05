@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { TurnstileWidget, type TurnstileHandle } from '@/components/common/TurnstileWidget';
+import { verifyTurnstile } from '@/lib/turnstile';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Radio, ArrowLeft, Send, CheckCircle, FileText } from 'lucide-react';
@@ -47,6 +49,9 @@ export default function StreamerApply() {
     check();
   }, [profile?.user_id]);
 
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
+
   const handleSubmit = async () => {
     if (!profile?.user_id) return;
     if (!displayName || !email || !contentType) {
@@ -56,6 +61,7 @@ export default function StreamerApply() {
 
     setSubmitting(true);
     try {
+      await verifyTurnstile(captchaToken, 'streamer_apply');
       const links = platformLinks.split('\n').map(l => l.trim()).filter(Boolean);
       await (supabase.from('streamer_applications') as any).insert({
         user_id: profile.user_id,
@@ -73,6 +79,7 @@ export default function StreamerApply() {
     } catch (e: any) {
       toast.error('Failed to submit', { description: e.message });
     } finally {
+      captchaRef.current?.reset();
       setSubmitting(false);
     }
   };
@@ -224,7 +231,8 @@ export default function StreamerApply() {
                   <Input value={socialYoutube} onChange={(e) => setSocialYoutube(e.target.value)} placeholder="@channel" />
                 </div>
               </div>
-              <Button onClick={handleSubmit} disabled={submitting} className="w-full gap-2">
+              <TurnstileWidget ref={captchaRef} action="streamer_apply" onToken={setCaptchaToken} />
+              <Button onClick={handleSubmit} disabled={submitting || !captchaToken} className="w-full gap-2">
                 <Send className="w-4 h-4" />
                 {submitting ? 'Submitting...' : 'Submit Application'}
               </Button>

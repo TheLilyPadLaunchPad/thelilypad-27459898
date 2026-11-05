@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { TurnstileWidget, type TurnstileHandle } from '@/components/common/TurnstileWidget';
+import { verifyTurnstile } from '@/lib/turnstile';
 import { toast } from '@/hooks/use-toast';
 import { useSEO } from '@/hooks/useSEO';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -120,9 +122,13 @@ const CreatorApply: React.FC = () => {
         }
     };
 
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    const captchaRef = React.useRef<TurnstileHandle>(null);
+
     const handleSubmit = async () => {
         setSubmitting(true);
         try {
+            await verifyTurnstile(captchaToken, 'creator_apply');
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
@@ -156,8 +162,9 @@ const CreatorApply: React.FC = () => {
             navigate('/dashboard');
         } catch (err) {
             console.error('Submit error:', err);
-            toast({ title: 'Submission Failed', description: 'Please try again later.', variant: 'destructive' });
+            toast({ title: 'Submission Failed', description: err instanceof Error ? err.message : 'Please try again later.', variant: 'destructive' });
         } finally {
+            captchaRef.current?.reset();
             setSubmitting(false);
         }
     };
@@ -485,6 +492,10 @@ const CreatorApply: React.FC = () => {
                                 </motion.div>
                             </AnimatePresence>
 
+                            {step === STEPS.length - 1 && (
+                                <div className="mt-6"><TurnstileWidget ref={captchaRef} action="creator_apply" onToken={setCaptchaToken} /></div>
+                            )}
+
                             {/* Navigation */}
                             <div className="flex items-center justify-between mt-8 pt-6 border-t border-border/50">
                                 <Button
@@ -507,7 +518,7 @@ const CreatorApply: React.FC = () => {
                                 ) : (
                                     <Button
                                         onClick={handleSubmit}
-                                        disabled={submitting}
+                                        disabled={submitting || !captchaToken}
                                         className="gap-2 bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90"
                                     >
                                         {submitting ? (
