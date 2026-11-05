@@ -1,3 +1,11 @@
+/**
+ * NFTTransferModal — Send a Solana NFT to another wallet.
+ *
+ * Supports Metaplex Core assets and Bubblegum V2 compressed NFTs through the
+ * shared `transferSolanaNft` helper, which detects the standard via DAS and
+ * resolves Merkle proofs for cNFTs automatically.
+ */
+
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -13,15 +21,22 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { useChainCurrency } from "@/hooks/useChainCurrency";
 import {
   Send,
   Loader2,
   CheckCircle2,
   AlertTriangle,
   ExternalLink,
-  Image as ImageIcon
+  Image as ImageIcon,
 } from "lucide-react";
+import { type Umi } from "@metaplex-foundation/umi";
+import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
+import { getDasUmi } from "@/utils/dasApi";
+import { getSolanaRpcUrl } from "@/config/solana";
+import { useWallet } from "@/providers/WalletProvider";
+import { createUmi } from "@/chains";
+import { getErrorMessage } from "@/lib/errorUtils";
+import { isValidSolanaAddress, transferSolanaNft } from "@/lib/solanaNftTransfer";
 
 interface NFTTransferModalProps {
   open: boolean;
@@ -31,6 +46,10 @@ interface NFTTransferModalProps {
     token_id: number;
     name: string | null;
     image_url: string | null;
+    /** On-chain asset address (Core asset or cNFT id). Required to transfer. */
+    assetAddress?: string | null;
+    /** Core collection address, when known. */
+    collectionAddress?: string | null;
     collection: {
       name: string;
       contract_address: string | null;
@@ -44,20 +63,26 @@ export function NFTTransferModal({
   open,
   onOpenChange,
   nft,
-  onTransferSuccess
+  onTransferSuccess,
 }: NFTTransferModalProps) {
+  const { network, getSolanaProvider } = useWallet();
   const [recipientAddress, setRecipientAddress] = useState("");
   const [isValidAddress, setIsValidAddress] = useState<boolean | null>(null);
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [txSignature, setTxSignature] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
-  // Stubbed state for Sol migration
-  const isTransferring = false;
-  const txHash = null;
-  const error = null;
+  const assetAddress = nft?.assetAddress || nft?.collection?.contract_address || null;
+  const clusterParam = network === "devnet" ? "?cluster=devnet" : "";
 
   useEffect(() => {
     if (!open) {
       setRecipientAddress("");
       setIsValidAddress(null);
+      setTxSignature(null);
+      setError(null);
+      setProgress(null);
     }
   }, [open]);
 
@@ -65,26 +90,64 @@ export function NFTTransferModal({
     if (recipientAddress.length === 0) {
       setIsValidAddress(null);
     } else {
-      // Simple Solana address check length
-      setIsValidAddress(recipientAddress.length >= 32);
+      setIsValidAddress(isValidSolanaAddress(recipientAddress));
     }
   }, [recipientAddress]);
 
-  const handleTransfer = async () => {
-    toast.info("Transfers coming soon for Solana NFTs");
-    onOpenChange(false);
+  const buildWalletUmi = async (): Promise<Umi> => {
+    const provider = getSolanaProvider();
+    if (!provider?.publicKey) throw new Error("Solana wallet not connected");
+    const umi = await createUmi(network as "mainnet" | "devnet", null);
+    const wallet = {
+      publicKey: provider.publicKey,
+      signTransaction: provider.signTransaction.bind(provider),
+      signAllTransactions: provider.signAllTransactions.bind(provider),
+      signMessage: provider.signMessage ? provider.signMessage.bind(provider) : undefined,
+    };
+    return umi.use(walletAdapterIdentity(wallet));
   };
 
-  const { txUrl } = useChainCurrency();
+  const handleTransfer = async () => {
+    if (!nft || !assetAddress) {
+      setError("This NFT has no on-chain asset address yet and can't be transferred.");
+      return;
+    }
+    if (!isValidAddress) {
+      setError("Enter a valid Solana recipient address.");
+      return;
+    }
 
-  const explorerUrl = (hash: string) => txUrl(hash);
+    setIsTransferring(true);
+    setError(null);
+    try {
+      const umi = await buildWalletUmi();
+      const dasUmi = getDasUmi(getSolanaRpcUrl(network as "mainnet" | "devnet"));
+      const signature = await transferSolanaNft({
+        umi,
+        dasUmi,
+        assetAddress,
+        collectionAddress: nft.collectionAddress || null,
+        recipient: recipientAddress.trim(),
+        onProgress: setProgress,
+      });
+      setTxSignature(signature);
+      toast.success(`${nft.name || "NFT"} transferred.`);
+      onTransferSuccess();
+    } catch (err) {
+      console.error("Transfer failed:", err);
+      setError(getErrorMessage(err) || "Failed to transfer NFT.");
+    } finally {
+      setIsTransferring(false);
+      setProgress(null);
+    }
+  };
 
   if (!nft) return null;
 
-  const canTransfer = nft.collection?.contract_address && isValidAddress && !isTransferring;
+  const canTransfer = !!assetAddress && isValidAddress === true && !isTransferring;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => !isTransferring && onOpenChange(o)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -92,7 +155,8 @@ export function NFTTransferModal({
             Transfer NFT
           </DialogTitle>
           <DialogDescription>
-            Send this NFT to another wallet address
+            Send this NFT to another Solana wallet. Core and compressed NFTs are
+            both supported.
           </DialogDescription>
         </DialogHeader>
 
@@ -121,17 +185,14 @@ export function NFTTransferModal({
             <p className="font-medium truncate">
               {nft.name || `${nft.collection?.name} #${nft.token_id}`}
             </p>
-            <p className="text-sm text-muted-foreground">
-              {nft.collection?.name}
-            </p>
+            <p className="text-sm text-muted-foreground">{nft.collection?.name}</p>
             <Badge variant="outline" className="mt-1">
               Token #{nft.token_id}
             </Badge>
           </div>
         </div>
 
-        {/* Transfer Success State */}
-        {txHash ? (
+        {txSignature ? (
           <div className="space-y-4">
             <Alert className="bg-green-500/10 border-green-500/30">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -140,44 +201,45 @@ export function NFTTransferModal({
               </AlertDescription>
             </Alert>
             <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">Transaction Hash:</p>
+              <p className="text-sm text-muted-foreground mb-2">Transaction:</p>
               <code className="text-xs bg-muted px-2 py-1 rounded break-all">
-                {txHash}
+                {txSignature}
               </code>
             </div>
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => window.open(explorerUrl(txHash), "_blank")}
+              onClick={() =>
+                window.open(
+                  `https://explorer.solana.com/tx/${txSignature}${clusterParam}`,
+                  "_blank",
+                )
+              }
             >
               <ExternalLink className="w-4 h-4 mr-2" />
               View on Explorer
             </Button>
-            <Button
-              className="w-full"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button className="w-full" onClick={() => onOpenChange(false)}>
               Done
             </Button>
           </div>
         ) : (
           <>
-            {/* Contract not deployed warning */}
-            {!nft.collection?.contract_address && (
+            {!assetAddress && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  This collection's contract has not been deployed yet. Transfers are not available.
+                  This NFT has no on-chain asset address yet. Transfers are not
+                  available.
                 </AlertDescription>
               </Alert>
             )}
 
-            {/* Recipient Address Input */}
             <div className="space-y-2">
               <Label htmlFor="recipient">Recipient Address</Label>
               <Input
                 id="recipient"
-                placeholder="0x..."
+                placeholder="Solana address…"
                 value={recipientAddress}
                 onChange={(e) => setRecipientAddress(e.target.value)}
                 className={
@@ -187,16 +249,15 @@ export function NFTTransferModal({
                       ? "border-green-500"
                       : ""
                 }
-                disabled={isTransferring || !nft.collection?.contract_address}
+                disabled={isTransferring || !assetAddress}
               />
               {isValidAddress === false && recipientAddress.length > 0 && (
                 <p className="text-xs text-destructive">
-                  Please enter a valid Ethereum address
+                  Please enter a valid Solana address
                 </p>
               )}
             </div>
 
-            {/* Error Display */}
             {error && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -204,11 +265,18 @@ export function NFTTransferModal({
               </Alert>
             )}
 
-            {/* Warning */}
+            {progress && (
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                {progress}
+              </p>
+            )}
+
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="text-sm">
-                This action is irreversible. Make sure the recipient address is correct before transferring.
+                This action is irreversible. Make sure the recipient address is
+                correct before transferring.
               </AlertDescription>
             </Alert>
 
@@ -220,10 +288,7 @@ export function NFTTransferModal({
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleTransfer}
-                disabled={!canTransfer}
-              >
+              <Button onClick={handleTransfer} disabled={!canTransfer}>
                 {isTransferring ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />

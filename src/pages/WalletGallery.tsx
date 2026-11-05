@@ -14,7 +14,7 @@ import { useWallet } from '@/providers/WalletProvider';
 import { useWalletNFTs, type NFT } from '@/hooks/useWalletNFTs';
 import { useSEO } from '@/hooks/useSEO';
 import { CHAINS, type SupportedChain } from '@/config/chains';
-import { collectibleKey, collectiblePack, galleryNetwork, visibleCollectibles } from '@/lib/walletGallery';
+import { collectibleKey, collectiblePack, collectibleTraits, galleryNetwork, visibleCollectibles } from '@/lib/walletGallery';
 
 function Artwork({ nft, large = false }: { nft: NFT; large?: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -30,10 +30,14 @@ function Inventory({ address, chain }: { address: string; chain: SupportedChain 
   const [kind, setKind] = useState('all');
   const [collection, setCollection] = useState('all');
   const [sort, setSort] = useState('name-asc');
+  const [traitType, setTraitType] = useState('all');
+  const [traitValue, setTraitValue] = useState('all');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<NFT | null>(null);
-  const filtered = useMemo(() => visibleCollectibles(nfts, search, kind, collection, sort), [nfts, search, kind, collection, sort]);
+  const filtered = useMemo(() => visibleCollectibles(nfts, search, kind, collection, sort, traitType, traitValue), [nfts, search, kind, collection, sort, traitType, traitValue]);
   const collections = useMemo(() => [...new Set(nfts.map(n => n.collection))].sort(), [nfts]);
+  const traits = useMemo(() => collectibleTraits(nfts), [nfts]);
+  const traitValues = useMemo(() => traits.find(t => t.trait_type === traitType)?.values || [], [traits, traitType]);
   const pages = Math.max(1, Math.ceil(filtered.length / 48));
   const currentPage = Math.min(page, pages - 1);
 
@@ -49,10 +53,12 @@ function Inventory({ address, chain }: { address: string; chain: SupportedChain 
       <div className="flex flex-wrap items-center gap-2"><span className="font-medium">{new Set(nfts.map(collectibleKey)).size} loaded</span><Badge variant="secondary">{nfts.filter(n => n.isCompressed).length} cNFTs</Badge></div>
       <Button variant="outline" size="icon" aria-label="Refresh collectibles" title="Refresh collectibles" disabled={isLoading} onClick={() => { setPage(0); void refresh(); }}><RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /></Button>
     </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_180px_220px_180px] gap-3 py-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 py-5">
       <div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label="Search collectibles" placeholder="Search collectibles or packs" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="pl-9" /></div>
       <Select value={kind} onValueChange={v => { setKind(v); setPage(0); }}><SelectTrigger aria-label="Collectible type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All collectibles</SelectItem><SelectItem value="compressed">Compressed NFTs</SelectItem></SelectContent></Select>
       <Select value={collection} onValueChange={v => { setCollection(v); setPage(0); }}><SelectTrigger aria-label="Collection filter"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All collections</SelectItem>{collections.filter(Boolean).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+      <Select value={traitType} onValueChange={v => { setTraitType(v); setTraitValue('all'); setPage(0); }}><SelectTrigger aria-label="Trait filter"><SelectValue placeholder="All traits" /></SelectTrigger><SelectContent><SelectItem value="all">All traits</SelectItem>{traits.map(t => <SelectItem key={t.trait_type} value={t.trait_type}>{t.trait_type}</SelectItem>)}</SelectContent></Select>
+      <Select value={traitValue} onValueChange={v => { setTraitValue(v); setPage(0); }} disabled={traitType === 'all'}><SelectTrigger aria-label="Trait value filter"><SelectValue placeholder="All values" /></SelectTrigger><SelectContent><SelectItem value="all">All values</SelectItem>{traitValues.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
       <Select value={sort} onValueChange={v => { setSort(v); setPage(0); }}><SelectTrigger aria-label="Sort collectibles"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="name-asc">Name: A–Z</SelectItem><SelectItem value="name-desc">Name: Z–A</SelectItem></SelectContent></Select>
     </div>
     {error && <div role="alert" className="mb-5 border border-destructive/40 rounded-lg p-4 text-sm"><p>Couldn’t load wallet collectibles. Please try again.</p><Button variant="outline" size="sm" className="mt-3" disabled={isLoading} onClick={() => void (nfts.length ? loadMore() : refresh())}>Retry</Button></div>}
@@ -61,7 +67,7 @@ function Inventory({ address, chain }: { address: string; chain: SupportedChain 
         <Artwork nft={nft} />
         <div className="p-3 space-y-2 min-w-0"><div className="text-xs text-muted-foreground truncate" title={collectiblePack(nft) || nft.collection}>{collectiblePack(nft) || nft.collection}</div><h2 className="font-semibold text-sm break-words line-clamp-2">{nft.name}</h2><Badge variant="secondary" className="text-xs">{nft.isCompressed ? 'cNFT' : nft.standard || 'NFT'}</Badge></div>
       </Button>)}
-    </div> : !error && <div className="py-16 text-center"><ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><h2 className="text-xl font-semibold">{nfts.length ? 'No matching collectibles' : 'No collectibles found'}</h2><p className="mt-2 text-sm text-muted-foreground">{nfts.length ? 'Try another search or collection.' : 'No NFTs were found for this wallet on this chain.'}</p>{nfts.length > 0 && <Button variant="outline" className="mt-4" onClick={() => { setSearch(''); setKind('all'); setCollection('all'); }}>Clear filters</Button>}</div>}
+    </div> : !error && <div className="py-16 text-center"><ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" /><h2 className="text-xl font-semibold">{nfts.length ? 'No matching collectibles' : 'No collectibles found'}</h2><p className="mt-2 text-sm text-muted-foreground">{nfts.length ? 'Try another search or collection.' : 'No NFTs were found for this wallet on this chain.'}</p>{nfts.length > 0 && <Button variant="outline" className="mt-4" onClick={() => { setSearch(''); setKind('all'); setCollection('all'); setTraitType('all'); setTraitValue('all'); }}>Clear filters</Button>}</div>}
     <div className="flex flex-wrap justify-center items-center gap-4 py-8">
       {pages > 1 && <><Button variant="outline" size="icon" aria-label="Previous gallery page" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button><span className="text-sm">{currentPage + 1} / {pages}</span><Button variant="outline" size="icon" aria-label="Next gallery page" disabled={currentPage >= pages - 1} onClick={() => setPage(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button></>}
       {hasMore && <Button variant="outline" disabled={isLoading} onClick={() => void loadMore()}>{isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Load more collectibles</Button>}

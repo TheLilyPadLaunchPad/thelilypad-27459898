@@ -16,6 +16,7 @@ import { ListOnchainNFTModal, type OnchainNFTLite } from "@/components/ListOncha
 import { CreateAuctionModal } from "@/components/CreateAuctionModal";
 import { CreateRaffleForNFT } from "@/components/raffles/CreateRaffleForNFT";
 import { BurnNFTModal } from "@/components/BurnNFTModal";
+import { AssetVaultPanel } from "@/components/AssetVaultPanel";
 import { ViewOffersModal } from "@/components/ViewOffersModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
@@ -52,7 +53,8 @@ import {
   MessageSquare,
   Gavel,
   TrendingUp,
-  Hash
+  Hash,
+  Vault
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
@@ -152,6 +154,7 @@ export default function MyNFTs() {
   const [listNft, setListNft] = useState<NFT | null>(null);
   const [raffleNft, setRaffleNft] = useState<NFT | null>(null);
   const [burnNft, setBurnNft] = useState<NFT | null>(null);
+  const [vaultNft, setVaultNft] = useState<NFT | null>(null);
   const [offersNft, setOffersNft] = useState<NFT | null>(null);
   const [listedNftIds, setListedNftIds] = useState<Set<string>>(new Set());
   const [listingsMap, setListingsMap] = useState<Map<string, { id: string; price: number }>>(new Map());
@@ -1559,6 +1562,22 @@ export default function MyNFTs() {
                       </Button>
                     )}
 
+                    {/* Asset Vault Button - Core NFTs have a built-in wallet */}
+                    {selectedNft.source === 'onchain' && selectedNft.onChainAddress && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedNft(null);
+                          setVaultNft(selectedNft);
+                        }}
+                      >
+                        <Vault className="w-4 h-4 mr-2" />
+                        Asset Vault
+                      </Button>
+                    )}
+
                     {/* Burn Button - Works for any NFT with on-chain address */}
                     {(selectedNft.source === 'onchain' || selectedNft.collection?.contract_address) && (
                       <Button
@@ -1627,12 +1646,28 @@ export default function MyNFTs() {
       <NFTTransferModal
         open={!!transferNft}
         onOpenChange={(open) => !open && setTransferNft(null)}
-        nft={transferNft}
+        nft={transferNft ? {
+          id: transferNft.id,
+          token_id: transferNft.token_id,
+          name: transferNft.name,
+          image_url: transferNft.image_url,
+          assetAddress: transferNft.onChainAddress || transferNft.asset_id || transferNft.nft_token_id || null,
+          collectionAddress: transferNft.collection?.contract_address || null,
+          collection: transferNft.collection,
+        } : null}
         onTransferSuccess={() => {
           toast.success("NFT transferred successfully!");
           setTransferNft(null);
           fetchNFTs();
         }}
+      />
+
+      {/* Core Asset Vault */}
+      <AssetVaultPanel
+        open={!!vaultNft}
+        onOpenChange={(open) => !open && setVaultNft(null)}
+        assetAddress={vaultNft?.onChainAddress || vaultNft?.asset_id || null}
+        assetName={vaultNft?.name}
       />
 
       {/* List Modal */}
