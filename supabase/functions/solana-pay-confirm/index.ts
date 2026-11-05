@@ -9,6 +9,7 @@
  */
 
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { getCallerWallets, getShopRecipients } from '../_shared/callerWallets.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const HELIUS_API_KEY = Deno.env.get('HELIUS_API_KEY')!;
@@ -180,7 +181,7 @@ Deno.serve(async (req) => {
             // Server-side price validation — never trust the caller-supplied amount.
             const { data: item, error: itemErr } = await supabase
                 .from('shop_items')
-                .select('id, price_mon, is_active')
+                .select('id, price_mon, is_active, creator_id')
                 .eq('id', itemId)
                 .maybeSingle();
             if (itemErr || !item) {
@@ -188,6 +189,16 @@ Deno.serve(async (req) => {
                     JSON.stringify({ error: 'Shop item not found' }),
                     { status: 404, headers: { ...corsHeaders, 'content-type': 'application/json' } },
                 );
+            }
+            const allowedRecipients = await getShopRecipients(supabase, item.creator_id ?? null);
+            if (!allowedRecipients.has(body.recipient)) {
+                return new Response(JSON.stringify({ error: 'Payment did not go to the seller' }),
+                    { status: 422, headers: { ...corsHeaders, 'content-type': 'application/json' } });
+            }
+            const callerWallets = await getCallerWallets(supabase, callerUserId);
+            if (!payerAddress || !callerWallets.has(payerAddress)) {
+                return new Response(JSON.stringify({ error: 'Payment must come from a wallet linked to your account' }),
+                    { status: 403, headers: { ...corsHeaders, 'content-type': 'application/json' } });
             }
             const expectedPrice = Number(item.price_mon ?? 0);
             // Allow tiny rounding tolerance (< 0.1%) but never below the expected price.

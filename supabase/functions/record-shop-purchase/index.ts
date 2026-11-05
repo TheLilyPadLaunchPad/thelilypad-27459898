@@ -9,6 +9,7 @@
  * Body: { kind: "item", itemId, txHash? } | { kind: "bundle", bundleId, txHash }
  */
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { getCallerWallets, getShopRecipients } from "../_shared/callerWallets.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -23,8 +24,11 @@ const rpcUrl = () => {
   return k ? `https://mainnet.helius-rpc.com/?api-key=${k}` : "https://api.mainnet-beta.solana.com";
 };
 
-/** Returns the fee payer if the tx paid >= expectedSol to other accounts. */
-async function verifyPaid(signature: string, expectedSol: number): Promise<string> {
+/**
+ * Verifies the tx paid >= expectedSol to app-owned recipients, signed by a
+ * wallet that belongs to the caller.
+ */
+async function verifyPaid(signature: string, expectedSol: number, recipients: Set<string>, callerWallets: Set<string>): Promise<string> {
   const res = await fetch(rpcUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -38,8 +42,11 @@ async function verifyPaid(signature: string, expectedSol: number): Promise<strin
   if (tx.meta?.err) throw new Error("Payment transaction failed on chain");
   const keys: any[] = tx.transaction?.message?.accountKeys ?? [];
   const payer = typeof keys[0] === "string" ? keys[0] : keys[0]?.pubkey;
+  if (!payer || !callerWallets.has(payer)) throw new Error("Payment must come from a wallet linked to your account");
   let received = 0;
   for (let i = 1; i < keys.length; i++) {
+    const addr = typeof keys[i] === "string" ? keys[i] : keys[i]?.pubkey;
+    if (!recipients.has(addr)) continue;
     const d = Number(tx.meta.postBalances[i]) - Number(tx.meta.preBalances[i]);
     if (d > 0) received += d;
   }
@@ -76,13 +83,13 @@ Deno.serve(async (req) => {
 
     if (kind === "item") {
       const itemId = String(body?.itemId || "");
-      const { data: item } = await admin.from("shop_items").select("id, price_sol").eq("id", itemId).maybeSingle();
+      const { data: item } = await admin.from("shop_items").select("id, price_sol, creator_id").eq("id", itemId).maybeSingle();
       if (!item) return json({ error: "Item not found" }, 404);
       const price = Number(item.price_sol || 0);
       if (price > 0) {
         if (!txHash) return json({ error: "Payment required" }, 400);
         if (await alreadyUsed()) return json({ error: "Payment already used" }, 409);
-        await verifyPaid(txHash, price);
+        await verifyPaid(txHash, price, await getShopRecipients(admin, item.creator_id ?? null), await getCallerWallets(admin, userId));
       }
       const { error } = await admin.from("shop_purchases").insert({
         item_id: itemId, user_id: userId, price_paid: price, currency: "SOL",
@@ -101,7 +108,7 @@ Deno.serve(async (req) => {
       if (price > 0) {
         if (!txHash) return json({ error: "Payment required" }, 400);
         if (await alreadyUsed()) return json({ error: "Payment already used" }, 409);
-        await verifyPaid(txHash, price);
+        await verifyPaid(txHash, price, await getShopRecipients(admin, null), await getCallerWallets(admin, userId));
       }
       const { error: bErr } = await admin.from("shop_bundle_purchases").insert({
         bundle_id: bundleId, user_id: userId, price_paid: price, tx_hash: txHash || "free_claim", currency: "SOL",

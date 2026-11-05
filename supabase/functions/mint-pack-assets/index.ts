@@ -16,6 +16,7 @@
  * Idempotent: a payment signature can only ever be redeemed once; retries
  * return the already-delivered result instead of minting twice.
  */
+import { getCallerWallets } from "../_shared/callerWallets.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { createUmi } from "npm:@metaplex-foundation/umi-bundle-defaults@1.4.1";
 import {
@@ -216,6 +217,10 @@ Deno.serve(async (req) => {
     const buyerWallet: string = body.buyerWallet;
     const paymentSignature: string | undefined = body.paymentSignature || undefined;
     if (!buyerWallet) return fail(phase, new Error("buyerWallet is required"), 400);
+    const callerWallets = await getCallerWallets(admin, user.id);
+    if (!callerWallets.has(buyerWallet)) {
+      return fail(phase, new Error("buyerWallet must be a wallet linked to your account"), 403);
+    }
     if (!pack.collection_address || !pack.tree_address) {
       return fail(phase, new Error("This pack has not been deployed on-chain yet"), 400);
     }
@@ -236,9 +241,12 @@ Deno.serve(async (req) => {
     if (paymentSignature) {
       const { data: existing } = await admin
         .from("shop_purchases")
-        .select("id, delivery_status, delivery_results")
+        .select("id, user_id, from_address, delivery_status, delivery_results")
         .eq("payment_signature", paymentSignature)
         .maybeSingle();
+      if (existing && (existing.user_id !== user.id || existing.from_address !== buyerWallet)) {
+        return fail(phase, new Error("Payment already used"), 409);
+      }
       existingPurchase = existing ?? null;
       if (existing && existing.delivery_status === "delivered") {
         return ok({ alreadyDelivered: true, results: existing.delivery_results ?? [] });

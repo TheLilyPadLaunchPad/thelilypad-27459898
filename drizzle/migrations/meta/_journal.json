@@ -120,6 +120,13 @@
       "when": 1793912285125,
       "tag": "0016_fix_collection_delete_schema_links",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793915347486,
+      "tag": "0017_earnings_server_only_inserts",
+      "breakpoints": true
     }
   ]
 }
