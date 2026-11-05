@@ -306,7 +306,7 @@ export default function MyNFTs() {
       }
 
       // Fetch floor prices for each collection the user owns NFTs from
-      const collectionIds = Object.keys(stats);
+      const collectionIds = Object.keys(stats).filter(id => !id.startsWith('onchain-'));
       if (collectionIds.length > 0) {
         // Get all NFTs in these collections to find floor prices
         const { data: collectionNfts } = await supabase
@@ -551,7 +551,7 @@ export default function MyNFTs() {
   };
 
   // Filter NFTs by collection and search query
-  const filteredNfts = nfts.filter(nft => {
+  const allMatchingNfts = nfts.filter(nft => {
     // Collection filter
     if (selectedCollection && nft.collection?.id !== selectedCollection) {
       return false;
