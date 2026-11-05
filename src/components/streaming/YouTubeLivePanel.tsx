@@ -72,7 +72,6 @@ export function YouTubeLivePanel() {
         .order("started_at", { ascending: false })
         .limit(5);
       if (cancelled || !data) return;
-      const now = Date.now();
       const row =
         data.find((r) => r.is_live) ??
         // Any un-ended scheduled row restores, even if its start time has

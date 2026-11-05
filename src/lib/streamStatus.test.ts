@@ -37,10 +37,14 @@ test('a stream with a future scheduled time is scheduled', () => {
   assert.equal(resolveStreamStatus(SCHEDULED_SOON, NOW), 'scheduled');
 });
 
-test('an ended stream, a never-started stream and a missed schedule are finished', () => {
+test('an ended stream and a never-started stream are finished', () => {
   assert.equal(resolveStreamStatus(FINISHED, NOW), 'finished');
   assert.equal(resolveStreamStatus(ABANDONED, NOW), 'finished');
-  assert.equal(resolveStreamStatus(NO_SHOW, NOW), 'finished');
+});
+
+test('a scheduled stream whose start time passed stays scheduled until ended', () => {
+  assert.equal(resolveStreamStatus(NO_SHOW, NOW), 'scheduled');
+  assert.equal(resolveStreamStatus({ ...NO_SHOW, ended_at: AN_HOUR_AGO }, NOW), 'finished');
 });
 
 test('a stream stops being scheduled once it has been ended', () => {
@@ -61,7 +65,7 @@ test('each status filter returns only its own rows', () => {
 test('status counts total up in the all tab', () => {
   assert.deepEqual(
     countStreamsByStatus([LIVE, SCHEDULED_LATER, SCHEDULED_SOON, FINISHED, NO_SHOW], NOW),
-    { all: 5, live: 1, scheduled: 2, finished: 2 },
+    { all: 5, live: 1, scheduled: 3, finished: 1 },
   );
 });
 
