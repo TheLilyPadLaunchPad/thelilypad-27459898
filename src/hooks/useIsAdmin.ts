@@ -14,6 +14,7 @@ export const useIsAdmin = () => {
 
   useEffect(() => {
     const checkAdminStatus = async () => {
+      setLoading(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
