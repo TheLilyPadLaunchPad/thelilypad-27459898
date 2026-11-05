@@ -4,8 +4,9 @@
  *
  * A row is:
  * - live      -> `is_live` is true
- * - scheduled -> a future `scheduled_at` with no `ended_at`
- * - finished  -> anything else (ended, or a scheduled time that came and went)
+ * - scheduled -> a `scheduled_at` with no `ended_at`, even if the start time
+ *   has passed — the creator can still go live, so it is not finished
+ * - finished  -> anything else (ended, or never scheduled and never live)
  */
 export type StreamStatus = 'live' | 'scheduled' | 'finished';
 
@@ -37,7 +38,7 @@ export function resolveStreamStatus(
   if (stream.is_live) return 'live';
 
   const starts = stream.scheduled_at ? Date.parse(stream.scheduled_at) : Number.NaN;
-  if (Number.isFinite(starts) && !stream.ended_at && starts > now) return 'scheduled';
+  if (Number.isFinite(starts) && !stream.ended_at) return 'scheduled';
 
   return 'finished';
 }

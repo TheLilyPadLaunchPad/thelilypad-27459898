@@ -97,11 +97,17 @@ const Watch = () => {
   const sourceLabel = isYouTube ? 'YouTube Live' : 'Browser Stream';
   const status = stream ? resolveStreamStatus(stream) : 'finished';
   const startsIn = status === 'scheduled' ? relativeFrom(stream?.scheduled_at) : null;
+  const schedulePassed =
+    status === 'scheduled' &&
+    !!stream?.scheduled_at &&
+    Date.parse(stream.scheduled_at) <= Date.now();
   const endedAgo = status === 'finished' ? relativeFrom(stream?.ended_at) : null;
 
   const statusNotice =
     status === 'scheduled'
-      ? `This stream starts ${startsIn ?? 'soon'}. The player opens when the creator goes live.`
+      ? schedulePassed
+        ? `This stream was scheduled to start ${startsIn ?? 'earlier'}. The player opens as soon as the creator goes live.`
+        : `This stream starts ${startsIn ?? 'soon'}. The player opens when the creator goes live.`
       : status === 'finished'
         ? isYouTube
           ? `This stream ended ${endedAgo ?? 'earlier'}. The recording still plays here and on YouTube.`

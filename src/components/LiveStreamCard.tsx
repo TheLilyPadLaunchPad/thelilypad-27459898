@@ -63,7 +63,12 @@ export const LiveStreamCard = ({
   // Use live count if available, otherwise fall back to prop
   const viewerCount = state === 'live' && isConnected ? liveViewerCount : propViewerCount;
 
+  const schedulePassed =
+    state === 'scheduled' && !!scheduledAt && Date.parse(scheduledAt) <= Date.now();
   const startsIn = state === 'scheduled' ? relativeTime(scheduledAt) : null;
+  // Once the announced time has passed, the creator can still go live — the
+  // card should say so instead of "Starts 2 hours ago".
+  const startsLabel = schedulePassed ? 'Starting soon' : `Starts ${startsIn ?? 'soon'}`;
   const endedAgo = state === 'finished' ? relativeTime(endedAt) : null;
 
   // A scheduled stream has nothing to watch yet, and a finished one only
@@ -86,7 +91,7 @@ export const LiveStreamCard = ({
       aria-disabled={!canOpen}
       aria-label={
         state === 'scheduled'
-          ? `${name} — scheduled ${startsIn ?? 'to start'}`
+          ? `${name} — ${schedulePassed ? 'starting soon' : `scheduled ${startsIn ?? 'to start'}`}`
           : state === 'finished'
             ? `${name} — finished${endedAgo ? ` ${endedAgo}` : ''}`
             : `${name} — live now`
@@ -181,7 +186,7 @@ export const LiveStreamCard = ({
             {state === 'scheduled' && (
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                Starts {startsIn ?? 'soon'}
+                {startsLabel}
               </p>
             )}
             {state === 'finished' && (
