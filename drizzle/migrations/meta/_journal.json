@@ -113,6 +113,13 @@
       "when": 1793910220169,
       "tag": "0015_fix_collection_hard_delete_shared_buybacks",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793912285125,
+      "tag": "0016_fix_collection_delete_schema_links",
+      "breakpoints": true
     }
   ]
 }
