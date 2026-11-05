@@ -89,6 +89,10 @@ function determineSeverity(category: ErrorCategory): ErrorSeverity {
 /**
  * Log an error to the database
  */
+let loggingInFlight = false;
+const recentLogTimes: number[] = [];
+const recentMessages = new Set<string>();
+
 export async function logErrorToDatabase(
   error: Error | string,
   options?: {
@@ -100,13 +104,28 @@ export async function logErrorToDatabase(
     walletAddress?: string;
   }
 ): Promise<void> {
+  if (loggingInFlight) return;
   try {
     const errorObj = typeof error === 'string' ? new Error(error) : error;
+    const msg = errorObj.message || '';
+    // Never log failures of the logger itself (prevents feedback loops)
+    if (msg.includes('error_logs') || msg.includes('[Error Logging]')) return;
+    // Rate limit: max 10 logs per minute, and skip identical repeats
+    const now = Date.now();
+    while (recentLogTimes.length && now - recentLogTimes[0] > 60_000) recentLogTimes.shift();
+    if (recentLogTimes.length >= 10 || recentMessages.has(msg)) return;
+    recentLogTimes.push(now);
+    recentMessages.add(msg);
+    setTimeout(() => recentMessages.delete(msg), 60_000);
+
     const category = options?.category || categorizeError(errorObj);
     const severity = options?.severity || determineSeverity(category);
 
-    // Get current user if authenticated
-    const { data: { user } } = await supabase.auth.getUser();
+    // Only signed-in users may write logs; skip guests to avoid rejected requests
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return;
+    loggingInFlight = true;
 
     const logEntry: ErrorLogEntry = {
       error_message: errorObj.message,
@@ -142,8 +161,9 @@ export async function logErrorToDatabase(
         metadata: logEntry.metadata,
       });
 
+    loggingInFlight = false;
     if (insertError) {
-      console.error('[Error Logging] Failed to log error:', insertError);
+      console.warn('[Error Logging] Failed to log error:', insertError);
     } else if (import.meta.env.DEV) {
       console.log('[Error Logging] Error logged to database:', {
         message: errorObj.message,
@@ -152,8 +172,9 @@ export async function logErrorToDatabase(
       });
     }
   } catch (loggingError) {
+    loggingInFlight = false;
     // Don't throw - we don't want error logging to cause more errors
-    console.error('[Error Logging] Failed to log error:', loggingError);
+    console.warn('[Error Logging] Failed to log error:', loggingError);
   }
 }
 
