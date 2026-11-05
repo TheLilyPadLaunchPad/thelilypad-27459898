@@ -13,5 +13,12 @@ export const REOWN_APP_METADATA = {
   name: "The Lily Pad",
   description: "Lily Launchpad — multi-chain NFT launchpad and creator streaming platform.",
   url: typeof window !== "undefined" ? window.location.origin : "https://thelilypad.lovable.app",
-  icons: ["https://thelilypad.lovable.app/icon-192.png"],
+  // Absolute, publicly reachable URLs: Reown's relay fetches these icons from
+  // its own servers, so a preview-relative or localhost path renders broken.
+  icons: [
+    "https://thelilypad.lovable.app/icon-512.png",
+    "https://th3lilypad.com/icon-512.png",
+    "https://thelilypad.lovable.app/icon-192.png",
+    "https://th3lilypad.com/icon-192.png",
+  ],
 } as const;
