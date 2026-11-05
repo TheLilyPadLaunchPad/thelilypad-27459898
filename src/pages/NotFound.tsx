@@ -6,6 +6,23 @@ const NotFound = () => {
 
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+
+    // A 404 is often an outdated saved copy of the app that doesn't know a newer
+    // page yet. Nothing is in progress on this screen, so it is safe to fetch the
+    // latest version and reload once.
+    if (!("serviceWorker" in navigator)) return;
+    const key = `lp_404_refresh:${location.pathname}`;
+    if (sessionStorage.getItem(key)) return;
+    navigator.serviceWorker.getRegistration().then(async (reg) => {
+      if (!reg) return;
+      try { await reg.update(); } catch { /* offline */ }
+      const waiting = reg.waiting || reg.installing;
+      if (!waiting) return;
+      sessionStorage.setItem(key, "1");
+      navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
+      waiting.postMessage({ type: "SKIP_WAITING" });
+      setTimeout(() => window.location.reload(), 4000);
+    });
   }, [location.pathname]);
 
   return (
