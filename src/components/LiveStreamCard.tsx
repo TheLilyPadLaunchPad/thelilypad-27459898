@@ -91,7 +91,7 @@ export const LiveStreamCard = ({
       aria-disabled={!canOpen}
       aria-label={
         state === 'scheduled'
-          ? `${name} — scheduled ${startsIn ?? 'to start'}`
+          ? `${name} — ${schedulePassed ? 'starting soon' : `scheduled ${startsIn ?? 'to start'}`}`
           : state === 'finished'
             ? `${name} — finished${endedAgo ? ` ${endedAgo}` : ''}`
             : `${name} — live now`
