@@ -25,6 +25,8 @@ import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { useWalletNFTs, NFT as OnChainNFT } from "@/hooks/useWalletNFTs";
+import { galleryNetwork } from "@/lib/walletGallery";
+import { previewHoldings } from "@/lib/holdingsPreview";
 import {
   ExternalLink,
   Image as ImageIcon,
@@ -118,12 +120,14 @@ export default function MyNFTs() {
   const chainSymbol = chainType === 'monad' ? 'MON' : 'SOL';
 
   // Fetch on-chain NFTs via DAS API using the current network from provider
-  const solanaNetwork = network; // e.g., 'solana-mainnet' or 'solana-devnet'
+  // Only ask an owner indexer that supports the connected chain (an EVM 0x
+  // address must never be sent to the Solana lookup).
+  const ownerNetwork = galleryNetwork(String(chainType || 'solana'));
   const {
     nfts: onChainNfts,
     isLoading: onChainLoading,
     refresh: refreshOnChain,
-  } = useWalletNFTs(address, solanaNetwork);
+  } = useWalletNFTs(ownerNetwork ? address : null, ownerNetwork || 'solana-mainnet');
 
   // Floor + 24h volume from Magic Eden public API (Solana mainnet)
   const isSolanaMainnet = String(network) === 'solana-mainnet' || String(network) === 'mainnet';
@@ -267,7 +271,7 @@ export default function MyNFTs() {
 
       // Calculate collection stats (initial without floor prices)
       const stats: Record<string, CollectionStats> = {};
-      nftData.forEach(nft => {
+      mergedNfts.forEach(nft => {
         if (nft.collection) {
           if (!stats[nft.collection.id]) {
             stats[nft.collection.id] = {
@@ -302,7 +306,7 @@ export default function MyNFTs() {
       }
 
       // Fetch floor prices for each collection the user owns NFTs from
-      const collectionIds = Object.keys(stats);
+      const collectionIds = Object.keys(stats).filter(id => !id.startsWith('onchain-'));
       if (collectionIds.length > 0) {
         // Get all NFTs in these collections to find floor prices
         const { data: collectionNfts } = await supabase
@@ -547,7 +551,7 @@ export default function MyNFTs() {
   };
 
   // Filter NFTs by collection and search query
-  const filteredNfts = nfts.filter(nft => {
+  const allMatchingNfts = nfts.filter(nft => {
     // Collection filter
     if (selectedCollection && nft.collection?.id !== selectedCollection) {
       return false;
@@ -561,6 +565,15 @@ export default function MyNFTs() {
     }
     return true;
   });
+
+  // "All NFTs" overview is capped at 10 collections x 10 NFTs each;
+  // picking a collection (or searching) shows everything that matches.
+  const isOverview = !selectedCollection && !searchQuery.trim();
+  const holdingsPreview = previewHoldings(allMatchingNfts, nft => nft.collection?.id || 'uncategorized');
+  const filteredNfts = isOverview
+    ? holdingsPreview.groups.flatMap(g => g.items)
+    : allMatchingNfts;
+  const hiddenCount = allMatchingNfts.length - filteredNfts.length;
 
   // Not connected state - require wallet OR login
   if (!isConnected && !currentUserId) {
@@ -875,6 +888,13 @@ export default function MyNFTs() {
                 </Button>
               )}
             </div>
+
+            {isOverview && !isLoading && hiddenCount > 0 && (
+              <p className="mb-4 text-sm text-muted-foreground">
+                Showing up to 10 NFTs from {Math.min(holdingsPreview.totalCollections, 10)} of your {holdingsPreview.totalCollections} collections.
+                Pick a collection on the left to see all of its NFTs ({hiddenCount} more not shown).
+              </p>
+            )}
 
             {/* 3D Card Stack Preview - Shows when collection is selected */}
             {selectedCollection && filteredNfts.length >= 2 && !isLoading && (
