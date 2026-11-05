@@ -31,7 +31,7 @@ const Index: React.FC = () => {
         "@type": "Organization",
         "name": "The Lily Pad",
         "url": "https://thelilypad.app",
-        "logo": "https://thelilypad.app/favicon.ico"
+        "logo": "https://thelilypad.lovable.app/icon-512.png"
       }
     }
   });
