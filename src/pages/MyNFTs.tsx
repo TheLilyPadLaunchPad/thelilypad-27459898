@@ -53,7 +53,8 @@ import {
   MessageSquare,
   Gavel,
   TrendingUp,
-  Hash
+  Hash,
+  Vault
 } from "lucide-react";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { CollectionApplicationModal } from "@/components/marketplace/CollectionApplicationModal";
