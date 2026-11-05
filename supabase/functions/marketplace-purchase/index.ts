@@ -165,10 +165,15 @@ Deno.serve(async (req) => {
       if (!BASE58.test(signature)) return json({ ok: false, error: "Invalid signature" }, 400);
 
       // Idempotent retry: already settled with this payment.
-      const { data: prior } = await admin.from("nft_listings").select("id,status,delivery_tx,delivery_error").eq("payment_tx", signature).maybeSingle();
+      const { data: prior } = await admin.from("nft_listings").select("id,status,delivery_tx,delivery_error,buyer_id,buyer_address").eq("payment_tx", signature).maybeSingle();
       if (prior) {
         if (prior.id !== listingId) return json({ ok: false, error: "Payment already used" }, 409);
+        // Retries are bound to the buyer who originally paid.
+        if (prior.buyer_id !== user.id || prior.buyer_address !== buyer) {
+          return json({ ok: false, error: "Payment already used" }, 409);
+        }
         if (prior.status === "sold") return json({ ok: true, deliveryTx: prior.delivery_tx });
+        if (prior.status !== "delivery_failed") return json({ ok: false, error: "Purchase is still processing" }, 409);
       }
 
       let q;
