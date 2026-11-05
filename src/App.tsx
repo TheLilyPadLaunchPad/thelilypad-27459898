@@ -72,7 +72,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   return <>{children}</>;
@@ -112,6 +112,8 @@ const MyNFTs = lazy(() => import("./pages/MyNFTs"));
 const FeesAndPricing = lazy(() => import("./pages/FeesAndPricing"));
 const BuybackProgram = lazy(() => import("./pages/BuybackProgram"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const AdminResetPassword = lazy(() => import("./pages/AdminResetPassword"));
 const OfficialPacks = lazy(() => import("./pages/OfficialPacks"));
 const MyPurchases = lazy(() => import("./pages/MyPurchases"));
 const MusicStore = lazy(() => import("./pages/MusicStore"));
@@ -168,6 +170,8 @@ const AppContent = () => {
         <div className="md:pl-16">
           <Routes>
             <Route path="/auth" element={<AuthPageGuard />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/reset-password" element={<AdminResetPassword />} />
             <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
             <Route path="/profile-setup" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ProfileTypeSelection /></Suspense></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
@@ -195,8 +199,8 @@ const AppContent = () => {
           <Route path="/collection/:collectionId" element={<CollectionDetail />} />
           <Route path="/my-nfts" element={<ProtectedRoute><MyNFTs /></ProtectedRoute>} />
           <Route path="/watch/:playbackId" element={<ProtectedRoute>{STREAMING_HUB_ENABLED ? <Watch /> : <ComingSoon title="Live Streaming — Coming Soon" description="Stream playback is launching with the streaming pipeline." />}</ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
-          <Route path="/admin/buyback" element={<ProtectedRoute><AdminRoute><AdminBuyback /></AdminRoute></ProtectedRoute>} />
+          <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+          <Route path="/admin/buyback" element={<AdminRoute><AdminBuyback /></AdminRoute>} />
           <Route path="/fees" element={<ProtectedRoute><FeesAndPricing /></ProtectedRoute>} />
           <Route path="/buyback-program" element={<ProtectedRoute><BuybackProgram /></ProtectedRoute>} />
           <Route path="/official-packs" element={<ProtectedRoute><OfficialPacks /></ProtectedRoute>} />
