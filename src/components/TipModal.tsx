@@ -139,25 +139,8 @@ export const TipModal: React.FC<TipModalProps> = ({
         // Show success immediately (optimistic)
         setTipState("success");
 
-        // Record in database in background
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          supabase.from("earnings").insert({
-            user_id: streamerId,
-            stream_id: streamId || null,
-            amount: parseFloat(amount),
-            currency: "SOL",
-            type: "donation",
-            from_user_id: session.user.id,
-            from_username: address.slice(0, 6) + "..." + address.slice(-4),
-            message: message || null,
-          }).then((result) => {
-            if (result.error) {
-              console.error("Failed to record tip:", result.error);
-            }
-          });
-        }
+        // Tips are recorded server-side after on-chain verification; the
+        // browser can no longer write earnings rows directly.
 
         const explorerUrl = network === 'mainnet'
           ? `https://explorer.solana.com/tx/${txHash}`
