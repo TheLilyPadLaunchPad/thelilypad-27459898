@@ -153,6 +153,7 @@ export default function MyNFTs() {
   const [listNft, setListNft] = useState<NFT | null>(null);
   const [raffleNft, setRaffleNft] = useState<NFT | null>(null);
   const [burnNft, setBurnNft] = useState<NFT | null>(null);
+  const [vaultNft, setVaultNft] = useState<NFT | null>(null);
   const [offersNft, setOffersNft] = useState<NFT | null>(null);
   const [listedNftIds, setListedNftIds] = useState<Set<string>>(new Set());
   const [listingsMap, setListingsMap] = useState<Map<string, { id: string; price: number }>>(new Map());
@@ -1557,6 +1558,22 @@ export default function MyNFTs() {
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
                         View Offers
+                      </Button>
+                    )}
+
+                    {/* Asset Vault Button - Core NFTs have a built-in wallet */}
+                    {selectedNft.source === 'onchain' && selectedNft.onChainAddress && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedNft(null);
+                          setVaultNft(selectedNft);
+                        }}
+                      >
+                        <Vault className="w-4 h-4 mr-2" />
+                        Asset Vault
                       </Button>
                     )}
 
