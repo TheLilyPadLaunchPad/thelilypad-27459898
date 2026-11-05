@@ -25,6 +25,8 @@ import { useSEO } from "@/hooks/useSEO";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
 import { useWalletNFTs, NFT as OnChainNFT } from "@/hooks/useWalletNFTs";
+import { galleryNetwork } from "@/lib/walletGallery";
+import { previewHoldings } from "@/lib/holdingsPreview";
 import {
   ExternalLink,
   Image as ImageIcon,
@@ -118,12 +120,14 @@ export default function MyNFTs() {
   const chainSymbol = chainType === 'monad' ? 'MON' : 'SOL';
 
   // Fetch on-chain NFTs via DAS API using the current network from provider
-  const solanaNetwork = network; // e.g., 'solana-mainnet' or 'solana-devnet'
+  // Only ask an owner indexer that supports the connected chain (an EVM 0x
+  // address must never be sent to the Solana lookup).
+  const ownerNetwork = galleryNetwork(String(chainType || 'solana'));
   const {
     nfts: onChainNfts,
     isLoading: onChainLoading,
     refresh: refreshOnChain,
-  } = useWalletNFTs(address, solanaNetwork);
+  } = useWalletNFTs(ownerNetwork ? address : null, ownerNetwork || 'solana-mainnet');
 
   // Floor + 24h volume from Magic Eden public API (Solana mainnet)
   const isSolanaMainnet = String(network) === 'solana-mainnet' || String(network) === 'mainnet';
@@ -267,7 +271,7 @@ export default function MyNFTs() {
 
       // Calculate collection stats (initial without floor prices)
       const stats: Record<string, CollectionStats> = {};
-      nftData.forEach(nft => {
+      mergedNfts.forEach(nft => {
         if (nft.collection) {
           if (!stats[nft.collection.id]) {
             stats[nft.collection.id] = {
