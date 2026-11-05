@@ -14,7 +14,7 @@ import { useWallet } from '@/providers/WalletProvider';
 import { useWalletNFTs, type NFT } from '@/hooks/useWalletNFTs';
 import { useSEO } from '@/hooks/useSEO';
 import { CHAINS, type SupportedChain } from '@/config/chains';
-import { collectibleKey, collectiblePack, galleryNetwork, visibleCollectibles } from '@/lib/walletGallery';
+import { collectibleKey, collectiblePack, collectibleTraits, galleryNetwork, visibleCollectibles } from '@/lib/walletGallery';
 
 function Artwork({ nft, large = false }: { nft: NFT; large?: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -30,10 +30,14 @@ function Inventory({ address, chain }: { address: string; chain: SupportedChain 
   const [kind, setKind] = useState('all');
   const [collection, setCollection] = useState('all');
   const [sort, setSort] = useState('name-asc');
+  const [traitType, setTraitType] = useState('all');
+  const [traitValue, setTraitValue] = useState('all');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<NFT | null>(null);
-  const filtered = useMemo(() => visibleCollectibles(nfts, search, kind, collection, sort), [nfts, search, kind, collection, sort]);
+  const filtered = useMemo(() => visibleCollectibles(nfts, search, kind, collection, sort, traitType, traitValue), [nfts, search, kind, collection, sort, traitType, traitValue]);
   const collections = useMemo(() => [...new Set(nfts.map(n => n.collection))].sort(), [nfts]);
+  const traits = useMemo(() => collectibleTraits(nfts), [nfts]);
+  const traitValues = useMemo(() => traits.find(t => t.trait_type === traitType)?.values || [], [traits, traitType]);
   const pages = Math.max(1, Math.ceil(filtered.length / 48));
   const currentPage = Math.min(page, pages - 1);
 
