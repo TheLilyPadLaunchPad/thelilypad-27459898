@@ -16,6 +16,7 @@ import { ListOnchainNFTModal, type OnchainNFTLite } from "@/components/ListOncha
 import { CreateAuctionModal } from "@/components/CreateAuctionModal";
 import { CreateRaffleForNFT } from "@/components/raffles/CreateRaffleForNFT";
 import { BurnNFTModal } from "@/components/BurnNFTModal";
+import { AssetVaultPanel } from "@/components/AssetVaultPanel";
 import { ViewOffersModal } from "@/components/ViewOffersModal";
 import { PortfolioValueChart } from "@/components/PortfolioValueChart";
 import { CardStack3D } from "@/components/ui/3d-card-stack";
@@ -1627,12 +1628,28 @@ export default function MyNFTs() {
       <NFTTransferModal
         open={!!transferNft}
         onOpenChange={(open) => !open && setTransferNft(null)}
-        nft={transferNft}
+        nft={transferNft ? {
+          id: transferNft.id,
+          token_id: transferNft.token_id,
+          name: transferNft.name,
+          image_url: transferNft.image_url,
+          assetAddress: transferNft.onChainAddress || transferNft.asset_id || transferNft.nft_token_id || null,
+          collectionAddress: transferNft.collection?.contract_address || null,
+          collection: transferNft.collection,
+        } : null}
         onTransferSuccess={() => {
           toast.success("NFT transferred successfully!");
           setTransferNft(null);
           fetchNFTs();
         }}
+      />
+
+      {/* Core Asset Vault */}
+      <AssetVaultPanel
+        open={!!vaultNft}
+        onOpenChange={(open) => !open && setVaultNft(null)}
+        assetAddress={vaultNft?.onChainAddress || vaultNft?.asset_id || null}
+        assetName={vaultNft?.name}
       />
 
       {/* List Modal */}
