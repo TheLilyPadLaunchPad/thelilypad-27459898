@@ -566,6 +566,15 @@ export default function MyNFTs() {
     return true;
   });
 
+  // "All NFTs" overview is capped at 10 collections x 10 NFTs each;
+  // picking a collection (or searching) shows everything that matches.
+  const isOverview = !selectedCollection && !searchQuery.trim();
+  const holdingsPreview = previewHoldings(allMatchingNfts, nft => nft.collection?.id || 'uncategorized');
+  const filteredNfts = isOverview
+    ? holdingsPreview.groups.flatMap(g => g.items)
+    : allMatchingNfts;
+  const hiddenCount = allMatchingNfts.length - filteredNfts.length;
+
   // Not connected state - require wallet OR login
   if (!isConnected && !currentUserId) {
     return (
