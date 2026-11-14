@@ -16,8 +16,8 @@ import { connectXRPLWallet, type XRPLWalletProvider } from "@/lib/xrplWalletConn
 // Core is already initialized" warning and break pairing.
 import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
 import type { Provider } from '@reown/appkit-adapter-solana/react';
-import { solana } from '@reown/appkit/networks';
-import { REOWN_EVM_NETWORKS, evmChainKeyFromId } from "@/integrations/reown/appkit";
+import { solana, solanaDevnet, solanaTestnet } from '@reown/appkit/networks';
+import { REOWN_EVM_NETWORKS, evmChainKeyFromId, areAdminTestNetworksEnabled } from "@/integrations/reown/appkit";
 
 
 // Types
@@ -221,9 +221,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const id = String((caipNetwork as any).id ?? '').toLowerCase();
     const name = String((caipNetwork as any).name ?? '').toLowerCase();
     let next: NetworkType | null = null;
-    // Mainnet-only: never adopt a test network from the wallet.
-    if (id.includes('devnet') || name.includes('devnet') || id.includes('testnet') || name.includes('testnet')) next = null;
-    else next = 'mainnet';
+    const isDevnet = id.includes('devnet') || name.includes('devnet');
+    const isTestnet = id.includes('testnet') || name.includes('testnet');
+    if (isDevnet || isTestnet) {
+      // Test networks are admin-only: adopt them only when the admin hint is set.
+      next = areAdminTestNetworksEnabled() ? (isDevnet ? 'devnet' : 'testnet') : null;
+    } else {
+      next = 'mainnet';
+    }
     if (next) {
       const target = next;
       setState(prev => prev.network === target ? prev : { ...prev, network: target });
@@ -493,15 +498,18 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [reownDisconnect]);
 
 
-  // Mainnet-only platform: switching networks is intentionally a no-op.
-  const switchNetwork = useCallback(async (_network: NetworkType) => {
+  // Mainnet for regular users; admins may switch to devnet/testnet.
+  const switchNetwork = useCallback(async (network: NetworkType) => {
+    const target: NetworkType =
+      network === 'mainnet' || areAdminTestNetworksEnabled() ? network : 'mainnet';
     try {
-      await reownSwitchNetwork(solana);
+      const reownNet = target === 'devnet' ? solanaDevnet : target === 'testnet' ? solanaTestnet : solana;
+      await reownSwitchNetwork(reownNet);
     } catch (e) {
       console.error('Reown switchNetwork failed:', e);
     }
-    setState(prev => (prev.network === 'mainnet' ? prev : { ...prev, network: 'mainnet' }));
-    localStorage.setItem("solanaNetwork", "mainnet");
+    setState(prev => (prev.network === target ? prev : { ...prev, network: target }));
+    localStorage.setItem("solanaNetwork", target);
   }, [reownSwitchNetwork]);
 
   // Returns the Reown Solana Provider for Umi/Metaplex hooks

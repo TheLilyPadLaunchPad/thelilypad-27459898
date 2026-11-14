@@ -1,6 +1,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@/providers/WalletProvider';
+import { setAdminTestNetworksEnabled } from '@/integrations/reown/appkit';
+
+/**
+ * Keep the boot-time admin-networks hint in sync with verified admin status.
+ * The Reown AppKit singleton is created before auth resolves, so when the
+ * hint changes we reload once to re-register the correct network list.
+ */
+const syncAdminTestNetworks = (isAdmin: boolean) => {
+  const changed = setAdminTestNetworksEnabled(isAdmin);
+  if (!changed || typeof window === 'undefined') return;
+  try {
+    if (sessionStorage.getItem('lilypad_net_reload')) return;
+    sessionStorage.setItem('lilypad_net_reload', '1');
+  } catch {}
+  window.location.reload();
+};
 
 /**
  * Admin status is granted exclusively via the server-side `user_roles` table
@@ -20,6 +36,7 @@ export const useIsAdmin = () => {
 
         if (!user) {
           setIsAdmin(false);
+          syncAdminTestNetworks(false);
           setLoading(false);
           return;
         }
@@ -36,6 +53,7 @@ export const useIsAdmin = () => {
           setIsAdmin(false);
         } else {
           setIsAdmin(!!data);
+          syncAdminTestNetworks(!!data);
         }
       } catch (error) {
         console.error('Error checking admin status:', error);

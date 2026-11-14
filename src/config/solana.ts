@@ -102,8 +102,13 @@ export const getSolanaRpcList = (network: NetworkType): string[] => {
             return MAINNET_RPC_LIST;
 
         case "devnet":
+            // Devnet is reachable only for admins (network options are
+            // admin-gated); use the real devnet endpoints for them.
+            return DEVNET_RPC_LIST;
+
+        case "testnet":
         default:
-            // Mainnet-only platform — devnet requests fall back to mainnet.
+            // Solana testnet has no dedicated endpoints — fall back to mainnet.
             return MAINNET_RPC_LIST;
     }
 };

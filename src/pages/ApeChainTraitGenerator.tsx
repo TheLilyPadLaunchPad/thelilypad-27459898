@@ -15,6 +15,7 @@ import { ApeChainDeployPanel } from "@/components/launchpad/ApeChainDeployPanel"
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
 import { buildOpenSeaCsv } from "@/lib/uploadRules";
+import { downloadBlob } from "@/lib/downloadBlob";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -316,15 +317,18 @@ export default function ApeChainTraitGenerator() {
                 )
             );
 
-            const out = await zip.generateAsync({ type: "blob" });
-            const url = URL.createObjectURL(out);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${(name || "collection").replace(/\s+/g, "-").toLowerCase()}-apechain.zip`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
+            // STORE (no deflate) + streamFiles keeps peak memory low — artwork
+            // is already compressed, and iPads crash the tab when JSZip
+            // deflates a large collection in memory.
+            const out = await zip.generateAsync({
+                type: "blob",
+                compression: "STORE",
+                streamFiles: true,
+            });
+            downloadBlob(
+                out,
+                `${(name || "collection").replace(/\s+/g, "-").toLowerCase()}-apechain.zip`
+            );
 
             toast.success("Collection downloaded");
         } catch (err: any) {

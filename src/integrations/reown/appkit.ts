@@ -15,7 +15,7 @@
 import { createAppKit, type AppKit } from "@reown/appkit/react";
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
 import { SolanaAdapter } from "@reown/appkit-adapter-solana/react";
-import { solana, mainnet as ethereumMainnet } from "@reown/appkit/networks";
+import { solana, solanaDevnet, solanaTestnet, mainnet as ethereumMainnet } from "@reown/appkit/networks";
 import type { AppKitNetwork } from "@reown/appkit/networks";
 import { REOWN_APP_METADATA, REOWN_PROJECT_ID } from "@/config/reown";
 import { MONAD_NETWORKS } from "@/config/monad";
@@ -60,6 +60,41 @@ const evmFromConfig = (key: "robinhood" | "apechain"): AppKitNetwork => {
 const robinhoodMainnet = evmFromConfig("robinhood");
 const apechainMainnet = evmFromConfig("apechain");
 
+/**
+ * Devnet/testnet networks are admin-only. Admin status is verified
+ * server-side by `useIsAdmin`; this localStorage flag is only a boot-time
+ * hint so the AppKit singleton (created before auth resolves) knows whether
+ * to register test networks. Non-admins never see devnet/testnet options.
+ */
+const ADMIN_TEST_NETWORKS_KEY = "lilypad_admin_test_networks";
+
+export function areAdminTestNetworksEnabled(): boolean {
+  try {
+    return localStorage.getItem(ADMIN_TEST_NETWORKS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Persist the admin-networks hint. Returns true when the value changed. */
+export function setAdminTestNetworksEnabled(enabled: boolean): boolean {
+  const prev = areAdminTestNetworksEnabled();
+  try {
+    localStorage.setItem(ADMIN_TEST_NETWORKS_KEY, enabled ? "1" : "0");
+  } catch {}
+  return prev !== enabled;
+}
+
+/**
+ * Network list registered with Reown. Test networks (Solana devnet/testnet,
+ * Monad testnet) are included only for admins; regular users get mainnets.
+ */
+export function buildReownNetworks(adminTestNetworks: boolean): AppKitNetwork[] {
+  return adminTestNetworks
+    ? [solana, solanaDevnet, solanaTestnet, monadMainnet, monadTestnet, robinhoodMainnet, apechainMainnet, ethereumMainnet]
+    : [solana, monadMainnet, robinhoodMainnet, apechainMainnet, ethereumMainnet];
+}
+
 /** EVM networks Reown can connect, keyed by the app's chain id. */
 export const REOWN_EVM_NETWORKS = {
   monad: monadMainnet,
@@ -96,9 +131,13 @@ export function initReownAppKit(): AppKit {
   // Reown AppKit auto-detects injected Solana wallets via Wallet Standard.
   const solanaAdapter = new SolanaAdapter({});
 
+  // Test networks (Solana devnet/testnet, Monad testnet) are registered only
+  // for admins; regular users get mainnet networks only.
+  const networks = buildReownNetworks(areAdminTestNetworksEnabled());
+
   appKitInstance = createAppKit({
     adapters: [new EthersAdapter(), solanaAdapter],
-    networks: [solana, monadMainnet, robinhoodMainnet, apechainMainnet, ethereumMainnet, monadTestnet],
+    networks: networks as [AppKitNetwork, ...AppKitNetwork[]],
     defaultNetwork: solana,
     projectId: REOWN_PROJECT_ID,
     metadata: { ...REOWN_APP_METADATA, icons: [...REOWN_APP_METADATA.icons] },
