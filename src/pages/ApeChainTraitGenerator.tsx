@@ -38,6 +38,9 @@ import {
     Save,
     Lock,
     Plus,
+    CheckCircle2,
+    AlertCircle,
+    RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -86,6 +89,10 @@ export default function ApeChainTraitGenerator() {
     const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
     const [isExporting, setIsExporting] = useState(false);
     const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
+    const [exportPercent, setExportPercent] = useState(0);
+    const [exportStage, setExportStage] = useState<"artwork" | "zip">("artwork");
+    const [exportStatus, setExportStatus] = useState<"idle" | "working" | "success" | "error">("idle");
+    const [exportError, setExportError] = useState("");
     const [metadataFormat, setMetadataFormat] = useState<"csv" | "json">("csv");
 
     // Editing / 1-of-1 pieces
@@ -241,6 +248,10 @@ export default function ApeChainTraitGenerator() {
         if (generatedAssets.length === 0) return toast.error("Generate assets first");
 
         setIsExporting(true);
+        setExportStatus("working");
+        setExportStage("artwork");
+        setExportPercent(0);
+        setExportError("");
         const total = generatedAssets.length;
         setExportProgress({ current: 0, total });
 
@@ -253,6 +264,7 @@ export default function ApeChainTraitGenerator() {
             for (let i = 0; i < generatedAssets.length; i++) {
                 const asset = generatedAssets[i];
                 setExportProgress({ current: i + 1, total });
+                setExportPercent(Math.round((i / total) * 70));
 
                 if (!asset.preview && !asset.customFile)
                     throw new Error(
@@ -317,22 +329,35 @@ export default function ApeChainTraitGenerator() {
                 )
             );
 
+            setExportStage("zip");
+            setExportPercent(70);
+
             // STORE (no deflate) + streamFiles keeps peak memory low — artwork
             // is already compressed, and iPads crash the tab when JSZip
             // deflates a large collection in memory.
-            const out = await zip.generateAsync({
-                type: "blob",
-                compression: "STORE",
-                streamFiles: true,
-            });
+            const out = await zip.generateAsync(
+                {
+                    type: "blob",
+                    compression: "STORE",
+                    streamFiles: true,
+                },
+                (zipMetadata) => {
+                    setExportPercent(70 + Math.round(zipMetadata.percent * 0.3));
+                }
+            );
             downloadBlob(
                 out,
                 `${(name || "collection").replace(/\s+/g, "-").toLowerCase()}-apechain.zip`
             );
 
-            toast.success("Collection downloaded");
+            setExportPercent(100);
+            setExportStatus("success");
+            toast.success("ZIP ready — your download has started");
         } catch (err: any) {
-            toast.error(err?.message || "Export failed");
+            const message = err?.message || "The ZIP could not be created. Please try again.";
+            setExportError(message);
+            setExportStatus("error");
+            toast.error(message);
         } finally {
             setIsExporting(false);
         }
@@ -641,10 +666,20 @@ export default function ApeChainTraitGenerator() {
                                         >
                                             {isExporting ? (
                                                 <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : exportStatus === "error" ? (
+                                                <RotateCcw className="w-4 h-4" />
                                             ) : (
                                                 <Download className="w-4 h-4" />
                                             )}
-                                            Download collection
+                                            {isExporting
+                                                ? exportStage === "artwork"
+                                                    ? `Preparing ${exportProgress.current}/${exportProgress.total}`
+                                                    : `Building ZIP ${exportPercent}%`
+                                                : exportStatus === "error"
+                                                    ? "Retry download"
+                                                    : exportStatus === "success"
+                                                        ? "Download again"
+                                                        : "Download collection"}
                                         </Button>
                                     </div>
                                 </div>
@@ -681,18 +716,63 @@ export default function ApeChainTraitGenerator() {
                                         </div>
                                     </CardHeader>
                                     <CardContent className="px-0 space-y-4">
-                                        {isExporting && (
-                                            <div className="space-y-2">
-                                                <p className="text-sm text-muted-foreground">
-                                                    Packaging {exportProgress.current} / {exportProgress.total}…
-                                                </p>
-                                                <Progress
-                                                    value={
-                                                        (exportProgress.current /
-                                                            Math.max(1, exportProgress.total)) *
-                                                        100
-                                                    }
-                                                />
+                                        {exportStatus !== "idle" && (
+                                            <div
+                                                className={cn(
+                                                    "rounded-xl border p-4 space-y-3",
+                                                    exportStatus === "error"
+                                                        ? "border-destructive/40 bg-destructive/5"
+                                                        : "border-primary/20 bg-primary/5"
+                                                )}
+                                                role={exportStatus === "error" ? "alert" : "status"}
+                                                aria-live="polite"
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    {exportStatus === "working" && (
+                                                        <Loader2 className="w-5 h-5 mt-0.5 shrink-0 animate-spin text-primary" />
+                                                    )}
+                                                    {exportStatus === "success" && (
+                                                        <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0 text-primary" />
+                                                    )}
+                                                    {exportStatus === "error" && (
+                                                        <AlertCircle className="w-5 h-5 mt-0.5 shrink-0 text-destructive" />
+                                                    )}
+                                                    <div className="space-y-1 min-w-0">
+                                                        <p className="font-medium text-sm">
+                                                            {exportStatus === "working"
+                                                                ? exportStage === "artwork"
+                                                                    ? `Preparing artwork ${exportProgress.current} of ${exportProgress.total}`
+                                                                    : "Building your ZIP file"
+                                                                : exportStatus === "success"
+                                                                    ? "ZIP ready — download started"
+                                                                    : "Download didn't finish"}
+                                                        </p>
+                                                        <p className="text-sm text-muted-foreground break-words">
+                                                            {exportStatus === "working"
+                                                                ? "Keep this page open. Large collections can take a few minutes on iPad."
+                                                                : exportStatus === "success"
+                                                                    ? "Check Safari Downloads or the Files app. If nothing was saved, use Download again."
+                                                                    : exportError}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {exportStatus === "working" && (
+                                                    <div className="space-y-2">
+                                                        <Progress value={exportPercent} />
+                                                        <div className="flex justify-between text-xs text-muted-foreground">
+                                                            <span>{exportStage === "artwork" ? "Artwork and metadata" : "Final ZIP"}</span>
+                                                            <span>{exportPercent}%</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {exportStatus !== "working" && (
+                                                    <Button size="sm" variant="outline" onClick={handleExport} className="gap-2">
+                                                        <RotateCcw className="w-4 h-4" />
+                                                        {exportStatus === "error" ? "Retry download" : "Download again"}
+                                                    </Button>
+                                                )}
                                             </div>
                                         )}
 
