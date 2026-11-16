@@ -768,7 +768,7 @@ export default function ApeChainTraitGenerator() {
                                                 )}
 
                                                 {exportStatus !== "working" && (
-                                                    <Button size="sm" variant="outline" onClick={handleExport} className="gap-2">
+                                                    <Button size="sm" variant="secondary" onClick={handleExport} className="gap-2">
                                                         <RotateCcw className="w-4 h-4" />
                                                         {exportStatus === "error" ? "Retry download" : "Download again"}
                                                     </Button>
