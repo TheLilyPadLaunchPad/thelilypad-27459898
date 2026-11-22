@@ -12,7 +12,7 @@
  * Trigger the modal via `openWalletModal()` or `<WalletConnectButton />`.
  */
 
-import { createAppKit, type AppKit } from "@reown/appkit/react";
+import { createAppKit, type AppKit, type AppKitOptions } from "@reown/appkit/react";
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
 import { SolanaAdapter } from "@reown/appkit-adapter-solana/react";
 import { solana, solanaDevnet, solanaTestnet, mainnet as ethereumMainnet } from "@reown/appkit/networks";
@@ -49,7 +49,7 @@ const evmFromConfig = (key: "robinhood" | "apechain"): AppKitNetwork => {
   const cfg = CHAINS[key];
   const net = cfg.networks.mainnet;
   return {
-    id: net.chainId!,
+    id: net.chainId ?? 0,
     name: cfg.name,
     nativeCurrency: { name: cfg.symbol, symbol: cfg.symbol, decimals: 18 },
     rpcUrls: { default: { http: [net.url] } },
@@ -135,7 +135,10 @@ export function initReownAppKit(): AppKit {
   // for admins; regular users get mainnet networks only.
   const networks = buildReownNetworks(areAdminTestNetworksEnabled());
 
-  appKitInstance = createAppKit({
+  const options: AppKitOptions = {
+    // Wallet-only AppKit: remote dashboard authentication must not start a
+    // competing SIWX prompt. Lily Pad authenticates through its Cloud bridge.
+    basic: true,
     adapters: [new EthersAdapter(), solanaAdapter],
     networks: networks as [AppKitNetwork, ...AppKitNetwork[]],
     defaultNetwork: solana,
@@ -145,9 +148,11 @@ export function initReownAppKit(): AppKit {
       analytics: true,
       email: false,
       socials: false,
+      reownAuthentication: false,
     },
     themeMode: "light",
-  });
+  };
+  appKitInstance = createAppKit(options);
 
   (globalThis as GlobalWithKit)[globalKey] = appKitInstance;
   return appKitInstance;

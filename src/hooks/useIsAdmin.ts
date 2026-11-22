@@ -29,10 +29,15 @@ export const useIsAdmin = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+    let generation = 0;
+    let authTimer: ReturnType<typeof setTimeout> | undefined;
     const checkAdminStatus = async () => {
+      const current = ++generation;
       setLoading(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
+        if (!active || current !== generation) return;
 
         if (!user) {
           setIsAdmin(false);
@@ -48,6 +53,8 @@ export const useIsAdmin = () => {
           .eq('role', 'admin')
           .maybeSingle();
 
+        if (!active || current !== generation) return;
+
         if (error) {
           console.error('Error checking admin status:', error);
           setIsAdmin(false);
@@ -56,20 +63,30 @@ export const useIsAdmin = () => {
           syncAdminTestNetworks(!!data);
         }
       } catch (error) {
+        if (!active || current !== generation) return;
         console.error('Error checking admin status:', error);
         setIsAdmin(false);
       } finally {
-        setLoading(false);
+        if (active && current === generation) setLoading(false);
       }
     };
 
     checkAdminStatus();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      checkAdminStatus();
+      // Auth awaits its subscribers while holding its session lock. Defer
+      // getUser() until the callback returns, or wallet sign-in can deadlock.
+      setLoading(true);
+      generation++;
+      clearTimeout(authTimer);
+      authTimer = setTimeout(() => { if (active) void checkAdminStatus(); }, 0);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      clearTimeout(authTimer);
+      subscription.unsubscribe();
+    };
   }, [isConnected, address]);
 
   return { isAdmin, loading };
