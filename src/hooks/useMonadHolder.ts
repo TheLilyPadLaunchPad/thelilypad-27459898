@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/providers/WalletProvider";
+import { useAppKitProvider } from "@reown/appkit/react";
 
 const CACHE_MS = 5 * 60 * 1000;
 const key = (addr: string, contracts: string[]) => `lp_holder:${addr.toLowerCase()}:${contracts.map((c) => c.toLowerCase()).sort().join(",")}`;
 
 export function useMonadHolder(contracts: string[]) {
   const { address } = useWallet() as any;
+  // Sign with the wallet the user actually connected through Reown (incl.
+  // mobile/WalletConnect); fall back to an injected browser wallet.
+  const { walletProvider: reownEvmProvider } = useAppKitProvider<any>("eip155");
   const [isHolder, setIsHolder] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +33,7 @@ export function useMonadHolder(contracts: string[]) {
 
   const verify = useCallback(async () => {
     if (!isEvm || list.length === 0) return;
-    const eth = (window as any).ethereum;
+    const eth = reownEvmProvider ?? (window as any).ethereum;
     if (!eth) return setError("No Monad wallet found in this browser.");
     setChecking(true);
     setError(null);
@@ -48,7 +52,7 @@ export function useMonadHolder(contracts: string[]) {
     } finally {
       setChecking(false);
     }
-  }, [address, isEvm, list]);
+  }, [address, isEvm, list, reownEvmProvider]);
 
   return { isHolder, checking, error, verify, canCheck: isEvm && list.length > 0 };
 }
