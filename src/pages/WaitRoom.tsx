@@ -20,6 +20,7 @@ import { useSEO } from '@/hooks/useSEO';
 import { WLCard } from '@/components/waitroom/WLCard';
 import { Navbar } from '@/components/Navbar';
 import { authUrl } from '@/lib/guestEntry';
+import { useWhitelistEligibility } from '@/hooks/useWhitelistEligibility';
 
 interface ChatMessage {
   id: string;
@@ -39,6 +40,7 @@ export default function WaitRoom() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { profile } = useUserProfile();
   const { walletAddress } = useAuth();
+  const { eligible: hasWhitelist, checking: checkingWhitelist, error: whitelistError } = useWhitelistEligibility();
   const { referralCode, referralCount, loading: refLoading } = useReferralCode();
   const { isBetaMode } = useBetaMode();
   const navigate = useNavigate();
@@ -176,12 +178,21 @@ export default function WaitRoom() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {/* Left sidebar - WL Card & Affiliate */}
           <div className="lg:col-span-1 space-y-4">
-            <WLCard
+            {hasWhitelist && walletAddress ? <WLCard
               displayName={profile?.display_name || shortWallet(walletAddress || '')}
               avatarUrl={profile?.avatar_url || undefined}
               affiliateLink={affiliateLink}
               referralCount={referralCount}
-            />
+              walletAddress={walletAddress}
+              eligible={hasWhitelist}
+            /> : <div className="border border-border rounded-lg p-5 space-y-4 bg-card">
+              <h2 className="text-xl font-semibold">Get your WL spot</h2>
+              <p className="text-sm text-muted-foreground">Connect your wallet and complete sign-in to join the whitelist. Your wallet address will be saved with your account.</p>
+              {checkingWhitelist ? <p role="status" className="text-sm text-muted-foreground">Checking your wallet registration…</p> : <>
+                {whitelistError && <p role="alert" className="text-sm text-destructive">Unable to confirm your wallet registration. Please try again.</p>}
+                <Button className="w-full" onClick={() => navigate(authUrl('/waitroom'))}>Connect wallet for WL</Button>
+              </>}
+            </div>}
 
             {/* Affiliate section */}
             <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
@@ -192,7 +203,7 @@ export default function WaitRoom() {
                 <p className="text-xs text-muted-foreground">
                   Share your affiliate link and earn rewards for every friend who joins The Lily Pad!
                 </p>
-                {affiliateLink && (
+                {hasWhitelist && affiliateLink && (
                   <div className="flex gap-2">
                     <Input value={affiliateLink} readOnly className="text-xs" />
                     <Button size="sm" variant="outline" onClick={copyAffiliateLink}>

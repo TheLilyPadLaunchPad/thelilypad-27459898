@@ -23,3 +23,4 @@
 - Private-profile activity and supporter aggregates enforce owner/admin visibility inside their privileged queries; every paid Helius proxy action authenticates before provider requests, so alternate screens cannot bypass these boundaries.
 - Database security regressions apply the actual migrations to an isolated PostgreSQL engine with synthetic fixtures, so tests never change live records or widen production permissions.
 - Site limited access uses one exact-path policy at the outer route gate and navigation, including otherwise public deep links; verified admins bypass it, while database permissions remain unchanged.
+- Waitroom WL eligibility reads the authenticated caller's saved profile and checks session identity and active wallet together; card display/download cannot rely on guest or cached public profiles.

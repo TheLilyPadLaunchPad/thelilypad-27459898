@@ -1,5 +1,8 @@
 # Task Roadmap
 
+- [x] Require authenticated wallet registration before showing or downloading a WL pass; verify saved wallet/account identity and include the wallet address on the pass.
+- [ ] Verify real-wallet WL onboarding: blocked by unavailable wallet approval and the existing blank preview startup issue.
+
 - [x] Reopen referrals and keep generators available; lock all other visitor pages while retaining admin access. Saved the limited-access setting; six access-policy tests pass.
 - [ ] Verify referral onboarding and generator navigation in the browser: blocked by the existing blank preview startup errors; updated page exceptions must be published together with the enabled lock.
 

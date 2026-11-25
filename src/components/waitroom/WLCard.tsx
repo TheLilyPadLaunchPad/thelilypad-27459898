@@ -15,9 +15,11 @@ interface WLCardProps {
   avatarUrl?: string;
   affiliateLink: string;
   referralCount: number;
+  walletAddress: string;
+  eligible: boolean;
 }
 
-export function WLCard({ displayName, avatarUrl, affiliateLink, referralCount }: WLCardProps) {
+export function WLCard({ displayName, avatarUrl, affiliateLink, referralCount, walletAddress, eligible }: WLCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -32,7 +34,7 @@ export function WLCard({ displayName, avatarUrl, affiliateLink, referralCount }:
   };
 
   const handleDownload = async () => {
-    if (isDownloading) return;
+    if (isDownloading || !eligible || !walletAddress) return;
     setIsDownloading(true);
     
     try {
@@ -89,6 +91,8 @@ export function WLCard({ displayName, avatarUrl, affiliateLink, referralCount }:
       ctx.fillStyle = '#94a3b8';
       ctx.font = '32px system-ui';
       ctx.fillText(`Pond Member · ${referralCount} Referrals`, 80, 380);
+      ctx.font = '20px system-ui';
+      ctx.fillText(walletAddress, 80, 425, 650);
 
       // Affiliate Link at bottom
       ctx.fillStyle = '#4ade80';
@@ -111,6 +115,7 @@ export function WLCard({ displayName, avatarUrl, affiliateLink, referralCount }:
   };
 
   const handleShare = async () => {
+    if (!eligible || !walletAddress || !affiliateLink) return;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -126,6 +131,8 @@ export function WLCard({ displayName, avatarUrl, affiliateLink, referralCount }:
       toast.success('Affiliate link copied to clipboard!');
     }
   };
+
+  if (!eligible || !walletAddress) return null;
 
   return (
     <div className="space-y-4">
