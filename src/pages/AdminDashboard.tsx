@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import FrogLoader from '@/components/FrogLoader';
 import { toast } from '@/hooks/use-toast';
 import ShopFileAccessManager from '@/components/admin/ShopFileAccessManager';
+import { WhitelistWalletExport } from '@/components/admin/WhitelistWalletExport';
 import { FileLock, Wrench } from 'lucide-react';
 import {
   Users,
@@ -646,6 +647,7 @@ const AdminDashboard: React.FC = () => {
 
           {/* Users Tab */}
           <TabsContent value="users">
+            <WhitelistWalletExport />
             <Card>
               <CardHeader className="px-4 sm:px-6">
                 <CardTitle className="text-lg sm:text-xl">All Users</CardTitle>

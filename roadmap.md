@@ -1,5 +1,8 @@
 # Task Roadmap
 
+- [x] Add admin-only whitelist wallet CSV under Users with saved registration statuses, secure paginated access, and prepared-file download; seven tests pass including isolated database authorization checks.
+- [ ] Verify the admin CSV download in-browser: blocked by existing blank preview startup errors and unavailable requesting-user admin session.
+
 - [x] Add WL attempt and confirmed-registration events beside existing wallet connection analytics; six catalog schemas validated and success deduplicated.
 - [ ] Confirm WL events arrive from a published real-wallet claim: requires publishing and a visitor's successful wallet sign-in; local checks cannot send analytics.
 

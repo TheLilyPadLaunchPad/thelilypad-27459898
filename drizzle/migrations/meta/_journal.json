@@ -141,6 +141,13 @@
       "when": 1795611351586,
       "tag": "0019_record_verified_raffle_entry",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795634784304,
+      "tag": "0020_admin_whitelist_wallet_export",
+      "breakpoints": true
     }
   ]
 }

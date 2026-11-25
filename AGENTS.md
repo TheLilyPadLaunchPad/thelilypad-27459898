@@ -25,3 +25,4 @@
 - Site limited access uses one exact-path policy at the outer route gate and navigation, including otherwise public deep links; verified admins bypass it, while database permissions remain unchanged.
 - Waitroom WL eligibility reads the authenticated caller's saved profile and checks session identity and active wallet together; card display/download cannot rely on guest or cached public profiles.
 - WL success analytics represent confirmed saved registration once per account per mounted eligibility flow, not unique enrollment; attempt events emit at existing join buttons and contain no account or wallet identifiers.
+- Admin WL CSV exports use a server-role-checked, cursor-paginated profile query; statuses describe saved registration rather than fabricated claim receipts, and downloads use a prepared Blob with spreadsheet-safe cells.
