@@ -26,7 +26,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 import type { LucideIcon } from "lucide-react";
-import { Store, Rocket, Video } from "lucide-react";
+import { Store, Rocket, Video, Share2, Layers, Trophy } from "lucide-react";
+import { useBetaMode } from '@/hooks/useBetaMode';
 
 const primaryLinks: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Marketplace", href: "/marketplace", icon: Store },
@@ -67,9 +68,16 @@ export const Navbar: React.FC = () => {
   const { profile, loading: profileLoading } = useUserProfile();
   const { isAdmin, loading: isAdminLoading } = useAdmin();
   const showAdmin = !isAdminLoading && isAdmin;
+  const { isBetaMode } = useBetaMode();
+  const limited = isBetaMode && !showAdmin;
+  const visiblePrimaryLinks = limited ? [
+    { label: 'Referrals', href: '/waitroom', icon: Share2 },
+    { label: 'Generators', href: '/generators', icon: Layers },
+    { label: 'Referral Leaderboard', href: '/leaderboard', icon: Trophy },
+  ] : primaryLinks;
   const navigate = useNavigate();
   const location = useLocation();
-  const isWaitRoom = location.pathname === '/waitroom';
+  const isWaitRoom = false; // Referrals must never trap visitors away from generators or admins.
 
   const { isMockMode } = useMockMode();
   const [isBuyTokensOpen, setIsBuyTokensOpen] = useState(false);
@@ -130,7 +138,7 @@ export const Navbar: React.FC = () => {
 
                   {/* Primary Links */}
                   <div className="space-y-1">
-                    {primaryLinks.map((link, index) => (
+                    {visiblePrimaryLinks.map((link, index) => (
                       <SheetClose asChild key={link.label}>
                         <Link
                           to={link.href}
@@ -153,7 +161,7 @@ export const Navbar: React.FC = () => {
                     >
                       Explore
                     </p>
-                    {exploreLinks.map((link, index) => {
+                    {(limited ? [] : exploreLinks).map((link, index) => {
                       const isDisabled = 'disabled' in link && link.disabled;
                       const isComingSoon = 'comingSoon' in link && link.comingSoon;
 
@@ -197,7 +205,7 @@ export const Navbar: React.FC = () => {
                     >
                       Account
                     </p>
-                    {accountLinks.filter(link => {
+                    {(limited ? [] : accountLinks).filter(link => {
                       // Only show streamer-specific links if user is a streamer
                       if (link.href === "/go-live" || link.label === "Go Live" || link.label === "Streamer Dashboard") {
                         return profile?.is_streamer;
@@ -297,7 +305,7 @@ export const Navbar: React.FC = () => {
               </Button>
             )}
 
-            {isMockMode && profile && (
+            {!limited && isMockMode && profile && (
               <>
                 <Button 
                   variant="outline" 
@@ -312,7 +320,7 @@ export const Navbar: React.FC = () => {
               </>
             )}
 
-            <NotificationBell />
+            {!limited && <NotificationBell />}
             <ConnectWallet />
           </div>
         </div>

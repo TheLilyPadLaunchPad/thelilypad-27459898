@@ -30,6 +30,8 @@ import {
   STREAMING_HUB_ENABLED,
 } from "@/config/featureFlags";
 import { ComingSoon } from "@/components/ComingSoon";
+import { SiteAccessGate } from '@/components/SiteAccessGate';
+import { useBetaMode } from '@/hooks/useBetaMode';
 
 // Lazy load ALL pages to reduce initial bundle and improve FID
 const Index = lazy(() => import("./pages/Index"));
@@ -46,10 +48,6 @@ const AuthPageGuard = () => {
         <FrogLoader size="lg" />
       </div>
     );
-  }
-
-  if (isConnected) {
-    return <Navigate to="/" replace />;
   }
 
   return <Auth />;
@@ -137,6 +135,7 @@ const WaitRoom = lazy(() => import("./pages/WaitRoom"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const StreamerApply = lazy(() => import("./pages/StreamerApply"));
 const Earnings = lazy(() => import("./pages/Earnings"));
+const Generators = lazy(() => import('./pages/Generators'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -163,12 +162,16 @@ const AppContent = () => {
   const { isAdmin } = useAdmin();
   const { state } = useAuth();
   const isFullyAuthenticated = state === "AUTHENTICATED";
+  const { isBetaMode } = useBetaMode();
 
   return (
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
         <div className="md:pl-16">
           <Routes>
+            <Route element={<SiteAccessGate />}>
+            <Route path="/generators" element={<Generators />} />
+            <Route path="/referrals" element={<Navigate to="/waitroom" replace />} />
             <Route path="/auth" element={<AuthPageGuard />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/reset-password" element={<AdminResetPassword />} />
@@ -228,13 +231,14 @@ const AppContent = () => {
           <Route path="/streamer/apply" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><StreamerApply /></Suspense></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
+            </Route>
         </Routes>
         </div>
       </Suspense>
       <MobileBottomNav />
-      <MiniPlayer />
+      {(!isBetaMode || isAdmin) && <MiniPlayer />}
       <PWAUpdateNotification />
-      <DeploymentDebugPanel />
+      {(!isBetaMode || isAdmin) && <DeploymentDebugPanel />}
       {/* Only render AdminToolbar once fully authenticated to prevent flash */}
       {isAdmin && isFullyAuthenticated && <AdminToolbar />}
       {isAdmin && isFullyAuthenticated && <DevConsole />}

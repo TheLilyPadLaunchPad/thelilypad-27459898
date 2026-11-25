@@ -1,6 +1,8 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, Store, Rocket, Radio, Wallet, LayoutDashboard } from "lucide-react";
+import { Home, Store, Rocket, Radio, Wallet, LayoutDashboard, Share2, Layers, Trophy } from "lucide-react";
+import { useBetaMode } from '@/hooks/useBetaMode';
+import { useAdmin } from '@/contexts/AdminContext';
 import { useWallet } from "@/providers/WalletProvider";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { cn } from "@/lib/utils";
@@ -29,16 +31,25 @@ const streamerNavItems: NavItem[] = [
   { icon: Wallet,          label: "Wallet",    href: "/wallet",      matchPrefix: "/wallet" },
 ];
 
+const limitedNavItems: NavItem[] = [
+  { icon: Share2, label: 'Referrals', href: '/waitroom', matchPrefix: '/waitroom' },
+  { icon: Layers, label: 'Generators', href: '/generators', matchPrefix: '/generators' },
+  { icon: Trophy, label: 'Leaderboard', href: '/leaderboard', matchPrefix: '/leaderboard' },
+];
+
 export const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const { isConnected } = useWallet();
   const { profile } = useUserProfile();
+  const { isBetaMode } = useBetaMode();
+  const { isAdmin } = useAdmin();
+  const limited = isBetaMode && !isAdmin;
 
   // Hide on auth, profile setup, and suspended pages
   const hiddenPaths = ["/auth", "/profile-setup", "/profile-suspended"];
   if (hiddenPaths.includes(location.pathname)) return null;
 
-  const navItems = profile?.is_streamer ? streamerNavItems : baseNavItems;
+  const navItems = limited ? limitedNavItems : profile?.is_streamer ? streamerNavItems : baseNavItems;
 
   const isActive = (item: NavItem) => {
     if (item.matchPrefix === "__exact__") return location.pathname === item.href;
@@ -48,6 +59,7 @@ export const MobileBottomNav: React.FC = () => {
 
   // Guests who tapped "Enter" browse freely; the route guard handles wallet-only tabs.
   const resolveHref = (item: NavItem) => {
+    if (limited) return item.href;
     if (!isConnected && !hasEnteredApp() && item.href !== "/") return authUrl(item.href);
     return item.href;
   };

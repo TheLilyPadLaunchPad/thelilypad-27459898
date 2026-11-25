@@ -19,6 +19,7 @@ import { LilyPadLogo } from '@/components/LilyPadLogo';
 import { useSEO } from '@/hooks/useSEO';
 import { WLCard } from '@/components/waitroom/WLCard';
 import { Navbar } from '@/components/Navbar';
+import { authUrl } from '@/lib/guestEntry';
 
 interface ChatMessage {
   id: string;
@@ -158,9 +159,7 @@ export default function WaitRoom() {
                       <span className="text-sm font-bold text-red-400 uppercase tracking-wider">Beta Access Only</span>
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      The Lily Pad is currently in <span className="text-foreground font-semibold">private beta</span>. 
-                      You're in the Wait Room — hang out, chat, and climb the leaderboard while we get everything ready.
-                      You'll gain full access when beta opens! 🐸
+                      Referrals and generators are open. Other areas are temporarily locked.
                     </p>
                   </div>
                 </div>
@@ -168,6 +167,11 @@ export default function WaitRoom() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <div className="max-w-6xl mx-auto mb-6 flex flex-wrap gap-3">
+          <Button variant="outline" onClick={() => navigate('/generators')}><FlaskConical className="w-4 h-4 mr-2" />Generators</Button>
+          {!profile && <Button onClick={() => navigate(authUrl('/waitroom'))}><Share2 className="w-4 h-4 mr-2" />Join referral program</Button>}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {/* Left sidebar - WL Card & Affiliate */}

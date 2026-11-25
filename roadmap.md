@@ -1,5 +1,8 @@
 # Task Roadmap
 
+- [x] Reopen referrals and keep generators available; lock all other visitor pages while retaining admin access. Saved the limited-access setting; six access-policy tests pass.
+- [ ] Verify referral onboarding and generator navigation in the browser: blocked by the existing blank preview startup errors; updated page exceptions must be published together with the enabled lock.
+
 - [x] Fix only the eight selected security findings: verified activity, accepted challenges, paid raffle entries, purchased pack access, streamer verification, private activity/supporters, and authenticated owner lookups.
 - [x] Validate and update the eight selected finding statuses; 97 project tests pass, live access checks passed as a temporary test user, all other findings unchanged.
 

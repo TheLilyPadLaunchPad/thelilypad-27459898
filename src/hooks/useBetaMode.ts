@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
  *
  * Reads the `beta_mode` row from the `feature_locks` table.
  * When `is_enabled = true`  → app is in beta lockdown; non-admin users are
- *                             redirected to /waitroom and cannot navigate away.
+ *                             limited to referrals and generators.
  * When `is_enabled = false` → app is fully open.
  *
  * Realtime subscription means the lock applies immediately to all active sessions
@@ -27,7 +27,7 @@ export interface BetaModeState {
 }
 
 export function useBetaMode(): BetaModeState {
-  const [isBetaMode, setIsBetaMode] = useState(false);
+  const [isBetaMode, setIsBetaMode] = useState(true);
   const [isLoading,  setIsLoading]  = useState(true);
   const queryClient = useQueryClient();
 
@@ -47,8 +47,8 @@ export function useBetaMode(): BetaModeState {
         if (error) {
           console.error('[useBetaMode] fetch error:', error.message);
         }
-        // If the row doesn't exist yet, default to NOT locked (open app)
-        setIsBetaMode(data?.is_enabled ?? false);
+        // Fail closed while the limited-access setting is unavailable.
+        setIsBetaMode(data?.is_enabled ?? true);
         setIsLoading(false);
       }
     };
@@ -70,7 +70,7 @@ export function useBetaMode(): BetaModeState {
           filter: `feature_key=eq.${BETA_LOCK_KEY}`,
         },
         (payload) => {
-          const newVal = (payload.new as any)?.is_enabled ?? false;
+          const newVal = (payload.new as any)?.is_enabled ?? true;
           setIsBetaMode(newVal);
           queryClient.invalidateQueries({ queryKey: QUERY_KEY });
         }
@@ -93,7 +93,7 @@ export function useBetaMode(): BetaModeState {
         {
           feature_key:           BETA_LOCK_KEY,
           feature_name:          'Beta Mode',
-          description:           'When enabled, non-admin users are locked to the Wait Room and cannot access any part of the app.',
+          description:           'When enabled, visitors can access referrals and generators only. Admins retain full access.',
           is_enabled:            next,
           required_followers:    0,
           required_subscribers:  0,

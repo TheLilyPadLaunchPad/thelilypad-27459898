@@ -34,9 +34,10 @@ export default function Auth() {
       markEnteredApp();
       navigate(returnTo || "/streams", { replace: true });
     } else if (state === "NEEDS_PROFILE") {
-      navigate("/profile-setup");
+      const referral = searchParams.get('ref');
+      navigate(referral ? `/profile-setup?ref=${encodeURIComponent(referral)}` : '/profile-setup');
     }
-  }, [state, navigate, returnTo]);
+  }, [state, navigate, returnTo, searchParams]);
 
   const handleEnter = () => {
     markEnteredApp();

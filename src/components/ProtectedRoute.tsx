@@ -5,20 +5,13 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useBetaMode } from "@/hooks/useBetaMode";
 import { hasEnteredApp, authUrl } from "@/lib/guestEntry";
 import FrogLoader from "./FrogLoader";
+import { isLimitedAccessPath } from '@/lib/siteAccess';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 // Routes that are always reachable even in beta mode
-const BETA_ALLOWLIST = [
-  '/waitroom',
-  '/leaderboard',   // leaderboard is part of the waitroom experience
-  '/auth',
-  '/auth/callback',
-  '/profile-setup',
-  '/profile-suspended',
-];
 
 // Routes that genuinely need a connected wallet — everything else can be browsed
 export const WALLET_REQUIRED = [
@@ -80,7 +73,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   // Guests who tapped "Enter" can browse everything except wallet-only areas
   // The home page is public: first-time visitors see it without the Welcome screen.
-  if (state === "DISCONNECTED" && (hasEnteredApp() || location.pathname === "/")) {
+  if (state === "DISCONNECTED" && (hasEnteredApp() || location.pathname === "/" || isLimitedAccessPath(location.pathname))) {
     const needsWallet = WALLET_REQUIRED.some(p => location.pathname.startsWith(p));
     if (!needsWallet) {
       if (betaLoading) {
@@ -90,7 +83,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
           </div>
         );
       }
-      if (isBetaMode && !BETA_ALLOWLIST.some(p => location.pathname.startsWith(p))) {
+      if (isBetaMode && !isLimitedAccessPath(location.pathname)) {
         return <Navigate to="/waitroom" replace />;
       }
       return <>{children}</>;
@@ -127,7 +120,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // If beta mode is ON and this route is not on the allowlist, send to waitroom
-  if (isBetaMode && !BETA_ALLOWLIST.some(p => location.pathname.startsWith(p))) {
+  if (isBetaMode && !isLimitedAccessPath(location.pathname)) {
     return <Navigate to="/waitroom" replace />;
   }
   // ─────────────────────────────────────────────────────────────────────────
