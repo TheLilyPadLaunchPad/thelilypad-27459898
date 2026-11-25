@@ -24,3 +24,4 @@
 - Database security regressions apply the actual migrations to an isolated PostgreSQL engine with synthetic fixtures, so tests never change live records or widen production permissions.
 - Site limited access uses one exact-path policy at the outer route gate and navigation, including otherwise public deep links; verified admins bypass it, while database permissions remain unchanged.
 - Waitroom WL eligibility reads the authenticated caller's saved profile and checks session identity and active wallet together; card display/download cannot rely on guest or cached public profiles.
+- WL success analytics represent confirmed saved registration once per account per mounted eligibility flow, not unique enrollment; attempt events emit at existing join buttons and contain no account or wallet identifiers.

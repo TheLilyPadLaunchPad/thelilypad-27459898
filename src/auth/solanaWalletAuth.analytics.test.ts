@@ -155,7 +155,7 @@ test('unavailable or throwing analytics cannot break authentication or signing',
 });
 
 test('all four wallet events are registered with closed schemas and emitted properties match', async () => {
-  assert.deepEqual(Object.keys(catalog.events).sort(), [
+  assert.deepEqual(Object.keys(catalog.events).filter(name => name.startsWith('project.wallet_')).sort(), [
     'project.wallet_authentication_failed', 'project.wallet_connected',
     'project.wallet_sign_in_succeeded', 'project.wallet_signature_requested',
   ]);

@@ -218,6 +218,53 @@
           }
         }
       }
+    },
+    "project.whitelist_claim_attempted": {
+      "event_schema_version": 1,
+      "description": "A visitor selects the whitelist or referral join action before wallet sign-in. Counts attempts, not completed registrations.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_point": {
+            "enum": [
+              "waitroom_join",
+              "waitroom_wl"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_point"
+        ],
+        "type": "object"
+      }
+    },
+    "project.whitelist_claim_succeeded": {
+      "event_schema_version": 1,
+      "description": "Whitelist eligibility confirms the authenticated account's saved wallet registration; counted once per account per mounted waitroom eligibility check, not a unique new database enrollment.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_point": {
+            "enum": [
+              "waitroom"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_point"
+        ],
+        "type": "object"
+      }
     }
   }
 }

@@ -172,7 +172,12 @@ export default function WaitRoom() {
 
         <div className="max-w-6xl mx-auto mb-6 flex flex-wrap gap-3">
           <Button variant="outline" onClick={() => navigate('/generators')}><FlaskConical className="w-4 h-4 mr-2" />Generators</Button>
-          {!profile && <Button onClick={() => navigate(authUrl('/waitroom'))}><Share2 className="w-4 h-4 mr-2" />Join referral program</Button>}
+          {!profile && <Button onClick={() => {
+            try {
+              window.__lovableEvents?.track?.('project.whitelist_claim_attempted', { entry_point: 'waitroom_join' });
+            } catch { /* Continue sign-in when analytics is unavailable. */ }
+            navigate(authUrl('/waitroom'));
+          }}><Share2 className="w-4 h-4 mr-2" />Join referral program</Button>}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
@@ -190,7 +195,12 @@ export default function WaitRoom() {
               <p className="text-sm text-muted-foreground">Connect your wallet and complete sign-in to join the whitelist. Your wallet address will be saved with your account.</p>
               {checkingWhitelist ? <p role="status" className="text-sm text-muted-foreground">Checking your wallet registration…</p> : <>
                 {whitelistError && <p role="alert" className="text-sm text-destructive">Unable to confirm your wallet registration. Please try again.</p>}
-                <Button className="w-full" onClick={() => navigate(authUrl('/waitroom'))}>Connect wallet for WL</Button>
+                <Button className="w-full" onClick={() => {
+                  try {
+                    window.__lovableEvents?.track?.('project.whitelist_claim_attempted', { entry_point: 'waitroom_wl' });
+                  } catch { /* Continue sign-in when analytics is unavailable. */ }
+                  navigate(authUrl('/waitroom'));
+                }}>Connect wallet for WL</Button>
               </>}
             </div>}
 

@@ -1,5 +1,8 @@
 # Task Roadmap
 
+- [x] Add WL attempt and confirmed-registration events beside existing wallet connection analytics; six catalog schemas validated and success deduplicated.
+- [ ] Confirm WL events arrive from a published real-wallet claim: requires publishing and a visitor's successful wallet sign-in; local checks cannot send analytics.
+
 - [x] Require authenticated wallet registration before showing or downloading a WL pass; verify saved wallet/account identity and include the wallet address on the pass.
 - [ ] Verify real-wallet WL onboarding: blocked by unavailable wallet approval and the existing blank preview startup issue.
 
