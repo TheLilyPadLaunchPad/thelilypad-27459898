@@ -148,6 +148,13 @@
       "when": 1795634784304,
       "tag": "0020_admin_whitelist_wallet_export",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795635570913,
+      "tag": "0021_selected_profile_privacy_and_purchase_receipts",
+      "breakpoints": true
     }
   ]
 }
