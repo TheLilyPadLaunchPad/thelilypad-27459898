@@ -1,8 +1,9 @@
 # Task Roadmap
 
+- [x] Restore Connect retry after cancelled or failed Solana sign-in; shared and alternate Connect paths covered by regression checks.
 - [x] Repair Reown wallet sign-in adapter, duplicate prompts, and admin session-lock timing; 10 regression tests pass.
-- [ ] Verify real admin and new-user sign-in: blocked by paused Cloud and sandbox browser startup errors.
-- [ ] Lovable Cloud resume started; still starting up at end of turn. Then test admin and new-user sign-in.
+- [ ] Verify real admin and new-user sign-in and cancellation/retry: Cloud is healthy; blocked by sandbox startup errors and unavailable real wallet approval.
+- [x] Lovable Cloud resumed and its auth/database services are responding normally.
 
 - [x] Admin-only devnet/testnet: devnet/testnet network options now appear only when an admin is logged in (Reown network list gated by verified admin status; WalletProvider adopts test networks only for admins).
 - [x] ApeChain generator: stabilized iPad downloads — iOS-safe blob download helper (delayed revoke, `_blank` target) and low-memory ZIP generation (STORE + streamFiles).

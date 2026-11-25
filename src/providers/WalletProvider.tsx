@@ -103,6 +103,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Injected EVM provider (Monad / Robinhood Chain) for the active session.
   const evmProviderRef = useRef<any>(null);
+  const [solanaSignInAttempt, setSolanaSignInAttempt] = useState(0);
 
   const connection = useMemo(() => {
     // We map Reown's network state to our custom connection object so existing RPC calls work
@@ -217,7 +218,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     syncReown();
     return () => { cancelled = true; };
-  }, [isReownConnected, reownAddress, reownStatus, reownNamespace, reownEvmChain, reownEvmProvider, fetchSolanaBalance, ensureSupabaseSession]);
+  }, [isReownConnected, reownAddress, reownStatus, reownNamespace, reownEvmChain, reownEvmProvider, fetchSolanaBalance, ensureSupabaseSession, solanaSignInAttempt]);
 
   // Sync Reown's selected network (mainnet / devnet / testnet) into our internal state
   useEffect(() => {
@@ -454,6 +455,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (walletType === "joey") {
         // Connect via Joey Wallet
         await connectXRPL();
+      } else if (isReownConnected && reownAddress && reownNamespace !== 'eip155' && !state.isConnected && (!_chainType || _chainType === 'solana')) {
+        // A rejected sign-in does not disconnect Reown. Explicitly rerun the
+        // authenticated sync instead of opening its already-connected account.
+        setState(prev => ({ ...prev, isConnecting: true }));
+        setSolanaSignInAttempt(attempt => attempt + 1);
       } else {
         // Default to Reown AppKit
         await open();
@@ -462,16 +468,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
        console.error("Failed to open wallet connection modal:", error);
        toast.error("Failed to open wallet connection modal");
     }
-  }, [open, connectXRPL]);
+  }, [open, connectXRPL, isReownConnected, reownAddress, reownNamespace, state.isConnected]);
 
   const connectWithOAuth = useCallback(async (_provider: OAuthProvider) => {
-    try {
-      // Reown handles OAuth natively inside the modal now
-      await open();
-    } catch (error) {
-      console.error("OAuth connection failed:", error);
-    }
-  }, [open]);
+    // Legacy callers must use the same retry-aware wallet connection path.
+    await connect();
+  }, [connect]);
 
   const disconnect = useCallback(async () => {
     try {
