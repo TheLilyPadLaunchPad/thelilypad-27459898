@@ -1,6 +1,6 @@
 # Task Roadmap
 
-- [ ] Reown wallet connections and email signup/login: Reown email wallets do not establish existing Cloud account sessions; waiting for permission to use separate Cloud email account login.
+- [ ] Reown-only wallet connections and email signup/login, preserving existing profiles: separate Cloud account login rejected; account sign-in remains blocked pending a supported Reown-to-Cloud account connection.
 
 - [x] Add admin-only whitelist wallet CSV under Users with saved registration statuses, secure paginated access, and prepared-file download; seven tests pass including isolated database authorization checks.
 - [ ] Verify the admin CSV download in-browser: blocked by existing blank preview startup errors and unavailable requesting-user admin session.
