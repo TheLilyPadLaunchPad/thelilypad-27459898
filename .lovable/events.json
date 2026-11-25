@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "events": {
+    "project.wallet_authentication_failed": {
+      "event_schema_version": 1,
+      "description": "A Solana wallet authentication operation fails; bounded reason/stage distinguish signature cancellation from backend rejection, network problems, missing sessions, or unavailable adapters. Raw errors and identities are never emitted.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain",
+          "connector",
+          "entry_point",
+          "retry",
+          "stage",
+          "reason"
+        ],
+        "properties": {
+          "chain": {
+            "type": "string",
+            "enum": [
+              "solana"
+            ]
+          },
+          "connector": {
+            "type": "string",
+            "enum": [
+              "reown"
+            ]
+          },
+          "entry_point": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "app"
+            ]
+          },
+          "retry": {
+            "type": "boolean"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "wallet_adapter",
+              "session_check",
+              "sign_out",
+              "signature_request",
+              "web3_sign_in",
+              "session_missing"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "cancelled",
+              "invalid_signature",
+              "network_error",
+              "wallet_unavailable",
+              "session_missing",
+              "auth_error"
+            ]
+          }
+        }
+      }
+    },
+    "project.wallet_connected": {
+      "event_schema_version": 1,
+      "description": "A wallet transport connects or restores an account; distinct from authenticated sign-in, deduplicated across Reown sync and sign-in retries.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain",
+          "connector",
+          "entry_point"
+        ],
+        "properties": {
+          "chain": {
+            "type": "string",
+            "enum": [
+              "solana",
+              "monad",
+              "robinhood",
+              "apechain",
+              "ethereum",
+              "xrpl",
+              "unknown"
+            ]
+          },
+          "connector": {
+            "type": "string",
+            "enum": [
+              "reown",
+              "joey",
+              "crossmark",
+              "gem",
+              "cold",
+              "generated",
+              "injected"
+            ]
+          },
+          "entry_point": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "app"
+            ]
+          }
+        }
+      }
+    },
+    "project.wallet_sign_in_succeeded": {
+      "event_schema_version": 1,
+      "description": "A Solana wallet sign-in establishes both a user and session; verified role is admin, regular, or unknown and new_account means an Auth account less than 24 hours old. Session revalidation is not counted.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain",
+          "connector",
+          "entry_point",
+          "retry",
+          "user_role",
+          "account_status"
+        ],
+        "properties": {
+          "chain": {
+            "type": "string",
+            "enum": [
+              "solana"
+            ]
+          },
+          "connector": {
+            "type": "string",
+            "enum": [
+              "reown"
+            ]
+          },
+          "entry_point": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "app"
+            ]
+          },
+          "retry": {
+            "type": "boolean"
+          },
+          "user_role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "regular",
+              "unknown"
+            ]
+          },
+          "account_status": {
+            "type": "string",
+            "enum": [
+              "new_account",
+              "existing_account",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "project.wallet_signature_requested": {
+      "event_schema_version": 1,
+      "description": "The Solana sign-in adapter invokes the wallet's message-signing method; concurrent sign-ins and verified-session reuse do not create extra prompts.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain",
+          "connector",
+          "entry_point",
+          "retry"
+        ],
+        "properties": {
+          "chain": {
+            "type": "string",
+            "enum": [
+              "solana"
+            ]
+          },
+          "connector": {
+            "type": "string",
+            "enum": [
+              "reown"
+            ]
+          },
+          "entry_point": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "app"
+            ]
+          },
+          "retry": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

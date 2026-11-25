@@ -28,6 +28,13 @@ let failure = 'Request rejected';
 let namespace = 'solana';
 let connected = true;
 let providerReady = true;
+let analyticsEvents: { name: string; properties: Record<string, unknown> }[] = [];
+Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+  location: { pathname: '/admin' },
+  __lovableEvents: { track: (name: string, properties: Record<string, unknown>) => {
+    analyticsEvents.push({ name, properties }); return null;
+  } },
+} });
 const provider = {
   publicKey: { toBase58: () => address, toString: () => address },
   signMessage: async () => {
@@ -87,6 +94,7 @@ const currentWallet = () => {
 async function render(children?: React.ReactNode) {
   signingCalls = 0;
   modalCalls = 0;
+  analyticsEvents = [];
   wallet = undefined;
   let renderer: TestRenderer.ReactTestRenderer | undefined;
   await act(async () => { renderer = TestRenderer.create(<WalletProvider><Probe />{children}</WalletProvider>); });
@@ -206,6 +214,43 @@ test('a not-yet-ready Solana provider does not strand later retries', async () =
     assert.equal(signingCalls, 1);
   } finally {
     providerReady = true;
+    await act(async () => { renderer.unmount(); });
+  }
+});
+
+test('wallet connection counts actual transport once, separately from failure and successful retry', async () => {
+  rejected = true;
+  failure = 'Request rejected';
+  const renderer = await render();
+  try {
+    assert.equal(currentWallet().isConnected, false);
+    assert.equal(analyticsEvents.filter(e => e.name === 'project.wallet_connected').length, 1);
+    assert.deepEqual(analyticsEvents[0], { name: 'project.wallet_connected', properties: { chain: 'solana', connector: 'reown', entry_point: 'admin' } });
+    rejected = false;
+    await act(async () => { await currentWallet().connect(); });
+    assert.equal(currentWallet().isConnected, true);
+    assert.deepEqual(analyticsEvents.map(e => e.name), [
+      'project.wallet_connected', 'project.wallet_signature_requested', 'project.wallet_authentication_failed',
+      'project.wallet_signature_requested', 'project.wallet_sign_in_succeeded',
+    ]);
+    assert.equal(analyticsEvents[3].properties.retry, true);
+    assert.equal(JSON.stringify(analyticsEvents).includes(address), false);
+    await act(async () => { renderer.update(<WalletProvider><Probe /></WalletProvider>); });
+    assert.equal(analyticsEvents.filter(e => e.name === 'project.wallet_connected').length, 1);
+  } finally {
+    await act(async () => { renderer.unmount(); });
+  }
+});
+
+test('opening a Connect modal alone is not a wallet connection event', async () => {
+  connected = false;
+  const renderer = await render();
+  try {
+    await act(async () => { await currentWallet().connect(); });
+    assert.equal(modalCalls, 1);
+    assert.deepEqual(analyticsEvents, []);
+  } finally {
+    connected = true;
     await act(async () => { renderer.unmount(); });
   }
 });

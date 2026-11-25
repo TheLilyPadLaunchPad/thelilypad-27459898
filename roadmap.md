@@ -1,5 +1,7 @@
 # Task Roadmap
 
+- [x] Add privacy-safe wallet connection, signature request, sign-in success, and authentication failure events; schemas and retry regressions validated.
+- [ ] Verify live wallet analytics ingestion: blocked by existing blank sandbox startup and unavailable real wallet approval; requires a preview/published connect, cancel, retry, and successful sign-in.
 - [x] Restore Connect retry after cancelled or failed Solana sign-in; shared and alternate Connect paths covered by regression checks.
 - [x] Repair Reown wallet sign-in adapter, duplicate prompts, and admin session-lock timing; 10 regression tests pass.
 - [ ] Verify real admin and new-user sign-in and cancellation/retry: Cloud is healthy; blocked by sandbox startup errors and unavailable real wallet approval.

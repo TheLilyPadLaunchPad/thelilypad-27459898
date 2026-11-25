@@ -104,6 +104,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Injected EVM provider (Monad / Robinhood Chain) for the active session.
   const evmProviderRef = useRef<any>(null);
   const [solanaSignInAttempt, setSolanaSignInAttempt] = useState(0);
+  // Transport connection is distinct from authenticated sign-in. Keep this
+  // in memory so failed signing/retries and balance updates cannot recount it.
+  const trackedReownConnection = useRef<{ address: string; namespace: string } | null>(null);
 
   const connection = useMemo(() => {
     // We map Reown's network state to our custom connection object so existing RPC calls work
@@ -153,6 +156,21 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     let cancelled = false;
     const syncReown = async () => {
+      if (isReownConnected && reownAddress && reownNamespace) {
+        const namespace = reownNamespace === 'eip155' ? 'eip155' : 'solana';
+        const previous = trackedReownConnection.current;
+        if (!previous || previous.address !== reownAddress || previous.namespace !== namespace) {
+          trackedReownConnection.current = { address: reownAddress, namespace };
+          try {
+            if (typeof window !== 'undefined') window.__lovableEvents?.track?.('project.wallet_connected', {
+              chain: namespace === 'solana' ? 'solana' : reownEvmChain ?? 'unknown', connector: 'reown',
+              entry_point: window.location?.pathname.startsWith('/admin') ? 'admin' : 'app',
+            });
+          } catch { /* Analytics must never prevent a wallet connection. */ }
+        }
+      } else if (!isReownConnected || !reownAddress) {
+        trackedReownConnection.current = null;
+      }
       if (isReownConnected && reownAddress && reownNamespace === 'eip155') {
         // EVM session through Reown (Monad, Robinhood Chain, ApeChain, Ethereum).
         evmProviderRef.current = reownEvmProvider ?? null;
@@ -260,6 +278,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast.loading('Connecting to Joey Wallet...', { id: 'xrpl-connect' });
 
       const result = await connectJoeyWallet();
+
+      try {
+        if (typeof window !== 'undefined') window.__lovableEvents?.track?.('project.wallet_connected', {
+          chain: 'xrpl', connector: 'joey',
+          entry_point: window.location?.pathname.startsWith('/admin') ? 'admin' : 'app',
+        });
+      } catch { /* Analytics must never prevent a wallet connection. */ }
       
       setState(prev => ({
         ...prev,
@@ -286,6 +311,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast.loading(`Connecting to ${label}...`, { id: 'xrpl-nc' });
 
       const result = await connectXRPLWallet(provider, address, network);
+
+      try {
+        if (typeof window !== 'undefined') window.__lovableEvents?.track?.('project.wallet_connected', {
+          chain: 'xrpl', connector: provider,
+          entry_point: window.location?.pathname.startsWith('/admin') ? 'admin' : 'app',
+        });
+      } catch { /* Analytics must never prevent a wallet connection. */ }
 
       // Ensure a Supabase session exists so profile creation passes RLS
       // (auth.uid() must be non-null for `user_profiles` inserts).
@@ -355,6 +387,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       evmProviderRef.current = result.provider;
       const balance = await getEvmBalance(result.provider, result.address);
+
+      try {
+        if (typeof window !== 'undefined') window.__lovableEvents?.track?.('project.wallet_connected', {
+          chain: chainId, connector: 'injected',
+          entry_point: window.location?.pathname.startsWith('/admin') ? 'admin' : 'app',
+        });
+      } catch { /* Analytics must never prevent a wallet connection. */ }
 
       setState(prev => ({
         ...prev,

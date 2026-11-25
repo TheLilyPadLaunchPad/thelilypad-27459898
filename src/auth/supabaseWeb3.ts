@@ -13,7 +13,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { createSolanaSignIn } from './solanaWalletAuth';
 
-export const signInWithSolana = createSolanaSignIn(supabase.auth);
+export const signInWithSolana = createSolanaSignIn(supabase.auth, supabase);
 
 /** Sign out of Supabase. (Wallet disconnect handled by the caller.) */
 export async function signOutSupabase() {
