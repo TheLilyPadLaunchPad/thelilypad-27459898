@@ -1,39 +1,24 @@
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, chownSync, rmSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { test, before, after } from 'node:test';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { PGlite } from '@electric-sql/pglite';
 import { packPurchaseAccess } from '../supabase/functions/_shared/packPurchaseAccess';
 import { nativeUnits, validTicketCount, verifyRaffleSolanaPayment, verifyRaffleMonadPayment } from '../supabase/functions/_shared/rafflePayment';
 
-const testDirectory = mkdtempSync(join(tmpdir(), 'lily-security-tests-'));
-const cluster = join(testDirectory, 'cluster');
-const asLocalUser = (command: string, args: string[]) => process.getuid?.() === 0
-  ? execFileSync('runuser', ['-u', 'nobody', '--', command, ...args], { stdio: 'pipe' })
-  : execFileSync(command, args, { stdio: 'pipe' });
-const databaseArgs = ['-h', testDirectory, '-p', '55432', '-U', 'postgres', '-d', 'postgres', '-X', '-q', '-v', 'ON_ERROR_STOP=1'];
-let started = false;
-before(() => {
-  if (process.getuid?.() === 0) chownSync(testDirectory, 65534, 65534);
-  asLocalUser('initdb', ['-D', cluster, '-U', 'postgres', '-A', 'trust', '--no-locale']);
-  asLocalUser('pg_ctl', ['-D', cluster, '-l', join(testDirectory, 'postgres.log'), '-o', `-F -k ${testDirectory} -h '' -p 55432`, '-w', 'start']);
-  started = true;
+const database = new PGlite();
+before(async () => {
   const fixture = readFileSync(new URL('fixtures/securitySchema.sql', import.meta.url), 'utf8')
     + readFileSync(new URL('fixtures/profileQueries.sql', import.meta.url), 'utf8')
     + readFileSync(new URL('../drizzle/migrations/0018_selected_reward_and_profile_security.sql', import.meta.url), 'utf8')
     + readFileSync(new URL('../drizzle/migrations/0019_record_verified_raffle_entry.sql', import.meta.url), 'utf8');
-  execFileSync('psql', databaseArgs, { input: fixture, stdio: 'pipe' });
+  await database.exec(fixture);
 });
-after(() => {
-  if (started) asLocalUser('pg_ctl', ['-D', cluster, '-m', 'immediate', '-w', 'stop']);
-  rmSync(testDirectory, { recursive: true, force: true });
-});
+after(async () => { await database.close(); });
 
-function databaseCheck(sql: string) {
-  execFileSync('psql', databaseArgs, {
-    input: `BEGIN; ${sql} ROLLBACK;`, stdio: ['pipe', 'pipe', 'pipe'],
-  });
+async function databaseCheck(sql: string) {
+  await database.exec('BEGIN;');
+  try { await database.exec(sql); }
+  finally { await database.exec('ROLLBACK;'); }
 }
 
 test('only trusted services can create activity, stamped with the current time', () => databaseCheck(`
@@ -99,6 +84,11 @@ DO $$ DECLARE owner uuid:=gen_random_uuid(); profile uuid; verified boolean; BEG
   PERFORM set_config('request.jwt.claims','{"role":"service_role"}',true);
   UPDATE public.streamer_profiles SET is_verified=true WHERE id=profile RETURNING is_verified INTO verified;
   ASSERT verified;
+  UPDATE public.streamer_profiles SET is_verified=false WHERE id=profile;
+  INSERT INTO public.user_roles(user_id,role) VALUES(owner,'admin');
+  PERFORM set_config('request.jwt.claims',json_build_object('sub',owner,'role','authenticated')::text,true);
+  UPDATE public.streamer_profiles SET is_verified=true WHERE id=profile RETURNING is_verified INTO verified;
+  ASSERT verified;
 END $$;`));
 
 test('private activity and supporter queries deny visitors but allow the owner', () => databaseCheck(`
@@ -118,6 +108,9 @@ DO $$ DECLARE owner uuid; actor uuid:=gen_random_uuid(); rows bigint; BEGIN
   PERFORM set_config('request.jwt.claims',json_build_object('sub',actor,'role','authenticated')::text,true);
   SELECT count(*) INTO rows FROM public.get_profile_activity_feed(owner); ASSERT rows=0;
   SELECT count(*) INTO rows FROM public.get_top_supporters(owner); ASSERT rows=0;
+  INSERT INTO public.user_roles(user_id,role) VALUES(actor,'admin');
+  SELECT count(*) INTO rows FROM public.get_profile_activity_feed(owner); ASSERT rows>0;
+  SELECT count(*) INTO rows FROM public.get_top_supporters(owner); ASSERT rows>0;
   PERFORM set_config('request.jwt.claims',json_build_object('sub',owner,'role','authenticated')::text,true);
   SELECT count(*) INTO rows FROM public.get_profile_activity_feed(owner); ASSERT rows>0;
   SELECT count(*) INTO rows FROM public.get_top_supporters(owner); ASSERT rows>0;
@@ -195,6 +188,70 @@ test('unpriced pack delivery without a purchase is denied before contents or min
   }));
   assert.equal(response.status, 403);
   assert.equal(protectedReads, 0);
+});
+
+test('completed pack delivery returns its original results without changing settled records', async () => {
+  let protectedReads = 0;
+  let writes = 0;
+  const results = [{ contentId: 'asset', success: true }];
+  const receipt = { id: 'receipt', user_id: 'buyer', item_id: 'pack', from_address: null,
+    delivery_status: 'delivered', delivery_results: results };
+  const client = { auth: { getUser: async () => ({ data: { user: { id: 'buyer' } }, error: null }) },
+    from: (table: string) => {
+      if (table === 'shop_item_contents') protectedReads++;
+      const query: any = { select: () => query, eq: () => query,
+        update: () => { writes++; return query; },
+        maybeSingle: async () => ({ data: table === 'shop_items'
+          ? { id: 'pack', collection_address: 'collection', tree_address: 'tree' } : receipt, error: null }) };
+      return query;
+    } };
+  const handler = edgeHandler('../supabase/functions/mint-pack-assets/index.ts', {
+    createClient: () => client, getCallerWallets: async () => new Set(['wallet']), packPurchaseAccess,
+  });
+  const response = await handler(new Request('https://fixture.invalid', { method: 'POST',
+    headers: { Authorization: 'Bearer session' }, body: JSON.stringify({ packId: 'pack', buyerWallet: 'wallet' }) }));
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).results, results);
+  assert.equal(protectedReads, 0);
+  assert.equal(writes, 0);
+});
+
+test('missing Solana prices cannot turn legacy paid packs into free entitlements', async () => {
+  let inserts = 0;
+  const client = { auth: { getUser: async () => ({ data: { user: { id: 'buyer' } }, error: null }) },
+    from: () => {
+      const query: any = { select: () => query, eq: () => query,
+        insert: () => { inserts++; return query; },
+        maybeSingle: async () => ({ data: { id: 'pack', price_sol: null, price_mon: 100 }, error: null }) };
+      return query;
+    } };
+  const handler = edgeHandler('../supabase/functions/record-shop-purchase/index.ts', { createClient: () => client });
+  const response = await handler(new Request('https://fixture.invalid', { method: 'POST', headers: { Authorization: 'Bearer session' },
+    body: JSON.stringify({ kind: 'item', itemId: 'pack' }) }));
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, 'Payment required');
+  assert.equal(inserts, 0);
+});
+
+test('free raffle entries stay available across chains, but unsupported paid entries are denied', async () => {
+  let price = 0;
+  let recorded = 0;
+  const client = { auth: { getUser: async () => ({ data: { user: { id: 'buyer' } }, error: null }) },
+    from: (table: string) => {
+      const query: any = { select: () => query, eq: () => query,
+        then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve),
+        maybeSingle: async () => ({ data: { is_active: true, is_drawn: false,
+          start_date: new Date(Date.now()-60000).toISOString(), end_date: new Date(Date.now()+60000).toISOString(),
+          entry_price: price, max_tickets_per_user: 10 }, error: null }) };
+      return query;
+    }, rpc: async () => { recorded++; return { data: 'entry', error: null }; } };
+  const handler = edgeHandler('../supabase/functions/record-raffle-entry/index.ts', { createClient: () => client, validTicketCount });
+  const request = () => new Request('https://fixture.invalid', { method: 'POST', headers: { Authorization: 'Bearer session' },
+    body: JSON.stringify({ raffleId: '00000000-0000-4000-8000-000000000000', ticketCount: 1, chain: 'apechain' }) });
+  assert.equal((await handler(request())).status, 200);
+  price = 1;
+  assert.equal((await handler(request())).status, 400);
+  assert.equal(recorded, 1);
 });
 
 test('every Helius action denies missing and invalid sessions before provider calls', async () => {

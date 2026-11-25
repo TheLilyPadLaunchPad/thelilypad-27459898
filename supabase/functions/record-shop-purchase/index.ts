@@ -83,9 +83,9 @@ Deno.serve(async (req) => {
 
     if (kind === "item") {
       const itemId = String(body?.itemId || "");
-      const { data: item } = await admin.from("shop_items").select("id, price_sol, creator_id").eq("id", itemId).maybeSingle();
+      const { data: item } = await admin.from("shop_items").select("id, price_sol, price_mon, creator_id, collection_address, tree_address").eq("id", itemId).maybeSingle();
       if (!item) return json({ error: "Item not found" }, 404);
-      const price = Number(item.price_sol || 0);
+      const price = Number(item.price_sol || Number(item.price_mon || 0) * 0.01);
       if (price > 0) {
         if (!txHash) return json({ error: "Payment required" }, 400);
         if (await alreadyUsed()) return json({ error: "Payment already used" }, 409);
@@ -94,6 +94,7 @@ Deno.serve(async (req) => {
       const { error } = await admin.from("shop_purchases").insert({
         item_id: itemId, user_id: userId, price_paid: price, currency: "SOL",
         tx_hash: price > 0 ? txHash : "free_claim",
+        delivery_status: item.collection_address && item.tree_address ? "pending" : "delivered",
       });
       if (error) return json({ error: error.code === "23505" ? "already_owned" : "Could not record purchase", code: error.code }, error.code === "23505" ? 409 : 400);
       return json({ ok: true });
@@ -116,8 +117,11 @@ Deno.serve(async (req) => {
       if (bErr) return json({ error: "Could not record purchase" }, 400);
       const { data: items } = await admin.from("shop_bundle_items").select("item_id").eq("bundle_id", bundleId);
       if (items?.length) {
+        const { data: packs } = await admin.from("shop_items").select("id, collection_address, tree_address").in("id", items.map((i: any) => i.item_id));
+        const onchain = new Set((packs ?? []).filter((p: any) => p.collection_address && p.tree_address).map((p: any) => p.id));
         await admin.from("shop_purchases").insert(items.map((i: any) => ({
           item_id: i.item_id, user_id: userId, price_paid: 0, tx_hash: txHash || "free_claim", currency: "SOL",
+          delivery_status: onchain.has(i.item_id) ? "pending" : "delivered",
         })));
       }
       return json({ ok: true });

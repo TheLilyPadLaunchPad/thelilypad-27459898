@@ -26,12 +26,8 @@ Deno.serve(async req => {
     const { raffleId, ticketCount, chain, network = "mainnet" } = body;
     const txHash = typeof body.txHash === "string" ? body.txHash : "";
     if (typeof raffleId !== "string" || !/^[0-9a-f-]{36}$/i.test(raffleId)
-      || !["solana", "monad"].includes(chain) || !["mainnet", "devnet", "testnet"].includes(network)) {
+      || !["solana", "monad", "xrpl", "robinhood", "apechain"].includes(chain) || !["mainnet", "devnet", "testnet"].includes(network)) {
       return json({ error: "Invalid entry request" }, 400);
-    }
-    if (network !== "mainnet") {
-      const { data: isAdmin, error: roleError } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
-      if (roleError || !isAdmin) return json({ error: "Test payments are restricted to administrators" }, 403);
     }
     // Return an already-settled entry without creating or altering tickets.
     if (txHash) {
@@ -55,6 +51,11 @@ Deno.serve(async req => {
     const totalPaid = Number(raffle.entry_price) * ticketCount;
     if (!Number.isFinite(totalPaid) || totalPaid < 0) return json({ error: "Invalid ticket price" }, 400);
     if (totalPaid > 0) {
+      if (chain !== "solana" && chain !== "monad") return json({ error: "Paid raffle entries require Solana or Monad" }, 400);
+      if (network !== "mainnet") {
+        const { data: isAdmin, error: roleError } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
+        if (roleError || !isAdmin) return json({ error: "Test payments are restricted to administrators" }, 403);
+      }
       if (!(chain === "solana" ? /^[1-9A-HJ-NP-Za-km-z]{64,90}$/ : /^0x[0-9a-fA-F]{64}$/).test(txHash)) {
         return json({ error: "Payment required" }, 400);
       }

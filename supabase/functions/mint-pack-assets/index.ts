@@ -273,16 +273,16 @@ Deno.serve(async (req) => {
     if (!packPurchaseAccess(existingPurchase, user.id, packId, buyerWallet)) {
       return fail(phase, new Error("Pack purchase required"), 403);
     }
+    if (existingPurchase.delivery_status === "delivered" && Array.isArray(existingPurchase.delivery_results)
+      && existingPurchase.delivery_results.length > 0) {
+      return ok({ alreadyDelivered: true, results: existingPurchase.delivery_results });
+    }
     if (!existingPurchase.from_address) {
       const { data: bound, error: bindError } = await admin.from("shop_purchases")
         .update({ from_address: buyerWallet }).eq("id", existingPurchase.id).is("from_address", null)
         .select("id, item_id, user_id, from_address, delivery_status, delivery_results").maybeSingle();
       if (bindError || !bound) return fail(phase, new Error("Delivery wallet changed; retry"), 409);
       existingPurchase = bound;
-    }
-    if (existingPurchase.delivery_status === "delivered" && Array.isArray(existingPurchase.delivery_results)
-      && existingPurchase.delivery_results.length > 0) {
-      return ok({ alreadyDelivered: true, results: existingPurchase.delivery_results });
     }
     const umi = makeUmi();
     const platformAuthority = umi.identity.publicKey.toString();

@@ -210,7 +210,7 @@ export default function StickerPackDetail() {
 
 
     // Free sticker pack — still mint on-chain when the pack is deployed
-    if ((pack.price_sol ?? pack.price_mon) <= 0) {
+    if ((pack.price_sol || pack.price_mon * 0.01) <= 0) {
       setIsPurchasing(true);
       try {
         // Prefer auth user_id, fallback to profile id for wallet-only

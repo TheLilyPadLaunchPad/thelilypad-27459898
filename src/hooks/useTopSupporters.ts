@@ -18,6 +18,7 @@ export function useTopSupporters(targetUserId: string | null | undefined, limit 
 
   const refresh = useCallback(async () => {
     if (!targetUserId) {
+      setSupporters([]);
       setLoading(false);
       return;
     }
@@ -34,6 +35,8 @@ export function useTopSupporters(targetUserId: string | null | undefined, limit 
           total_score: Number(r.total_score),
         })) as TopSupporter[]
       );
+    } else {
+      setSupporters([]);
     }
     setLoading(false);
   }, [targetUserId, limit]);

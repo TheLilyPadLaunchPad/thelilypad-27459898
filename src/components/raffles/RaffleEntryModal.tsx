@@ -109,8 +109,8 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
     setLoading(true);
 
     try {
-      if (chain !== 'solana' && chain !== 'monad') throw new Error("Raffle payments are available on Solana and Monad only");
-      if (chainType !== chain) throw new Error("Connect a wallet on the selected raffle chain");
+      if (totalCost > 0 && chain !== 'solana' && chain !== 'monad') throw new Error("Raffle payments are available on Solana and Monad only");
+      if (totalCost > 0 && chainType !== chain) throw new Error("Connect a wallet on the selected raffle chain");
       let hash = txHash || "";
 
       // 1. Handle Payment if totalCost > 0

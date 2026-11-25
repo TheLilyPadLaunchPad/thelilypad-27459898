@@ -21,3 +21,4 @@
 - Reward inputs are server-written and provenance-stamped; only invited users activate challenges, and raffle entry limits are rechecked under a row lock before insertion, so client claims cannot grant prizes.
 - Pack delivery requires a receipt for the exact account, pack, and linked delivery wallet before protected content reads; free and bundle purchases grant receipts first, so zero prices cannot bypass purchaser access.
 - Private-profile activity and supporter aggregates enforce owner/admin visibility inside their privileged queries; every paid Helius proxy action authenticates before provider requests, so alternate screens cannot bypass these boundaries.
+- Database security regressions apply the actual migrations to an isolated PostgreSQL engine with synthetic fixtures, so tests never change live records or widen production permissions.
