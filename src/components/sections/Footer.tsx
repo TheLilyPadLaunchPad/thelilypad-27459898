@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { LilyPadLogo } from "@/components/LilyPadLogo";
 import { MetaplexBadge } from "@/components/MetaplexBadge";
 import { Twitter, MessageCircle, Github } from "lucide-react";
+import { useAdmin } from '@/contexts/AdminContext';
+import { canViewFooterResources } from '@/lib/footerVisibility';
 
 const footerLinks = {
   platform: [
@@ -32,10 +34,12 @@ const socialLinks = [
 ];
 
 export const Footer: React.FC = () => {
+  const { isAdmin, loading } = useAdmin();
+  const showResources = canViewFooterResources(isAdmin, loading);
   return (
     <footer className="py-16 border-t border-border/50">
       <div className="container mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
+        <div className={`grid grid-cols-1 ${showResources ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-12`}>
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-3 mb-4">
@@ -93,7 +97,7 @@ export const Footer: React.FC = () => {
           </div>
 
           {/* Resources */}
-          <div>
+          {showResources && <div>
             <h4 className="font-semibold mb-4 text-foreground">Resources</h4>
             <ul className="space-y-2">
               {footerLinks.resources.map((link) => (
@@ -110,6 +114,8 @@ export const Footer: React.FC = () => {
               ))}
             </ul>
           </div>
+
+          }
 
           {/* Social */}
           <div>
