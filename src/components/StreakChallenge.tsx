@@ -169,16 +169,9 @@ export const StreakChallenge = () => {
 
   const respondChallengeMutation = useMutation({
     mutationFn: async ({ challengeId, accept, durationDays }: { challengeId: string; accept: boolean; durationDays: number }) => {
-      const startDate = new Date();
-      const endDate = addDays(startDate, durationDays);
-      
       const { error } = await supabase
         .from("streak_challenges")
-        .update({ 
-          status: accept ? "active" : "declined",
-          start_date: accept ? startDate.toISOString().split('T')[0] : undefined,
-          end_date: accept ? endDate.toISOString().split('T')[0] : undefined,
-        })
+        .update({ status: accept ? "active" : "declined" })
         .eq("id", challengeId);
 
       if (error) throw error;

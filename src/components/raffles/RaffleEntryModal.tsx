@@ -9,9 +9,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Ticket, Trophy, Minus, Plus, Loader2, CheckCircle, ExternalLink } from "lucide-react";
 import { getErrorMessage } from "@/lib/errorUtils";
 import { useSolanaPayment } from "@/hooks/useSolanaPayment";
-import { useMonadPayment } from "@/hooks/useMonadPayment";
 import { SupportedChain } from "@/config/chains";
 import { getPlatformWallet } from "@/config/treasury";
+import { useWallet } from "@/providers/WalletProvider";
+import { useAppKitProvider } from "@reown/appkit/react";
+import { ethers } from "ethers";
 
 interface Raffle {
   id: string;
@@ -53,8 +55,9 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
   const [txHash, setTxHash] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const { sendAndVerifyPayment: sendSolanaPayment } = useSolanaPayment();
-  const { sendPayment: sendMonadPayment } = useMonadPayment();
+  const { sendPayment: sendSolanaPayment } = useSolanaPayment();
+  const { network, chainType } = useWallet();
+  const { walletProvider } = useAppKitProvider<ethers.Eip1193Provider>('eip155');
 
   const maxTickets = raffle.max_tickets_per_user || 100;
   const remainingTickets = maxTickets - userEntries;
@@ -65,6 +68,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
       fetchUserEntries();
       setSuccess(false);
       setTicketCount(1);
+      setTxHash(null);
     }
   }, [open, raffle.id]);
 
@@ -103,13 +107,14 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
     }
 
     setLoading(true);
-    setTxHash(null);
 
     try {
-      let hash = "";
+      if (chain !== 'solana' && chain !== 'monad') throw new Error("Raffle payments are available on Solana and Monad only");
+      if (chainType !== chain) throw new Error("Connect a wallet on the selected raffle chain");
+      let hash = txHash || "";
 
       // 1. Handle Payment if totalCost > 0
-      if (totalCost > 0) {
+      if (totalCost > 0 && !hash) {
         const treasury = getPlatformWallet('treasury', chain as 'solana' | 'monad');
         
         if (chain === 'solana') {
@@ -123,24 +128,25 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
           hash = result.signature || "";
         } 
         else if (chain === 'monad') {
-          const result = await sendMonadPayment(totalCost.toString(), treasury);
-          if (!result.success) throw new Error(result.error || "Monad payment failed");
-          hash = result.hash || "";
+          if (!walletProvider) throw new Error("Monad wallet not connected");
+          const provider = new ethers.BrowserProvider(walletProvider);
+          const currentNetwork = await provider.getNetwork();
+          if (currentNetwork.chainId !== BigInt(network === 'mainnet' ? 143 : 10143)) throw new Error("Switch your wallet to the selected Monad network");
+          const signer = await provider.getSigner();
+          const transaction = await signer.sendTransaction({ to: treasury, value: ethers.parseEther(totalCost.toString()) });
+          const receipt = await transaction.wait();
+          if (receipt?.status !== 1) throw new Error("Monad payment failed");
+          hash = transaction.hash;
         }
+        setTxHash(hash);
       }
 
-      // 2. Insert Entry into Database
-      const { error } = await supabase
-        .from('lily_raffle_entries')
-        .insert({
-          raffle_id: raffle.id,
-          user_id: user.id,
-          ticket_count: ticketCount,
-          total_paid: totalCost,
-          tx_hash: hash || null
-        } as any);
-
-      if (error) throw error;
+      // 2. Record only after server-side payment, identity, and limit checks.
+      const { data, error } = await supabase.functions.invoke('record-raffle-entry', {
+        body: { raffleId: raffle.id, ticketCount, txHash: hash || undefined, chain, network },
+      });
+      const response = error?.context ? await error.context.json().catch(() => null) : data;
+      if (error || !response?.ok) throw new Error(response?.error || "Could not verify raffle entry");
 
       setTxHash(hash);
       setSuccess(true);
@@ -237,7 +243,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setTicketCount(Math.max(1, ticketCount - 1))}
+                onClick={() => { setTxHash(null); setTicketCount(Math.max(1, ticketCount - 1)); }}
                 disabled={ticketCount <= 1}
               >
                 <Minus className="w-4 h-4" />
@@ -245,7 +251,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
               <Input
                 type="number"
                 value={ticketCount}
-                onChange={(e) => setTicketCount(Math.max(1, Math.min(remainingTickets, parseInt(e.target.value) || 1)))}
+                onChange={(e) => { setTxHash(null); setTicketCount(Math.max(1, Math.min(remainingTickets, parseInt(e.target.value) || 1))); }}
                 className="w-24 text-center"
                 min={1}
                 max={remainingTickets}
@@ -253,7 +259,7 @@ export const RaffleEntryModal: React.FC<RaffleEntryModalProps> = ({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setTicketCount(Math.min(remainingTickets, ticketCount + 1))}
+                onClick={() => { setTxHash(null); setTicketCount(Math.min(remainingTickets, ticketCount + 1)); }}
                 disabled={ticketCount >= remainingTickets}
               >
                 <Plus className="w-4 h-4" />

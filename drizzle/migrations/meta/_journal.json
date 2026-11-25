@@ -127,6 +127,20 @@
       "when": 1793915347486,
       "tag": "0017_earnings_server_only_inserts",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795611193883,
+      "tag": "0018_selected_reward_and_profile_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795611351586,
+      "tag": "0019_record_verified_raffle_entry",
+      "breakpoints": true
     }
   ]
 }

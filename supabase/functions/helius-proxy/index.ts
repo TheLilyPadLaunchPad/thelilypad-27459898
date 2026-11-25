@@ -13,7 +13,25 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Public, read-only wallet holdings lookup (on-chain ownership is public data).
+  // Every paid-provider action requires a verified session before outbound work.
+  const unauthorized = () =>
+    new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  const authHeader = req.headers.get("authorization") || "";
+  if (!authHeader.toLowerCase().startsWith("bearer ")) return unauthorized();
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !anonKey) return unauthorized();
+  const authClient = createClient(supabaseUrl, anonKey,
+    { global: { headers: { Authorization: authHeader } } });
+  try {
+    const { data, error } = await authClient.auth.getUser(authHeader.slice(7).trim());
+    if (error || !data?.user || data.user.is_anonymous) return unauthorized();
+  } catch { return unauthorized(); }
+
+  // On-chain holdings are public data, but access to our paid provider is not.
   if (new URL(req.url).searchParams.get("action") === "assets-by-owner") {
     const json = (b: unknown, s = 200) =>
       new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -46,25 +64,6 @@ serve(async (req) => {
       console.warn("DAS endpoint failed:", lastErr);
     }
     return json({ error: `NFT indexer unavailable (${lastErr})` }, 502);
-  }
-
-  // Require a signed-in user (not just the public anon key).
-  const unauthorized = () =>
-    new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  const authHeader =
-    req.headers.get("authorization") || req.headers.get("Authorization") || "";
-  if (!authHeader.toLowerCase().startsWith("bearer ")) return unauthorized();
-  {
-    const authClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data, error } = await authClient.auth.getUser(authHeader.slice(7).trim());
-    if (error || !data?.user) return unauthorized();
   }
 
   const heliusKey = Deno.env.get("HELIUS_API_KEY");

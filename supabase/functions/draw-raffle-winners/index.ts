@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
       const { data: entries, error: entriesError } = await supabase
         .from('lily_raffle_entries')
         .select('id, user_id, ticket_count')
+        .not('verified_at', 'is', null)
         .eq('raffle_id', raffle.id);
 
       if (entriesError) {

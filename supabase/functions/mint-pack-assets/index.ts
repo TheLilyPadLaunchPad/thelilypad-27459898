@@ -17,6 +17,7 @@
  * return the already-delivered result instead of minting twice.
  */
 import { getCallerWallets } from "../_shared/callerWallets.ts";
+import { packPurchaseAccess, type PackPurchase } from "../_shared/packPurchaseAccess.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { createUmi } from "npm:@metaplex-foundation/umi-bundle-defaults@1.4.1";
 import {
@@ -225,36 +226,72 @@ Deno.serve(async (req) => {
       return fail(phase, new Error("This pack has not been deployed on-chain yet"), 400);
     }
 
-    const umi = makeUmi();
-    const platformAuthority = umi.identity.publicKey.toString();
-    if (pack.mint_authority && pack.mint_authority !== platformAuthority) {
-      return fail(
-        phase,
-        new Error("This pack was deployed under a different wallet and must be redeployed before it can be sold"),
-        409,
-      );
-    }
-
     // Idempotency: a signature can only be redeemed once, and items already
     // delivered are never minted again on a retry.
-    let existingPurchase: { id: string; delivery_status?: string | null; delivery_results?: any } | null = null;
+    let existingPurchase: PackPurchase | null = null;
     if (paymentSignature) {
-      const { data: existing } = await admin
+      const { data: existing, error: receiptError } = await admin
         .from("shop_purchases")
-        .select("id, user_id, from_address, delivery_status, delivery_results")
+        .select("id, item_id, user_id, from_address, delivery_status, delivery_results")
         .eq("payment_signature", paymentSignature)
         .maybeSingle();
-      if (existing && (existing.user_id !== user.id || existing.from_address !== buyerWallet)) {
+      if (receiptError) return fail(phase, new Error("Could not verify purchase"), 500);
+      if (existing && !packPurchaseAccess(existing, user.id, packId, buyerWallet)) {
         return fail(phase, new Error("Payment already used"), 409);
       }
       existingPurchase = existing ?? null;
-      if (existing && existing.delivery_status === "delivered") {
-        return ok({ alreadyDelivered: true, results: existing.delivery_results ?? [] });
+    }
+
+    // Free claims and bundle delivery still require a recorded entitlement.
+    // Never read purchaser-only contents merely because the listed price is zero.
+    if (!existingPurchase) {
+      const { data: receipt, error: receiptError } = await admin.from("shop_purchases")
+        .select("id, item_id, user_id, from_address, delivery_status, delivery_results")
+        .eq("item_id", packId).eq("user_id", user.id).maybeSingle();
+      if (receiptError) return fail(phase, new Error("Could not verify purchase"), 500);
+      if (receipt && !packPurchaseAccess(receipt, user.id, packId, buyerWallet)) {
+        return fail(phase, new Error("Use the original delivery wallet"), 403);
       }
+      existingPurchase = receipt ?? null;
+    }
+    const priceSol = Number(pack.price_sol ?? 0) || Number(pack.price_mon ?? 0) * 0.01;
+    if (!existingPurchase) {
+      if (priceSol <= 0) return fail(phase, new Error("Claim or purchase this pack before requesting delivery"), 403);
+      if (!paymentSignature) return fail(phase, new Error("Payment signature is required"), 400);
+      phase = "verify-payment";
+      const treasury = Deno.env.get("TREASURY_ADDRESS") || pack.mint_authority;
+      if (!treasury) return fail(phase, new Error("Pack payment destination unavailable"), 500);
+      await verifyPayment(paymentSignature, treasury, priceSol, buyerWallet);
+      const { data: receipt, error: receiptError } = await admin.from("shop_purchases")
+        .insert({ item_id: packId, user_id: user.id, price_paid: priceSol, currency: "SOL",
+          tx_hash: paymentSignature, payment_signature: paymentSignature, from_address: buyerWallet,
+          delivery_status: "pending", delivery_results: [] })
+        .select("id, item_id, user_id, from_address, delivery_status, delivery_results").single();
+      if (receiptError || !receipt) return fail(phase, new Error("Could not reserve pack delivery; retry your purchase"), 409);
+      existingPurchase = receipt;
+    }
+    if (!packPurchaseAccess(existingPurchase, user.id, packId, buyerWallet)) {
+      return fail(phase, new Error("Pack purchase required"), 403);
+    }
+    if (!existingPurchase.from_address) {
+      const { data: bound, error: bindError } = await admin.from("shop_purchases")
+        .update({ from_address: buyerWallet }).eq("id", existingPurchase.id).is("from_address", null)
+        .select("id, item_id, user_id, from_address, delivery_status, delivery_results").maybeSingle();
+      if (bindError || !bound) return fail(phase, new Error("Delivery wallet changed; retry"), 409);
+      existingPurchase = bound;
+    }
+    if (existingPurchase.delivery_status === "delivered" && Array.isArray(existingPurchase.delivery_results)
+      && existingPurchase.delivery_results.length > 0) {
+      return ok({ alreadyDelivered: true, results: existingPurchase.delivery_results });
+    }
+    const umi = makeUmi();
+    const platformAuthority = umi.identity.publicKey.toString();
+    if (pack.mint_authority && pack.mint_authority !== platformAuthority) {
+      return fail(phase, new Error("This pack must be redeployed before delivery"), 409);
     }
 
     const priorResults: any[] = Array.isArray(existingPurchase?.delivery_results)
-      ? existingPurchase!.delivery_results
+      ? existingPurchase.delivery_results
       : [];
     const alreadyMinted = new Set(
       priorResults.filter((r: any) => r?.success && r?.contentId).map((r: any) => r.contentId),
@@ -274,15 +311,6 @@ Deno.serve(async (req) => {
     // Only mint what the buyer has not received yet.
     const mintable = deliverable.filter((c: any) => !alreadyMinted.has(c.id));
 
-
-    phase = "verify-payment";
-    const priceSol = Number(pack.price_sol ?? 0) || Number(pack.price_mon ?? 0) * 0.01;
-    const treasury =
-      Deno.env.get("TREASURY_ADDRESS") || platformAuthority;
-    if (priceSol > 0) {
-      if (!paymentSignature) return fail(phase, new Error("Payment signature is required"), 400);
-      await verifyPayment(paymentSignature, treasury, priceSol, buyerWallet);
-    }
 
     const priorSuccesses = priorResults.filter((r: any) => r?.success);
 

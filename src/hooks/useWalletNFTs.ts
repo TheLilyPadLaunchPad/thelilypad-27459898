@@ -73,16 +73,20 @@ export function useWalletNFTs(
         }
         const page = loadMore ? currentPage + 1 : 1;
         const limit = 50;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("Sign in to view wallet collectibles.");
 
         // Fetch via server proxy (browser-side Helius URLs are origin-restricted)
         const { data: proxied, error: proxyErr } = await supabase.functions.invoke(
           "helius-proxy?action=assets-by-owner",
-          { body: { owner: walletAddress, page, limit } },
+          { body: { owner: walletAddress, page, limit }, headers: { Authorization: `Bearer ${accessToken}` } },
         );
         let assets: DasApiAssetList;
         if (!proxyErr && proxied?.items) {
           assets = proxied as DasApiAssetList;
         } else {
+          if (proxyErr?.context?.status === 401) throw new Error("Sign in again to view wallet collectibles.");
           // Fallback: direct DAS RPC
           const umi = getDasUmi(getSolanaRpcUrl(getNetworkType(network)));
           assets = await (umi.rpc as any).getAssetsByOwner({

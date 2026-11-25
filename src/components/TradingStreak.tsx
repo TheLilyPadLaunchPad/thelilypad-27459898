@@ -48,6 +48,7 @@ export function TradingStreak() {
         .from('volume_tracking')
         .select('created_at')
         .eq('user_id', userId)
+        .not('verified_at', 'is', null)
         .gte('created_at', ninetyDaysAgo)
         .order('created_at', { ascending: false });
 

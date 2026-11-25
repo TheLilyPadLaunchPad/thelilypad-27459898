@@ -49,6 +49,7 @@ serve(async (req) => {
       .from("streak_challenges")
       .select("*")
       .eq("status", "active")
+      .not("accepted_at", "is", null)
       .lte("end_date", today);
 
     if (fetchError) {
@@ -67,6 +68,7 @@ serve(async (req) => {
           .from("volume_tracking")
           .select("created_at")
           .eq("user_id", userId)
+          .not("verified_at", "is", null)
           .gte("created_at", startDate.toISOString())
           .lte("created_at", endDate.toISOString())
           .order("created_at", { ascending: true });
@@ -235,6 +237,7 @@ serve(async (req) => {
       .from("streak_challenges")
       .select("*")
       .eq("status", "active")
+      .not("accepted_at", "is", null)
       .gt("end_date", today);
 
     if (!activeError && activeChallenges) {
@@ -247,6 +250,7 @@ serve(async (req) => {
             .from("volume_tracking")
             .select("created_at")
             .eq("user_id", userId)
+            .not("verified_at", "is", null)
             .gte("created_at", startDate.toISOString())
             .lte("created_at", now.toISOString())
             .order("created_at", { ascending: false });

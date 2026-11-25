@@ -150,12 +150,12 @@ export default function StickerPackDetail() {
             .select("id, delivery_status, payment_signature")
             .eq("item_id", packId)
             .eq("user_id", userId)
-            .order("created_at", { ascending: false })
+            .order("purchased_at", { ascending: false })
             .limit(1)
             .maybeSingle();
 
           const status = (purchaseData as { delivery_status?: string | null } | null)?.delivery_status;
-          const undelivered = !!purchaseData && (status === "failed" || status === "partial");
+          const undelivered = !!purchaseData && (status === "pending" || status === "failed" || status === "partial");
           setHasPurchased(!!purchaseData && !undelivered);
           setDeliveryIssue(
             undelivered
@@ -210,7 +210,7 @@ export default function StickerPackDetail() {
 
 
     // Free sticker pack — still mint on-chain when the pack is deployed
-    if (pack.price_mon <= 0) {
+    if ((pack.price_sol ?? pack.price_mon) <= 0) {
       setIsPurchasing(true);
       try {
         // Prefer auth user_id, fallback to profile id for wallet-only
@@ -220,7 +220,19 @@ export default function StickerPackDetail() {
           throw new Error("User profile not found. Please connect your wallet.");
         }
 
-        const freeDeliverable = stickers.filter((s) => s.metadata_uri);
+        const { data: claim, error: claimError } = await supabase.functions.invoke("record-shop-purchase", {
+          body: { kind: "item", itemId: pack.id },
+        });
+        const claimBody = claimError?.context ? await claimError.context.json().catch(() => null) : claim;
+        if ((claimError || claimBody?.error) && claimBody?.error !== "already_owned" && claimBody?.code !== "23505") {
+          throw new Error(claimBody?.error || "Could not claim this pack");
+        }
+        // Purchaser-only content becomes readable only after the claim exists.
+        const { data: claimedContents, error: contentsError } = await supabase.from("shop_item_contents")
+          .select("*").eq("item_id", pack.id).order("display_order");
+        if (contentsError) throw contentsError;
+        setStickers(claimedContents || []);
+        const freeDeliverable = (claimedContents || []).filter((s) => s.metadata_uri);
         if (pack.collection_address && pack.tree_address && freeDeliverable.length > 0) {
           const results = await purchasePackOnChain(
             {
@@ -247,24 +259,6 @@ export default function StickerPackDetail() {
           );
 
           if (results.some((r) => r.success)) setHasPurchased(true);
-          return;
-        }
-
-
-        const { data: rec, error: fnErr } = await supabase.functions.invoke("record-shop-purchase", {
-          body: { kind: "item", itemId: pack.id },
-        });
-        // Non-2xx responses come back as fnErr with data=null; read the real body from the response
-        const fnBody = fnErr?.context ? await fnErr.context.json().catch(() => null) : rec;
-        const error = fnErr || fnBody?.error ? { code: fnBody?.code, message: fnBody?.error || fnErr?.message } : null;
-
-        if (error) {
-          if (error.code === "23505" || fnBody?.error === "already_owned") {
-            toast.error("You already own this sticker pack!");
-            setHasPurchased(true);
-          } else {
-            throw error;
-          }
           return;
         }
 
@@ -374,14 +368,6 @@ export default function StickerPackDetail() {
           return;
         }
 
-        // Deployed on-chain but nothing mintable → don't take money for
-        // assets we can't deliver to the wallet.
-        if (pack.collection_address && pack.tree_address) {
-          throw new Error(
-            "This pack's items aren't ready for on-chain delivery yet. Please try again later.",
-          );
-        }
-
         // Not deployed on-chain → settle the SOL payment with the creator
         // split + platform fee, then record the entitlement.
 
@@ -392,7 +378,8 @@ export default function StickerPackDetail() {
 
         const rpcUrl = getSolanaRpcUrl(network as NetworkType);
         const connection = new Connection(rpcUrl, "confirmed");
-        const fromPubkey = new PublicKey(address!);
+        if (!address) throw new Error("Wallet not connected");
+        const fromPubkey = new PublicKey(address);
 
         // Resolve creator payout wallet, fall back to treasury
         let creatorWallet = TREASURY_CONFIG.treasuryWallet || PLATFORM_WALLETS.solana.treasury;
@@ -449,6 +436,14 @@ export default function StickerPackDetail() {
       }
 
       setHasPurchased(true);
+      const { data: purchasedContents } = await supabase.from("shop_item_contents")
+        .select("*").eq("item_id", pack.id).order("display_order");
+      setStickers(purchasedContents || []);
+      if (pack.collection_address && pack.tree_address && purchasedContents?.some(s => s.metadata_uri)) {
+        await purchasePackOnChain({ ...pack, price_mon: 0, price_sol: 0 }, purchasedContents.map(s => ({
+          ...s, arweave_uri: s.arweave_uri ?? undefined, metadata_uri: s.metadata_uri ?? undefined,
+        })), purchaseUserId, { skipPayment: true });
+      }
       toast.success("Sticker pack purchased successfully!");
     } catch (err: any) {
       console.error("Purchase error:", err);

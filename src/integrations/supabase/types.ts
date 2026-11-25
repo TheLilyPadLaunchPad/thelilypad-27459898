@@ -1682,6 +1682,7 @@ export type Database = {
           total_paid: number
           tx_hash: string | null
           user_id: string
+          verified_at: string | null
         }
         Insert: {
           created_at?: string
@@ -1691,6 +1692,7 @@ export type Database = {
           total_paid?: number
           tx_hash?: string | null
           user_id: string
+          verified_at?: string | null
         }
         Update: {
           created_at?: string
@@ -1700,6 +1702,7 @@ export type Database = {
           total_paid?: number
           tx_hash?: string | null
           user_id?: string
+          verified_at?: string | null
         }
         Relationships: [
           {
@@ -3239,6 +3242,7 @@ export type Database = {
       }
       streak_challenges: {
         Row: {
+          accepted_at: string | null
           challenged_id: string
           challenged_streak: number
           challenger_id: string
@@ -3253,6 +3257,7 @@ export type Database = {
           winner_id: string | null
         }
         Insert: {
+          accepted_at?: string | null
           challenged_id: string
           challenged_streak?: number
           challenger_id: string
@@ -3267,6 +3272,7 @@ export type Database = {
           winner_id?: string | null
         }
         Update: {
+          accepted_at?: string | null
           challenged_id?: string
           challenged_streak?: number
           challenger_id?: string
@@ -3910,6 +3916,7 @@ export type Database = {
           source_type: string
           tx_hash: string | null
           user_id: string | null
+          verified_at: string | null
           volume_amount: number
           weight: number
           weighted_volume: number
@@ -3923,6 +3930,7 @@ export type Database = {
           source_type: string
           tx_hash?: string | null
           user_id?: string | null
+          verified_at?: string | null
           volume_amount?: number
           weight?: number
           weighted_volume?: number
@@ -3936,6 +3944,7 @@ export type Database = {
           source_type?: string
           tx_hash?: string | null
           user_id?: string | null
+          verified_at?: string | null
           volume_amount?: number
           weight?: number
           weighted_volume?: number
@@ -4378,6 +4387,15 @@ export type Database = {
           p_idempotency_key?: string
           p_program_id: string
           p_scheduled_for?: string
+        }
+        Returns: string
+      }
+      record_verified_raffle_entry: {
+        Args: {
+          p_raffle_id: string
+          p_ticket_count: number
+          p_tx_hash?: string
+          p_user_id: string
         }
         Returns: string
       }

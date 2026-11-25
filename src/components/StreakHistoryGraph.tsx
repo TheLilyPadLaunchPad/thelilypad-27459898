@@ -41,6 +41,7 @@ export const StreakHistoryGraph = ({
       const { data: volumeData, error } = await supabase
         .from("volume_tracking")
         .select("user_id, volume_amount, created_at")
+        .not("verified_at", "is", null)
         .in("user_id", [userId, opponentId])
         .gte("created_at", startDate)
         .lte("created_at", endDate)

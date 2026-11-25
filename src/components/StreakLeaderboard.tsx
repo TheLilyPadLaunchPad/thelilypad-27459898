@@ -33,6 +33,7 @@ export function StreakLeaderboard() {
       const { data, error } = await supabase
         .from('volume_tracking')
         .select('user_id, created_at')
+        .not('verified_at', 'is', null)
         .gte('created_at', ninetyDaysAgo)
         .not('user_id', 'is', null);
 
