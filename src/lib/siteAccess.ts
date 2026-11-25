@@ -8,7 +8,7 @@ export const GENERATOR_PATHS = [
 
 const LIMITED_PATHS = new Set<string>([
   '/generators', '/referrals', '/waitroom', '/leaderboard',
-  '/auth', '/auth/callback', '/profile-setup', '/profile-suspended',
+  '/auth', '/auth/callback', '/profile-setup', '/profile-suspended', '/profile/settings',
   '/admin/login', '/admin/reset-password', ...GENERATOR_PATHS,
 ]);
 

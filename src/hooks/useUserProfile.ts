@@ -69,8 +69,8 @@ export const useUserProfile = () => {
                 console.warn("Supabase profile fetch failed", e);
             }
 
-            // Merge: Arweave data wins for shared fields
-            return arweaveProfile || supabaseProfile;
+            // Saved account data takes priority over older decentralized copies.
+            return supabaseProfile || arweaveProfile;
         } catch (err: unknown) {
             console.error('Error in profile fetch function:', err);
             return null;

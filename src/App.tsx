@@ -95,6 +95,7 @@ const ProfileSuspended = lazy(() => import("./pages/ProfileSuspended"));
 const StreamerProfile = lazy(() => import("./pages/StreamerProfile"));
 const StreamerCollections = lazy(() => import("./pages/StreamerCollections"));
 const EditProfile = lazy(() => import("./pages/EditProfile"));
+const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
 const Following = lazy(() => import("./pages/Following"));
 const ClipViewer = lazy(() => import("./pages/ClipViewer"));
 const Moderation = lazy(() => import("./pages/Moderation"));
@@ -189,6 +190,7 @@ const AppContent = () => {
           <Route path="/streamer/:streamerId" element={<ProtectedRoute><StreamerProfile /></ProtectedRoute>} />
           <Route path="/streamer/:streamerId/collections" element={<ProtectedRoute><StreamerCollections /></ProtectedRoute>} />
           <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+          <Route path="/profile/settings" element={<ProfileSettings />} />
           <Route path="/following" element={<ProtectedRoute><Following /></ProtectedRoute>} />
           <Route path="/clip/:clipId" element={<ProtectedRoute><ClipViewer /></ProtectedRoute>} />
           <Route path="/moderation" element={<ProtectedRoute><Moderation /></ProtectedRoute>} />

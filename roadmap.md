@@ -1,5 +1,8 @@
 # Task Roadmap
 
+- [x] Add profile settings for display name and avatar using partial updates to the existing authenticated profile; 13 checks pass and a temporary signed-in account verified avatar upload, saved readback, and preservation of all other returned fields.
+- [ ] Verify profile settings saving through the browser: blocked by inherited preview startup crashes (`slice`/`on` of undefined); direct authenticated persistence checks passed, but page rendering could not be verified.
+
 - [ ] Reown-only wallet connections and email signup/login, preserving existing profiles: separate Cloud account login rejected; account sign-in remains blocked pending a supported Reown-to-Cloud account connection.
 
 - [x] Add admin-only whitelist wallet CSV under Users with saved registration statuses, secure paginated access, and prepared-file download; seven tests pass including isolated database authorization checks.

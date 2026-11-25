@@ -53,6 +53,7 @@ const accountLinks = [
   { label: "Channel Emotes", href: "/channel-emotes", icon: Smile },
   { label: "My Donations", href: "/donor-profile", icon: Gift },
   { label: "Edit Profile", href: "/edit-profile", icon: UserCog },
+  { label: "Profile settings", href: "/profile/settings", icon: UserCog },
   { label: "Go Live", href: "/go-live", icon: Radio },
 ];
 
@@ -205,7 +206,7 @@ export const Navbar: React.FC = () => {
                     >
                       Account
                     </p>
-                    {(limited ? [] : accountLinks).filter(link => {
+                    {(limited ? accountLinks.filter(link => link.href === '/profile/settings') : accountLinks).filter(link => {
                       // Only show streamer-specific links if user is a streamer
                       if (link.href === "/go-live" || link.label === "Go Live" || link.label === "Streamer Dashboard") {
                         return profile?.is_streamer;

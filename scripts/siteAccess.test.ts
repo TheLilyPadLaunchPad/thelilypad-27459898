@@ -21,3 +21,7 @@ test('sign-in and profile setup stay available for referral onboarding', () => {
 test('disabling lockdown restores normal navigation', () => {
   assert.equal(isSitePathLocked('/marketplace', false, false), false);
 });
+test('profile settings are reachable without opening other profile pages', () => {
+  assert.equal(isSitePathLocked('/profile/settings', true, false), false);
+  assert.equal(isSitePathLocked('/edit-profile', true, false), true);
+});
