@@ -4113,6 +4113,15 @@ export type Database = {
         Args: { expires_at?: string; reason: string; target_user_id: string }
         Returns: undefined
       }
+      admin_export_whitelist_wallets: {
+        Args: { p_after?: string; p_limit?: number }
+        Returns: {
+          claim_status: string
+          profile_id: string
+          registered_at: string
+          wallet_address: string
+        }[]
+      }
       admin_hard_delete_collection: {
         Args: { p_collection_id: string }
         Returns: undefined
