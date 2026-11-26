@@ -6,7 +6,6 @@ import { useChain } from "./ChainProvider";
 import { setStoredChain, CHAINS } from "@/config/chains";
 import { connectEvmChain, getEvmBalance } from "@/lib/evmWallets";
 import { supabase } from "@/integrations/supabase/client";
-import { signInWithSolana } from "@/auth/supabaseWeb3";
 import { connectJoeyWallet, disconnectJoeyWallet, isJoeyWalletConnected } from "@/lib/joeyWalletConnection";
 import { connectXRPLWallet, type XRPLWalletProvider } from "@/lib/xrplWalletConnect";
 
@@ -103,7 +102,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Injected EVM provider (Monad / Robinhood Chain) for the active session.
   const evmProviderRef = useRef<any>(null);
-  const [solanaSignInAttempt, setSolanaSignInAttempt] = useState(0);
   // Transport connection is distinct from authenticated sign-in. Keep this
   // in memory so failed signing/retries and balance updates cannot recount it.
   const trackedReownConnection = useRef<{ address: string; namespace: string } | null>(null);
@@ -124,33 +122,17 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [connection]);
 
+  // Accounts are email sign-ins; wallets only connect and sign transactions.
+  // Reports whether a real (non-guest) account session is active.
   const ensureSupabaseSession = useCallback(async (): Promise<boolean> => {
     try {
-      const walletAddress =
-        (reownProvider as any)?.publicKey?.toBase58?.() ??
-        (reownProvider as any)?.publicKey?.toString?.() ??
-        reownAddress;
-      if (!walletAddress) return false;
-
-      // Need the Reown Solana provider to sign the SIWS message.
-      if (!reownProvider || !(reownProvider as any).publicKey) {
-        console.warn('[Auth] Reown Solana provider not ready yet — will retry on next sync.');
-        return false;
-      }
-
-      const result: any = await signInWithSolana(reownProvider as any);
-      if (result?.ok) {
-        console.log('[Auth] Supabase Web3 session established for', result.address);
-        return true;
-      }
-      console.error('[Auth] Solana SIWS failed:', result?.error);
-      toast.error(result.error || 'Wallet sign-in failed. Please try again.');
-      return false;
+      const { data: { session } } = await supabase.auth.getSession();
+      return !!session && !session.user.is_anonymous;
     } catch (err) {
-      console.error('Error ensuring Supabase session:', err);
+      console.error('Error checking account session:', err);
       return false;
     }
-  }, [reownProvider, reownAddress]);
+  }, []);
 
   // Sync Reown State to our Internal App State
   useEffect(() => {
@@ -190,14 +172,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try { localStorage.setItem("walletConnected", "true"); } catch {}
         if (evmChain === 'monad' || evmChain === 'robinhood' || evmChain === 'apechain') setStoredChain(evmChain as any);
       } else if (isReownConnected && reownAddress) {
-        // Authenticate before profile/admin checks see a connected Solana wallet.
-        // Do not make sign-in wait for an unrelated RPC balance request.
-        const authenticated = await ensureSupabaseSession();
-        if (cancelled) return;
-        if (!authenticated) {
-          setState(prev => ({ ...prev, isConnected: false, isConnecting: false }));
-          return;
-        }
+        // Connecting a Solana wallet never prompts for a signature; the
+        // account session comes from email sign-in.
         const balance = await fetchSolanaBalance(reownAddress);
         if (cancelled) return;
         setState(prev => ({
@@ -236,7 +212,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     syncReown();
     return () => { cancelled = true; };
-  }, [isReownConnected, reownAddress, reownStatus, reownNamespace, reownEvmChain, reownEvmProvider, fetchSolanaBalance, ensureSupabaseSession, solanaSignInAttempt]);
+  }, [isReownConnected, reownAddress, reownStatus, reownNamespace, reownEvmChain, reownEvmProvider, fetchSolanaBalance]);
 
   // Sync Reown's selected network (mainnet / devnet / testnet) into our internal state
   useEffect(() => {
@@ -494,11 +470,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (walletType === "joey") {
         // Connect via Joey Wallet
         await connectXRPL();
-      } else if (isReownConnected && reownAddress && reownNamespace !== 'eip155' && !state.isConnected && (!_chainType || _chainType === 'solana')) {
-        // A rejected sign-in does not disconnect Reown. Explicitly rerun the
-        // authenticated sync instead of opening its already-connected account.
-        setState(prev => ({ ...prev, isConnecting: true }));
-        setSolanaSignInAttempt(attempt => attempt + 1);
       } else {
         // Default to Reown AppKit
         await open();
@@ -507,7 +478,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
        console.error("Failed to open wallet connection modal:", error);
        toast.error("Failed to open wallet connection modal");
     }
-  }, [open, connectXRPL, isReownConnected, reownAddress, reownNamespace, state.isConnected]);
+  }, [open, connectXRPL]);
 
   const connectWithOAuth = useCallback(async (_provider: OAuthProvider) => {
     // Legacy callers must use the same retry-aware wallet connection path.
@@ -526,8 +497,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setActiveSigner(null);
     } catch {}
     
-    // Clear any Supabase session (anonymous sessions used by XRPL etc.)
-    try { await supabase.auth.signOut(); } catch {}
+    // Disconnecting a wallet keeps the email account signed in; only guest
+    // sessions (used by XRPL wallets) end with the wallet.
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user.is_anonymous) await supabase.auth.signOut();
+    } catch {}
 
     setState(prev => ({
       ...prev,

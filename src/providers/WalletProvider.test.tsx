@@ -4,11 +4,10 @@ import { execFileSync } from 'node:child_process';
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSolanaSignIn } from '../auth/solanaWalletAuth';
 
 // Module mocks must not leak into the app's other tests.
 if (process.env['LILYPAD_WALLET_RETRY_TEST_WORKER'] !== '1') {
-  test('wallet sign-in retry integration checks', () => {
+  test('wallet connection integration checks', () => {
     execFileSync(process.execPath, ['test', import.meta.filename], {
       env: { ...process.env, LILYPAD_WALLET_RETRY_TEST_WORKER: '1' },
       stdio: 'pipe',
@@ -43,14 +42,12 @@ const provider = {
     return new Uint8Array(64).fill(7);
   },
 };
+let accountSession: { user: { is_anonymous: boolean } } | null = null;
+let signOutCalls = 0;
 const auth = {
-  getSession: async () => ({ data: { session: null } }),
-  signInWithWeb3: async ({ wallet }: { wallet: ReturnType<typeof import('../auth/solanaWalletAuth').adaptSolanaWallet> }) => {
-    await wallet.signMessage(new TextEncoder().encode('Test sign-in'));
-    return { data: { session: {}, user: {} }, error: null };
-  },
+  getSession: async () => ({ data: { session: accountSession } }),
+  signOut: async () => { signOutCalls++; accountSession = null; return { error: null }; },
 } as unknown as SupabaseClient['auth'];
-const signIn = createSolanaSignIn(auth);
 const open = async () => { modalCalls++; };
 const disconnect = async () => {};
 const switchNetwork = async () => {};
@@ -67,7 +64,6 @@ mock.module('@reown/appkit/react', () => ({
 }));
 mock.module('@reown/appkit/networks', () => ({ solana: solanaNetwork, solanaDevnet: {}, solanaTestnet: {} }));
 mock.module('@/integrations/reown/appkit', () => ({ REOWN_EVM_NETWORKS: {}, evmChainKeyFromId: () => 'monad', areAdminTestNetworksEnabled: () => false }));
-mock.module('@/auth/supabaseWeb3', () => ({ signInWithSolana: signIn }));
 mock.module('@/integrations/supabase/client', () => ({ supabase: { auth } }));
 mock.module('@/config/solana', () => ({ getSolanaRpcUrl: () => 'https://rpc.invalid' }));
 mock.module('@solana/web3.js', () => ({ Connection: class { async getBalance() { return 0; } }, PublicKey: class {} }));
@@ -102,79 +98,54 @@ async function render(children?: React.ReactNode) {
   return renderer;
 }
 
-for (const error of ['Request rejected', 'Invalid signature']) {
-  test(`Connect retries ${error} without reconnecting the Solana wallet`, async () => {
-    rejected = true;
-    failure = error;
-    const renderer = await render();
-    try {
-      assert.equal(currentWallet().isConnected, false);
-      assert.equal(currentWallet().isConnecting, false);
-      assert.equal(signingCalls, 1);
-      rejected = false;
-      await act(async () => { await currentWallet().connect('reown', 'solana'); });
-      assert.equal(currentWallet().isConnected, true);
-      assert.equal(currentWallet().address, address);
-      assert.equal(currentWallet().isConnecting, false);
-      assert.equal(signingCalls, 2);
-      assert.equal(modalCalls, 0);
-    } finally {
-      await act(async () => { renderer.unmount(); });
-    }
-  });
-}
-
-test('repeated failed retries release the Connect action and concurrent retries share signing', async () => {
-  rejected = true;
+test('a Solana wallet connects through Reown without any signature prompt', async () => {
   const renderer = await render();
   try {
-    await act(async () => { await currentWallet().connect(); });
-    assert.equal(signingCalls, 2);
-    assert.equal(currentWallet().isConnected, false);
-    assert.equal(currentWallet().isConnecting, false);
-    rejected = false;
-    await act(async () => { await Promise.all([currentWallet().connect(), currentWallet().connect()]); });
-    assert.equal(signingCalls, 3);
     assert.equal(currentWallet().isConnected, true);
-    assert.equal(modalCalls, 0);
+    assert.equal(currentWallet().address, address);
+    assert.equal(currentWallet().chainType, 'solana');
+    assert.equal(signingCalls, 0);
   } finally {
     await act(async () => { renderer.unmount(); });
   }
 });
 
-test('legacy Connect callers also retry Solana sign-in', async () => {
-  rejected = true;
+test('a connected wallet alone is not an account session', async () => {
+  accountSession = null;
   const renderer = await render();
   try {
-    rejected = false;
-    await act(async () => { await currentWallet().connectWithOAuth('google'); });
-    assert.equal(signingCalls, 2);
-    assert.equal(currentWallet().isConnected, true);
-    assert.equal(modalCalls, 0);
+    assert.equal(await currentWallet().ensureSupabaseSession(), false);
+    accountSession = { user: { is_anonymous: true } };
+    assert.equal(await currentWallet().ensureSupabaseSession(), false);
+    accountSession = { user: { is_anonymous: false } };
+    assert.equal(await currentWallet().ensureSupabaseSession(), true);
   } finally {
+    accountSession = null;
     await act(async () => { renderer.unmount(); });
   }
 });
 
-test('the alternate WalletConnect button retries instead of bypassing wallet authentication', async () => {
-  rejected = true;
+test('disconnecting the wallet keeps the email account signed in but ends guest sessions', async () => {
+  const renderer = await render();
+  try {
+    signOutCalls = 0;
+    accountSession = { user: { is_anonymous: false } };
+    await act(async () => { await currentWallet().disconnect(); });
+    assert.equal(signOutCalls, 0);
+    accountSession = { user: { is_anonymous: true } };
+    await act(async () => { await currentWallet().disconnect(); });
+    assert.equal(signOutCalls, 1);
+  } finally {
+    accountSession = null;
+    await act(async () => { renderer.unmount(); });
+  }
+});
+
+test('disconnected wallets open Reown', async () => {
+  connected = false;
   const renderer = await render(<WalletConnectButton />);
   try {
-    rejected = false;
     await act(async () => { renderer.root.findByType('button').props.onClick(); });
-    assert.equal(signingCalls, 2);
-    assert.equal(currentWallet().isConnected, true);
-    assert.equal(modalCalls, 0);
-  } finally {
-    await act(async () => { renderer.unmount(); });
-  }
-});
-
-test('disconnected wallets still open Reown instead of attempting sign-in', async () => {
-  connected = false;
-  const renderer = await render();
-  try {
-    await act(async () => { await currentWallet().connect(); });
     assert.equal(signingCalls, 0);
     assert.equal(modalCalls, 1);
     assert.equal(currentWallet().isConnected, false);
@@ -184,73 +155,13 @@ test('disconnected wallets still open Reown instead of attempting sign-in', asyn
   }
 });
 
-test('EVM connections do not trigger Solana signing', async () => {
-  namespace = 'eip155';
+test('wallet connection is counted once and never includes the address', async () => {
   const renderer = await render();
   try {
-    assert.equal(currentWallet().isConnected, true);
-    assert.equal(currentWallet().chainType, 'monad');
-    await act(async () => { await currentWallet().connect(); });
-    assert.equal(signingCalls, 0);
-    assert.equal(modalCalls, 1);
-  } finally {
-    namespace = 'solana';
-    await act(async () => { renderer.unmount(); });
-  }
-});
-
-test('a not-yet-ready Solana provider does not strand later retries', async () => {
-  providerReady = false;
-  rejected = false;
-  const renderer = await render();
-  try {
-    await act(async () => { await currentWallet().connect(); });
-    assert.equal(currentWallet().isConnected, false);
-    assert.equal(currentWallet().isConnecting, false);
-    assert.equal(signingCalls, 0);
-    providerReady = true;
     await act(async () => { renderer.update(<WalletProvider><Probe /></WalletProvider>); });
-    assert.equal(currentWallet().isConnected, true);
-    assert.equal(signingCalls, 1);
-  } finally {
-    providerReady = true;
-    await act(async () => { renderer.unmount(); });
-  }
-});
-
-test('wallet connection counts actual transport once, separately from failure and successful retry', async () => {
-  rejected = true;
-  failure = 'Request rejected';
-  const renderer = await render();
-  try {
-    assert.equal(currentWallet().isConnected, false);
-    assert.equal(analyticsEvents.filter(e => e.name === 'project.wallet_connected').length, 1);
-    assert.deepEqual(analyticsEvents[0], { name: 'project.wallet_connected', properties: { chain: 'solana', connector: 'reown', entry_point: 'admin' } });
-    rejected = false;
-    await act(async () => { await currentWallet().connect(); });
-    assert.equal(currentWallet().isConnected, true);
-    assert.deepEqual(analyticsEvents.map(e => e.name), [
-      'project.wallet_connected', 'project.wallet_signature_requested', 'project.wallet_authentication_failed',
-      'project.wallet_signature_requested', 'project.wallet_sign_in_succeeded',
-    ]);
-    assert.equal(analyticsEvents[3].properties.retry, true);
+    assert.deepEqual(analyticsEvents, [{ name: 'project.wallet_connected', properties: { chain: 'solana', connector: 'reown', entry_point: 'admin' } }]);
     assert.equal(JSON.stringify(analyticsEvents).includes(address), false);
-    await act(async () => { renderer.update(<WalletProvider><Probe /></WalletProvider>); });
-    assert.equal(analyticsEvents.filter(e => e.name === 'project.wallet_connected').length, 1);
   } finally {
-    await act(async () => { renderer.unmount(); });
-  }
-});
-
-test('opening a Connect modal alone is not a wallet connection event', async () => {
-  connected = false;
-  const renderer = await render();
-  try {
-    await act(async () => { await currentWallet().connect(); });
-    assert.equal(modalCalls, 1);
-    assert.deepEqual(analyticsEvents, []);
-  } finally {
-    connected = true;
     await act(async () => { renderer.unmount(); });
   }
 });

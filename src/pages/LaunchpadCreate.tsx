@@ -106,7 +106,7 @@ const defaultPhases: LaunchpadPhase[] = [
 export default function LaunchpadCreate() {
     const { chain: chainParam, type: typeParam } = useParams<{ chain: string; type: string }>();
     const navigate = useNavigate();
-    const { address, network, chainType, getSolanaProvider, ensureSupabaseSession } = useWallet();
+    const { address, network, chainType, getSolanaProvider } = useWallet();
     const walletChain: typeof selectedChain =
         chainType === 'monad' ? 'monad' : 'solana';
     const { isAdmin } = useAuth();
@@ -728,19 +728,9 @@ export default function LaunchpadCreate() {
         // RLS on `collections` requires auth.uid() = creator_id. If the wallet
         // is connected but no Supabase auth session exists yet, the insert
         // will fail with "new row violates row-level security policy".
-        let { data: { user: authUser } } = await supabase.auth.getUser();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser?.id) {
-            toast.loading("Signing in with your wallet…", { id: 'siws' });
-            const ok = await ensureSupabaseSession();
-            if (!ok) {
-                toast.error("Wallet sign-in required to launch. Please approve the signature request.", { id: 'siws' });
-                return;
-            }
-            toast.dismiss('siws');
-            ({ data: { user: authUser } } = await supabase.auth.getUser());
-            if (!authUser?.id) {
-                return toast.error("Could not establish a signed-in session. Please disconnect & reconnect your wallet.");
-            }
+            return toast.error("Sign in with your email to launch a collection.");
         }
 
         if (walletChain !== selectedChain) {

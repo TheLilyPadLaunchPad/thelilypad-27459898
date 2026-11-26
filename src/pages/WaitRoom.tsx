@@ -21,6 +21,7 @@ import { WLCard } from '@/components/waitroom/WLCard';
 import { Navbar } from '@/components/Navbar';
 import { authUrl } from '@/lib/guestEntry';
 import { useWhitelistEligibility } from '@/hooks/useWhitelistEligibility';
+import { AccountWalletSteps } from '@/components/account/AccountWalletSteps';
 
 interface ChatMessage {
   id: string;
@@ -192,16 +193,14 @@ export default function WaitRoom() {
               eligible={hasWhitelist}
             /> : <div className="border border-border rounded-lg p-5 space-y-4 bg-card">
               <h2 className="text-xl font-semibold">Get your WL spot</h2>
-              <p className="text-sm text-muted-foreground">Connect your wallet and complete sign-in to join the whitelist. Your wallet address will be saved with your account.</p>
-              {checkingWhitelist ? <p role="status" className="text-sm text-muted-foreground">Checking your wallet registration…</p> : <>
-                {whitelistError && <p role="alert" className="text-sm text-destructive">Unable to confirm your wallet registration. Please try again.</p>}
-                <Button className="w-full" onClick={() => {
-                  try {
-                    window.__lovableEvents?.track?.('project.whitelist_claim_attempted', { entry_point: 'waitroom_wl' });
-                  } catch { /* Continue sign-in when analytics is unavailable. */ }
-                  navigate(authUrl('/waitroom'));
-                }}>Connect wallet for WL</Button>
-              </>}
+              <p className="text-sm text-muted-foreground">Sign in with your email, connect your wallet, and save it to your account to join the whitelist.</p>
+              {whitelistError && <p role="alert" className="text-sm text-destructive">Unable to confirm your wallet registration. Please try again.</p>}
+              {checkingWhitelist && <p role="status" className="text-sm text-muted-foreground">Checking your wallet registration…</p>}
+              <AccountWalletSteps returnTo="/waitroom" onSignInClick={() => {
+                try {
+                  window.__lovableEvents?.track?.('project.whitelist_claim_attempted', { entry_point: 'waitroom_wl' });
+                } catch { /* Continue sign-in when analytics is unavailable. */ }
+              }} />
             </div>}
 
             {/* Affiliate section */}

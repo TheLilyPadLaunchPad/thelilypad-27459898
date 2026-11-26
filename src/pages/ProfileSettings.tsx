@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Save, Upload, Trash2, RefreshCw, Loader2, Wallet } from 'lucide-react';
+import { Save, Upload, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
-import { useWallet } from '@/providers/WalletProvider';
+import { AccountWalletSteps } from '@/components/account/AccountWalletSteps';
 import { useToast } from '@/hooks/use-toast';
 import { useSEO } from '@/hooks/useSEO';
 import { loadProfileSettings, saveProfileSettings, type ProfileSettingsRecord } from '@/lib/profileSettings';
@@ -22,7 +22,6 @@ export default function ProfileSettings() {
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
-  const { connect } = useWallet();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   useSEO({ title: 'Profile Settings | Lily Launchpad', description: 'Update your Lily Launchpad display name and avatar.' });
@@ -144,7 +143,7 @@ export default function ProfileSettings() {
                 </form>
               ) : (
                 <div className="flex flex-wrap gap-3">
-                  <Button onClick={() => void connect()}><Wallet className="mr-2 h-4 w-4" />Connect with Reown</Button>
+                  <div className="w-full max-w-sm"><AccountWalletSteps returnTo="/profile/settings" /></div>
                   <Button variant="outline" onClick={() => setReload(value => value + 1)}><RefreshCw className="mr-2 h-4 w-4" />Retry</Button>
                 </div>
               )}

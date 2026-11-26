@@ -5,6 +5,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useBetaMode } from "@/hooks/useBetaMode";
 import { hasEnteredApp, authUrl } from "@/lib/guestEntry";
 import FrogLoader from "./FrogLoader";
+import { useAccountSession } from "@/hooks/useAccountSession";
 import { isLimitedAccessPath } from '@/lib/siteAccess';
 
 interface ProtectedRouteProps {
@@ -34,6 +35,7 @@ export const WALLET_REQUIRED = [
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { state, isAdmin } = useAuth();
+  const { signedIn, loading: accountLoading } = useAccountSession();
   const { isBetaMode, isLoading: betaLoading } = useBetaMode();
   const location = useLocation();
 
@@ -105,8 +107,18 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // Redirect to profile setup if needed
-  if (state === "NEEDS_PROFILE" && location.pathname !== "/profile-setup") {
-    return <Navigate to="/profile-setup" replace />;
+  // Profiles belong to email accounts: a wallet without an account can still use
+  // open pages (generators, waitroom) and is only asked to sign in for profile setup.
+  if (state === "NEEDS_PROFILE") {
+    if (accountLoading) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <FrogLoader size="lg" />
+        </div>
+      );
+    }
+    if (!signedIn && location.pathname === "/profile-setup") return <Navigate to={authUrl("/profile-setup" + location.search)} replace />;
+    if (signedIn && location.pathname !== "/profile-setup") return <Navigate to="/profile-setup" replace />;
   }
 
   // ── BETA MODE GATE ────────────────────────────────────────────────────────

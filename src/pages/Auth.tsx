@@ -4,6 +4,11 @@ import { useAuth } from "@/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Wallet } from "lucide-react";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { useAccountSession } from "@/hooks/useAccountSession";
 import { useSEO } from "@/hooks/useSEO";
 import { useSiteAsset } from "@/hooks/useSiteAsset";
 import { markEnteredApp, safeReturnTo } from "@/lib/guestEntry";
@@ -20,6 +25,42 @@ export default function Auth() {
   const returnNeedsWallet = !!returnTo && WALLET_REQUIRED.some((p) => returnTo.startsWith(p));
   const [connectOpen, setConnectOpen] = useState(false);
   const { state } = useAuth();
+  const { user: account, loading: accountLoading } = useAccountSession();
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const address = email.trim();
+    if (!address) return;
+    if (mode !== "forgot" && password.length < 8) { toast.error("Use at least 8 characters for your password"); return; }
+    setBusy(true);
+    setNotice("");
+    try {
+      if (mode === "signin") {
+        const { error } = await supabase.auth.signInWithPassword({ email: address, password });
+        if (error) throw error;
+      } else if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: address, password, options: { emailRedirectTo: `${window.location.origin}/auth${window.location.search}` },
+        });
+        if (error) throw error;
+        // With email confirmation on, there is no session until the link is opened.
+        if (!data.session) setNotice("Check your email and open the confirmation link to finish creating your account.");
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: `${window.location.origin}/reset-password` });
+        if (error) throw error;
+        setNotice("If that email has an account, a password reset link is on its way.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
   const { assetUrl: authBranding } = useSiteAsset("auth_branding", fallbackAuthBranding);
 
   useSEO({
@@ -30,6 +71,8 @@ export default function Auth() {
 
   // Once connected, send the visitor back to where they were heading
   useEffect(() => {
+    // Wallets alone no longer sign anyone in: wait for the email account.
+    if (!account) return;
     if (state === "AUTHENTICATED") {
       markEnteredApp();
       navigate(returnTo || "/streams", { replace: true });
@@ -37,7 +80,7 @@ export default function Auth() {
       const referral = searchParams.get('ref');
       navigate(referral ? `/profile-setup?ref=${encodeURIComponent(referral)}` : '/profile-setup');
     }
-  }, [state, navigate, returnTo, searchParams]);
+  }, [state, account, navigate, returnTo, searchParams]);
 
   const handleEnter = () => {
     markEnteredApp();
@@ -79,35 +122,63 @@ export default function Auth() {
         <Card className="w-full max-w-md border-border/50 shadow-xl overflow-hidden">
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-2xl font-bold">Welcome to The Lily Pad</CardTitle>
-            <CardDescription>Jump in and look around — no wallet needed yet.</CardDescription>
+            <CardDescription>
+              {account ? "You're signed in. Connect a wallet with Reown to continue." : "Sign in with your email, then connect your wallet with Reown."}
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-5">
-            {returnTo && (
-              <p className="text-sm text-center text-muted-foreground">
-                Connect a wallet to continue where you left off.
-              </p>
+            {account ? (
+              <>
+                <p className="text-sm text-center text-muted-foreground break-all">Signed in as {account.email}</p>
+                <Button onClick={() => setConnectOpen(true)} className="w-full h-12 text-base font-semibold gap-2">
+                  <Wallet className="w-5 h-5" /> Connect wallet
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => void supabase.auth.signOut()}>Sign out</Button>
+              </>
+            ) : (
+              <form onSubmit={submit} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="auth-email">Email</Label>
+                  <Input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                {mode !== "forgot" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="auth-password">Password</Label>
+                    <Input id="auth-password" type="password" required minLength={8}
+                      autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                      value={password} onChange={(e) => setPassword(e.target.value)} />
+                  </div>
+                )}
+                {notice && <p role="status" className="text-sm text-primary">{notice}</p>}
+                <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={busy || accountLoading}>
+                  {busy ? "Please wait…" : mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
+                </Button>
+                <div className="flex flex-wrap justify-between gap-2 text-sm">
+                  <button type="button" className="text-primary hover:underline" onClick={() => { setNotice(""); setMode(mode === "signin" ? "signup" : "signin"); }}>
+                    {mode === "signin" ? "Create an account" : "I already have an account"}
+                  </button>
+                  {mode === "signin" && (
+                    <button type="button" className="text-muted-foreground hover:underline" onClick={() => { setNotice(""); setMode("forgot"); }}>
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+              </form>
             )}
             <Button
-              onClick={() => setConnectOpen(true)}
-              variant={returnTo ? "default" : "outline"}
-              className="w-full h-12 text-base font-semibold gap-2"
-            >
-              <Wallet className="w-5 h-5" /> Connect wallet
-            </Button>
-            <Button
               onClick={handleEnter}
-              variant={returnTo ? "outline" : "default"}
-              className="w-full h-14 text-base font-semibold group"
+              variant="outline"
+              className="w-full h-12 text-base font-semibold group"
             >
-              {returnTo && !returnNeedsWallet ? "Continue browsing" : "Enter"}
+              {account ? "Continue" : "Continue browsing"}
               <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
             <ChainConnectModal open={connectOpen} onOpenChange={setConnectOpen} />
 
             <p className="text-xs text-muted-foreground text-center">
-              You can connect a Solana, Monad or XRPL wallet from anywhere inside the app when you're
-              ready to mint, buy or sell. Robinhood Chain is coming soon.
+              Your email keeps your profile and whitelist spot safe. Your wallet connects through Reown
+              whenever you're ready to mint, buy or sell.
             </p>
           </CardContent>
         </Card>

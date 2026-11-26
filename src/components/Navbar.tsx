@@ -13,6 +13,7 @@ import { useAdmin } from "@/contexts/AdminContext";
 import { useMockMode } from "@/hooks/useMockMode";
 import { BuyTokensModal } from "@/components/shop/BuyTokensModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccountSession } from "@/hooks/useAccountSession";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import {
@@ -65,6 +66,7 @@ export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const { network, isConnected, chainType } = useWallet();
+  const { user: account } = useAccountSession();
   const { chain, setChain } = useChain();
   const { profile, loading: profileLoading } = useUserProfile();
   const { isAdmin, loading: isAdminLoading } = useAdmin();
@@ -225,6 +227,18 @@ export const Navbar: React.FC = () => {
                         </Link>
                       </SheetClose>
                     ))}
+                    <SheetClose asChild>
+                      {account ? (
+                        <button type="button" onClick={() => void supabase.auth.signOut()}
+                          className="flex w-full items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-all duration-200 font-medium text-left">
+                          <LogOut className="w-5 h-5 text-muted-foreground" />Sign out
+                        </button>
+                      ) : (
+                        <Link to="/auth" className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-muted/50 transition-all duration-200 font-medium">
+                          <LogIn className="w-5 h-5 text-muted-foreground" />Sign in
+                        </Link>
+                      )}
+                    </SheetClose>
                   </div>
 
                   {/* Admin Section */}
