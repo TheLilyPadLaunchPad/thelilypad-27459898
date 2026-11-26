@@ -1,6 +1,107 @@
 {
   "schema_version": 1,
   "events": {
+    "project.account_auth_failed": {
+      "event_schema_version": 1,
+      "description": "A sign-in, sign-up or password reset request on the sign-in screen failed.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "sign_in",
+              "sign_up",
+              "password_reset"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      }
+    },
+    "project.account_signed_in": {
+      "event_schema_version": 1,
+      "description": "A visitor signed in with email and password.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "enum": [
+              "email"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "type": "object"
+      }
+    },
+    "project.account_signed_up": {
+      "event_schema_version": 1,
+      "description": "A new email account was created from the sign-in screen.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation_required": {
+            "type": "boolean"
+          },
+          "method": {
+            "enum": [
+              "email"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "confirmation_required"
+        ],
+        "type": "object"
+      }
+    },
+    "project.password_reset_completed": {
+      "event_schema_version": 1,
+      "description": "A new password was saved from a reset link.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "project.password_reset_requested": {
+      "event_schema_version": 1,
+      "description": "A password reset email was requested from the sign-in screen.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
     "project.wallet_authentication_failed": {
       "event_schema_version": 1,
       "description": "A Solana wallet authentication operation fails; bounded reason/stage distinguish signature cancellation from backend rejection, network problems, missing sessions, or unavailable adapters. Raw errors and identities are never emitted.",
@@ -115,6 +216,63 @@
             ]
           }
         }
+      }
+    },
+    "project.wallet_link_failed": {
+      "event_schema_version": 1,
+      "description": "Saving a connected wallet to the signed-in account failed or was cancelled.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "chain": {
+            "enum": [
+              "solana",
+              "evm"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "chain"
+        ],
+        "type": "object"
+      }
+    },
+    "project.wallet_linked": {
+      "event_schema_version": 1,
+      "description": "A connected wallet was verified and saved to the signed-in account.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "chain": {
+            "enum": [
+              "solana",
+              "evm"
+            ],
+            "type": "string"
+          },
+          "result": {
+            "enum": [
+              "existing_profile_moved",
+              "already_linked",
+              "no_profile"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "chain",
+          "result"
+        ],
+        "type": "object"
       }
     },
     "project.wallet_sign_in_succeeded": {

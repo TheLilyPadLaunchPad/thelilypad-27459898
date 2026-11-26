@@ -44,16 +44,21 @@ export function AccountWalletSteps({ returnTo, onSignInClick }: { returnTo: stri
     if (!address) return;
     if (!profile) { navigate('/profile-setup'); return; }
     setLinking(true);
+    const chain = chainType === 'solana' ? 'solana' : 'evm';
     try {
       const solana = chainType === 'solana';
       const status = await linkWalletToAccount(supabase, {
         chain: solana ? 'solana' : 'evm', address, provider: solana ? getSolanaProvider() : evmProvider,
       });
+      try {
+        window.__lovableEvents?.track?.('project.wallet_linked', { chain, result: status === 'claim' ? 'existing_profile_moved' : status });
+      } catch { /* Analytics must never block linking. */ }
       if (status === 'no_profile') { navigate('/profile-setup'); return; }
       await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       await queryClient.invalidateQueries({ queryKey: ['whitelist-eligibility'] });
       toast.success('Wallet linked to your account');
     } catch (e) {
+      try { window.__lovableEvents?.track?.('project.wallet_link_failed', { chain }); } catch { /* No error text or address. */ }
       toast.error(e instanceof Error ? e.message : 'Could not link this wallet.');
     } finally {
       setLinking(false);

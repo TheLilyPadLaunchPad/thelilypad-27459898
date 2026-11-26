@@ -1,5 +1,9 @@
 # Task Roadmap
 
+- [x] Track email sign-ups, sign-ins, failures, password resets and wallet linking (whitelist completion already tracked); 13 event definitions validated and the sign-in, failure and reset events seen firing in a browser check.
+- [x] Password reset: request from the sign-in screen, set a new password from the emailed link, clear message for expired links; saving a new password and signing in with it verified with a temporary account.
+- [ ] Confirm the reset email arrives and its link opens the reset page: needs a real inbox on the published site.
+
 - [x] Fix preview startup crashes (missing Node process details, dev service-worker loader, Arweave import); the waitroom now renders with no page errors and 57 tests pass.
 
 - [x] Add profile settings for display name and avatar using partial updates to the existing authenticated profile; 13 checks pass and a temporary signed-in account verified avatar upload, saved readback, and preservation of all other returned fields.

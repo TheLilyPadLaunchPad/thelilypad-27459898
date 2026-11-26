@@ -43,19 +43,30 @@ export default function Auth() {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email: address, password });
         if (error) throw error;
+        try { window.__lovableEvents?.track?.("project.account_signed_in", { method: "email" }); } catch { /* Analytics must never block sign-in. */ }
       } else if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email: address, password, options: { emailRedirectTo: `${window.location.origin}/auth${window.location.search}` },
         });
         if (error) throw error;
         // With email confirmation on, there is no session until the link is opened.
+        // An already-registered email returns a placeholder with no identities: not a new sign-up.
+        if (data.session || (data.user?.identities?.length ?? 0) > 0) {
+          try {
+            window.__lovableEvents?.track?.("project.account_signed_up", { method: "email", confirmation_required: !data.session });
+          } catch { /* Analytics must never block sign-up. */ }
+        }
         if (!data.session) setNotice("Check your email and open the confirmation link to finish creating your account.");
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: `${window.location.origin}/reset-password` });
         if (error) throw error;
+        try { window.__lovableEvents?.track?.("project.password_reset_requested", {}); } catch { /* Analytics must never block a reset. */ }
         setNotice("If that email has an account, a password reset link is on its way.");
       }
     } catch (err) {
+      try {
+        window.__lovableEvents?.track?.("project.account_auth_failed", { action: mode === "signin" ? "sign_in" : mode === "signup" ? "sign_up" : "password_reset" });
+      } catch { /* Never send the error text or the email. */ }
       toast.error(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setBusy(false);
