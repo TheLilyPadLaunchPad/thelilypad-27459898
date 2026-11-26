@@ -136,8 +136,14 @@ export default function WaitRoom() {
 
   const shortWallet = (addr: string) => `${addr.slice(0, 4)}...${addr.slice(-4)}`;
 
+  // The side menu and pop-ups live outside this page, so the dark screen is applied site-wide while it is open.
+  useEffect(() => {
+    document.documentElement.classList.add('waitroom-dark');
+    return () => document.documentElement.classList.remove('waitroom-dark');
+  }, []);
+
   return (
-    <div className="relative isolate min-h-screen bg-background">
+    <div className="waitroom-dark relative isolate min-h-screen bg-background text-foreground">
       <AsciiBackground />
       <Navbar />
       <main className="container mx-auto px-4 pt-24 pb-12">
@@ -206,7 +212,7 @@ export default function WaitRoom() {
             </div>}
 
             {/* Affiliate section */}
-            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <Card className="border-border/50 bg-card/45">
               <CardContent className="p-4 space-y-3">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-primary" /> Share & Earn
@@ -231,7 +237,7 @@ export default function WaitRoom() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
             >
-              <Card className="border-yellow-500/20 bg-gradient-to-b from-yellow-500/5 to-card/80 backdrop-blur-sm overflow-hidden group cursor-pointer hover:border-yellow-500/40 transition-colors"
+              <Card className="border-yellow-500/20 bg-gradient-to-b from-yellow-500/5 to-card/50 overflow-hidden group cursor-pointer hover:border-yellow-500/40 transition-colors"
                 onClick={() => navigate('/leaderboard')}
               >
                 <CardContent className="p-4 space-y-3">
@@ -305,7 +311,7 @@ export default function WaitRoom() {
 
           {/* Chat area */}
           <div className="lg:col-span-2">
-            <Card className="border-border/50 bg-card/50 backdrop-blur-sm h-[calc(100vh-12rem)]">
+            <Card className="border-border/50 bg-card/35 h-[calc(100vh-12rem)]">
               <div className="p-4 border-b border-border/50 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <LilyPadLogo size={32} />

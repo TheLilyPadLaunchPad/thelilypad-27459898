@@ -1,24 +1,24 @@
 import { useEffect, useRef } from 'react';
-import frogAsset from '@/assets/waitroom-ascii-frog.png.asset.json';
+import frogAsset from '@/assets/waitroom-degen-frog.png.asset.json';
 
 /**
  * Animated hex-digit "ASCII art" backdrop for the wait room.
- * Colours come from the theme tokens, so it follows light and dark themes.
+ * Colours come from the theme tokens of the surrounding scope (the wait room uses its dark set).
  */
 
 const CELL = 12; // px per grid cell
 const COVERAGE = 0.93; // share of cells drawn
 const CONTRAST = 1.15;
 const EDGE_EMPHASIS = 0.4;
-const TINT_OPACITY = 0.45;
+const TINT_OPACITY = 0.3;
 const FLICKER_DEPTH = 0.6;
 const FRAME_MS = 70;
 const HEX = '0123456789ABCDEF';
 
 type Rgb = [number, number, number];
 
-function readToken(name: string, fallback: Rgb): Rgb {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function readToken(scope: Element, name: string, fallback: Rgb): Rgb {
+  const raw = getComputedStyle(scope).getPropertyValue(name).trim();
   const parts = raw.split(/[\s,/]+/).map((part) => parseFloat(part));
   if (parts.length < 3 || parts.some((part) => Number.isNaN(part))) return fallback;
   const [h, s, l] = [parts[0], parts[1] / 100, parts[2] / 100];
@@ -67,6 +67,7 @@ export function AsciiBackground() {
     let chars = new Uint8Array(0);
     let subject = new Uint8Array(0);
     let ink: Rgb = [0, 0, 0];
+    let speck: Rgb = [0, 0, 0];
     let grain: CanvasPattern | null = null;
     let frame = 0;
     let last = 0;
@@ -81,9 +82,9 @@ export function AsciiBackground() {
       const data = g.createImageData(128, 128);
       for (let i = 0; i < data.data.length; i += 4) {
         const on = Math.random() < 0.5;
-        data.data[i] = ink[0];
-        data.data[i + 1] = ink[1];
-        data.data[i + 2] = ink[2];
+        data.data[i] = speck[0];
+        data.data[i + 1] = speck[1];
+        data.data[i + 2] = speck[2];
         data.data[i + 3] = on ? Math.random() * 60 : 0;
       }
       g.putImageData(data, 0, 0);
@@ -102,11 +103,14 @@ export function AsciiBackground() {
       rows = Math.ceil(height / CELL);
       const count = cols * rows;
 
-      const background = readToken('--background', [247, 245, 240]);
-      const primary = readToken('--primary', [46, 184, 138]);
-      const tint = readToken('--ascii-tint', [0, 255, 102]);
-      ink = readToken('--foreground', [27, 50, 42]);
+      const background = readToken(canvas, '--background', [247, 245, 240]);
+      const primary = readToken(canvas, '--primary', [46, 184, 138]);
+      const tint = readToken(canvas, '--ascii-tint', [0, 255, 102]);
+      const foreground = readToken(canvas, '--foreground', [27, 50, 42]);
       const darkTheme = background[0] + background[1] + background[2] < 384;
+      // Scan lines and vignette always darken; grain is light on a dark screen.
+      ink = darkTheme ? [0, 0, 0] : foreground;
+      speck = foreground;
       buildGrain();
 
       // Sample the picture once per cell.
@@ -114,11 +118,13 @@ export function AsciiBackground() {
       sampler.height = rows;
       samplerCtx.clearRect(0, 0, cols, rows);
       if (image.complete && image.naturalWidth) {
-        const fit = Math.min((rows * 0.94) / image.naturalHeight, (cols * 0.9) / image.naturalWidth);
+        const fit = Math.min(rows / image.naturalHeight, (cols * 0.96) / image.naturalWidth);
         const w = image.naturalWidth * fit;
         const h = image.naturalHeight * fit;
         samplerCtx.imageSmoothingQuality = 'high';
-        samplerCtx.drawImage(image, (cols - w) / 2, (rows - h) / 2 + rows * 0.02, w, h);
+        // On wide screens the cards sit left, so the picture moves under the chat panel.
+        const centre = width >= 1024 ? 0.62 : 0.5;
+        samplerCtx.drawImage(image, cols * centre - w / 2, rows - h, w, h);
       }
       let pixels: Uint8ClampedArray;
       try {
@@ -159,12 +165,14 @@ export function AsciiBackground() {
           if (a > 0.35) {
             const mix = (base: number, top: number) =>
               Math.round(base + (overlay(base, top) - base) * TINT_OPACITY);
+            // On a dark screen, lift shadows so dark parts of the picture still glow.
+            const lift = (v: number) => (darkTheme ? Math.round(255 * Math.pow(v / 255, 0.7) * 0.9 + 22) : v);
             const c: Rgb = [
-              mix(pixels[i * 4], tint[0]),
-              mix(pixels[i * 4 + 1], tint[1]),
-              mix(pixels[i * 4 + 2], tint[2]),
+              lift(mix(pixels[i * 4], tint[0])),
+              lift(mix(pixels[i * 4 + 1], tint[1])),
+              lift(mix(pixels[i * 4 + 2], tint[2])),
             ];
-            const weight = darkTheme ? lum[i] : 1 - lum[i];
+            const weight = darkTheme ? 0.4 + 0.6 * lum[i] : 1 - lum[i];
             colors[i] = `rgb(${c[0]},${c[1]},${c[2]})`;
             alphas[i] = Math.min(1, 0.5 + 0.3 * weight + EDGE_EMPHASIS * edge);
             subject[i] = 1;
