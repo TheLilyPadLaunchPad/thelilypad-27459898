@@ -38,6 +38,7 @@
 
     /* Custom tokens */
     --glow-primary: 160 60% 45%;
+    --ascii-tint: 144 100% 50%;
     --glow-secondary: 160 40% 60%;
     --glow-accent: 160 70% 35%;
     

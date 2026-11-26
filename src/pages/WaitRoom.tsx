@@ -22,6 +22,7 @@ import { Navbar } from '@/components/Navbar';
 import { authUrl } from '@/lib/guestEntry';
 import { useWhitelistEligibility } from '@/hooks/useWhitelistEligibility';
 import { AccountWalletSteps } from '@/components/account/AccountWalletSteps';
+import { AsciiBackground } from '@/components/waitroom/AsciiBackground';
 
 interface ChatMessage {
   id: string;
@@ -136,7 +137,8 @@ export default function WaitRoom() {
   const shortWallet = (addr: string) => `${addr.slice(0, 4)}...${addr.slice(-4)}`;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative isolate min-h-screen bg-background">
+      <AsciiBackground />
       <Navbar />
       <main className="container mx-auto px-4 pt-24 pb-12">
 
@@ -172,7 +174,7 @@ export default function WaitRoom() {
         </AnimatePresence>
 
         <div className="max-w-6xl mx-auto mb-6 flex flex-wrap gap-3">
-          <Button variant="outline" onClick={() => navigate('/generators')}><FlaskConical className="w-4 h-4 mr-2" />Generators</Button>
+          <Button variant="outline" className="bg-card" onClick={() => navigate('/generators')}><FlaskConical className="w-4 h-4 mr-2" />Generators</Button>
           {!profile && <Button onClick={() => {
             try {
               window.__lovableEvents?.track?.('project.whitelist_claim_attempted', { entry_point: 'waitroom_join' });
