@@ -32,7 +32,12 @@ import { getRpcUrl, type NetworkType } from "@/config/solana";
 
 export const ARWEAVE_GATEWAY = "https://arweave.net";
 
-const arweave = Arweave.init({
+// The package is CommonJS: depending on the bundler, the default import is
+// either the client itself or a wrapper holding it under `default`.
+const ArweaveClient: typeof Arweave =
+  (Arweave as unknown as { default?: typeof Arweave }).default ?? Arweave;
+
+const arweave = ArweaveClient.init({
   host: "arweave.net",
   port: 443,
   protocol: "https",

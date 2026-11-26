@@ -1,21 +1,23 @@
 # Task Roadmap
 
+- [x] Fix preview startup crashes (missing Node process details, dev service-worker loader, Arweave import); the waitroom now renders with no page errors and 57 tests pass.
+
 - [x] Add profile settings for display name and avatar using partial updates to the existing authenticated profile; 13 checks pass and a temporary signed-in account verified avatar upload, saved readback, and preservation of all other returned fields.
-- [ ] Verify profile settings saving through the browser: blocked by inherited preview startup crashes (`slice`/`on` of undefined); direct authenticated persistence checks passed, but page rendering could not be verified.
+- [ ] Verify profile settings saving through the browser: preview startup is fixed; still needs a signed-in account, which Reown-only sign-in cannot provide yet; direct authenticated persistence checks passed, but page rendering could not be verified.
 
 - [ ] Reown-only wallet connections and email signup/login, preserving existing profiles: separate Cloud account login rejected; account sign-in remains blocked pending a supported Reown-to-Cloud account connection.
 
 - [x] Add admin-only whitelist wallet CSV under Users with saved registration statuses, secure paginated access, and prepared-file download; seven tests pass including isolated database authorization checks.
-- [ ] Verify the admin CSV download in-browser: blocked by existing blank preview startup errors and unavailable requesting-user admin session.
+- [ ] Verify the admin CSV download in-browser: preview startup is fixed; still needs a signed-in account, which Reown-only sign-in cannot provide yet and unavailable requesting-user admin session.
 
 - [x] Add WL attempt and confirmed-registration events beside existing wallet connection analytics; six catalog schemas validated and success deduplicated.
 - [ ] Confirm WL events arrive from a published real-wallet claim: requires publishing and a visitor's successful wallet sign-in; local checks cannot send analytics.
 
 - [x] Require authenticated wallet registration before showing or downloading a WL pass; verify saved wallet/account identity and include the wallet address on the pass.
-- [ ] Verify real-wallet WL onboarding: blocked by unavailable wallet approval and the existing blank preview startup issue.
+- [ ] Verify real-wallet WL onboarding: blocked by unavailable wallet approval and preview startup is fixed; still needs a signed-in account, which Reown-only sign-in cannot provide yet.
 
 - [x] Reopen referrals and keep generators available; lock all other visitor pages while retaining admin access. Saved the limited-access setting; six access-policy tests pass.
-- [ ] Verify referral onboarding and generator navigation in the browser: blocked by the existing blank preview startup errors; updated page exceptions must be published together with the enabled lock.
+- [ ] Verify referral onboarding and generator navigation in the browser: preview startup is fixed; still needs a signed-in account, which Reown-only sign-in cannot provide yet; updated page exceptions must be published together with the enabled lock.
 
 - [x] Fix only the eight selected security findings: verified activity, accepted challenges, paid raffle entries, purchased pack access, streamer verification, private activity/supporters, and authenticated owner lookups.
 - [x] Validate and update the eight selected finding statuses; 97 project tests pass, live access checks passed as a temporary test user, all other findings unchanged.

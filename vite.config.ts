@@ -57,11 +57,10 @@ export default defineConfig(({ mode, command }) => {
           },
         ],
       },
-      // Enable service worker in dev so /sw.js is served with the correct MIME type
+      // Never run the service worker in dev/preview: its dev loader crashes
+      // without a hot-reload channel and a preview worker can serve stale builds.
       devOptions: {
-        enabled: true,
-        type: "module",
-        navigateFallback: "index.html",
+        enabled: false,
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,

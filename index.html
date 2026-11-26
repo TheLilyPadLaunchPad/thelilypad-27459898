@@ -39,6 +39,20 @@
     <script>
       // Minimal polyfill for some web3 libs expecting Node-style globals
       window.global = window;
+      // Crypto/stream libraries read Node's process details while loading;
+      // without them the app stops before it can render.
+      (function () {
+        var p = (window.process = window.process || {});
+        p.env = p.env || {};
+        if (p.browser === undefined) p.browser = true;
+        if (typeof p.version !== "string") p.version = "";
+        if (typeof p.nextTick !== "function") {
+          p.nextTick = function (fn) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            Promise.resolve().then(function () { fn.apply(null, args); });
+          };
+        }
+      })();
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
