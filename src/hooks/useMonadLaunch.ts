@@ -172,6 +172,8 @@ export function useMonadLaunch(network: MonadNetwork = DEFAULT_MONAD_NETWORK) {
 
             if (!result.success) {
                 toast.error(result.error || 'Monad minting failed');
+            } else {
+                try { window.__lovableEvents?.track?.('project.nft_minted', { chain: 'monad', quantity }); } catch { /* Analytics must never affect a mint. */ }
             }
 
             return result;

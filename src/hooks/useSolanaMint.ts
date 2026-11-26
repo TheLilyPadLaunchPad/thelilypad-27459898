@@ -383,6 +383,8 @@ export const useSolanaMint = () => {
                 ).catch(() => {});
             }
 
+            // Confirmed on-chain into the collector's wallet: the goal metric.
+            try { window.__lovableEvents?.track?.('project.nft_minted', { chain: 'solana', quantity: 1 }); } catch { /* Analytics must never affect a mint. */ }
             toast.success(`Minted successfully!`, { id: 'cm-mint' });
 
             return {

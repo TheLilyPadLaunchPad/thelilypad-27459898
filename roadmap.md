@@ -1,5 +1,8 @@
 # Task Roadmap
 
+- [x] Goal metric: count NFTs minted into collectors' wallets at the confirmed-mint point on Solana, Monad and ApeChain; 14 event definitions validated.
+- [ ] See a real mint counted: needs a real wallet mint on the published site (mints are locked for visitors while limited access is on).
+
 - [x] Track email sign-ups, sign-ins, failures, password resets and wallet linking (whitelist completion already tracked); 13 event definitions validated and the sign-in, failure and reset events seen firing in a browser check.
 - [x] Password reset: request from the sign-in screen, set a new password from the emailed link, clear message for expired links; saving a new password and signing in with it verified with a temporary account.
 - [ ] Confirm the reset email arrives and its link opens the reset page: needs a real inbox on the published site.

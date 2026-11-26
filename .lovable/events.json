@@ -76,6 +76,36 @@
         "type": "object"
       }
     },
+    "project.nft_minted": {
+      "event_schema_version": 1,
+      "description": "A collector's mint was confirmed on-chain and the NFTs are in their wallet; quantity is the number of NFTs in that mint.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "chain": {
+            "enum": [
+              "solana",
+              "monad",
+              "apechain"
+            ],
+            "type": "string"
+          },
+          "quantity": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chain",
+          "quantity"
+        ],
+        "type": "object"
+      }
+    },
     "project.password_reset_completed": {
       "event_schema_version": 1,
       "description": "A new password was saved from a reset link.",

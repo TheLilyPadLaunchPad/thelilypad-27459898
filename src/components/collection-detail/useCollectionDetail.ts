@@ -282,6 +282,7 @@ export function useCollectionDetail() {
             } else if (isApeChain) {
                 toast.loading(`Minting on ApeChain — confirm in your wallet...`, { id: 'ape-mint' });
                 const { hash } = await mintApeDrop(collection.contract_address as `0x${string}`, amount);
+                try { window.__lovableEvents?.track?.('project.nft_minted', { chain: 'apechain', quantity: amount }); } catch { /* Analytics must never affect a mint. */ }
                 setMintTxHash(hash);
                 setRevealTxHash(hash);
                 setRevealedNfts(generateRandomAttributes(amount, collection.minted));
