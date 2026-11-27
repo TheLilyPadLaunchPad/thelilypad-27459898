@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
-import { AccountWalletSteps } from '@/components/account/AccountWalletSteps';
+import { WalletLinkStatusPanel } from '@/components/account/WalletLinkStatusPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useSEO } from '@/hooks/useSEO';
 import { loadProfileSettings, saveProfileSettings, type ProfileSettingsRecord } from '@/lib/profileSettings';
@@ -109,6 +109,7 @@ export default function ProfileSettings() {
       <main className="container mx-auto px-4 pt-28 pb-24">
         <div className="mx-auto max-w-xl">
           <h1 className="text-3xl font-bold mb-8">Profile settings</h1>
+          <WalletLinkStatusPanel returnTo="/profile/settings" className="mb-8" />
           {loading ? <div role="status" className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Loading profile…</div> : (
             <>
               {error && <p role="alert" className="mb-6 text-destructive break-words">{error}</p>}
@@ -143,7 +144,7 @@ export default function ProfileSettings() {
                 </form>
               ) : (
                 <div className="flex flex-wrap gap-3">
-                  <div className="w-full max-w-sm"><AccountWalletSteps returnTo="/profile/settings" /></div>
+                  
                   <Button variant="outline" onClick={() => setReload(value => value + 1)}><RefreshCw className="mr-2 h-4 w-4" />Retry</Button>
                 </div>
               )}

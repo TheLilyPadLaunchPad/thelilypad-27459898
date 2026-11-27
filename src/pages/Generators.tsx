@@ -4,6 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { ChainIcon } from '@/components/launchpad/ChainSelector';
 import { useSEO } from '@/hooks/useSEO';
+import { WalletLinkStatusPanel } from '@/components/account/WalletLinkStatusPanel';
 
 const generators = [
   { name: 'Solana & Monad Art Generator', chain: 'solana' as const, path: '/launchpad/art-generator' },
@@ -25,6 +26,7 @@ export default function Generators() {
           <Button asChild variant="outline" size="icon"><Link to={generator.path} aria-label={`Open ${generator.name}`}><ArrowRight className="h-5 w-5" /></Link></Button>
         </div>)}
       </div>
+      <WalletLinkStatusPanel returnTo="/generators" className="mt-10" />
     </main>
   </div>;
 }
