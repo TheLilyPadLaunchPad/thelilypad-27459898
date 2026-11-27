@@ -18,6 +18,7 @@ import { useBetaMode } from '@/hooks/useBetaMode';
 import { LilyPadLogo } from '@/components/LilyPadLogo';
 import { useSEO } from '@/hooks/useSEO';
 import { WLCard } from '@/components/waitroom/WLCard';
+import { WLCardArtwork } from '@/components/waitroom/WLCardArtwork';
 import { Navbar } from '@/components/Navbar';
 import { authUrl } from '@/lib/guestEntry';
 import { useWhitelistEligibility } from '@/hooks/useWhitelistEligibility';
@@ -199,7 +200,9 @@ export default function WaitRoom() {
               referralCount={referralCount}
               walletAddress={walletAddress}
               eligible={hasWhitelist}
-            /> : <div className="border border-border rounded-lg p-5 space-y-4 bg-card">
+            /> : <div className="border border-border rounded-lg overflow-hidden bg-card">
+              <WLCardArtwork />
+              <div className="p-5 space-y-4">
               <h2 className="text-xl font-semibold">Get your WL spot</h2>
               <p className="text-sm text-muted-foreground">Sign in with your email, connect your wallet, and save it to your account to join the whitelist.</p>
               {whitelistError && <p role="alert" className="text-sm text-destructive">Unable to confirm your wallet registration. Please try again.</p>}
@@ -209,6 +212,7 @@ export default function WaitRoom() {
                   window.__lovableEvents?.track?.('project.whitelist_claim_attempted', { entry_point: 'waitroom_wl' });
                 } catch { /* Continue sign-in when analytics is unavailable. */ }
               }} />
+              </div>
             </div>}
 
             {/* Affiliate section */}

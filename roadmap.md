@@ -1,5 +1,7 @@
 # Task Roadmap
 
+- [x] Replace whitelist pass and registration preview with the uploaded lake artwork and original frog; desktop/mobile preview and isolated PNG export verified, seven eligibility/analytics tests pass. Real-wallet onboarding remains the existing separate verification task.
+
 - [x] Goal metric: count NFTs minted into collectors' wallets at the confirmed-mint point on Solana, Monad and ApeChain; 14 event definitions validated.
 - [ ] See a real mint counted: needs a real wallet mint on the published site (mints are locked for visitors while limited access is on).
 

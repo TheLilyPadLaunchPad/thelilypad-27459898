@@ -1,14 +1,10 @@
-import { useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Share2, Users, CheckCircle2, QrCode } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Share2, Users, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { LilyPadLogo } from '@/components/LilyPadLogo';
-import wlCardBgAsset from '@/assets/wl-card-bg.png.asset.json';
-import wlFrogAsset from '@/assets/wl-frog.png.asset.json';
-const wlCardBg = wlCardBgAsset.url;
-const wlFrog = wlFrogAsset.url;
+import { downloadBlob } from '@/lib/downloadBlob';
+import { WLCardArtwork, whitelistArtworkUrl } from './WLCardArtwork';
 
 interface WLCardProps {
   displayName: string;
@@ -20,95 +16,48 @@ interface WLCardProps {
 }
 
 export function WLCard({ displayName, avatarUrl, affiliateLink, referralCount, walletAddress, eligible }: WLCardProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
-
-  const loadImage = (src: string): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = src;
-    });
-  };
 
   const handleDownload = async () => {
     if (isDownloading || !eligible || !walletAddress) return;
     setIsDownloading(true);
-    
     try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = whitelistArtworkUrl;
+      });
       const canvas = document.createElement('canvas');
+      canvas.width = 1280;
+      canvas.height = 1010;
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      canvas.width = 1200; // High res
-      canvas.height = 630; // OG image size ratio
-
-      // Load assets
-      const [bgImg, frogImg] = await Promise.all([
-        loadImage(wlCardBg),
-        loadImage(wlFrog)
-      ]);
-
-      // Draw background
-      ctx.drawImage(bgImg, 0, 0, 1200, 630);
-
-      // Add overlay gradient for depth
-      const overlay = ctx.createLinearGradient(0, 0, 0, 630);
-      overlay.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
-      overlay.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
-      ctx.fillStyle = overlay;
-      ctx.fillRect(0, 0, 1200, 630);
-
-      // Draw Frog (User's hand-drawn style)
-      ctx.drawImage(frogImg, 750, 100, 400, 480);
-
-      // Card Content
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-      ctx.shadowBlur = 15;
-      
-      // Logo and Brand
-      ctx.fillStyle = '#22c55e';
-      ctx.font = 'bold 42px system-ui';
-      ctx.fillText('THE LILY PAD', 80, 100);
-
-      // Whitelist Status
-      ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
-      ctx.beginPath();
-      ctx.roundRect(80, 130, 280, 60, 30);
-      ctx.fill();
-      
-      ctx.fillStyle = '#22c55e';
-      ctx.font = 'bold 24px system-ui';
-      ctx.fillText('✅ WHITELISTED', 115, 168);
-
-      // User Information
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 64px system-ui';
-      ctx.fillText(displayName, 80, 320);
-
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '32px system-ui';
-      ctx.fillText(`Pond Member · ${referralCount} Referrals`, 80, 380);
+      if (!ctx) throw new Error('Canvas unavailable');
+      // Keep the supplied illustration intact; member information belongs below it.
+      ctx.drawImage(img, 0, 0, 1280, 720);
+      const tokens = getComputedStyle(document.documentElement);
+      ctx.fillStyle = `hsl(${tokens.getPropertyValue('--wl-paper').trim()})`;
+      ctx.fillRect(0, 720, 1280, 290);
+      ctx.fillStyle = `hsl(${tokens.getPropertyValue('--wl-ink').trim()})`;
+      ctx.font = 'bold 28px system-ui';
+      ctx.fillText('THE LILY PAD · WHITELISTED', 40, 772, 1200);
+      ctx.font = 'bold 46px system-ui';
+      ctx.fillText(displayName, 40, 837, 1200);
+      ctx.fillStyle = `hsl(${tokens.getPropertyValue('--wl-muted').trim()})`;
+      ctx.font = '24px system-ui';
+      ctx.fillText(`${referralCount} Pond Referrals`, 40, 879);
+      ctx.font = '22px monospace';
+      ctx.fillText(walletAddress, 40, 929, 1200);
       ctx.font = '20px system-ui';
-      ctx.fillText(walletAddress, 80, 425, 650);
-
-      // Affiliate Link at bottom
-      ctx.fillStyle = '#4ade80';
-      ctx.font = 'bold 20px system-ui';
-      ctx.fillText(affiliateLink.replace('https://', ''), 80, 560);
-
-      // Download
-      const link = document.createElement('a');
-      link.download = `lilypad-wl-${displayName.toLowerCase().replace(/\s/g, '-')}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-
-      toast.success('Your premium Whitelist Card is ready!');
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to generate high-res card');
+      ctx.fillText(affiliateLink, 40, 975, 1200);
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(result => result ? resolve(result) : reject(new Error('Export failed')), 'image/png');
+      });
+      downloadBlob(blob, `lilypad-wl-${displayName.toLowerCase().replace(/[^a-z0-9_-]+/g, '-') || 'member'}.png`);
+      toast.success('Your whitelist pass is ready!');
+    } catch {
+      toast.error('Unable to download your pass. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -116,129 +65,48 @@ export function WLCard({ displayName, avatarUrl, affiliateLink, referralCount, w
 
   const handleShare = async () => {
     if (!eligible || !walletAddress || !affiliateLink) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'I\'m Whitelisted on The Lily Pad! 🐸',
-          text: `Join the pond! Whitelist is open:`,
-          url: affiliateLink,
-        });
-      } catch {
-        // User cancelled
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "I'm Whitelisted on The Lily Pad! 🐸", text: 'Join the pond! Whitelist is open:', url: affiliateLink });
+      } else {
+        await navigator.clipboard.writeText(affiliateLink);
+        toast.success('Affiliate link copied!');
       }
-    } else {
-      navigator.clipboard.writeText(affiliateLink);
-      toast.success('Affiliate link copied to clipboard!');
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) toast.error('Unable to share. Please try again.');
     }
   };
 
   if (!eligible || !walletAddress) return null;
 
   return (
-    <div className="space-y-4">
-      {/* Premium Visual Card */}
-      <motion.div
-        ref={cardRef}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative aspect-[1200/630] w-full overflow-hidden rounded-2xl border border-primary/20 bg-muted shadow-2xl group"
-      >
-        {/* Artistic Background Layer */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-          style={{ backgroundImage: `url(${wlCardBg})` }}
-        />
-        
-        {/* Glass Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40 backdrop-blur-[1px]" />
-
-        {/* Content Layer */}
-        <div className="absolute inset-0 p-8 flex flex-col justify-between text-white z-10">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-primary/20 backdrop-blur-md p-2 rounded-xl border border-primary/30">
-                <LilyPadLogo size={32} />
-              </div>
-              <span className="font-black text-lg tracking-tighter text-primary">THE LILY PAD</span>
-            </div>
-            <motion.div 
-              initial={{ x: 20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="px-4 py-2 bg-primary/15 backdrop-blur-md rounded-full border border-primary/30 flex items-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4 text-primary" />
-              <span className="text-xs font-bold text-primary tracking-wide">WHITELISTED</span>
-            </motion.div>
+    <div className="space-y-3">
+      <div className="overflow-hidden rounded-lg border border-border" aria-label="Your whitelist pass">
+        <WLCardArtwork />
+        <div className="wl-pass-details space-y-3 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+            <span>THE LILY PAD</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" />WHITELISTED</span>
           </div>
-
-          <div className="flex items-end justify-between gap-6">
-            <div className="flex-1 min-w-0">
-              <motion.div 
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-              >
-                <div className="flex items-center gap-4 mb-2">
-                  <Avatar className="w-16 h-16 border-2 border-primary/50 shadow-xl">
-                    <AvatarImage src={avatarUrl} />
-                    <AvatarFallback className="bg-primary/20 text-primary font-bold text-xl">
-                      {displayName[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <h2 className="text-3xl font-black truncate drop-shadow-lg">{displayName}</h2>
-                    <p className="text-primary/70 font-medium flex items-center gap-1.5 text-sm uppercase tracking-widest">
-                      <Users className="w-4 h-4" /> {referralCount} Pond Referrals
-                    </p>
-                  </div>
-                </div>
-                <p className="text-[10px] text-white/40 font-mono truncate max-w-[200px]">
-                  {affiliateLink}
-                </p>
-              </motion.div>
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10 shrink-0 border border-current/20">
+              <AvatarImage src={avatarUrl} alt="" />
+              <AvatarFallback className="bg-secondary text-secondary-foreground">{displayName[0]?.toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <h2 className="break-words text-lg font-bold leading-tight">{displayName}</h2>
+              <p className="wl-pass-muted mt-1 flex items-center gap-1.5 text-xs"><Users className="h-3.5 w-3.5 shrink-0" />{referralCount} Pond Referrals</p>
             </div>
-
-            {/* Frog Asset (Decor) */}
-            <motion.div 
-              initial={{ scale: 0.8, opacity: 0, rotate: 10 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              transition={{ type: "spring", delay: 0.5 }}
-              className="w-40 h-40 relative drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]"
-            >
-              <img src={wlFrog} alt="Lily Pad Frog" className="w-full h-full object-contain" />
-            </motion.div>
           </div>
+          <p className="wl-pass-muted break-all font-mono text-[10px]" aria-label="Registered wallet">{walletAddress}</p>
         </div>
-
-        {/* Shine Effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
-      </motion.div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-3">
-        <Button 
-          variant="outline" 
-          className="flex-1 bg-primary/5 border-primary/20 hover:bg-primary/10 transition-all gap-2 py-6 rounded-xl group"
-          onClick={handleDownload}
-          disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity }} >
-              <Users className="w-4 h-4" />
-            </motion.div>
-          ) : (
-            <Download className="w-4 h-4 group-hover:bounce" /> 
-          )}
-          Download Pass
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1 gap-2 bg-card" onClick={handleDownload} disabled={isDownloading}>
+          {isDownloading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Download className="h-4 w-4" />}
+          {isDownloading ? 'Preparing pass…' : 'Download Pass'}
         </Button>
-        <Button 
-          variant="outline" 
-          className="bg-accent/5 border-accent/20 hover:bg-accent/10 transition-all p-6 rounded-xl group"
-          onClick={handleShare}
-        >
-          <Share2 className="w-4 h-4 group-hover:scale-110" />
-        </Button>
+        <Button variant="outline" size="icon" className="shrink-0 bg-card" onClick={handleShare} disabled={!affiliateLink} aria-label="Share whitelist referral link" title="Share whitelist referral link"><Share2 className="h-4 w-4" /></Button>
       </div>
     </div>
   );
