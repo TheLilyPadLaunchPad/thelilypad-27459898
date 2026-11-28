@@ -53,18 +53,11 @@ export default function WaitRoom() {
   // Fetch top 3 referrers for the leaderboard preview
   useEffect(() => {
     const fetchTop = async () => {
-      const { data: signups } = await supabase.from('referral_signups').select('referrer_id');
-      if (!signups?.length) return;
-      const counts: Record<string, number> = {};
-      signups.forEach((s: any) => { counts[s.referrer_id] = (counts[s.referrer_id] || 0) + 1; });
-      const topIds = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id);
-      const { data: profiles } = await supabase
-        .from('user_profiles').select('user_id, display_name, avatar_url').in('user_id', topIds);
-      const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
-      setTopReferrers(topIds.map(id => ({
-        display_name: (profileMap.get(id) as any)?.display_name || null,
-        avatar_url:   (profileMap.get(id) as any)?.avatar_url   || null,
-        count:        counts[id],
+      const { data } = await (supabase.rpc as any)('get_referral_leaderboard', { limit_count: 3 });
+      setTopReferrers(((data || []) as any[]).map(row => ({
+        display_name: row.display_name ?? null,
+        avatar_url: row.avatar_url ?? null,
+        count: row.referral_count ?? 0,
       })));
     };
     fetchTop();
@@ -283,7 +276,7 @@ export default function WaitRoom() {
                             </AvatarFallback>
                           </Avatar>
                           <span className="flex-1 text-xs truncate font-medium">
-                            {entry.display_name || 'Anonymous'}
+                            {entry.display_name || 'Lily Pad member'}
                           </span>
                           <span className="text-xs font-bold text-primary shrink-0">
                             {entry.count}

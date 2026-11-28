@@ -4364,6 +4364,16 @@ export type Database = {
           vote_count: number
         }[]
       }
+      get_referral_leaderboard: {
+        Args: { limit_count?: number }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          is_me: boolean
+          rank_position: number
+          referral_count: number
+        }[]
+      }
       get_top_collections_stats: { Args: never; Returns: Json }
       get_top_supporters: {
         Args: { limit_count?: number; target_user_id: string }
